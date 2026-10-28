@@ -312,11 +312,6 @@ class PMIDValidationRequest(BaseModel):
         max_length=50,
         description="List of PubMed IDs to validate (max 50)",
     )
-    gene_symbol: str | None = Field(
-        None,
-        max_length=50,
-        description="Flag PMIDs whose title and abstract never name this gene (mentions_gene)",
-    )
 
 
 class PMIDValidationResult(BaseModel):
@@ -328,11 +323,6 @@ class PMIDValidationResult(BaseModel):
         None, description="Publication data if valid"
     )
     error: str | None = Field(None, description="Error message if invalid")
-    mentions_gene: bool | None = Field(
-        None,
-        description="With gene_symbol: whether the title or abstract names the gene (or an "
-        "HGNC alias); false flags an off-topic PMID, null when there is no abstract to check",
-    )
 
     @computed_field  # type: ignore[prop-decorator]  # pydantic's documented idiom
     @property
@@ -356,20 +346,3 @@ class PMIDValidationResponse(BaseModel):
     results: list[PMIDValidationResult] = Field(
         default=[], description="Validation results"
     )
-
-
-class PublicationSearchHit(BaseModel):
-    pmid: str
-    title: str
-    journal: str
-    year: int | None = None
-    abstract_snippet: str | None = Field(None, description="First 300 characters")
-    pub_type: str | None = Field(
-        None, description="Publication type, e.g. case reports, review, journal article"
-    )
-
-
-class PublicationSearchResponse(BaseModel):
-    query: str = Field(..., description="The Europe PMC query that ran")
-    total: int = Field(..., description="Hits in PubMed; results holds the first ones")
-    results: list[PublicationSearchHit]

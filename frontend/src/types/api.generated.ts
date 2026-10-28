@@ -3606,30 +3606,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/publications/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search Pubmed
-         * @description Search PubMed literature (via Europe PMC) by free text, gene symbol and disease
-         *     terms, all of which must match, most relevant first (reviews left out for a gene
-         *     unless exclude_reviews=false). Returns pmid, title, journal, year, publication type
-         *     (case report or cohort) and an abstract snippet (300 characters); get_publication
-         *     returns the full abstract. Records are cached, so validate_pmids knows them.
-         */
-        get: operations["search_pubmed_api_v1_publications_search_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/publications/{pmid}": {
         parameters: {
             query?: never;
@@ -7937,11 +7913,6 @@ export interface components {
              * @description List of PubMed IDs to validate (max 50)
              */
             pmids: string[];
-            /**
-             * Gene Symbol
-             * @description Flag PMIDs whose title and abstract never name this gene (mentions_gene)
-             */
-            gene_symbol?: string | null;
         };
         /**
          * PMIDValidationResponse
@@ -7992,11 +7963,6 @@ export interface components {
              * @description Error message if invalid
              */
             error?: string | null;
-            /**
-             * Mentions Gene
-             * @description With gene_symbol: whether the title or abstract names the gene (or an HGNC alias); false flags an off-topic PMID, null when there is no abstract to check
-             */
-            mentions_gene?: boolean | null;
             /**
              * Status
              * @description not_found: PubMed has no such PMID; upstream_unavailable: retry later.
@@ -9001,42 +8967,6 @@ export interface components {
              * @description Full publication date
              */
             publication_date?: string | null;
-        };
-        /** PublicationSearchHit */
-        PublicationSearchHit: {
-            /** Pmid */
-            pmid: string;
-            /** Title */
-            title: string;
-            /** Journal */
-            journal: string;
-            /** Year */
-            year?: number | null;
-            /**
-             * Abstract Snippet
-             * @description First 300 characters
-             */
-            abstract_snippet?: string | null;
-            /**
-             * Pub Type
-             * @description Publication type, e.g. case reports, review, journal article
-             */
-            pub_type?: string | null;
-        };
-        /** PublicationSearchResponse */
-        PublicationSearchResponse: {
-            /**
-             * Query
-             * @description The Europe PMC query that ran
-             */
-            query: string;
-            /**
-             * Total
-             * @description Hits in PubMed; results holds the first ones
-             */
-            total: number;
-            /** Results */
-            results: components["schemas"]["PublicationSearchHit"][];
         };
         /** ReviewComment */
         ReviewComment: {
@@ -14440,7 +14370,7 @@ export interface operations {
     get_curation_api_v1_curations__curation_id__get: {
         parameters: {
             query?: {
-                /** @description Keep the score trace's zero-point rows */
+                /** @description Include the full score trace */
                 detail?: boolean;
             };
             header?: never;
@@ -17002,43 +16932,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PMIDValidationResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    search_pubmed_api_v1_publications_search_get: {
-        parameters: {
-            query?: {
-                query?: string | null;
-                gene_symbol?: string | null;
-                disease?: string | null;
-                limit?: number;
-                sort?: "relevance" | "date" | "cited";
-                /** @description Leave out reviews; default: true when gene_symbol is given */
-                exclude_reviews?: boolean | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicationSearchResponse"];
                 };
             };
             /** @description Validation Error */

@@ -222,7 +222,7 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     merge = tools["save_draft_curations"]["inputSchema"]["properties"]["merge"]
     assert merge["description"].startswith("true: evidence_data is an RFC 7396 merge")
     assert tools["read_my_work"]["description"].startswith("My work queue")
-    assert "get_publication" in tools["validate_pmids"]["description"]
+    assert "literature MCP" in tools["validate_pmids"]["description"]  # not abstracts
 
 
 def test_only_narrowable_mcp_reads_are_capped(
@@ -304,8 +304,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
         "submit_precuration(reviewer_email=",
         "add_genes_to_scope(symbols, scope_name)",
         "read_curation_for_review",
-        "search_pubmed(gene_symbol",
-        "validate_pmids(pmids, gene_symbol)",
+        "validate_pmids(pmids)",
         "get_curation_schema(path=)",
     ):
         assert shortcut in INSTRUCTIONS, shortcut
@@ -323,7 +322,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 
 # Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
 # only on purpose. Bytes are the tools/list response as a client receives it.
-SURFACE_BUDGET = {"curator": (78, 54_000), "admin": (78, 54_000)}
+SURFACE_BUDGET = {"curator": (77, 54_000), "admin": (77, 54_000)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)

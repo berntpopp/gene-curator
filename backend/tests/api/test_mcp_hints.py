@@ -32,7 +32,7 @@ def _error(status: int, tool: str, detail: object = "nope") -> str:
             "get_workflow_audit_trail",
         ),
         ("curation_diff", "No active curation for this gene and scope", "audit_trail"),
-        ("get_publication", "Publication not found: 1", "search_pubmed"),
+        ("get_publication", "Publication not found: 1", "validate_pmids(pmids"),
         ("get_scope_details", "Scope not found", "list_scopes(name="),
         ("create_gene_assignment", "Gene not found", "create_gene"),
         # the detail decides, never the tool's arguments: a missing precuration is

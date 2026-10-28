@@ -75,11 +75,10 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
    lives in evidence_data (save_draft_curations or update_curation with
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.
-4. Literature: search_pubmed(gene_symbol, disease, query) finds papers with
-   abstracts; validate_pmids(pmids, gene_symbol) confirms PMIDs and flags papers
-   that do not mention the gene. Cite the PMID that reports each proband.
-   Per-patient genotypes and full-text details come from a literature MCP such as
-   GeneFoundry (PubTator, LitVar, ClinVar) used alongside; record the evidence here.
+4. Literature: find and read papers (per-patient genotypes, full text) with a literature
+   MCP such as GeneFoundry (PubTator, LitVar, ClinVar) used alongside; record the
+   evidence here. validate_pmids(pmids) confirms the PMIDs exist. Cite the PMID that
+   reports each proband.
 5. Review: submit_curation(reviewer_email=...) submits and assigns the reviewer.
    The reviewer reads everything in one call with read_curation_for_review, then
    submit_peer_review(decision="approve" or "request_changes", with comments).
@@ -146,7 +145,7 @@ CORE_TOOLS = frozenset(
         # ontology and literature
         "search_mondo_diseases", "search_hpo_terms", "validate_hpo_term",
         "get_inheritance_patterns", "search_omim_diseases", "get_omim_disease",
-        "validate_pmids", "get_publication", "search_pubmed",
+        "validate_pmids", "get_publication",
         # one-call round trips (token plan 2)
         "add_genes_to_scope", "read_curation_for_review",
     }
@@ -234,8 +233,8 @@ _DESCRIPTION_EXTRAS = {
     "save_draft_curations": _EVIDENCE_PATHS,
     "update_curation": _SEE_SAVE,
     "create_curation": _SEE_SAVE,
-    "validate_pmids": "\n\nResults list title, journal and year; get_publication "
-    "returns the abstract.",
+    "validate_pmids": "\n\nResults list title, journal and year; read the papers with "
+    "a literature MCP such as GeneFoundry.",
 }
 
 # Docstring sections that describe the Python function, not the tool

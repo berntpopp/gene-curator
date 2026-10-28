@@ -76,7 +76,7 @@ logger = get_logger(__name__)
 _FULL_WRITE = Query(
     False, description="Return the full curation, not the concise result"
 )
-_FULL_TRACE = Query(False, description="Keep the score trace's zero-point rows")
+_FULL_TRACE = Query(False, description="Include the full score trace")
 
 
 # ========================================
@@ -250,8 +250,10 @@ def get_curation(
 
     # Build response with permission flags
     response = CurationDetail.from_orm_with_relations(curation)
-    if not detail:
-        response.computed_scores = lean_scores(response.computed_scores)
+    if not detail:  # totals, excluded rows and warnings; the trace on request
+        response.computed_scores = {
+            k: v for k, v in response.computed_scores.items() if k != "trace"
+        }
 
     # Compute user permissions for this curation based on scope-specific roles
     response.can_edit = _can_user_edit_curation(db, current_user, curation)
@@ -278,7 +280,10 @@ def read_curation_for_review(
     """Reviewer read in one call: the curation with evidence and score trace (excluded
     rows with reasons), warnings, workflow state with blocked moves, the evidence diff (none
     on a first submission) and, on a resubmission, the earlier round's feedback."""
-    curation = get_curation(curation_id, False, db, current_user)
+    curation = get_curation(curation_id, True, db, current_user)
+    scores = lean_scores(curation.computed_scores)
+    warnings = scores.pop("warnings", None) or []  # listed once, at the top level
+    curation.computed_scores = scores
     diff = curation_diff(curation_id, None, db, current_user)
     reviews, comments = earlier_feedback(
         db, cast(CurationNew, db.get(CurationNew, curation_id))
@@ -286,10 +291,7 @@ def read_curation_for_review(
     first = diff.baseline is None and not reviews  # nothing earlier to compare
     return CurationReviewRead(
         curation=curation,
-        warnings=[
-            *(curation.computed_scores.get("warnings") or []),
-            *capped(curation.computed_scores.get("trace")),
-        ],
+        warnings=[*warnings, *capped(scores.get("trace"))],
         workflow=workflow_engine.get_workflow_state(
             db, curation_id, "curation", current_user.id
         ),

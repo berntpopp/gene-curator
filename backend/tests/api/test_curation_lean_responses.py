@@ -1,5 +1,5 @@
 """MCP study round 2 finding 3: saves and submits answer concisely unless detail=true, and
-GET drops the score trace's zero-point rows unless detail=true."""
+GET leaves the score trace out unless detail=true (MCP study round 5)."""
 
 import pytest
 from fastapi.testclient import TestClient
@@ -69,7 +69,7 @@ def test_draft_save_is_concise_and_get_is_lean_by_default(
 
     test_curation.computed_scores = _TRACE
     db_session.commit()
-    lean = client.get(url, headers=headers).json()["computed_scores"]["trace"]
+    lean = client.get(url, headers=headers).json()["computed_scores"]
     full = client.get(f"{url}?detail=true", headers=headers).json()["computed_scores"]
-    assert len(lean["sections"][0]["categories"]) == 1
+    assert lean == {"total_score": 2}  # no trace unless asked for
     assert full == _TRACE

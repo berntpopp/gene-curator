@@ -61,7 +61,6 @@ search_hgnc_genes read_only=False destructive=False
 search_hpo_terms read_only=False destructive=False
 search_mondo_diseases read_only=False destructive=False
 search_omim_diseases read_only=False destructive=False
-search_pubmed read_only=True destructive=False
 search_users_for_invitation read_only=True destructive=False
 submit_curation read_only=False destructive=True
 submit_peer_review read_only=False destructive=True
