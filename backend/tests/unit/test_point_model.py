@@ -149,6 +149,7 @@ def test_row_field_override_passes_the_static_check() -> None:
 
 def _row(type_def: dict, points: float) -> dict:
     return {
+        "score_status": "score",
         type_def.get("points_key", "points"): points,
         "pmid": PMID,
         "variant": "c.1A>T",
@@ -230,7 +231,12 @@ def test_section_and_total_caps() -> None:
         "case_level": {
             "autosomal_recessive": {
                 "predicted_or_proven_null": [
-                    {"proband_counted_points": 3, "pmid": PMID, "variant_1": "c.1A>T"}
+                    {
+                        "proband_counted_points": 3,
+                        "pmid": PMID,
+                        "variant_1": "c.1A>T",
+                        "score_status": "score",
+                    }
                 ]
                 * 4
             }

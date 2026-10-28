@@ -48,13 +48,27 @@ def _blank(value: Any) -> bool:
 
 
 # Reasons uncited() gives; rows with points they name score 0
-UNCITED = ("no_pmid", "no_variant", "placeholder_variant")
+UNCITED = (
+    "no_pmid",
+    "no_variant",
+    "placeholder_variant",
+    "not_scored",
+    "missing_status",
+)
 
 
-def uncited(row: dict[str, Any], case_level: bool) -> dict[str, str] | None:
-    """Why a row with points scores none (owner decisions 2026-10-27/28): no PMID, or a
-    case-level row without a real variant (AD rows hold ``variant``, AR rows ``variant_1``):
-    blank is no_variant, prose without HGVS, rsID or coordinate is placeholder_variant."""
+def uncited(
+    row: dict[str, Any], case_level: bool, by_status: bool = False
+) -> dict[str, str] | None:
+    """Why a row with points scores none (owner decisions 2026-10-27/28): with ``by_status``
+    (SOP v11 case rows) a score_status other than "score" (review, contradicts:
+    not_scored; blank: missing_status); no PMID; or a case-level row without a real variant
+    (AD rows hold ``variant``, AR rows ``variant_1``): blank is no_variant, prose without
+    HGVS, rsID or coordinate is placeholder_variant."""
+    status = str(row.get("score_status") or "").strip()
+    if by_status and status != "score":
+        reason = "not_scored" if status else "missing_status"
+        return {"field": "score_status", "reason": reason}
     if _blank(row.get("pmid")):
         return {"field": "pmid", "reason": "no_pmid"}
     variant = "variant_1" if "variant_1" in row else "variant"

@@ -8,7 +8,12 @@ from app.models.models import CurationNew, CurationStatus, PrecurationNew
 
 pytestmark = pytest.mark.unit
 
-_NULL = {"pmid": "12345678", "variant": "c.1A>T", "proband_counted_points": 1.5}
+_NULL = {
+    "pmid": "12345678",
+    "variant": "c.1A>T",
+    "score_status": "score",
+    "proband_counted_points": 1.5,
+}
 
 
 def test_calculate_score_reports_without_persisting_genetic_score(

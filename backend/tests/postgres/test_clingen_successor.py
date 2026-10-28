@@ -291,7 +291,7 @@ def test_app_user_successor_ar_blank_entered_and_manual_zero_agree(
     }
     current = create(client, w, w.genes[0], evidence)
     assert current["computed_scores"]["total_score"] == 0
-    row |= {"pmid": "12345678", "variant_1": "c.1A>T"}
+    row |= {"pmid": "12345678", "variant_1": "c.1A>T", "score_status": "score"}
     for expected in (points, 0):
         row["proband_counted_points"] = expected
         saved = client.patch(

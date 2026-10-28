@@ -58,6 +58,13 @@ def _case_tables(evidence: Any) -> list[tuple[str, str, list[Any]]]:
     return out
 
 
+def _counted(row: dict[str, Any]) -> bool:
+    try:
+        return float(row.get("proband_counted_points") or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def _row_warnings(at: str, table: str, row: dict[str, Any]) -> list[str]:
     variants = {k: row[k] for k in _VARIANT_KEYS if str(row.get(k) or "").strip()}
     warnings = [
@@ -66,6 +73,11 @@ def _row_warnings(at: str, table: str, row: dict[str, Any]) -> list[str]:
         for key, value in variants.items()
         if not is_variant(value)
     ]
+    if _counted(row) and not str(row.get("score_status") or "").strip():
+        warnings.append(
+            f"{at}.score_status: blank; set score, review or contradicts (only score "
+            "counts points)"
+        )
     texts = [str(v) for v in variants.values()]
     recessive = "autosomal_recessive" in at
     if table == "other_variant_type" and texts:
