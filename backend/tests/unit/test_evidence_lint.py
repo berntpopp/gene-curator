@@ -141,3 +141,29 @@ def test_engine_shows_the_definitive_hint() -> None:
     result = ClinGenEngine().calculate_scores(evidence, {})
     assert result.verdict == "strong"
     assert any(w.startswith("replicated_over_time:") for w in result.warnings)
+
+
+def test_model_row_describing_a_patient_warns() -> None:
+    evidence = _evidence(
+        experimental_evidence={
+            "models": {
+                "cell_culture_model": [
+                    {"pmid": "2", "description": "iPSC line from the Proband II-1"},
+                    {"pmid": "2", "description": "HEK293 knockout"},
+                ]
+            },
+            "functional_alteration": {
+                "patient_cells": [{"pmid": "2", "cell_type": "patient fibroblasts"}]
+            },
+            "rescue": {"cell_culture": [{"pmid": "2", "explanation": "two families"}]},
+        }
+    )
+    assert [
+        w for w in evidence_warnings(evidence, _result(2)) if "mentions '" in w
+    ] == [
+        "experimental_evidence.models.cell_culture_model[0]: mentions 'proband'; a "
+        "described patient is case-level evidence (or patient_cells), not a model or "
+        "experimental row",
+        "experimental_evidence.rescue.cell_culture[0]: mentions 'families'; a described "
+        "patient is case-level evidence (or patient_cells), not a model or experimental row",
+    ]

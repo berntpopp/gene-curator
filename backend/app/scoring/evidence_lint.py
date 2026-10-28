@@ -1,6 +1,7 @@
 """Reviewer warnings on saved evidence, by path (MCP study round 4): PMIDs written into free
 text, a summary claiming another total than the computed one, and an experimental row that
-reuses a case row's PMID and variant (a patient filed as experimental evidence); and the hint
+reuses a case row's PMID and variant or mentions a proband, patient, individual or family
+(a patient filed as experimental evidence; patient_cells rows excepted); and the hint
 that Definitive needs replicated_over_time once genetic evidence reaches 12 points."""
 
 import re
@@ -18,6 +19,8 @@ PMID_TEXT = re.compile(
 )
 # Fields that hold IDs or variants, not prose
 NOT_TEXT = {"id", "pmid", "variant", "variant_1", "variant_2"}
+# A described person in an experimental row: likely a misfiled patient
+_PERSON = re.compile(r"\b(proband|patient|individual|famil(?:y|ies))s?\b")
 _CLAIM = re.compile(
     r"\btotal(?:\s+score)?(?:\s+(?:of|is|=|:))?\s*(\d+(?:\.\d+)?)"
     r"|(\d+(?:\.\d+)?)\s*points?\s+(?:in\s+)?total\b",
@@ -68,13 +71,25 @@ def _misfiled_patients(evidence: dict[str, Any]) -> list[str]:
         evidence.get("experimental_evidence"), "experimental_evidence"
     ):
         text = " ".join(str(v) for v in row.values() if isinstance(v, str)).lower()
-        for case_at, pmid, variant in cases:
-            if _pmid(row.get("pmid")) == pmid and variant.lower() in text:
-                warnings.append(
-                    f"{at}: reuses PMID {pmid} and variant {variant} of {case_at}; a "
-                    "patient's variant is case-level evidence, not experimental"
-                )
-                break
+        reused = next(
+            (
+                (case_at, pmid, variant)
+                for case_at, pmid, variant in cases
+                if _pmid(row.get("pmid")) == pmid and variant.lower() in text
+            ),
+            None,
+        )
+        if reused:
+            case_at, pmid, variant = reused
+            warnings.append(
+                f"{at}: reuses PMID {pmid} and variant {variant} of {case_at}; a "
+                "patient's variant is case-level evidence, not experimental"
+            )
+        elif "patient_cells" not in at and (person := _PERSON.search(text)):
+            warnings.append(
+                f"{at}: mentions {person.group(0)!r}; a described patient is case-level "
+                "evidence (or patient_cells), not a model or experimental row"
+            )
     return warnings
 
 
