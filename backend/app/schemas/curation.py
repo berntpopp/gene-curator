@@ -147,6 +147,43 @@ class EvidenceWarning(BaseModel):
     message: str
 
 
+def _rows(paths: list[str], keep: int = 3) -> str:
+    more = ", ..." if len(paths) > keep else ""
+    return f"{len(paths)} rows: {', '.join(paths[:keep])}{more}"
+
+
+def collapse(lines: list[str]) -> list[str]:
+    """One "path: message" warning per message; repeats become a count and the first
+    3 paths (MCP study round 6: a save listed all 15 row paths)."""
+    groups: dict[str, list[str]] = {}
+    for line in lines:
+        path, sep, message = line.partition(": ")
+        if sep and " " not in path:
+            groups.setdefault(message, []).append(path)
+        else:
+            groups.setdefault(line, [])
+    out = []
+    for message, paths in groups.items():
+        if not paths:
+            out.append(message)
+        elif len(paths) == 1:
+            out.append(f"{paths[0]}: {message}")
+        else:
+            out.append(f"{message} ({_rows(paths)})")
+    return out
+
+
+def collapse_warnings(warnings: list["EvidenceWarning"]) -> list["EvidenceWarning"]:
+    """The same for {path, message} warnings: path names the count and first paths."""
+    groups: dict[str, list[str]] = {}
+    for w in warnings:
+        groups.setdefault(w.message, []).append(w.path)
+    return [
+        EvidenceWarning(path=paths[0] if len(paths) == 1 else _rows(paths), message=m)
+        for m, paths in groups.items()
+    ]
+
+
 class CurationDraftResult(Curation):
     """Saved draft plus warnings: malformed or unknown PMIDs, MONDO, OMIM and HPO IDs."""
 
@@ -336,7 +373,7 @@ class CurationWriteResult(BaseModel):
             lock_version=curation.lock_version,
             total_score=scores.get("total_score"),
             verdict=curation.computed_verdict,
-            warnings=scores.get("warnings") or [],
+            warnings=collapse(scores.get("warnings") or []),
         )
 
 

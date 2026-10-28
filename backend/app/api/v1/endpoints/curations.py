@@ -55,6 +55,7 @@ from app.schemas.curation import (
     CurationUpdate,
     CurationWriteResult,
     capped,
+    collapse_warnings,
     lean_scores,
 )
 from app.schemas.scope import SCOPE_NAME
@@ -475,7 +476,7 @@ def save_draft(
     if not detail:
         return CurationWriteResult.of(saved[0])
     result = CurationDraftResult.model_validate(saved[0])
-    result.warnings = saved[1]
+    result.warnings = collapse_warnings(saved[1])
     return result
 
 

@@ -28,6 +28,7 @@ from app.crud.precuration_required import (
 )
 from app.crud.scope_visibility import scope_id_for
 from app.models import CurationStatus, PrecurationNew, Scope, UserNew
+from app.schemas.curation import collapse_warnings
 from app.schemas.precuration import (
     Precuration,
     PrecurationApprovalResult,
@@ -344,7 +345,7 @@ def update_precuration(
     if saved is None:
         raise _conflict(precuration, precuration_in.lock_version)
     result = PrecurationDraftResult.model_validate(saved[0])
-    result.warnings = saved[1]
+    result.warnings = collapse_warnings(saved[1])
     return result
 
 
@@ -401,7 +402,7 @@ def save_draft(
     if saved is None:
         raise _conflict(precuration, draft_data.lock_version)
     result = PrecurationDraftResult.model_validate(saved[0])
-    result.warnings = saved[1]
+    result.warnings = collapse_warnings(saved[1])
     return result
 
 
