@@ -53,6 +53,7 @@ def test_pmids_in_free_text_warn_but_ids_and_variants_do_not() -> None:
             }
         },
         entity_definition={"mondo_id": "MONDO:0009889"},
+        evidence_summary="Strong (PMID: 23456789, PMID: 34567890)",
     )
     at = "experimental_evidence.function.biochemical_function"
     assert [w for w in evidence_warnings(evidence, _result(2)) if "free text" in w] == [

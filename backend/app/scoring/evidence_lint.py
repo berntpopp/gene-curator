@@ -92,7 +92,8 @@ def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[
     warnings += [
         f"{at}: mentions a PMID in free text; record each paper in a row's pmid field"
         for at, text in _texts(evidence)
-        if PMID_TEXT.search(text)
+        # the summary cites papers by design (MCP study round 5: the warning was ignored)
+        if at != "evidence_summary" and PMID_TEXT.search(text)
     ]
     summary = evidence.get("evidence_summary")
     claim = _CLAIM.search(summary) if isinstance(summary, str) else None
