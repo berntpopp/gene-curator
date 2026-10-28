@@ -217,6 +217,13 @@ _DESCRIPTIONS = {
     "update_review_comment": "Review comment: edit the body or change the status of a "
     "comment on a curation.",
 }
+# Shorter MCP wording of long argument descriptions repeated across tools (round 5)
+_ARG_DESCRIPTIONS = {
+    "merge": "true: evidence_data is an RFC 7396 merge patch (objects merge, null "
+    "deletes a key, arrays replace whole: send every row of an array you touch); "
+    "false or omitted: it replaces the stored evidence_data",
+}
+
 # Said once, on the tool agents save evidence with (round 4: list size)
 _SEE_SAVE = (
     "\n\nOne row per proband, each with its own variant (HGVS c./p., rsID or genomic "
@@ -311,6 +318,9 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     ) + _DESCRIPTION_EXTRAS.get(tool.name, "")
     tool.parameters = dereference_refs(tool.parameters)  # inline first, then shrink
     _lean_schema(tool.parameters)
+    for arg, text in _ARG_DESCRIPTIONS.items():
+        if arg in tool.parameters.get("properties", {}):
+            tool.parameters["properties"][arg]["description"] = text
     for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
         tool.parameters["properties"][arg]["default"] = value
     read_only = route.method == "GET"
@@ -349,18 +359,29 @@ def _merge_nullable(schema: dict[str, Any]) -> None:
         schema["enum"] = [*other["enum"], None]
 
 
+def _lean_node(schema: dict[str, Any]) -> None:
+    """One schema node: no title (the property name says it), no empty required list,
+    no default additionalProperties, an enum class's docstring cut to its first line."""
+    _merge_nullable(schema)
+    if isinstance(schema.get("title"), str):
+        del schema["title"]
+    if schema.get("required") == []:
+        del schema["required"]
+    if schema.get("additionalProperties") is True:  # the JSON Schema default
+        del schema["additionalProperties"]
+    text = schema.get("description")
+    if isinstance(text, str) and "\n\n" in text:
+        schema["description"] = text.split("\n\n", 1)[0]
+
+
 def _lean_schema(schema: Any) -> None:
-    """Shrink a JSON Schema in place: no titles (the property name says it), no
-    empty required list, integral bounds as ints. A property named title stays."""
+    """Shrink a JSON Schema in place (integral bounds as ints too). A property named
+    title stays."""
     if isinstance(schema, list):
         for item in schema:
             _lean_schema(item)
     elif isinstance(schema, dict):
-        _merge_nullable(schema)
-        if isinstance(schema.get("title"), str):
-            del schema["title"]
-        if schema.get("required") == []:
-            del schema["required"]
+        _lean_node(schema)
         for key, value in schema.items():
             if isinstance(value, float) and value.is_integer():
                 schema[key] = int(value)
