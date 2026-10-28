@@ -134,7 +134,10 @@ class PublicationService:
         try:
             response = await self._client.get(
                 f"/article/MED/{clean_pmid}",
-                params={"format": "json"},
+                params={
+                    "format": "json",
+                    "resultType": "core",
+                },  # core has the abstract
             )
 
             if response.status_code == 404:

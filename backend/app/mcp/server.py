@@ -233,8 +233,8 @@ _DESCRIPTION_EXTRAS = {
     "save_draft_curations": _EVIDENCE_PATHS,
     "update_curation": _SEE_SAVE,
     "create_curation": _SEE_SAVE,
-    "validate_pmids": "\n\nResults list title, journal and year; get_publication "
-    "returns the abstract.",
+    "validate_pmids": "\n\nResults list title, journal and year; read the papers with "
+    "a literature MCP such as GeneFoundry.",
 }
 
 # Docstring sections that describe the Python function, not the tool

@@ -127,6 +127,7 @@ async def test_fetch_publication_normalises_prefix_and_parses_success() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request.url.path)
+        assert request.url.params["resultType"] == "core"  # the abstract for the UI
         return httpx.Response(200, json=ARTICLE)
 
     svc = _service(handler)

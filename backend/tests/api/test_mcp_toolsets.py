@@ -222,7 +222,7 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     merge = tools["save_draft_curations"]["inputSchema"]["properties"]["merge"]
     assert merge["description"].startswith("true: evidence_data is an RFC 7396 merge")
     assert tools["read_my_work"]["description"].startswith("My work queue")
-    assert "get_publication" in tools["validate_pmids"]["description"]
+    assert "literature MCP" in tools["validate_pmids"]["description"]  # not abstracts
 
 
 def test_only_narrowable_mcp_reads_are_capped(
