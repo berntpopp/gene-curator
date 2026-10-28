@@ -18,7 +18,6 @@ from app.schemas.validation import (
     PMIDValidationResponse,
     PublicationData,
 )
-from app.services.gene_mention import gene_names, mentions
 from app.services.publication_service import PublicationService
 
 logger = get_logger(__name__)
@@ -93,11 +92,6 @@ async def validate_pmids(
             request.pmids,
             user_id=str(current_user.id),
         )
-        symbol = (request.gene_symbol or "").strip()  # "  " is no symbol
-        if symbol:
-            names = await gene_names(db, symbol)
-            for r in result.results:
-                r.mentions_gene = mentions(names, r.publication)
 
         logger.info(
             "PMID validation completed",

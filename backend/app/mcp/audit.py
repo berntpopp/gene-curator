@@ -144,7 +144,7 @@ _NOT_FOUND_HINTS = (
     (
         ("pmid", "publication"),
         "find papers with a literature MCP such as GeneFoundry; "
-        "validate_pmids(pmids, gene_symbol) checks them",
+        "validate_pmids(pmids) checks them",
     ),
     (
         ("gene", "hgnc", "symbol"),

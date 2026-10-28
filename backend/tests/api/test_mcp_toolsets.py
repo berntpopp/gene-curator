@@ -294,7 +294,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
         "submit_precuration(reviewer_email=",
         "add_genes_to_scope(symbols, scope_name)",
         "read_curation_for_review",
-        "validate_pmids(pmids, gene_symbol)",
+        "validate_pmids(pmids)",
         "get_curation_schema(path=)",
     ):
         assert shortcut in INSTRUCTIONS, shortcut

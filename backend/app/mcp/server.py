@@ -73,8 +73,7 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.
 4. Literature: find and read papers with a literature MCP such as GeneFoundry;
-   validate_pmids(pmids, gene_symbol) confirms PMIDs and flags papers that do not
-   mention the gene. Cite the PMID that reports each proband.
+   validate_pmids(pmids) confirms the PMIDs exist. Cite the PMID that reports each proband.
 5. Review: submit_curation(reviewer_email=...) submits and assigns the reviewer.
    The reviewer reads everything in one call with read_curation_for_review, then
    submit_peer_review(decision="approve" or "request_changes", with comments).
