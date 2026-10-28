@@ -303,6 +303,10 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
     # Round 4: roles come from list_scopes; evidence-item tools are not on /mcp
     assert "user_role on each list_scopes row" in INSTRUCTIONS
     assert "read_users_me" not in INSTRUCTIONS and "evidence-item" not in INSTRUCTIONS
+    # Round 5: literature from a literature MCP, which ClinGen pair, diff baselines
+    assert "GeneFoundry (PubTator, LitVar, ClinVar)" in INSTRUCTIONS
+    assert '"ClinGen\nGene-Disease Validity" is_default' in INSTRUCTIONS
+    assert "previous_submission the one before it" in INSTRUCTIONS
     # the old multi-step gene entry and reviewer routing are gone
     assert "create_gene_assignment" not in INSTRUCTIONS
     assert "assign_peer_reviewer" not in INSTRUCTIONS

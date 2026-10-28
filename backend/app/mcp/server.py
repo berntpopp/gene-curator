@@ -56,9 +56,12 @@ Scopes by name: tools with scope_name take the team name instead of scope_id
 get_peer_reviewers, get_my_review_assignments); list_scopes(name=) finds the id.
 
 Set up a pipeline: get_workflow_pairs, create_scope (default_workflow_pair_id;
-update_scope changes it later); members: search_users_for_invitation finds a user,
-add_member adds them at once, invite_member sends an invitation, update_member_role
-changes a role.
+update_scope changes it later). Two ClinGen SOP v11 pairs exist: "ClinGen
+Gene-Disease Validity" is_default (the full SOP v11 form; create_scope uses it) and
+"ClinGen_Complete_Workflow", the older form of the seeded demo scopes. Curate with
+the scope's default_workflow_pair_id. Members: search_users_for_invitation finds a
+user, add_member adds them at once, invite_member sends an invitation,
+update_member_role changes a role.
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
 1. Entry: add_genes_to_scope(symbols, scope_name) resolves HGNC symbols, creates
@@ -75,9 +78,14 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
 4. Literature: search_pubmed(gene_symbol, disease, query) finds papers with
    abstracts; validate_pmids(pmids, gene_symbol) confirms PMIDs and flags papers
    that do not mention the gene. Cite the PMID that reports each proband.
+   Per-patient genotypes and full-text details come from a literature MCP such as
+   GeneFoundry (PubTator, LitVar, ClinVar) used alongside; record the evidence here.
 5. Review: submit_curation(reviewer_email=...) submits and assigns the reviewer.
    The reviewer reads everything in one call with read_curation_for_review, then
    submit_peer_review(decision="approve" or "request_changes", with comments).
+   curation_diff(baseline=): submitted is the latest submission (equal to the
+   evidence right after submit), previous_submission the one before it: what
+   changed since the last review round.
 6. Active: one active curation per gene and scope.
 
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
