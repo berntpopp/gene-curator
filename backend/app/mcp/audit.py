@@ -184,7 +184,8 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
         except ValueError:
             detail = None
         if detail:
-            message += f": {detail}"
+            shown = _api_problems(detail) if isinstance(detail, list) else detail
+            message += f": {shown}"
     hint = (
         _TOOL_HINTS.get((tool, status))
         or (_not_found_hint(detail) if status == 404 else None)
@@ -322,8 +323,43 @@ def argument_errors(schema: dict[str, Any], args: dict[str, Any]) -> list[str]:
     for error in Draft202012Validator(schema).iter_errors(known):
         if error.validator != "required":
             field = ".".join(map(str, error.absolute_path)) or "arguments"
-            problems.append(f"{field}: {error.message[:200]}")
+            problems.append(f"{field}: {_constraint(error)}")
     return problems
+
+
+_SIZES = {
+    "maxLength": ("characters", ">"),
+    "minLength": ("characters", "<"),
+    "maxItems": ("items", ">"),
+    "minItems": ("items", "<"),
+}
+
+
+def _constraint(error: Any) -> str:
+    """The limit and what was sent ("2187 characters > 2000"); a length error never
+    echoes the whole value (MCP study round 6, T8)."""
+    if error.validator in _SIZES:
+        unit, op = _SIZES[error.validator]
+        return f"{len(error.instance)} {unit} {op} {error.validator_value} allowed"
+    return str(error.message)[:200]
+
+
+def _api_problems(detail: list[Any]) -> str:
+    """FastAPI 422 items as "field: message (got N characters)", without the input."""
+    out = []
+    for item in detail:
+        if not isinstance(item, dict):
+            return str(detail)
+        field = ".".join(str(p) for p in item.get("loc", []) if p != "body")
+        value, kind = item.get("input"), str(item.get("type"))
+        if isinstance(value, str) and "string_too" in kind:
+            got = f" (got {len(value)} characters)"
+        elif value is not None and not isinstance(value, (dict, list)):
+            got = f" (got {str(value)[:50]!r})"
+        else:
+            got = ""
+        out.append(f"{field or 'body'}: {item.get('msg')}{got}")
+    return "; ".join(out)
 
 
 def _invalid_arguments(

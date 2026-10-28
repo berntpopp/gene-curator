@@ -8,7 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.mcp.audit import _tool_error, argument_errors, coerce_arguments
+from app.mcp.audit import (
+    _api_problems,
+    _tool_error,
+    argument_errors,
+    coerce_arguments,
+)
 from app.models import UserNew
 from tests.api.test_mcp import call, pat
 
@@ -84,6 +89,37 @@ def test_argument_errors_name_the_field_and_the_bound() -> None:
     )
     assert any(p.startswith("item_type: 'gene' is not one of") for p in problems)
     assert "did you mean item_id?" in argument_errors(SCHEMA, {"itemid": "x"})[0]
+    long = {"type": "object", "properties": {"comments": {"maxLength": 2000}}}
+    assert argument_errors(long, {"comments": "x" * 2187}) == [
+        "comments: 2187 characters > 2000 allowed"
+    ]
+
+
+def test_api_422_names_field_limit_and_length_without_the_value() -> None:
+    detail = [
+        {
+            "type": "string_too_long",
+            "loc": ["body", "comments"],
+            "msg": "String should have at most 2000 characters",
+            "input": "x" * 2187,
+        },
+        {
+            "type": "enum",
+            "loc": ["body", "decision"],
+            "msg": "Input should be ...",
+            "input": "ok",
+        },
+        {"type": "missing", "loc": ["body", "lock_version"], "msg": "Field required"},
+    ]
+    shown = _api_problems(detail)
+    assert shown == (
+        "comments: String should have at most 2000 characters (got 2187 characters); "
+        "decision: Input should be ... (got 'ok'); lock_version: Field required"
+    )
+    assert _api_problems(["plain"]) == "['plain']"
+    message = _error(422, "submit_peer_review", detail)
+    assert "comments: String should have at most 2000 characters (got 2187" in message
+    assert "x" * 100 not in message
 
 
 def test_a_call_with_a_wrong_argument_never_reaches_the_api(
