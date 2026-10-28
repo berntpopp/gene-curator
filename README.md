@@ -60,8 +60,9 @@ An existing database gets the role with `make db-migrate` before the backend res
 ### Upgrading to v0.9.0
 
 Run `make db-migrate` (056–063) before restarting the backend. The database owner that runs
-migrations must be a superuser or have BYPASSRLS (SECURITY DEFINER functions for the LLM
-worker). Set `LLM_CREDENTIAL_KEYS` and `LLM_CREDENTIAL_ACTIVE_KID` (see `.env.example`).
+migrations must be a superuser or have BYPASSRLS, because SECURITY DEFINER functions read past
+FORCE RLS as that owner; without it, personal access tokens and MCP get 401, curators cannot
+assign reviewers, and the LLM worker claims nothing. Set `LLM_CREDENTIAL_KEYS` and `LLM_CREDENTIAL_ACTIVE_KID` (see `.env.example`).
 Rate limiting is on in `docker-compose.prod.yml`; behind a reverse proxy set
 `FORWARDED_ALLOW_IPS` to the proxy's address. Breaking: curation writes, scope lists and schema
 lists answer concisely unless `detail=true`; `CurationDetail.calculated_score` is gone; the
@@ -169,10 +170,12 @@ Vuetify 4 · PostgreSQL 15.
   never user names or emails; scope admins see the exact request in the preview
   (`GET /api/v1/scopes/{id}/curations/{id}/llm-preview`).
 - The database owner that runs the migrations must be a superuser (or have BYPASSRLS):
-  the SECURITY DEFINER functions (`llm_claim_run`, `llm_credential_ciphertext`, like the
-  005 RLS helpers) read past FORCE ROW LEVEL SECURITY as that owner. On managed Postgres
-  such as RDS, where the master user is not a superuser, grant it BYPASSRLS or the worker
-  claims nothing.
+  SECURITY DEFINER functions read past FORCE ROW LEVEL SECURITY as that owner
+  (`authenticate_personal_access_token` in 056, `llm_credential_ciphertext` in 057,
+  `llm_claim_run` in 060, `is_scope_reviewer` in 061, like the 005 RLS helpers). On managed
+  Postgres such as RDS, where the master user is not a superuser, grant it BYPASSRLS; without
+  it, personal access tokens and MCP get 401, curators cannot assign reviewers, and the LLM
+  worker claims nothing.
 
 ## MCP server
 

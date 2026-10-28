@@ -35,6 +35,9 @@ services:
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      # LLM key ring (see .env.example); unset, LLM credentials fail closed
+      LLM_CREDENTIAL_KEYS: ${LLM_CREDENTIAL_KEYS:-}
+      LLM_CREDENTIAL_ACTIVE_KID: ${LLM_CREDENTIAL_ACTIVE_KID:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
       # Rate limiting is off in config/api.yaml (dev, tests) and on in production
       GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING: "true"
