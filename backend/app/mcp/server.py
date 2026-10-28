@@ -18,6 +18,7 @@ from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 from fastmcp.tools import Tool
+from fastmcp.utilities.json_schema import dereference_refs
 from fastmcp.utilities.openapi import HTTPRoute
 from fastmcp.utilities.openapi.models import HttpMethod
 from mcp import types as mt
@@ -207,16 +208,28 @@ _DESCRIPTIONS = {
     "update_review_comment": "Review comment: edit the body or change the status of a "
     "comment on a curation.",
 }
+# Said once, on the tool agents save evidence with (round 4: list size)
+_SEE_SAVE = (
+    "\n\nEvidence paths, one row per proband, variant_type values and "
+    "evidence_summary: see save_draft_curations."
+)
 _DESCRIPTION_EXTRAS = {
     "save_draft_curations": _EVIDENCE_PATHS,
-    "update_curation": _EVIDENCE_PATHS,
-    "create_curation": _EVIDENCE_PATHS,
+    "update_curation": _SEE_SAVE,
+    "create_curation": _SEE_SAVE,
     "validate_pmids": "\n\nResults list title, journal and year; get_publication "
     "returns the abstract.",
 }
 
 # Docstring sections that describe the Python function, not the tool
 _DOC_NOISE = re.compile(r"\n\s*(Args|Returns|Raises|Example[^\n:]*):\s*\n.*", re.S)
+# REST routes in parentheses and paragraphs about the web UI or caching: an agent
+# calls tools, not routes
+_REST_NOISE = re.compile(
+    r" \((?:GET|POST|PUT|PATCH|DELETE) /[^)]*\)"
+    r"|\n\n(?:Use this endpoint (?:for|to populate)|This endpoint is useful for "
+    r"populating|Rate limiting:|Results are cached)[^\n]*(?:\n[^\n]+)*"
+)
 
 # State-changing actions a client should confirm (besides every DELETE)
 _DESTRUCTIVE = re.compile(
@@ -282,10 +295,11 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     tool.output_schema = None  # results go out once, as text (no structuredContent)
     tool.description = (
         _DESCRIPTIONS.get(tool.name)
-        or _DOC_NOISE.sub("", tool.description or "").strip()
+        or _REST_NOISE.sub("", _DOC_NOISE.sub("", tool.description or "")).strip()
         or route.summary
         or ""
     ) + _DESCRIPTION_EXTRAS.get(tool.name, "")
+    tool.parameters = dereference_refs(tool.parameters)  # inline first, then shrink
     _lean_schema(tool.parameters)
     for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
         tool.parameters["properties"][arg]["default"] = value
@@ -295,12 +309,34 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
         or (route.method == "POST" and bool(_DESTRUCTIVE.search(route.path)))
         or (route.method in ("PUT", "PATCH") and not _SAFE_UPDATE.search(route.path))
     )
+    # Spec defaults are left out: a write is neither read-only nor idempotent, and
+    # destructiveHint means nothing on a read
     tool.annotations = ToolAnnotations(
-        readOnlyHint=read_only,
-        destructiveHint=destructive,
-        idempotentHint=read_only,
+        readOnlyHint=read_only or None,
+        destructiveHint=None if read_only else destructive,
+        idempotentHint=read_only or None,
         openWorldHint=False,
     )
+    tool.tags = set()  # nothing selects by tag; each tag repeats in the list
+
+
+def _merge_nullable(schema: dict[str, Any]) -> None:
+    """anyOf [X, null] -> X with type [X's type, "null"]: the same values, a third of
+    the bytes (round 4: the tool list was 20-36% of input tokens)."""
+    options = schema.get("anyOf")
+    if (
+        not isinstance(options, list)
+        or len(options) != 2
+        or {"type": "null"} not in options
+    ):
+        return
+    (other,) = [o for o in options if o != {"type": "null"}]
+    if not isinstance(other.get("type"), str) or other["type"] == "null":
+        return
+    del schema["anyOf"]
+    schema.update({**other, "type": [other["type"], "null"]})
+    if "enum" in other:
+        schema["enum"] = [*other["enum"], None]
 
 
 def _lean_schema(schema: Any) -> None:
@@ -310,6 +346,7 @@ def _lean_schema(schema: Any) -> None:
         for item in schema:
             _lean_schema(item)
     elif isinstance(schema, dict):
+        _merge_nullable(schema)
         if isinstance(schema.get("title"), str):
             del schema["title"]
         if schema.get("required") == []:

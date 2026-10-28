@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.main import app
 from app.mcp import audit
-from app.mcp.audit import AUDIT_KEYS, lean
+from app.mcp.audit import AUDIT_KEYS, argument_errors, lean
 from app.mcp.server import (
     CORE_TOOLS,
     EXCLUDED_OPERATIONS,
@@ -39,8 +39,8 @@ def test_core_tool_list_matches_snapshot(
 ) -> None:
     tools = _tools(client, pat(db_session, test_user_curator), "/mcp")
     lines = sorted(
-        f"{name} read_only={t['annotations']['readOnlyHint']} "
-        f"destructive={t['annotations']['destructiveHint']}"
+        f"{name} read_only={t['annotations'].get('readOnlyHint', False)} "
+        f"destructive={t['annotations'].get('destructiveHint', False)}"
         for name, t in tools.items()
     )
     assert lines == CORE_SNAPSHOT.read_text().splitlines()
@@ -195,13 +195,22 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     tools = _tools(client, pat(db_session, test_user_curator), "/mcp")
     text = json.dumps(list(tools.values()))
     assert '"title"' not in text and ".0," not in text
-    for name in ("save_draft_curations", "update_curation", "create_curation"):
-        text = tools[name]["description"]
-        assert "genetic_evidence.case_level" in text, name
-        assert "One row per proband" in text and "variant_1 and variant_2" in text
-        assert "evidence_summary: free-text summary and notes" in text
-        assert "frameshift, canonical" in text and "missense" in text
-        assert "get_curation_schema(schema_id,\npath=" in text
+    text = tools["save_draft_curations"]["description"]
+    assert "genetic_evidence.case_level" in text
+    assert "One row per proband" in text and "variant_1 and variant_2" in text
+    assert "evidence_summary: free-text summary and notes" in text
+    assert "frameshift, canonical" in text and "missense" in text
+    assert "get_curation_schema(schema_id,\npath=" in text
+    for name in ("update_curation", "create_curation"):  # said once (list size)
+        assert "see save_draft_curations" in tools[name]["description"], name
+    # Nullable arguments are a type list, still accepting null (and enum values)
+    status = tools["list_curations"]["inputSchema"]["properties"]["curation_status"]
+    assert status["type"] == ["string", "null"] and None in status["enum"]
+    schema = tools["list_curations"]["inputSchema"]
+    assert argument_errors(schema, {"scope_id": None, "curation_status": None}) == []
+    assert argument_errors(schema, {"curation_status": "draft"}) == []
+    assert argument_errors(schema, {"curation_status": "nope"})
+    assert '"anyOf"' not in json.dumps(schema)
     assert tools["read_my_work"]["description"].startswith("My work queue")
     assert "get_publication" in tools["validate_pmids"]["description"]
 
@@ -299,7 +308,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 
 # Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
 # only on purpose. Bytes are the tools/list response as a client receives it.
-SURFACE_BUDGET = {"curator": (78, 64_000), "admin": (78, 64_000)}
+SURFACE_BUDGET = {"curator": (78, 55_000), "admin": (78, 55_000)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)
