@@ -52,12 +52,14 @@
   // Rows the scoring engine flags in the live preview (e.g. invalid or missing PMIDs)
   const validation = useValidationStore()
   const flags = computed(() => [
-    ...new Set(
-      (validation.getValidationResult('form')?.warnings ?? [])
+    ...new Set([
+      ...(props.score?.excluded ?? []).map(e => e.text),
+      ...(validation.getValidationResult('form')?.warnings ?? [])
         .filter(w => w.type === 'scoring')
         .map(w => String(w.message))
-    )
+    ])
   ])
+  const refused = computed(() => !!props.score?.excluded?.some(e => e.refused))
 
   const checks = computed(() => [
     ...props.blockers.map(text => ({ text, warn: true })),
@@ -66,9 +68,11 @@
       : [
           props.loading
             ? { text: 'Checking evidence…', warn: false }
-            : props.canSubmit
-              ? { text: 'Ready to submit', warn: false }
-              : { text: 'Complete the required evidence before submitting', warn: true }
+            : refused.value
+              ? { text: 'Fix the rows that score 0 before submitting', warn: true }
+              : props.canSubmit
+                ? { text: 'Ready to submit', warn: false }
+                : { text: 'Complete the required evidence before submitting', warn: true }
         ]),
     ...(props.score?.hasContradictory
       ? [

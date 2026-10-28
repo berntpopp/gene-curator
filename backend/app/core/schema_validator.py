@@ -752,7 +752,6 @@ class SchemaValidator:
     ) -> None:
         """Validate institutional review business rules."""
         # Institutional-specific validation rules would go here
-        pass
 
     def _calculate_scores(
         self,
@@ -774,6 +773,7 @@ class SchemaValidator:
                 "total_score": scores.total_score,
                 "verdict": scores.verdict,
                 "trace": scores.evidence_breakdown.get("trace"),
+                "excluded": scores.evidence_breakdown.get("excluded", []),
             }
             for warning in scores.warnings:
                 result.add_warning("scoring", warning, "scoring")
