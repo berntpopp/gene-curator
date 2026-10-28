@@ -48,7 +48,10 @@ def test_search_by_gene_and_disease_returns_short_rows_and_caches_them(
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["query"] == "(PKD1) AND (polycystic kidney) AND SRC:MED"
+    assert body["query"] == (
+        "(PKD1) AND (polycystic kidney) AND SRC:MED "
+        'NOT (PUB_TYPE:"review" NOT PUB_TYPE:"case reports")'
+    )  # a gene search leaves reviews out by default
     assert body["total"] == 42
     (hit,) = body["results"]  # the record without a PMID is not PubMed
     assert hit == {
@@ -60,6 +63,7 @@ def test_search_by_gene_and_disease_returns_short_rows_and_caches_them(
         "pub_type": "Case Reports",
     }
     assert calls[0]["pageSize"] == 5
+    assert "sort" not in calls[0]  # Europe PMC's default order is relevance
     cached = db_session.scalars(select(Publication.pmid)).all()
     assert cached == ["31558469"]
 
@@ -76,3 +80,36 @@ def test_search_needs_a_term_and_reports_upstream_failure(
     monkeypatch.setattr(httpx.AsyncClient, "get", down)
     r = client.get(URL, params={"query": "PKD1"}, headers=h)
     assert r.status_code == 503
+
+
+def test_reviews_sort_and_a_full_page_stays_under_8_kb(
+    client: TestClient,
+    curator_token: str,
+    calls: list,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    h = {"Authorization": f"Bearer {curator_token}"}
+    r = client.get(
+        URL,
+        params={"gene_symbol": "PKD1", "exclude_reviews": "false", "sort": "cited"},
+        headers=h,
+    )
+    assert r.json()["query"] == "(PKD1) AND SRC:MED"
+    assert calls[-1]["sort"] == "CITED desc"
+    assert calls[-1]["pageSize"] == 10  # default
+    assert (
+        client.get(URL, params={"query": "x", "limit": 11}, headers=h).status_code
+        == 422
+    )
+
+    async def full(_: httpx.AsyncClient, url: str, **kw: Any) -> httpx.Response:
+        rows = [
+            {**ROW, "pmid": str(30000000 + i), "title": "T" * 250} for i in range(10)
+        ]
+        body = {"hitCount": 900, "resultList": {"result": rows}}
+        return httpx.Response(200, json=body, request=httpx.Request("GET", url))
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", full)
+    page = client.get(URL, params={"query": "PKD1 cohort"}, headers=h)
+    assert len(page.json()["results"]) == 10
+    assert len(page.content) < 8000, len(page.content)

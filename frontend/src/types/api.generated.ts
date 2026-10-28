@@ -1824,8 +1824,9 @@ export interface paths {
         };
         /**
          * Read Curation For Review
-         * @description Reviewer read in one call: the curation with evidence and full score trace (excluded
-         *     rows with reasons), warnings, workflow state with blocked moves, and the evidence diff.
+         * @description Reviewer read in one call: the curation with evidence and score trace (excluded
+         *     rows with reasons), warnings, workflow state with blocked moves, the evidence diff (none
+         *     on a first submission) and, on a resubmission, the earlier round's feedback.
          */
         get: operations["read_curation_for_review_api_v1_curations__curation_id__review_get"];
         put?: never;
@@ -3614,8 +3615,9 @@ export interface paths {
         /**
          * Search Pubmed
          * @description Search PubMed literature (via Europe PMC) by free text, gene symbol and disease
-         *     terms, all of which must match. Returns pmid, title, journal, year, publication type
-         *     (case report or cohort) and an abstract snippet, best match first; get_publication
+         *     terms, all of which must match, most relevant first (reviews left out for a gene
+         *     unless exclude_reviews=false). Returns pmid, title, journal, year, publication type
+         *     (case report or cohort) and an abstract snippet (300 characters); get_publication
          *     returns the full abstract. Records are cached, so validate_pmids knows them.
          */
         get: operations["search_pubmed_api_v1_publications_search_get"];
@@ -4327,6 +4329,19 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AssignedReviewer
+         * @description The reviewer a submit routed the item to.
+         */
+        AssignedReviewer: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name?: string | null;
+        };
+        /**
          * AvailableGene
          * @description Gene available for assignment to a scope.
          */
@@ -4910,7 +4925,7 @@ export interface components {
          * @description Everything a reviewer checks, in one read.
          */
         CurationReviewRead: {
-            /** @description Evidence and the full score trace; computed_scores.excluded lists rows that score nothing, with the reason; trace.out_of_range flags rows outside their range */
+            /** @description Evidence and the score trace without zero-point rows; computed_scores.excluded lists rows that score nothing, with the reason; trace.out_of_range flags rows outside their range */
             curation: components["schemas"]["CurationDetail"];
             /**
              * Warnings
@@ -4919,8 +4934,27 @@ export interface components {
             warnings: string[];
             /** @description Moves the caller may make; blocked ones with the reason */
             workflow: components["schemas"]["WorkflowStateInfo"];
+            /**
+             * First Submission
+             * @description No earlier version to compare: diff is null, review it whole
+             */
+            first_submission: boolean;
             /** @description Evidence versus what the caller last reviewed, else the previous submission or the active curation it replaces */
-            diff: components["schemas"]["CurationDiff"];
+            diff?: components["schemas"]["CurationDiff"] | null;
+            /**
+             * Previous Reviews
+             * @description Resubmission: the earlier decisions (reviewer, decision, comments)
+             */
+            previous_reviews?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Open Item Comments
+             * @description Resubmission: item comments from earlier rounds still open
+             */
+            open_item_comments?: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * CurationSchema
@@ -5218,6 +5252,32 @@ export interface components {
              * @description Or the reviewer's email (a reviewer of the scope)
              */
             reviewer_email?: string | null;
+        };
+        /**
+         * CurationSubmitResult
+         * @description Concise submit result, with the reviewer it was routed to.
+         */
+        CurationSubmitResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Lock Version */
+            lock_version: number;
+            /** Total Score */
+            total_score: number | null;
+            /** Verdict */
+            verdict: string | null;
+            /**
+             * Warnings
+             * @description Scoring warnings, then bad or unknown ID warnings as 'path: message'
+             */
+            warnings?: string[];
+            /** @description Submit with a reviewer: who it was routed to */
+            assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
         };
         /**
          * CurationSummary
@@ -8581,6 +8641,83 @@ export interface components {
             reviewer_email?: string | null;
         };
         /**
+         * PrecurationSubmitted
+         * @description Submit result, with the reviewer it was routed to.
+         */
+        PrecurationSubmitted: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /**
+             * Precuration Schema Id
+             * Format: uuid
+             */
+            precuration_schema_id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Is Draft */
+            is_draft: boolean;
+            /** Evidence Data */
+            evidence_data: {
+                [key: string]: unknown;
+            };
+            /** Computed Scores */
+            computed_scores: {
+                [key: string]: unknown;
+            };
+            /** Computed Fields */
+            computed_fields: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Auto Saved At */
+            auto_saved_at: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /** Version Number */
+            version_number: number;
+            /** Lock Version */
+            lock_version: number;
+            /** Methodology Version Id */
+            methodology_version_id?: string | null;
+            /**
+             * Curation Count
+             * @description Number of linked curations
+             * @default 0
+             */
+            curation_count: number;
+            /**
+             * Rejected By Name
+             * @description Who last requested changes (computed_fields.rejected_by)
+             */
+            rejected_by_name?: string | null;
+            /** @description Submit with a reviewer: who it was routed to */
+            assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
+        };
+        /**
          * PrecurationSummary
          * @description Lightweight precuration summary for list views.
          */
@@ -11140,6 +11277,8 @@ export interface components {
              * @description Transition result message
              */
             message?: string | null;
+            /** @description Set when reviewer_id routed the item */
+            assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
         };
         /**
          * WorkflowTransitionRequest
@@ -14467,7 +14606,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationSubmitResult"];
                 };
             };
             /** @description Conflict */
@@ -14903,7 +15042,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Precuration"];
+                    "application/json": components["schemas"]["PrecurationSubmitted"];
                 };
             };
             /** @description Conflict */
@@ -16840,6 +16979,9 @@ export interface operations {
                 gene_symbol?: string | null;
                 disease?: string | null;
                 limit?: number;
+                sort?: "relevance" | "date" | "cited";
+                /** @description Leave out reviews; default: true when gene_symbol is given */
+                exclude_reviews?: boolean | null;
             };
             header?: never;
             path?: never;

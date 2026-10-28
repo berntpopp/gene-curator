@@ -27,6 +27,7 @@ from app.crud.curation import OpenCurationExistsError, curation_crud, merge_patc
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
+    earlier_feedback,
     reviewers_required,
 )
 from app.crud.scope_visibility import scope_id_for
@@ -50,6 +51,7 @@ from app.schemas.curation import (
     CurationReviewRead,
     CurationScoreResponse,
     CurationSubmit,
+    CurationSubmitResult,
     CurationUpdate,
     CurationWriteResult,
     capped,
@@ -65,6 +67,7 @@ from app.services.curation_access import (
     _has_approved,
 )
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
+from app.services.review_assignment import assigned_reviewer, submit_reviewer
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -272,9 +275,15 @@ def read_curation_for_review(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationReviewRead:
-    """Reviewer read in one call: the curation with evidence and full score trace (excluded
-    rows with reasons), warnings, workflow state with blocked moves, and the evidence diff."""
-    curation = get_curation(curation_id, True, db, current_user)
+    """Reviewer read in one call: the curation with evidence and score trace (excluded
+    rows with reasons), warnings, workflow state with blocked moves, the evidence diff (none
+    on a first submission) and, on a resubmission, the earlier round's feedback."""
+    curation = get_curation(curation_id, False, db, current_user)
+    diff = curation_diff(curation_id, None, db, current_user)
+    reviews, comments = earlier_feedback(
+        db, cast(CurationNew, db.get(CurationNew, curation_id))
+    )
+    first = diff.baseline is None and not reviews  # nothing earlier to compare
     return CurationReviewRead(
         curation=curation,
         warnings=[
@@ -284,7 +293,10 @@ def read_curation_for_review(
         workflow=workflow_engine.get_workflow_state(
             db, curation_id, "curation", current_user.id
         ),
-        diff=curation_diff(curation_id, None, db, current_user),
+        first_submission=first,
+        diff=None if first else diff,
+        previous_reviews=reviews,
+        open_item_comments=comments,
     )
 
 
@@ -467,7 +479,7 @@ def save_draft(
 
 @router.post(
     "/{curation_id}/submit",
-    response_model=Curation | CurationWriteResult,
+    response_model=Curation | CurationSubmitResult,
     responses={409: {"model": CurationConflictResponse}},
 )
 @api_endpoint()
@@ -477,7 +489,7 @@ def submit_curation(
     detail: bool = _FULL_WRITE,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation | CurationWriteResult:
+) -> Curation | CurationSubmitResult:
     """Submit for peer review. 422 names each field path that fails the schema or holds a
     malformed PMID, MONDO, OMIM or HPO ID, or an ID PubMed or the ontology does not know."""
     set_rls_context(db, current_user)
@@ -502,10 +514,11 @@ def submit_curation(
 
     # Point ranges and PMIDs: review_guards, in the transition into review
     try:
+        reviewer_id = submit_reviewer(db, curation.scope_id, submit_in)
         submitted = curation_crud.submit_for_review(
             db,
             db_obj=curation,
-            submit_data=submit_in,
+            submit_data=submit_in.model_copy(update={"reviewer_id": reviewer_id}),
             user_id=current_user.id,
         )
     except InvalidEvidenceError as e:
@@ -519,10 +532,11 @@ def submit_curation(
     if submitted is None:
         raise _conflict(curation, submit_in.lock_version)
 
-    return (
-        Curation.model_validate(submitted)
-        if detail
-        else CurationWriteResult.of(submitted)
+    if detail:
+        return Curation.model_validate(submitted)
+    return CurationSubmitResult(
+        **CurationWriteResult.of(submitted).model_dump(),
+        assigned_reviewer=assigned_reviewer(db, reviewer_id),
     )
 
 
