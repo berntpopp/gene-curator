@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session, SessionTransaction
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.logging import get_logger
+from app.core.validation_messages import size_message
 
 logger = get_logger(__name__)
 
@@ -323,43 +324,37 @@ def argument_errors(schema: dict[str, Any], args: dict[str, Any]) -> list[str]:
     for error in Draft202012Validator(schema).iter_errors(known):
         if error.validator != "required":
             field = ".".join(map(str, error.absolute_path)) or "arguments"
-            problems.append(f"{field}: {_constraint(error)}")
+            problems.append(f"{field}: {_constraint(field, error)}")
     return problems
 
 
 _SIZES = {
-    "maxLength": ("characters", ">"),
-    "minLength": ("characters", "<"),
-    "maxItems": ("items", ">"),
-    "minItems": ("items", "<"),
+    "maxLength": ("characters", "max"),
+    "minLength": ("characters", "min"),
+    "maxItems": ("items", "max"),
+    "minItems": ("items", "min"),
 }
 
 
-def _constraint(error: Any) -> str:
-    """The limit and what was sent ("2187 characters > 2000"); a length error never
-    echoes the whole value (MCP study round 6, T8)."""
+def _constraint(field: str, error: Any) -> str:
+    """The limit and what was sent, never the whole value (MCP study round 6, T8)."""
     if error.validator in _SIZES:
-        unit, op = _SIZES[error.validator]
-        return f"{len(error.instance)} {unit} {op} {error.validator_value} allowed"
+        unit, bound = _SIZES[error.validator]
+        return size_message(
+            field, len(error.instance), unit, bound, error.validator_value
+        )
     return str(error.message)[:200]
 
 
 def _api_problems(detail: list[Any]) -> str:
-    """FastAPI 422 items as "field: message (got N characters)", without the input."""
-    out = []
-    for item in detail:
-        if not isinstance(item, dict):
-            return str(detail)
-        field = ".".join(str(p) for p in item.get("loc", []) if p != "body")
-        value, kind = item.get("input"), str(item.get("type"))
-        if isinstance(value, str) and "string_too" in kind:
-            got = f" (got {len(value)} characters)"
-        elif value is not None and not isinstance(value, (dict, list)):
-            got = f" (got {str(value)[:50]!r})"
-        else:
-            got = ""
-        out.append(f"{field or 'body'}: {item.get('msg')}{got}")
-    return "; ".join(out)
+    """FastAPI 422 items (msg states limit and size, see main.py) as "field: msg"."""
+    if not all(isinstance(item, dict) for item in detail):
+        return str(detail)
+    return "; ".join(
+        f"{'.'.join(str(p) for p in i.get('loc', []) if p != 'body') or 'body'}: "
+        f"{i.get('msg')}"
+        for i in detail
+    )
 
 
 def _invalid_arguments(

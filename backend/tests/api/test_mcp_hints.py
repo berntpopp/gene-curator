@@ -90,36 +90,52 @@ def test_argument_errors_name_the_field_and_the_bound() -> None:
     assert any(p.startswith("item_type: 'gene' is not one of") for p in problems)
     assert "did you mean item_id?" in argument_errors(SCHEMA, {"itemid": "x"})[0]
     long = {"type": "object", "properties": {"comments": {"maxLength": 2000}}}
-    assert argument_errors(long, {"comments": "x" * 2187}) == [
-        "comments: 2187 characters > 2000 allowed"
-    ]
+    assert argument_errors(long, {"comments": "x" * 2037}) == [LONG]
 
 
-def test_api_422_names_field_limit_and_length_without_the_value() -> None:
+LONG = (
+    "comments: 2037 characters, max 2000; shorten, or put details in suggested_changes"
+)
+
+
+def test_a_too_long_review_comment_says_why_via_rest_and_mcp(
+    client: TestClient, db_session: Session, test_user_curator: UserNew
+) -> None:
+    """MCP study round 6, T8: 2037 characters failed with the comment echoed, not why."""
+    token = pat(db_session, test_user_curator)
+    comment = "x" * 2037
+    rest = client.post(
+        f"/api/v1/workflow/reviews/{uuid4()}/submit",
+        json={"decision": "request_changes", "comments": comment},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert rest.status_code == 422
+    (item,) = rest.json()["detail"]
+    assert (item["loc"], item["msg"]) == (["body", "comments"], LONG.split(": ", 1)[1])
+    assert "x" * 100 not in rest.text
+    mcp = call(
+        client,
+        token,
+        "submit_peer_review",
+        "/mcp",
+        review_id=str(uuid4()),
+        decision="request_changes",
+        comments=comment,
+    )
+    text = mcp["content"][0]["text"]
+    assert LONG in text and "x" * 100 not in text
+
+
+def test_api_422_items_read_field_then_message() -> None:
     detail = [
-        {
-            "type": "string_too_long",
-            "loc": ["body", "comments"],
-            "msg": "String should have at most 2000 characters",
-            "input": "x" * 2187,
-        },
-        {
-            "type": "enum",
-            "loc": ["body", "decision"],
-            "msg": "Input should be ...",
-            "input": "ok",
-        },
-        {"type": "missing", "loc": ["body", "lock_version"], "msg": "Field required"},
+        {"loc": ["body", "decision"], "msg": "Input should be ... (got 'ok')"},
+        {"loc": ["body", "lock_version"], "msg": "Field required"},
     ]
-    shown = _api_problems(detail)
-    assert shown == (
-        "comments: String should have at most 2000 characters (got 2187 characters); "
+    assert _api_problems(detail) == (
         "decision: Input should be ... (got 'ok'); lock_version: Field required"
     )
     assert _api_problems(["plain"]) == "['plain']"
-    message = _error(422, "submit_peer_review", detail)
-    assert "comments: String should have at most 2000 characters (got 2187" in message
-    assert "x" * 100 not in message
+    assert "decision: Input" in _error(422, "submit_peer_review", detail)
 
 
 def test_a_call_with_a_wrong_argument_never_reaches_the_api(
