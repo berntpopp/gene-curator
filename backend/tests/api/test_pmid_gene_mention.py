@@ -75,3 +75,30 @@ def test_validate_pmids_with_gene_symbol_flags_off_topic(
         (False, "found"),
         (None, "upstream_unavailable"),
     ]
+
+
+def test_a_blank_gene_symbol_is_ignored(
+    client: TestClient,
+    admin_token: str,
+    fake_db: MagicMock,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payload = PMIDValidationResponse(
+        total_requested=1,
+        valid_count=1,
+        invalid_count=0,
+        results=[
+            PMIDValidationResult(pmid="1", is_valid=True, publication=_pub("T", "x"))
+        ],
+    )
+    monkeypatch.setattr(
+        PublicationService, "validate_pmids", AsyncMock(return_value=payload)
+    )
+    r = client.post(
+        "/api/v1/publications/validate",
+        json={"pmids": ["1"], "gene_symbol": "   "},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["results"][0].get("mentions_gene") is None
+    fake_db.execute.assert_not_called()  # no gene lookup for a blank symbol

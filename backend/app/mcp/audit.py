@@ -7,6 +7,7 @@ The values reach PostgreSQL as app.channel/app.client (transaction-local), and t
 audit_log trigger from 059 copies them into change_metadata.
 """
 
+import difflib
 import json
 import time
 from contextvars import ContextVar
@@ -18,6 +19,7 @@ from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_http_request
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools import ToolResult
+from jsonschema import Draft202012Validator
 from mcp import types as mt
 from sqlalchemy import event, text
 from sqlalchemy.engine import Connection
@@ -131,9 +133,39 @@ _TOOL_HINTS = {
     ("execute_workflow_transition", 400): "get_workflow_state lists the moves you may "
     "make and why the others are blocked",
 }
+# 404s route to the tool that finds or creates the missing thing (round 3, T2/T6);
+# matched on the API detail only: the tool's arguments do not say what is missing
+_NOT_FOUND_HINTS = (
+    (
+        ("audit", "baseline", "snapshot", "no active curation"),
+        'get_workflow_audit_trail(item_type="curation", item_id) lists the '
+        "submissions and review rounds a diff can start from",
+    ),
+    (
+        ("pmid", "publication"),
+        "search_pubmed finds PMIDs; validate_pmids(pmids, gene_symbol) checks them",
+    ),
+    (
+        ("gene", "hgnc", "symbol"),
+        "the gene is not in Gene Curator yet: add_genes_to_scope(symbols, "
+        "scope_name) adds and assigns it, or create_gene(hgnc_id)",
+    ),
+    (
+        ("scope",),
+        "list_scopes(name=...) finds the scope id; tools with scope_name take the name",
+    ),
+)
 _STALE_HINT = (
     "re-read the item (get_curation or get_precuration), merge your change and retry"
 )
+
+
+def _not_found_hint(detail: Any) -> str | None:
+    said = str(detail or "").lower()
+    for words, hint in _NOT_FOUND_HINTS:
+        if any(word in said for word in words):
+            return hint
+    return None
 
 
 def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
@@ -147,7 +179,11 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
             detail = None
         if detail:
             message += f": {detail}"
-    hint = _TOOL_HINTS.get((tool, status)) or _HINTS.get(status)
+    hint = (
+        _TOOL_HINTS.get((tool, status))
+        or (_not_found_hint(detail) if status == 404 else None)
+        or _HINTS.get(status)
+    )
     if isinstance(detail, dict) and "current_lock_version" in detail:  # stale save
         hint = _STALE_HINT
     return ToolError(f"{message}\nnext: {hint}" if hint else message)
@@ -220,6 +256,84 @@ def _lean_block(block: mt.ContentBlock, drop: frozenset[str]) -> mt.ContentBlock
     return mt.TextContent(type="text", text=text)
 
 
+def _types(prop: dict[str, Any]) -> set[str]:
+    kind = prop.get("type")
+    found = {kind} if isinstance(kind, str) else set(kind or [])
+    for alternative in prop.get("anyOf", []) + prop.get("oneOf", []):
+        found |= _types(alternative)
+    return found
+
+
+_BOOLEANS = {"true": True, "false": False, "1": True, "0": False}
+_PARSERS: tuple[tuple[str, Any], ...] = (
+    ("integer", int),
+    ("number", float),
+    ("boolean", lambda text: _BOOLEANS[text.lower()]),
+)
+
+
+def coerce_arguments(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
+    """Numbers and booleans sent as strings ("20", "true"), parsed as FastAPI did.
+
+    Only where the argument cannot be a string and the text parses cleanly; anything
+    else is left for argument_errors to report.
+    """
+    props: dict[str, Any] = schema.get("properties", {})
+    out = dict(args)
+    for key, value in args.items():
+        types = _types(props.get(key) or {})
+        if not isinstance(value, str) or "string" in types:
+            continue
+        for kind, parse in _PARSERS:
+            if kind in types:
+                try:
+                    out[key] = parse(value.strip())
+                    break
+                except (KeyError, ValueError):
+                    continue
+    return out
+
+
+def argument_errors(schema: dict[str, Any], args: dict[str, Any]) -> list[str]:
+    """What is wrong with a tool call's arguments, naming each field (empty: fine).
+
+    Checked before the API is called, so a missing path parameter never reaches
+    it as a literal "{item_id}" (MCP study round 3, T3-1).
+    """
+    props: dict[str, Any] = schema.get("properties", {})
+    missing = [key for key in schema.get("required", []) if key not in args]
+    problems = []
+    for key in args:
+        if key not in props:
+            # A lone missing argument is the likely meant one (curation_id -> item_id)
+            close = difflib.get_close_matches(key, props, n=1) or (
+                missing if len(missing) == 1 else []
+            )
+            hint = f" (did you mean {close[0]}?)" if close else ""
+            problems.append(f"unknown {key}{hint}")
+    problems += [f"missing {key}" for key in missing]
+    known = {key: value for key, value in args.items() if key in props}
+    for error in Draft202012Validator(schema).iter_errors(known):
+        if error.validator != "required":
+            field = ".".join(map(str, error.absolute_path)) or "arguments"
+            problems.append(f"{field}: {error.message[:200]}")
+    return problems
+
+
+def _invalid_arguments(
+    tool: str, schema: dict[str, Any], problems: list[str]
+) -> ToolError:
+    required = set(schema.get("required", []))
+    accepts = ", ".join(
+        f"{key} (required)" if key in required else key
+        for key in schema.get("properties", {})
+    )
+    return ToolError(
+        f"invalid_input: {tool}: {'; '.join(problems)}\n"
+        f"next: fix the arguments; {tool} accepts {accepts or 'no arguments'}"
+    )
+
+
 def correlation_id() -> str | None:
     try:
         return getattr(get_http_request().state, "request_id", None)
@@ -259,6 +373,18 @@ class ToolAuditMiddleware(Middleware):
             AUDIT_KEYS | SLIM_KEYS.get(name, frozenset()) if self.lean else frozenset()
         )
         try:
+            server = (
+                context.fastmcp_context.fastmcp if context.fastmcp_context else None
+            )
+            tool = await server.get_tool(name) if server else None
+            if tool is not None:  # unknown tools: FastMCP answers
+                context.message.arguments = coerce_arguments(
+                    tool.parameters, context.message.arguments or {}
+                )
+                problems = argument_errors(tool.parameters, context.message.arguments)
+                if problems:
+                    outcome = "invalid_input"
+                    raise _invalid_arguments(name, tool.parameters, problems)
             result = await call_next(context)
             # Text only: clients bill structuredContent again on top of its text copy
             content = [_lean_block(block, drop) for block in result.content]
@@ -268,7 +394,7 @@ class ToolAuditMiddleware(Middleware):
                 raise ToolError(_TOO_LARGE.format(tokens=size // 3))
             return ToolResult(content=content, meta=result.meta)
         except Exception as exc:
-            if outcome == "response_too_large":
+            if outcome != "ok":  # our own refusal, already a ToolError
                 raise
             cause: BaseException | None = exc
             while cause is not None and not isinstance(cause, httpx.HTTPStatusError):

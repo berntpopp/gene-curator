@@ -88,7 +88,7 @@ revoked immediately.
   On `/mcp` results are leaner still: no internal hashes or autosave stamps, MONDO and HPO
   searches return ids and labels, `validate_pmids` returns title, journal and year
   (`get_publication` has the abstract), `list_members` drops invitation details, and
-  `get_curation_schema` is compact unless you pass `compact=false`. REST responses are unchanged.
+  `get_curation_schema` is compact unless you pass `compact=false`; `path=` reads one evidence field. REST responses are unchanged.
 - On `/mcp`, a list or search result over about 8,000 tokens is not sent; the error
   `response_too_large` says how to narrow it (paging, filters, `compact=true`). Single items such
   as a curation are always returned whole, and `/mcp/full` never caps.
@@ -97,6 +97,10 @@ revoked immediately.
 - Errors carry a closed code (`invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`,
   `rate_limited`, `upstream_unavailable`, `internal`, `response_too_large`) plus the HTTP status and the API's message.
   `conflict` means a stale write (reload and retry) or an inactive scope.
+- Arguments are checked before the API is called: an unknown name (with a did-you-mean), a missing
+  required argument or a value out of range is refused as `invalid_input` naming the field, the
+  bound and every argument the tool accepts. Each error ends with a `next:` line naming the tool to
+  call, for example `add_genes_to_scope` or `create_gene` when a gene is not found.
 - Rate limits are per user, shared by all of a user's tokens and sessions.
 - Every write is recorded in the audit log with `channel: mcp` and the token name as client.
 

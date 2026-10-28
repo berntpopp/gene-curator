@@ -2,6 +2,7 @@
 platform-admin tools hidden from others, lean and bounded results (token plan 1-6)."""
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,8 @@ from app.mcp.audit import AUDIT_KEYS, lean
 from app.mcp.server import (
     CORE_TOOLS,
     EXCLUDED_OPERATIONS,
+    INSTRUCTIONS,
+    VARIANT_TYPES,
     admin_only_tools,
     tool_names,
 )
@@ -193,7 +196,11 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     text = json.dumps(list(tools.values()))
     assert '"title"' not in text and ".0," not in text
     for name in ("save_draft_curations", "update_curation", "create_curation"):
-        assert "genetic_evidence.case_level" in tools[name]["description"], name
+        text = tools[name]["description"]
+        assert "genetic_evidence.case_level" in text, name
+        assert "One row per proband" in text and "variant_1 and variant_2" in text
+        assert "frameshift, canonical" in text and "missense" in text
+        assert "get_curation_schema(schema_id,\npath=" in text
     assert tools["read_my_work"]["description"].startswith("My work queue")
     assert "get_publication" in tools["validate_pmids"]["description"]
 
@@ -221,3 +228,107 @@ def test_only_narrowable_mcp_reads_are_capped(
     assert text("/mcp/full", "list_curations").startswith('{"curations"')
     capped = text("/mcp", "list_curations")
     assert capped.startswith("response_too_large:") and "skip and limit" in capped
+
+
+def _keys(schema: object) -> set[str]:
+    """Every property name at any depth: argument names are not tool names."""
+    if isinstance(schema, list):
+        return set().union(*map(_keys, schema)) if schema else set()
+    if not isinstance(schema, dict):
+        return set()
+    own = (
+        set(schema.get("properties", {}))
+        if isinstance(schema.get("properties"), dict)
+        else set()
+    )
+    return own.union(*map(_keys, schema.values()))
+
+
+@pytest.mark.parametrize("path", ["/mcp", "/mcp/full"])
+def test_every_tool_named_in_a_hint_description_or_instructions_exists(
+    path: str, client: TestClient, db_session: Session, test_user_admin: UserNew
+) -> None:
+    tools = _tools(client, pat(db_session, test_user_admin), path)
+    every = set(_tools(client, pat(db_session, test_user_admin), "/mcp/full"))
+    verbs = {name.split("_")[0] for name in every}  # get, list, add, curation, ...
+    arguments = set().union(*(_keys(t["inputSchema"]) for t in tools.values()))
+
+    def named(text: str) -> set[str]:
+        words = set(re.findall(r"\b[a-z]+(?:_[a-z0-9]+)+\b", text))
+        return {w for w in words if w.split("_")[0] in verbs} - arguments
+
+    hints = json.dumps(
+        [
+            audit._HINTS,
+            list(audit._TOOL_HINTS.values()),
+            audit._NOT_FOUND_HINTS,
+            audit._STALE_HINT,
+            audit._TOO_LARGE,
+        ]
+    )
+    assert named(INSTRUCTIONS + hints) - set(tools) == set()  # shared by both
+    missing = {
+        name: named(t["description"] + json.dumps(t["inputSchema"])) - set(tools)
+        for name, t in tools.items()
+    }
+    assert {name: found for name, found in missing.items() if found} == {}
+    assert "create_scope" in named(INSTRUCTIONS)  # the check sees real names
+
+
+def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
+    assert len(INSTRUCTIONS) < 4096  # Claude Code cuts server instructions there
+    for shortcut in (
+        "scope_name",
+        "submit_curation(reviewer_email=",
+        "submit_precuration(reviewer_email=",
+        "add_genes_to_scope(symbols, scope_name)",
+        "read_curation_for_review",
+        "search_pubmed(gene_symbol",
+        "validate_pmids(pmids, gene_symbol)",
+        "get_curation_schema(path=)",
+    ):
+        assert shortcut in INSTRUCTIONS, shortcut
+    # the old multi-step gene entry and reviewer routing are gone
+    assert "create_gene_assignment" not in INSTRUCTIONS
+    assert "assign_peer_reviewer" not in INSTRUCTIONS
+
+
+# Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
+# only on purpose. Bytes are the tools/list response as a client receives it.
+SURFACE_BUDGET = {"curator": (78, 64_000), "admin": (78, 64_000)}
+
+
+@pytest.mark.parametrize("role", SURFACE_BUDGET)
+def test_core_tool_surface_stays_in_budget(
+    role: str,
+    client: TestClient,
+    db_session: Session,
+    test_user_admin: UserNew,
+    test_user_curator: UserNew,
+) -> None:
+    user = test_user_admin if role == "admin" else test_user_curator
+    response = rpc(client, pat(db_session, user), "tools/list", {}, "/mcp")
+    count, max_bytes = SURFACE_BUDGET[role]
+    tools = response.json()["result"]["tools"]
+    assert (len(tools), len(response.content) <= max_bytes) == (count, True), (
+        len(tools),
+        len(response.content),
+    )
+
+
+def test_variant_types_in_descriptions_are_the_seeded_enum_values() -> None:
+    """The four case-level tables' variant_type options in the seeded schema (046)."""
+    sql = Path(__file__).parents[3] / "database/sql/046_clingen_v1_correction.sql"
+    seeded = [
+        re.findall(r'"value": "([^"]+)"', line)
+        for line in sql.read_text().splitlines()
+        if '"variant_type": {"type": "select"' in line
+    ]
+    assert seeded == [list(values) for values in VARIANT_TYPES.values()]
+    # no later migration redefines them
+    later = [
+        f.name
+        for f in sorted(sql.parent.glob("*.sql"))
+        if f.name > sql.name and '"variant_type": {"type": "select"' in f.read_text()
+    ]
+    assert later == []

@@ -72,9 +72,46 @@ def status_of(result: dict) -> int:
     """HTTP status behind a tool result (200 for any success)."""
     if not result.get("isError"):
         return 200
+    if _refused_locally(result):
+        return 422
     match = re.search(r"HTTP (\d{3})", result["content"][0]["text"])
     assert match, result
     return int(match.group(1))
+
+
+def _refused_locally(result: dict) -> bool:
+    """MCP refused the arguments itself, before any API call."""
+    text = result["content"][0]["text"]
+    return bool(result.get("isError") and re.match(r"invalid_input: (?!HTTP)", text))
+
+
+# Placeholders for arguments with a pattern (anything else follows the schema type)
+_PATTERNED = {"model_id": "model-20250101"}
+
+
+def _placeholder(prop: dict, key: str = "") -> Any:
+    """A value of the property's type (fresh ids and names, so creates never clash)."""
+    if prop.get("enum"):
+        return prop["enum"][0]
+    for alternative in prop.get("anyOf", []):
+        if alternative.get("type") != "null":
+            return _placeholder(alternative)
+    kind = prop.get("type")
+    if kind == "string":
+        if key in _PATTERNED:
+            return _PATTERNED[key]
+        return str(uuid4()) if prop.get("format") == "uuid" else f"x{uuid4().hex[:8]}"
+    if kind in ("integer", "number"):  # the smallest value the bounds allow
+        if "exclusiveMinimum" in prop:
+            return prop["exclusiveMinimum"] + 1
+        return prop.get("minimum", 0)
+    return {"boolean": False, "array": [], "object": {}}.get(kind, "x")
+
+
+def _filled(schema: dict, args: dict[str, Any]) -> dict[str, Any]:
+    """args plus every missing required argument, so writes reach the role checks."""
+    missing = set(schema.get("required", [])) - set(args)
+    return {**args, **{k: _placeholder(schema["properties"][k], k) for k in missing}}
 
 
 def _api_operations() -> list[tuple[str, str, dict]]:
@@ -221,24 +258,60 @@ def test_each_role_gets_the_same_status_through_mcp_and_api(
         "symbol": "BRCA1",
     }
     names = tool_names(app.openapi())
+    admin = pat(db_session, users["admin"])  # lists every tool's input schema
+    listed = rpc(client, admin, "tools/list", {}).json()["result"]["tools"]
+    schemas = {t["name"]: t["inputSchema"] for t in listed}
     raw = TestClient(app, raise_server_exceptions=False)  # SQLite-only 500s compare too
     mismatches = []
     for method, path, op in _api_operations():
         if (method, path) in EXCLUDED_OPERATIONS or _NETWORK.search(path):
             continue
+        name = names[op["operationId"]]
+        props = schemas[name]["properties"]
         params = re.findall(r"\{(\w+)\}", path)
+        # FastMCP renames a path parameter that clashes with a body field: X__path
+        keys = {p: f"{p}__path" if f"{p}__path" in props else p for p in params}
         # Reads use real rows; writes target missing rows so no call changes state
-        args = {
-            p: str(ids[p] if method == "GET" and p in ids else uuid4()) for p in params
+        path_args = {
+            p: str(ids[p])
+            if method == "GET" and p in ids
+            else _placeholder(props[keys[p]], p)
+            for p in params
         }
-        if "item_type" in args:
-            args["item_type"] = "curation"
-        url = path.format(**args)
-        # Same request both ways: path parameters only, no body or query
-        api = raw.request(method, url, headers={"Authorization": f"Bearer {token}"})
-        tool = status_of(call(client, token, names[op["operationId"]], **args))
+        if "item_type" in path_args:
+            path_args["item_type"] = "curation"
+        url = path.format(**path_args)
+        args = {keys[p]: v for p, v in path_args.items()}
+        query = {p["name"] for p in op.get("parameters", []) if p["in"] == "query"}
+
+        # Same arguments both ways (fresh placeholder values, so creates never clash)
+        sent = {
+            k: v
+            for k, v in _filled(schemas[name], args).items()
+            if k not in keys.values()
+        }
+        body = {k: v for k, v in sent.items() if k not in query}
+        api = raw.request(
+            method,
+            url,
+            params={k: v for k, v in sent.items() if k in query},
+            json=body or None,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        db_session.rollback()  # a failed placeholder write must not poison the next
+        r = rpc(  # not call(): a tool argument may be called name
+            client,
+            token,
+            "tools/call",
+            {"name": name, "arguments": _filled(schemas[name], args)},
+        )
+        db_session.rollback()
+        result = r.json()["result"]
+        tool = status_of(result)
         api_status = 200 if api.status_code < 300 else api.status_code
-        if api_status != tool:
+        # A placeholder may break a pattern or bound: MCP refuses it before the API
+        # runs, the API answers 422 (only the order of checks differs)
+        if api_status != tool and not (_refused_locally(result) and api_status == 422):
             mismatches.append((method, path, api.status_code, tool))
     assert mismatches == []
 

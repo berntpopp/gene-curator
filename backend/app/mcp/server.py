@@ -50,26 +50,34 @@ REST API as you, so your scope role, row-level security and the 4-eyes rule appl
 This endpoint (/mcp) serves pipeline setup, curation and review tools; /mcp/full
 serves every other API operation (schema authoring, statistics, platform admin).
 
+Scopes by name: tools with scope_name take the team name instead of scope_id
+(create_precuration, add_genes_to_scope, list_precurations, list_curations,
+get_peer_reviewers, get_my_review_assignments); list_scopes(name=) finds the id.
+
 Set up a pipeline: get_workflow_pairs, create_scope (default_workflow_pair_id;
-update_scope changes it later), then members: search_users_for_invitation finds a
-user, add_member adds them at once, invite_member sends an invitation,
-update_member_role changes a role; genes: resolve_genes, create_gene if missing,
-bulk_create_gene_assignments.
+update_scope changes it later); members: search_users_for_invitation finds a user,
+add_member adds them at once, invite_member sends an invitation, update_member_role
+changes a role.
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
-1. Entry: resolve_genes (create_gene if missing), then create_gene_assignment adds the
-   gene to the scope.
-2. Precuration: create_precuration, save_draft_precurations, submit_precuration, then
-   assign_peer_reviewer(item_type="precuration"). The reviewer finds it in read_my_work
-   and calls approve_precuration or reject_precuration.
+1. Entry: add_genes_to_scope(symbols, scope_name) resolves HGNC symbols, creates
+   missing genes and assigns them in one call.
+2. Precuration: create_precuration, save_draft_precurations, then
+   submit_precuration(reviewer_email=...) submits and routes it to a reviewer. The
+   reviewer finds it in read_my_work and calls approve_precuration or
+   reject_precuration.
 3. Curation: the approval opens a draft curation (list_curations); create_curation
    only works with an approved precuration and no open curation. Evidence that scores
-   lives in the curation's evidence_data (create_curation, update_curation,
-   save_draft_curations with lock_version); evidence-item tools are never scored.
-4. Review: submit_curation, then assign_peer_reviewer(item_type="curation"). The
-   reviewer approves with submit_peer_review(decision="approve") or
-   execute_workflow_transition(target_stage="active").
-5. Active: one active curation per gene and scope.
+   lives in evidence_data (save_draft_curations or update_curation with
+   lock_version); evidence-item tools are never scored. Their descriptions list the
+   evidence paths; get_curation_schema(path=) shows one table's fields.
+4. Literature: search_pubmed(gene_symbol, disease, query) finds papers with
+   abstracts; validate_pmids(pmids, gene_symbol) confirms PMIDs and flags papers
+   that do not mention the gene. Cite the PMID that reports each proband.
+5. Review: submit_curation(reviewer_email=...) submits and assigns the reviewer.
+   The reviewer reads everything in one call with read_curation_for_review, then
+   submit_peer_review(decision="approve" or "request_changes", with comments).
+6. Active: one active curation per gene and scope.
 
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
 to another reviewer of the scope.
@@ -77,18 +85,16 @@ to another reviewer of the scope.
 Scope roles (yours: read_users_me, the scope's: list_members):
 | role     | may                                                                  |
 | viewer   | read the scope                                                       |
-| curator  | read; add genes one at a time (create_gene_assignment); create, edit  |
-|          | and submit precurations and curations                                |
+| curator  | read; add genes; create, edit and submit precurations and curations  |
 | reviewer | read; approve or reject precurations; review others' curations       |
-| admin    | all of the above; members, bulk_create_gene_assignments, scope edits |
+| admin    | all of the above; members and scope edits                            |
 
-Look up before acting: a scope by name in list_scopes, a gene by symbol with
-resolve_genes or get_genes_by_symbol; pass their ids on. Check PMIDs with validate_pmids.
 Your queue: read_my_work and get_my_review_assignments.
 Errors start with a closed code (invalid_input, unauthorized, forbidden, not_found,
 conflict, rate_limited, upstream_unavailable, internal, response_too_large), then the
-API detail. On conflict, re-read the item and retry with its lock_version. Results
-omit null fields. Confirm destructive tools with the user.
+detail and a next: line naming the tool to call. On conflict, re-read the item and
+retry with its lock_version. Results omit null fields. Confirm destructive tools with
+the user.
 """
 
 # /mcp: the two primary flows (curate a gene end to end, check and review a
@@ -147,12 +153,33 @@ _NARROWING = {"skip", "limit", "compact"}
 MCP_DEFAULTS: dict[str, dict[str, Any]] = {"get_curation_schema": {"compact": True}}
 
 # Where scored evidence lives, so agents need no example curation (token plan 6)
+# variant_type options of the seeded ClinGen schema (046), per case-level table
+VARIANT_TYPES = {
+    "autosomal_dominant_or_x_linked.predicted_or_proven_null": (
+        "nonsense", "frameshift", "canonical_splice", "initiation_codon",
+        "single_exon_deletion", "multi_exon_deletion", "whole_gene_deletion",
+    ),
+    "autosomal_dominant_or_x_linked.other_variant_type": (
+        "missense", "in_frame_indel", "cryptic_splice", "synonymous", "5_utr",
+        "3_utr", "intronic", "other",
+    ),
+    "autosomal_recessive.predicted_or_proven_null": ("two_null", "null_and_null"),
+    "autosomal_recessive.other_variant_type": (
+        "null_and_other", "two_other", "homozygous_other",
+    ),
+}  # fmt: skip
+
 _EVIDENCE_PATHS = """
 
 Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
-- genetic_evidence.case_level.{autosomal_dominant_or_x_linked|autosomal_recessive}.
-  {predicted_or_proven_null|other_variant_type}[]: proband_label, variant, pmid,
-  proband_counted_points
+- genetic_evidence.case_level.autosomal_dominant_or_x_linked.{predicted_or_proven_null|
+  other_variant_type}[]: proband_label, variant, variant_type, pmid,
+  proband_counted_points; .autosomal_recessive.{...}[]: variant_1 and variant_2
+- One row per proband the paper describes, never one per paper or cohort; each row
+  has its own variant(s) as HGVS (c./p.), rsID or genomic coordinate, and the PMID
+  that reports that proband.
+- variant_type values per table:
+{variant_types}
 - genetic_evidence.segregation[]: family_label, lod_score or segregations_counted, pmid
 - genetic_evidence.case_control.{single_variant_analysis|aggregate_variant_analysis}[]
 - experimental_evidence.function.{biochemical_function|protein_interaction|expression}[],
@@ -161,7 +188,11 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
   .rescue.{human|non_human_model_organism|cell_culture|patient_cells}[]: label, pmid,
   points, explanation
 - contradictory_evidence[]: pmid, impact
-Field rules and point ranges: get_curation_schema (compact by default)."""
+Row fields, options and point ranges of one table: get_curation_schema(schema_id,
+path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null").""".replace(
+    "{variant_types}",
+    "\n".join(f"  {table}: {', '.join(vs)}" for table, vs in VARIANT_TYPES.items()),
+)
 # Routes without a docstring: lead with the words an agent searches for
 _DESCRIPTIONS = {
     "read_users_me": "Me: the current user's profile (id, name, application role).",

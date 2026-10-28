@@ -103,8 +103,9 @@ async def validate_pmids(
             request.pmids,
             user_id=str(current_user.id),
         )
-        if request.gene_symbol:
-            names = await gene_names(db, request.gene_symbol)
+        symbol = (request.gene_symbol or "").strip()  # "  " is no symbol
+        if symbol:
+            names = await gene_names(db, symbol)
             for r in result.results:
                 r.mentions_gene = mentions(names, r.publication)
 
