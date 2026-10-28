@@ -57,6 +57,10 @@ __pycache__/
 /.planning/waves/*/evidence/**
 !/.planning/waves/*/evidence/**/
 !/.planning/waves/*/evidence/**/*.md
+# MCP study raw runs (transcripts, prompts, metrics); keep only the .md summaries
+/.planning/waves/*/mcp-study/**
+!/.planning/waves/*/mcp-study/**/
+!/.planning/waves/*/mcp-study/**/*.md
 
 # Archived pre-GSD download tooling/cache and generated UI iteration state
 /.planning/milestones/pre-gsd/plan/scripts/download_clingen_docs.py

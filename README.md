@@ -57,6 +57,25 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.9.0
+
+Run `make db-migrate` (056–063) before restarting the backend. The database owner that runs
+migrations must be a superuser or have BYPASSRLS (SECURITY DEFINER functions for the LLM
+worker). Set `LLM_CREDENTIAL_KEYS` and `LLM_CREDENTIAL_ACTIVE_KID` (see `.env.example`).
+Rate limiting is on in `docker-compose.prod.yml`; behind a reverse proxy set
+`FORWARDED_ALLOW_IPS` to the proxy's address. Breaking: curation writes, scope lists and schema
+lists answer concisely unless `detail=true`; `CurationDetail.calculated_score` is gone; the
+evidence-item endpoints are deprecated; only cited evidence scores (no or unknown PMID, no or a
+placeholder variant, or a blank `score_status` scores 0 and submit refuses it); `gene_summaries`
+is dropped; `/mcp` serves the curation core and `/mcp/full` everything; 422s no longer echo
+input. Details: [docs/releases/v0.9.0.md](docs/releases/v0.9.0.md).
+([#494](https://github.com/berntpopp/gene-curator/pull/494),
+[#500](https://github.com/berntpopp/gene-curator/pull/500),
+[#492](https://github.com/berntpopp/gene-curator/pull/492),
+[#506](https://github.com/berntpopp/gene-curator/pull/506),
+[#511](https://github.com/berntpopp/gene-curator/pull/511),
+[#519](https://github.com/berntpopp/gene-curator/pull/519))
+
 ### Upgrading to v0.8.0
 
 Run `make db-migrate` (050–055) before restarting the backend. Users outside a scope now see only
