@@ -90,3 +90,34 @@ def test_repeated_row_warnings_collapse_to_a_count() -> None:
     ]
     one = [EvidenceWarning(path="r[0].pmid", message="bad")]
     assert collapse_warnings(one)[0].path == "r[0].pmid"
+
+
+def test_get_curation_through_mcp_carries_the_evidence_once(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator,
+    test_curation: CurationNew,
+    approved_precuration,
+) -> None:
+    """MCP study round 6, T5a: "the evidence payload twice". One read returns it once,
+    with the precuration linked and the score trace left out by default."""
+    import json
+
+    from tests.api.test_mcp import call, pat
+
+    test_curation.precuration_id = approved_precuration.id
+    test_curation.evidence_data = {
+        "genetic_evidence": {"rows": [{"label": "ONCE-ONLY"}]}
+    }
+    test_curation.computed_scores = {**_TRACE, "warnings": []}
+    db_session.commit()
+    result = call(
+        client,
+        pat(db_session, test_user_curator),
+        "get_curation",
+        "/mcp",
+        curation_id=str(test_curation.id),
+    )
+    (block,) = result["content"]
+    assert json.dumps(result).count("ONCE-ONLY") == 1
+    assert "trace" not in json.loads(block["text"])["computed_scores"]
