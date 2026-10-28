@@ -8,7 +8,7 @@
  * Frontend uses: type, status
  *
  * @module utils/schemaTransformer
- * @see plan/enhancements/tracking/011-IMPROVEMENT-PLAN.md
+ * @see .planning/milestones/pre-gsd/plan/enhancements/tracking/011-IMPROVEMENT-PLAN.md
  */
 
 /** Backend schema as received from the API, plus the frontend-only fields */

@@ -5,7 +5,7 @@
  * Implements single-open-drawer pattern for better UX.
  *
  * @module composables/useDrawerState
- * @see plan/enhancements/tracking/011-IMPROVEMENT-PLAN.md
+ * @see .planning/milestones/pre-gsd/plan/enhancements/tracking/011-IMPROVEMENT-PLAN.md
  */
 
 import { ref, computed, readonly } from 'vue'

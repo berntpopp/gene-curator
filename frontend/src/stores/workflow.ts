@@ -8,7 +8,7 @@ import type { Schema } from '@/types/api'
  * These represent the 5-stage curation workflow:
  * Entry → Precuration → Curation → Review → Active
  *
- * @see plan/enhancements/tracking/011-IMPROVEMENT-PLAN.md
+ * @see .planning/milestones/pre-gsd/plan/enhancements/tracking/011-IMPROVEMENT-PLAN.md
  */
 export interface WorkflowStage {
   id: string

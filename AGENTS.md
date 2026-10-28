@@ -81,7 +81,7 @@ scope role, never an application role. Test users: `role="user"` on `UserNew`, s
 A membership with `accepted_at IS NULL` is a pending invitation and grants nothing.
 
 **Backend** (`backend/app`): routers in `api/v1/endpoints/` (registered in `api/v1/api.py`;
-`invitations`, `evidence` and `gene_summaries` have no prefix), Pydantic schemas in `schemas/`,
+`invitations`, `evidence` (deprecated, removed in Wave 8) and `gene_summaries` have no prefix), Pydantic schemas in `schemas/`,
 data access in `crud/` (generic `CRUDBase`), business logic in `services/`. Auth chain in
 `core/deps.py`: `get_db -> get_current_user -> get_current_active_user -> get_current_admin_user`,
 plus `RequireScopeMember/Reviewer/Curator/Admin`. `set_rls_context()` sets `app.current_user_id`
@@ -139,7 +139,7 @@ need a policy per command the app runs. Existing dev volume: `make db-migrate` b
 - Branches `feature/...` or `fix/...`; [Conventional Commits](https://www.conventionalcommits.org/).
 - Hooks: `pre-commit` checks staged files (ruff, ESLint, Prettier, size); `pre-push` runs `make check`.
 - A PR is ready when `make ci` passes; describe what changed, why, and which gates ran.
-- Planning documents live in `.planning/` (GSD); `plan/` is legacy. User-facing docs in `README.md`.
+- Planning documents live in `.planning/` (GSD); pre-GSD plans are archived in `.planning/milestones/pre-gsd/`. User-facing docs in `README.md`.
 
 ## Tool notes
 
