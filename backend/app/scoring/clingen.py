@@ -303,7 +303,7 @@ class ClinGenEngine(ScoringEngine):
         )
         warnings += map(_range_warning, result["trace"].get("out_of_range", []))
         warnings += missing_score_warnings(model, evidence_data)
-        warnings += evidence_warnings(evidence_data, result["total"])
+        warnings += evidence_warnings(evidence_data, result)
         logger.info(
             "ClinGen scoring completed",
             total_score=result["total"],

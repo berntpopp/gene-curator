@@ -1,6 +1,7 @@
 """Reviewer warnings on saved evidence, by path (MCP study round 4): PMIDs written into free
 text, a summary claiming another total than the computed one, and an experimental row that
-reuses a case row's PMID and variant (a patient filed as experimental evidence)."""
+reuses a case row's PMID and variant (a patient filed as experimental evidence); and the hint
+that Definitive needs replicated_over_time once genetic evidence reaches 12 points."""
 
 import re
 from collections.abc import Iterator
@@ -71,9 +72,17 @@ def _misfiled_patients(evidence: dict[str, Any]) -> list[str]:
     return warnings
 
 
-def evidence_warnings(evidence: dict[str, Any], total: float) -> list[str]:
-    """Case-row lint plus the reviewer checks above, each naming its path."""
+def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[str]:
+    """Case-row lint plus the reviewer checks above, each naming its path; ``result`` is the
+    point model's (total, sections)."""
+    total = result["total"]
     warnings = case_row_warnings(evidence)
+    genetic = result["sections"].get("genetic_evidence", 0)
+    if genetic >= 12 and evidence.get("replicated_over_time") is not True:
+        warnings.append(
+            "replicated_over_time: genetic evidence reaches 12 points; Definitive needs "
+            "replication over time (set it to true if shown, else the class stays Strong)"
+        )
     warnings += [
         f"{at}: mentions a PMID in free text; record each paper in a row's pmid field"
         for at, text in _texts(evidence)

@@ -17,6 +17,10 @@ CASE = {
 }
 
 
+def _result(total: float, genetic: float = 0) -> dict:
+    return {"total": total, "sections": {"genetic_evidence": genetic}}
+
+
 def _evidence(**extra: object) -> dict:
     return {
         "genetic_evidence": {
@@ -42,7 +46,7 @@ def test_pmids_in_free_text_warn_but_ids_and_variants_do_not() -> None:
         entity_definition={"mondo_id": "MONDO:0009889"},
     )
     at = "experimental_evidence.function.biochemical_function"
-    assert [w for w in evidence_warnings(evidence, 2) if "free text" in w] == [
+    assert [w for w in evidence_warnings(evidence, _result(2)) if "free text" in w] == [
         f"{at}[{i}].explanation: mentions a PMID in free text; record each paper in a "
         "row's pmid field"
         for i in (0, 1)
@@ -64,7 +68,7 @@ def test_summary_total_must_match_the_computed_total(
 ) -> None:
     warnings = [
         w
-        for w in evidence_warnings(_evidence(evidence_summary=summary), 2)
+        for w in evidence_warnings(_evidence(evidence_summary=summary), _result(2))
         if "claims" in w
     ]
     expected = (
@@ -91,3 +95,39 @@ def test_experimental_row_reusing_a_patient_warns() -> None:
         f"31558469 and variant c.100C>T (p.Arg34Ter) of {AD}[0]; a patient's variant is "
         "case-level evidence, not experimental"
     ]
+
+
+@pytest.mark.parametrize(
+    ("genetic", "replicated", "hint"),
+    [(12, None, True), (12, False, True), (12, True, False), (11.9, None, False)],
+)
+def test_definitive_hint_once_genetic_evidence_reaches_twelve(
+    genetic: float, replicated: bool | None, hint: bool
+) -> None:
+    evidence = _evidence() | (
+        {} if replicated is None else {"replicated_over_time": replicated}
+    )
+    warnings = evidence_warnings(evidence, _result(genetic, genetic))
+    assert (
+        any(
+            w.startswith("replicated_over_time: genetic evidence reaches 12")
+            for w in warnings
+        )
+        is hint
+    )
+
+
+def test_engine_shows_the_definitive_hint() -> None:
+    rows = [
+        {**CASE, "proband_counted_points": 3, "pmid": str(10**7 + i)} for i in range(4)
+    ]
+    evidence = {
+        "genetic_evidence": {
+            "case_level": {
+                "autosomal_dominant_or_x_linked": {"predicted_or_proven_null": rows}
+            }
+        }
+    }
+    result = ClinGenEngine().calculate_scores(evidence, {})
+    assert result.verdict == "strong"
+    assert any(w.startswith("replicated_over_time:") for w in result.warnings)
