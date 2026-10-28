@@ -783,7 +783,8 @@ export interface paths {
         };
         /**
          * Get Curation Schema
-         * @description Get curation schema by ID. Pass compact=true to read only the field contract.
+         * @description Get curation schema by ID. Pass compact=true to read only the field contract and
+         *     path= to read one evidence field (one table's row fields) instead of all.
          */
         get: operations["get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get"];
         /**
@@ -12329,6 +12330,8 @@ export interface operations {
             query?: {
                 /** @description Fields flattened by id without display keys (label, help, order...); option values only; ui_configuration is {} and scoring_configuration is null */
                 compact?: boolean;
+                /** @description Dotted evidence path, e.g. genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null: field_definitions holds only that field */
+                path?: string | null;
             };
             header?: never;
             path: {
