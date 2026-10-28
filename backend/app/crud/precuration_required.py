@@ -188,3 +188,11 @@ def _shown(configs: dict[str, dict[str, Any]], path: str, data: Any) -> bool:
     parts = path.split(".")
     prefixes = (".".join(parts[: i + 1]) for i in range(len(parts)))
     return all(is_visible(configs[p], data) for p in prefixes if p in configs)
+
+
+def open_fields(definition: dict[str, Any], evidence: Any) -> list[dict[str, Any]]:
+    """The contract of the required fields still empty in ``evidence``."""
+    fields = definition.get("field_definitions")
+    data = evidence or {}
+    missing = missing_required_fields(fields, data, definition.get("validation_rules"))
+    return field_contract(fields, data, missing)

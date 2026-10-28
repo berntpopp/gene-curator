@@ -21,9 +21,13 @@ _PYDANTIC = {
 }
 
 
+_CHOICES = {"literal_error", "enum"}  # the msg already lists the allowed values
+
+
 def explain(errors: Any) -> list[dict[str, Any]]:
-    """FastAPI validation errors with a msg that states limit and received size or value;
-    long inputs are dropped so the response never echoes them."""
+    """FastAPI validation errors with a msg that states the limit and received size; the
+    input is never echoed (it may be a password), except a value checked against an
+    allowed list."""
     out = []
     for error in errors:
         item = dict(error)
@@ -32,9 +36,8 @@ def explain(errors: Any) -> list[dict[str, Any]]:
         if item.get("type") in _PYDANTIC and isinstance(value, (str, list, dict)):
             unit, bound, key = _PYDANTIC[item["type"]]
             item["msg"] = size_message(field, len(value), unit, bound, ctx.get(key))
-        elif value is not None and not isinstance(value, (dict, list)):
+        elif item.get("type") in _CHOICES and isinstance(value, (str, int)):
             item["msg"] = f"{item.get('msg')} (got {str(value)[:50]!r})"
-        if isinstance(value, (str, list, dict)) and len(str(value)) > 100:
-            item.pop("input", None)
+        item.pop("input", None)
         out.append(item)
     return out

@@ -34,4 +34,22 @@ def test_explain_sizes_values_and_drops_long_inputs() -> None:
         "Input should be 'a' (got 'b')",
         "Field required",
     ]
-    assert "input" not in out[1] and out[2]["input"] == "b"
+    assert all("input" not in e for e in out)
+
+
+def test_a_wrong_type_never_echoes_the_value() -> None:
+    (out,) = explain(
+        [
+            {
+                "type": "string_type",
+                "loc": ("body", "password"),
+                "msg": "Input should be a valid string",
+                "input": 12345678,
+            }
+        ]
+    )
+    assert out == {
+        "type": "string_type",
+        "loc": ("body", "password"),
+        "msg": "Input should be a valid string",
+    }

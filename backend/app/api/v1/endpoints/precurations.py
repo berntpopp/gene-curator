@@ -21,11 +21,7 @@ from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
-from app.crud.precuration_required import (
-    MissingRequiredFieldsError,
-    field_contract,
-    missing_required_fields,
-)
+from app.crud.precuration_required import MissingRequiredFieldsError, open_fields
 from app.crud.scope_visibility import scope_id_for
 from app.models import CurationStatus, PrecurationNew, Scope, UserNew
 from app.schemas.curation import collapse_warnings
@@ -266,15 +262,18 @@ def create_precuration(
 
 
 def _created(db: Session, precuration: PrecurationNew) -> PrecurationCreated:
-    definition = item_definition(db, precuration)
-    fields = definition.get("field_definitions")
-    evidence = precuration.evidence_data or {}
-    missing = missing_required_fields(
-        fields, evidence, definition.get("validation_rules")
-    )
+    try:
+        required = open_fields(
+            item_definition(db, precuration), precuration.evidence_data
+        )
+    except (
+        ValueError
+    ) as e:  # a broken pin must not turn the committed create into a 500
+        logger.warning("Precuration schema unreadable", error=str(e))
+        required = []
     return PrecurationCreated(
         **Precuration.model_validate(precuration).model_dump(),
-        required_fields=field_contract(fields, evidence, missing),
+        required_fields=required,
     )
 
 
