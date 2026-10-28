@@ -18,6 +18,7 @@ from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 from fastmcp.tools import Tool
+from fastmcp.utilities.json_schema import dereference_refs
 from fastmcp.utilities.openapi import HTTPRoute
 from fastmcp.utilities.openapi.models import HttpMethod
 from mcp import types as mt
@@ -69,8 +70,8 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
 3. Curation: the approval opens a draft curation (list_curations); create_curation
    only works with an approved precuration and no open curation. Evidence that scores
    lives in evidence_data (save_draft_curations or update_curation with
-   lock_version); evidence-item tools are never scored. Their descriptions list the
-   evidence paths; get_curation_schema(path=) shows one table's fields.
+   lock_version); their descriptions list the evidence paths and
+   get_curation_schema(path=) shows one table's fields.
 4. Literature: search_pubmed(gene_symbol, disease, query) finds papers with
    abstracts; validate_pmids(pmids, gene_symbol) confirms PMIDs and flags papers
    that do not mention the gene. Cite the PMID that reports each proband.
@@ -82,7 +83,7 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
 to another reviewer of the scope.
 
-Scope roles (yours: read_users_me, the scope's: list_members):
+Scope roles (yours: user_role on each list_scopes row; everyone's: list_members):
 | role     | may                                                                  |
 | viewer   | read the scope                                                       |
 | curator  | read; add genes; create, edit and submit precurations and curations  |
@@ -188,6 +189,8 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
   .rescue.{human|non_human_model_organism|cell_culture|patient_cells}[]: label, pmid,
   points, explanation
 - contradictory_evidence[]: pmid, impact
+- evidence_summary: free-text summary and notes of the curation (never scored);
+  submit notes go to the reviewer.
 Row fields, options and point ranges of one table: get_curation_schema(schema_id,
 path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null").""".replace(
     "{variant_types}",
@@ -205,16 +208,29 @@ _DESCRIPTIONS = {
     "update_review_comment": "Review comment: edit the body or change the status of a "
     "comment on a curation.",
 }
+# Said once, on the tool agents save evidence with (round 4: list size)
+_SEE_SAVE = (
+    "\n\nOne row per proband, each with its own variant (HGVS c./p., rsID or genomic "
+    "coordinate) and the PMID that reports it; exact variant_type values per table, "
+    "paths and evidence_summary: see save_draft_curations."
+)
 _DESCRIPTION_EXTRAS = {
     "save_draft_curations": _EVIDENCE_PATHS,
-    "update_curation": _EVIDENCE_PATHS,
-    "create_curation": _EVIDENCE_PATHS,
+    "update_curation": _SEE_SAVE,
+    "create_curation": _SEE_SAVE,
     "validate_pmids": "\n\nResults list title, journal and year; get_publication "
     "returns the abstract.",
 }
 
 # Docstring sections that describe the Python function, not the tool
 _DOC_NOISE = re.compile(r"\n\s*(Args|Returns|Raises|Example[^\n:]*):\s*\n.*", re.S)
+# REST routes in parentheses and paragraphs about the web UI or caching: an agent
+# calls tools, not routes
+_REST_NOISE = re.compile(
+    r" \((?:GET|POST|PUT|PATCH|DELETE) /[^)]*\)"
+    r"|\n\n(?:Use this endpoint (?:for|to populate)|This endpoint is useful for "
+    r"populating|Rate limiting:|Results are cached)[^\n]*(?:\n[^\n]+)*"
+)
 
 # State-changing actions a client should confirm (besides every DELETE)
 _DESTRUCTIVE = re.compile(
@@ -280,10 +296,11 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     tool.output_schema = None  # results go out once, as text (no structuredContent)
     tool.description = (
         _DESCRIPTIONS.get(tool.name)
-        or _DOC_NOISE.sub("", tool.description or "").strip()
+        or _REST_NOISE.sub("", _DOC_NOISE.sub("", tool.description or "")).strip()
         or route.summary
         or ""
     ) + _DESCRIPTION_EXTRAS.get(tool.name, "")
+    tool.parameters = dereference_refs(tool.parameters)  # inline first, then shrink
     _lean_schema(tool.parameters)
     for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
         tool.parameters["properties"][arg]["default"] = value
@@ -293,12 +310,34 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
         or (route.method == "POST" and bool(_DESTRUCTIVE.search(route.path)))
         or (route.method in ("PUT", "PATCH") and not _SAFE_UPDATE.search(route.path))
     )
+    # Spec defaults are left out: a write is neither read-only nor idempotent, and
+    # destructiveHint means nothing on a read
     tool.annotations = ToolAnnotations(
-        readOnlyHint=read_only,
-        destructiveHint=destructive,
-        idempotentHint=read_only,
+        readOnlyHint=read_only or None,
+        destructiveHint=None if read_only else destructive,
+        idempotentHint=read_only or None,
         openWorldHint=False,
     )
+    tool.tags = set()  # nothing selects by tag; each tag repeats in the list
+
+
+def _merge_nullable(schema: dict[str, Any]) -> None:
+    """anyOf [X, null] -> X with type [X's type, "null"]: the same values, a third of
+    the bytes (round 4: the tool list was 20-36% of input tokens)."""
+    options = schema.get("anyOf")
+    if (
+        not isinstance(options, list)
+        or len(options) != 2
+        or {"type": "null"} not in options
+    ):
+        return
+    (other,) = [o for o in options if o != {"type": "null"}]
+    if not isinstance(other.get("type"), str) or other["type"] == "null":
+        return
+    del schema["anyOf"]
+    schema.update({**other, "type": [other["type"], "null"]})
+    if "enum" in other:
+        schema["enum"] = [*other["enum"], None]
 
 
 def _lean_schema(schema: Any) -> None:
@@ -308,6 +347,7 @@ def _lean_schema(schema: Any) -> None:
         for item in schema:
             _lean_schema(item)
     elif isinstance(schema, dict):
+        _merge_nullable(schema)
         if isinstance(schema.get("title"), str):
             del schema["title"]
         if schema.get("required") == []:

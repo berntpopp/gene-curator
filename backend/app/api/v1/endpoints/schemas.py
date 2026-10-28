@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core import deps
 from app.core.database import get_db
 from app.core.enum_options import flatten_sections
-from app.core.schema_compact import compact_field, subtree
+from app.core.schema_compact import compact_field, rules_for, subtree
 from app.crud.schema_repository import (
     SNAPSHOT_KEYS,
     publish_errors,
@@ -173,12 +173,19 @@ def get_curation_schema(
     fields = flatten_sections(schema.field_definitions or {})
     if compact:
         fields = {k: compact_field(v) for k, v in fields.items()}
+    update: dict[str, Any] = {}
     if path:
         try:
             fields = {path: subtree(fields, path)}
         except KeyError as exc:
             raise HTTPException(status_code=400, detail=exc.args[0]) from exc
-    update: dict[str, Any] = {"field_definitions": fields}
+        # Only that subtree: its rules, no stage list or layout (round 4)
+        update = {
+            "validation_rules": rules_for(schema.validation_rules or {}, path, fields),
+            "workflow_states": {},
+            "ui_configuration": {},
+        }
+    update["field_definitions"] = fields
     if compact:
         update |= {"ui_configuration": {}, "scoring_configuration": None}
     return CurationSchema.model_validate(schema).model_copy(update=update)
