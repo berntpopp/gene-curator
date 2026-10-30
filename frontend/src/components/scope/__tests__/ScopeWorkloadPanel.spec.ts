@@ -9,7 +9,7 @@ const g = (id: string | null, name: string, stage: string) => ({
 })
 
 describe('ScopeWorkloadPanel', () => {
-  it('counts open genes per curator, busiest first, ignoring active and unassigned', () => {
+  it('counts assigned and open genes per curator, busiest first, ignoring unassigned', () => {
     const w = mount(ScopeWorkloadPanel, {
       props: {
         genes: [
@@ -22,7 +22,13 @@ describe('ScopeWorkloadPanel', () => {
       }
     })
     const rows = w.findAll('tbody tr').map(r => r.text())
-    expect(rows).toEqual(['Carol2', 'Alice1'])
+    expect(rows).toEqual(['Carol32', 'Alice11'])
+  })
+
+  it('lists a curator whose only assigned gene is active (W9 monkey)', () => {
+    const w = mount(ScopeWorkloadPanel, { props: { genes: [g('1', 'Alice', 'active')] } })
+    expect(w.findAll('tbody tr').map(r => r.text())).toEqual(['Alice10'])
+    expect(w.text()).not.toContain('No genes are assigned')
   })
 
   it('says so when nothing is assigned', () => {
