@@ -1,5 +1,3 @@
 Gene {gene_symbol} ({hgnc_id}), disease {disease_name} ({mondo_id}), inheritance {mode_of_inheritance}.
-Curation data:
+Curation evidence:
 {curation_data}
-Evidence summary:
-{evidence_text}

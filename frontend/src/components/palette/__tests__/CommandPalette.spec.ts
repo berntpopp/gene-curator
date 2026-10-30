@@ -34,7 +34,7 @@ vi.mock('vue-router', () => ({
 
 const hits = {
   genes: [
-    { id: 'g1', symbol: 'PKD1', hgnc_id: 'HGNC:9008' },
+    { id: 'g1', symbol: 'PKD1', hgnc_id: 'HGNC:9008', classification: 'definitive' },
     { id: 'g2', symbol: 'PKD2', hgnc_id: 'HGNC:9009' }
   ],
   curations: [
@@ -110,6 +110,13 @@ describe('CommandPalette', () => {
         .map(o => o.textContent)
         .join('|')
     ).toContain('Users')
+  })
+
+  it('shows the classification of a gene hit when it has one (#273)', async () => {
+    await type('pkd')
+    const genes = options().filter(o => o.textContent?.includes('HGNC:'))
+    expect(genes[0]!.textContent).toContain('Definitive')
+    expect(genes[1]!.textContent).not.toContain('classified')
   })
 
   it('debounces typing into one request and renders grouped results', async () => {

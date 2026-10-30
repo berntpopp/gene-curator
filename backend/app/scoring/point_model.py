@@ -81,9 +81,8 @@ def _type_points(
     flags: list[Any],
     excluded: list[Any],
 ) -> list[float]:
-    """Entered rows' points; rows outside the type's range are flagged, not clamped, so
-    stored totals stay reproducible. Non-finite points cannot be summed: not counted.
-    Rows with points but no citation count nothing and are listed in ``excluded``."""
+    """Entered rows' points; rows outside the type's range or non-finite are flagged and
+    count nothing (#278), never clamped. Rows with points but no citation count nothing and are listed in ``excluded``."""
     limits = type_def.get("range")
     points = []
     for i, row in indexed(_at(data, type_def["path"])):
@@ -91,7 +90,8 @@ def _type_points(
         if value is None:
             continue
         finite = math.isfinite(value)
-        if not finite or (limits and not limits[0] <= value <= limits[1]):
+        flagged = not finite or (limits and not limits[0] <= value <= limits[1])
+        if flagged:
             key = type_def.get("points_key", "points")
             if not finite and type_def.get("rule") == "segregation" and key not in row:
                 key = (
@@ -109,7 +109,7 @@ def _type_points(
         case_row = type_def.get("rule") == "case_row"
         if value > 0 and (why := uncited(row, case_row, by_status=case_row)):
             excluded.append({"path": f"{path}[{i}]", **why})
-        elif finite:
+        elif not flagged:  # flagged rows count nothing (#278); the trace lists them
             points.append(value)
     return points
 

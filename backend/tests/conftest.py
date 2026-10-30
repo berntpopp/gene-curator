@@ -31,7 +31,6 @@ from app.models.models import (
     CurationNew,
     CurationSchema,
     CurationStatus,
-    EvidenceItem,
     Gene,
     PrecurationNew,
     Publication,
@@ -409,31 +408,6 @@ def evidence_schema(
     test_workflow_pair.curation_schema_id = schema.id
     db_session.commit()
     return schema
-
-
-@pytest.fixture
-def test_evidence_item(
-    db_session: Session,
-    test_curation: CurationNew,
-    test_user_curator: UserNew,
-) -> EvidenceItem:
-    """Create test evidence item"""
-    evidence = EvidenceItem(
-        id=uuid4(),
-        curation_id=test_curation.id,
-        evidence_category="segregation",
-        evidence_type="genetic",
-        evidence_data={"pmid": "31558469", "lod_score": 3.2, "points": 2},
-        computed_score=5.0,
-        score_metadata={"method": "clingen_sop_v11"},
-        validation_status="valid",
-        created_by=test_user_curator.id,
-        updated_by=test_user_curator.id,
-    )
-    db_session.add(evidence)
-    db_session.commit()
-    db_session.refresh(evidence)
-    return evidence
 
 
 @pytest.fixture

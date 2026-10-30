@@ -166,6 +166,23 @@ describe('workspace frame save state', () => {
     expect(frame.canSubmit.value).toBe(true)
   })
 
+  it('blocks submit with the score panel reason while submit would refuse a row', () => {
+    const { frame } = setup()
+    frame.attachSubmit({ canSubmit: ref(true), run: vi.fn() })
+    const score = (refused: boolean) =>
+      ({
+        classification: 'Limited',
+        hasContradictory: false,
+        excluded: [{ text: 'P1', refused }]
+      }) as never
+    frame.setScore(score(false)) // not_scored is the curator's choice: submit allowed
+    expect(frame.canSubmit.value).toBe(true)
+    frame.setScore(score(true))
+    expect(frame.blockers.value).toEqual(['Fix the rows that score 0 before submitting'])
+    expect(frame.canSubmit.value).toBe(false)
+    expect(frame.submit()).toBe(false)
+  })
+
   it('keeps in-flight edits unsaved when the form sets savedAt during a frame-started save', async () => {
     const evidence = ref<Record<string, unknown>>({ a: 1 })
     const saving = ref(false)

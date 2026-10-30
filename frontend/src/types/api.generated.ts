@@ -2777,58 +2777,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/curations/{curation_id}/evidence": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Evidence Items
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        get: operations["list_evidence_items_api_v1_curations__curation_id__evidence_get"];
-        put?: never;
-        /**
-         * Create Evidence Item
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        post: operations["create_evidence_item_api_v1_curations__curation_id__evidence_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/curations/{curation_id}/evidence/{item_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Evidence Item
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        put: operations["update_evidence_item_api_v1_curations__curation_id__evidence__item_id__put"];
-        post?: never;
-        /**
-         * Delete Evidence Item
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        delete: operations["delete_evidence_item_api_v1_curations__curation_id__evidence__item_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/genes/{gene_id}/summary": {
         parameters: {
             query?: never;
@@ -4083,6 +4031,50 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scopes/{scope_id}/curations/{curation_id}/llm-second-view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Second View
+         * @description Latest AI findings and the human vs advocate vs skeptic diff, for reviewers.
+         */
+        get: operations["get_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_get"];
+        put?: never;
+        /**
+         * Queue Second View
+         * @description Queue a blind run per configured strategy; the worker runs them in the background.
+         */
+        post: operations["queue_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/llm-findings/{finding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Decide Finding
+         * @description Accept or dismiss one AI finding; the decision is recorded, nothing else changes.
+         */
+        patch: operations["decide_finding_api_v1_llm_findings__finding_id__patch"];
         trace?: never;
     };
     "/api/v1/logs/": {
@@ -5540,141 +5532,18 @@ export interface components {
             /** After */
             after?: unknown;
         };
-        /**
-         * EvidenceItem
-         * @description Complete evidence item schema
-         */
-        EvidenceItem: {
-            /**
-             * Evidence Category
-             * @description Evidence category: case_level, segregation, case_control, expression, protein_function, models, rescue
-             */
-            evidence_category: string;
-            /**
-             * Evidence Type
-             * @description Evidence type: genetic or experimental
-             */
-            evidence_type: string;
-            /**
-             * Evidence Data
-             * @description Complete evidence data structure (JSONB)
-             */
-            evidence_data: {
-                [key: string]: unknown;
-            };
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Curation Id
-             * Format: uuid
-             */
-            curation_id: string;
-            /**
-             * Computed Score
-             * @description Always null: evidence items are not scored
-             */
-            computed_score?: number | null;
-            /**
-             * Score Note
-             * @description Why this item does not change the curation score
-             * @default Evidence items are supporting records and are not scored. The curation's score comes from its evidence_data: add the row to the matching table there and save it with save_draft_curations (PATCH /curations/{id}/draft) to score it.
-             */
-            score_note: string;
-            /**
-             * Score Metadata
-             * @description Scoring calculation details
-             */
-            score_metadata?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Unverified Pmids
-             * @description PMIDs not verified: PubMed was unreachable when the item was saved
-             */
-            unverified_pmids?: string[];
-            /**
-             * Validation Status
-             * @description Validation status
-             */
-            validation_status: string;
-            /**
-             * Validation Errors
-             * @description Validation errors if any
-             */
-            validation_errors?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Validated At
-             * @description Validation timestamp
-             */
-            validated_at?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Created By
-             * Format: uuid
-             */
-            created_by: string;
-            /** Updated By */
-            updated_by?: string | null;
-            /**
-             * Is Deleted
-             * @default false
-             */
-            is_deleted: boolean;
-        };
-        /**
-         * EvidenceItemCreate
-         * @description Schema for creating evidence item
-         */
-        EvidenceItemCreate: {
-            /**
-             * Evidence Category
-             * @description Evidence category: case_level, segregation, case_control, expression, protein_function, models, rescue
-             */
-            evidence_category: string;
-            /**
-             * Evidence Type
-             * @description Evidence type: genetic or experimental
-             */
-            evidence_type: string;
-            /**
-             * Evidence Data
-             * @description Complete evidence data structure (JSONB)
-             */
-            evidence_data: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * EvidenceItemUpdate
-         * @description Schema for updating evidence item
-         */
-        EvidenceItemUpdate: {
-            /**
-             * Evidence Data
-             * @description Updated evidence data
-             */
-            evidence_data?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Validation Status
-             * @description Validation status: pending, valid, invalid
-             */
-            validation_status?: string | null;
+        /** DiffRow */
+        DiffRow: {
+            /** Category */
+            category: string;
+            /** Human */
+            human: number | string | null;
+            /** Advocate */
+            advocate: number | string | null;
+            /** Skeptic */
+            skeptic: number | string | null;
+            /** Disagree */
+            disagree: boolean;
         };
         /**
          * EvidenceWarning
@@ -5722,6 +5591,37 @@ export interface components {
             }[];
             /** Suggestions */
             suggestions: string[];
+        };
+        /** FindingDecision */
+        FindingDecision: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accepted" | "dismissed";
+        };
+        /** FindingOut */
+        FindingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /** Category */
+            category: string;
+            /** Message */
+            message: string;
+            /** Citations */
+            citations: string[];
+            /** Decision */
+            decision: ("accepted" | "dismissed") | null;
+            /** Decided At */
+            decided_at: string | null;
         };
         /**
          * Gene
@@ -6082,6 +5982,8 @@ export interface components {
             symbol: string;
             /** Hgnc Id */
             hgnc_id: string;
+            /** Classification */
+            classification?: string | null;
         };
         /**
          * GeneListResponse
@@ -10429,6 +10331,50 @@ export interface components {
             /** Scopes */
             scopes: components["schemas"]["ScopeHit"][];
         };
+        /**
+         * SecondViewOut
+         * @description AI second view of one curation: advisory only, never part of the curation.
+         */
+        SecondViewOut: {
+            /**
+             * Curation Id
+             * Format: uuid
+             */
+            curation_id: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Pending */
+            pending: boolean;
+            /** Runs */
+            runs: components["schemas"]["SecondViewRun"][];
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+            /** Diff */
+            diff: components["schemas"]["DiffRow"][];
+        };
+        /** SecondViewRun */
+        SecondViewRun: {
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Model Id */
+            model_id: string;
+            /** Prompt Version */
+            prompt_version: number | null;
+            /** Methodology Version */
+            methodology_version: number | null;
+            /** Proposed Verdict */
+            proposed_verdict: string | null;
+            /** Finished At */
+            finished_at: string | null;
+        };
         /** TemplateCreate */
         TemplateCreate: {
             /** Key */
@@ -10857,6 +10803,20 @@ export interface components {
             link: string;
             /** Updated At */
             updated_at?: string | null;
+            /** Disease Name */
+            disease_name?: string | null;
+            /** Mode Of Inheritance */
+            mode_of_inheritance?: string | null;
+            /**
+             * Stage
+             * @description Workflow stage; null for assignments
+             */
+            stage?: string | null;
+            /**
+             * Classification
+             * @description Calculated classification (curations only)
+             */
+            classification?: string | null;
         };
         /**
          * WorkflowAnalytics
@@ -16481,138 +16441,6 @@ export interface operations {
             };
         };
     };
-    list_evidence_items_api_v1_curations__curation_id__evidence_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvidenceItem"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_evidence_item_api_v1_curations__curation_id__evidence_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EvidenceItemCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvidenceItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_evidence_item_api_v1_curations__curation_id__evidence__item_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EvidenceItemUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvidenceItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_evidence_item_api_v1_curations__curation_id__evidence__item_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_gene_public_summary_api_v1_genes__gene_id__summary_get: {
         parameters: {
             query?: never;
@@ -17929,6 +17757,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecondViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecondViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_finding_api_v1_llm_findings__finding_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                finding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindingDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingOut"];
                 };
             };
             /** @description Validation Error */

@@ -139,24 +139,53 @@ class _Failing(MockProvider):
         raise LLMProviderError("http_error", 500)
 
 
+def _answer(case: dict, flags: list[str], evidence: dict | str) -> MockProvider:
+    findings = [
+        {"category": c, "message": "m", "citations": ["PMID:31000001"]} for c in flags
+    ]
+    proposed = evidence if isinstance(evidence, str) else json.dumps(evidence)
+    return MockProvider(
+        response_text=json.dumps({"findings": findings, "proposed_evidence": proposed})
+    )
+
+
 @pytest.mark.asyncio
 async def test_golden_cases_report_ok_unexpected_invalid_and_errors() -> None:
     version = golden_version()
     case = load_golden()[0]
-    ok = MockProvider(response_text='{"verdict": "supported", "rationale": "r"}')
-    result = await run_golden_case(ok, version, case, 100)
+    flags, expert = case["expect"]["flags"], case["expert_evidence"]
+    result = await run_golden_case(_answer(case, flags, expert), version, case, 100)
     assert result["ok"] and result["input_tokens"] > 0
-    wrong = MockProvider(response_text='{"verdict": "refuted", "rationale": "r"}')
-    assert (await run_golden_case(wrong, version, case, 100))["error_code"] == (
-        "unexpected_output"
-    )
-    bad = MockProvider(response_text='{"verdict": "refuted"}')
-    assert (await run_golden_case(bad, version, case, 100))["error_code"] == (
+    unflagged = await run_golden_case(_answer(case, [], expert), version, case, 100)
+    assert unflagged["error_code"] == "unexpected_output"  # the skeptic missed the flaw
+    advocate = golden_version("advocate")
+    assert (
+        await run_golden_case(
+            _answer(case, [], expert), advocate, case, 100, "advocate"
+        )
+    )["ok"]  # flags are the skeptic's job
+    strong = load_golden()[1]["expert_evidence"]
+    wrong = await run_golden_case(_answer(case, flags, strong), version, case, 100)
+    assert wrong["error_code"] == "unexpected_output"  # strong; the expert says limited
+    bad = await run_golden_case(_answer(case, flags, "not json"), version, case, 100)
+    assert bad["error_code"] == "invalid_output"
+    missing = MockProvider(response_text='{"findings": []}')
+    assert (await run_golden_case(missing, version, case, 100))["error_code"] == (
         "invalid_output"
     )
     assert (await run_golden_case(_Failing(), version, case, 100))["error_code"] == (
         "http_error"
     )
+
+
+@pytest.mark.parametrize("strategy", ["skeptic", "advocate"])
+@pytest.mark.asyncio
+async def test_expert_answers_agree_on_every_golden_case(strategy: str) -> None:
+    """The golden set is consistent: its expert evidence scores to its expert class."""
+    version = golden_version(strategy)
+    for case in load_golden():
+        answer = _answer(case, case["expect"]["flags"], case["expert_evidence"])
+        assert (await run_golden_case(answer, version, case, 100, strategy))["ok"]
 
 
 @pytest.mark.asyncio

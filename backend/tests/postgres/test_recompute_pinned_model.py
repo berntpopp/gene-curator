@@ -98,7 +98,7 @@ def test_recompute_scores_api_saved_custom_evidence(
         ),
         (
             {"experimental_evidence": [{"evidence_category": "rescue", "points": -3}]},
-            -3,
+            0,
             "experimental_evidence[0].points",
         ),
         (
@@ -169,3 +169,47 @@ def test_api_draft_invalid_scores_are_flagged_and_storable(
         assert db.scalar(text("SELECT current_user")) == "app_user"
         recompute_scores.recompute_all_scores(db)
     assert summaries[-1]["out_of_range"][created["id"]] == [path]
+
+
+def test_recompute_leaves_active_rows_alone_when_only_warnings_differ(
+    client: TestClient, w: W, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An active curation at 12 points whose stored warnings predate new warning text:
+    two recomputes as app_user write nothing, so lock_version (008) stays put."""
+    from tests.unit.test_curation_score_persistence import _twelve_points
+
+    created = _create(client, w, w.genes[0])
+    saved = client.patch(
+        f"/api/v1/curations/{created['id']}/draft",
+        json={
+            "evidence_data": _twelve_points(),
+            "lock_version": created["lock_version"],
+        },
+        headers=_h(w.alice),
+    )
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["total_score"] == 12
+    with _owner() as conn, conn.cursor() as cur:  # as if approved before the new text
+        cur.execute(
+            "UPDATE curations SET status = 'active', computed_scores = "
+            "computed_scores || '{\"warnings\": []}' WHERE id = %s RETURNING lock_version",
+            (created["id"],),
+        )
+        (before,) = cur.fetchone()
+    summaries: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        recompute_scores.logger, "info", lambda msg, **kw: summaries.append(kw)
+    )
+    for _ in range(2):
+        with Session(database.engine) as db:
+            assert db.scalar(text("SELECT current_user")) == "app_user"
+            recompute_scores.recompute_all_scores(db)
+        assert created["id"] not in summaries[-1]["kept_uncited_ids"]
+        assert summaries[-1]["updated"] == 0
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT lock_version, computed_scores->'warnings' FROM curations "
+            "WHERE id = %s",
+            (created["id"],),
+        )
+        assert cur.fetchone() == (before, [])

@@ -35,6 +35,19 @@
       <template #item.gene_symbol="{ item }">
         <span class="font-mono work-gene">{{ item.gene_symbol }}</span>
       </template>
+      <template #item.disease_name="{ item }">
+        {{ item.disease_name ?? EMPTY }}
+        <span v-if="item.mode_of_inheritance" class="text-medium-emphasis">
+          · {{ formatInheritance(item.mode_of_inheritance) }}
+        </span>
+      </template>
+      <template #item.stage="{ item }">
+        {{ item.stage ? humanize(item.stage) : EMPTY }}
+      </template>
+      <template #item.classification="{ item }">
+        <ClassificationMark v-if="item.classification" :classification="item.classification" />
+        <span v-else class="text-medium-emphasis">{{ EMPTY }}</span>
+      </template>
       <template #item.updated_at="{ item }">
         <span class="font-mono text-medium-emphasis">{{ relativeTime(item.updated_at) }}</span>
       </template>
@@ -59,6 +72,10 @@
   import { useMyWorkStore, type WorkItem, type WorkTab } from '@/stores/myWork'
   import { useInvitationsStore } from '@/stores/invitations'
   import PendingInvitations from '@/components/dashboard/PendingInvitations.vue'
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
+  import { humanize } from '@/components/dynamic/fieldLabels'
+  import { formatInheritance } from '@/utils/inheritance'
+  import { EMPTY } from '@/utils/format'
 
   const TABS: { value: WorkTab; label: string }[] = [
     { value: 'needs_you', label: 'Needs you' },
@@ -67,6 +84,9 @@
   ]
   const HEADERS = [
     { title: 'Gene', key: 'gene_symbol' },
+    { title: 'Disease', key: 'disease_name' },
+    { title: 'Stage', key: 'stage' },
+    { title: 'Classification', key: 'classification' },
     { title: 'Scope', key: 'scope_name' },
     { title: 'Age', key: 'updated_at' },
     { title: 'Next action', key: 'verb' }
@@ -94,7 +114,11 @@
     const q = (search.value ?? '').trim().toLowerCase()
     const byVerb = new Map<string, WorkItem[]>()
     for (const i of store.byTab(tab.value)) {
-      if (q && !`${i.gene_symbol} ${i.scope_name}`.toLowerCase().includes(q)) continue
+      if (
+        q &&
+        !`${i.gene_symbol} ${i.scope_name} ${i.disease_name ?? ''}`.toLowerCase().includes(q)
+      )
+        continue
       byVerb.set(i.verb, [...(byVerb.get(i.verb) ?? []), i])
     }
     return [...byVerb.values()].flat()

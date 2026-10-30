@@ -49,6 +49,9 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
         "/api/v1/oauth/authorizations/{request_id}",
     ): "OAuth consent, session only",
     **dict.fromkeys(PAT_BLOCKED_OPERATIONS, "blocked for personal access tokens"),
+    ("PATCH", "/api/v1/llm-findings/{finding_id}"): (
+        "accepting or dismissing an AI finding is a human reviewer decision"
+    ),
 }
 
 INSTRUCTIONS = """\

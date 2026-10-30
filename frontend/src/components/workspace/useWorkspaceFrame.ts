@@ -45,7 +45,13 @@ export function createWorkspaceFrame() {
   const meta = ref<{ disease?: string; moi?: string }>({})
   // Things that must be fixed before saving, by source (e.g. an unknown PMID in a table)
   const blockerMap = ref<Record<string, string>>({})
-  const blockers = computed(() => Object.values(blockerMap.value))
+  // Rows the submit would refuse (scorePreview REASONS) block it here, with the panel's reason
+  const blockers = computed(() => [
+    ...Object.values(blockerMap.value),
+    ...(score.value?.excluded?.some(e => e.refused)
+      ? ['Fix the rows that score 0 before submitting']
+      : [])
+  ])
 
   const snapshot = () => JSON.stringify(form.value?.evidence.value ?? null)
   const dirty = computed(() => baseline.value !== null && snapshot() !== baseline.value)

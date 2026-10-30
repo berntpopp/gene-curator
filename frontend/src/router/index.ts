@@ -45,6 +45,7 @@ const UserManagement = () => import('@/views/UserManagement.vue')
 const AccessTokens = () => import('@/views/AccessTokens.vue')
 const OAuthConsent = () => import('@/views/OAuthConsent.vue')
 const LlmAdmin = () => import('@/views/admin/llm/LlmAdmin.vue')
+const LlmSecondView = () => import('@/views/llm/LlmSecondView.vue')
 const About = () => import('@/views/About.vue')
 const FAQ = () => import('@/views/FAQ.vue')
 const NotAuthorized = () => import('@/views/NotAuthorized.vue')
@@ -157,6 +158,17 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'New Curation',
+      requiresAuth: true
+    }
+  },
+  // AI second view (#464, #465); reviewers only, the API enforces it
+  {
+    path: '/scopes/:scopeId/curations/:curationId/second-view',
+    name: 'llm-second-view',
+    component: LlmSecondView,
+    props: true,
+    meta: {
+      title: 'AI Second View',
       requiresAuth: true
     }
   },

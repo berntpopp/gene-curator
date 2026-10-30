@@ -160,6 +160,9 @@ export const useLlmStore = defineStore('llm', () => {
     testRun: llmAPI.testRun,
     scopeOptions: llmAPI.scopeOptions,
     scopeSettings: llmAPI.scopeSettings,
-    saveScopeSettings: llmAPI.saveScopeSettings
+    saveScopeSettings: llmAPI.saveScopeSettings,
+    secondView: llmAPI.secondView,
+    requestSecondView: llmAPI.requestSecondView,
+    decideFinding: llmAPI.decideFinding
   }
 })
