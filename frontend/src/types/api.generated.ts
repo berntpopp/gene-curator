@@ -7450,7 +7450,7 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "create" | "unchanged" | "new_version" | "update" | "refused";
+            action: "create" | "unchanged" | "new_version" | "update";
             /**
              * Id
              * @description Empty for objects a dry run would create
