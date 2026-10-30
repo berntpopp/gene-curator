@@ -6,7 +6,8 @@ WS=$1 BRANCH=$2 OWNS=$3 ISSUES=$4 NOTE=${5:-}
 WT=$MAIN/../gc-wt/$WS; WT=$(readlink -m "$WT")
 git -C "$MAIN" fetch -q origin master
 git -C "$MAIN" worktree add -q "$WT" -b "$BRANCH" "${BASE:-origin/master}"
-ln -s "$MAIN/frontend/node_modules" "$WT/frontend/node_modules"
+# own node_modules per worktree: make ci reinstalls it and would wipe a shared symlinked copy
+(cd "$WT/frontend" && npm ci --no-audit --no-fund --loglevel=error)
 (cd "$WT/backend" && uv sync --extra dev --frozen -q)
 B=$SCR/$WS.brief.md
 { echo "You are implementer $WS on Gene Curator, worktree $WT, branch $BRANCH. Work only inside $WT. Ponytail full: smallest complete change."

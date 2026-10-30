@@ -10,11 +10,14 @@
  * @module componentRegistry
  */
 
-import type { Component } from 'vue'
+import { defineComponent, h, type Component, type PropType } from 'vue'
 import { VCheckbox } from 'vuetify/components/VCheckbox'
+import { VIcon } from 'vuetify/components/VIcon'
 import { VSelect } from 'vuetify/components/VSelect'
 import { VTextField } from 'vuetify/components/VTextField'
 import EvidenceTableField from './EvidenceTableField.vue'
+import ReadonlyValue from './ReadonlyValue.vue'
+import { rulesFor } from './composables/useValidationRules'
 import type { FieldSchema } from './types'
 import MONDOAutocomplete from '@/components/evidence/MONDOAutocomplete.vue'
 import PMIDInput from '@/components/evidence/PMIDInput.vue'
@@ -78,6 +81,72 @@ export interface FieldTypeDef {
   empty: () => unknown
 }
 
+/** An http(s) URL with a host, else none: never a javascript: or data: link (#538) */
+export function safeHref(value: unknown): string | undefined {
+  try {
+    const url = new URL(String(value ?? '').trim())
+    return ['http:', 'https:'].includes(url.protocol) && url.hostname ? url.href : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export const urlRule = (value: unknown) => !value || !!safeHref(value) || 'Enter an http(s) URL'
+
+/** Opens a safe URL in a new tab; nothing for anything else */
+export function urlLink(value: unknown) {
+  const href = safeHref(value)
+  return href
+    ? h(
+        'a',
+        {
+          href,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          title: href,
+          'aria-label': 'Open link'
+        },
+        [h(VIcon, { icon: 'mdi-open-in-new', size: 'small' })]
+      )
+    : null
+}
+
+/** `url` field: a text input with an open-link button; read-only it is a link */
+const UrlField = defineComponent({
+  props: {
+    fieldSchema: { type: Object as PropType<FieldSchema>, required: true },
+    label: { type: String, default: '' },
+    modelValue: { type: null, default: undefined },
+    disabled: Boolean,
+    readonly: Boolean,
+    errorMessages: { type: Array as PropType<string[]>, default: () => [] }
+  },
+  emits: ['update:model-value'],
+  setup(props, { emit }) {
+    return () =>
+      props.readonly
+        ? h(ReadonlyValue, {
+            schema: props.fieldSchema,
+            modelValue: props.modelValue,
+            label: props.label
+          })
+        : h(
+            VTextField,
+            {
+              type: 'url',
+              modelValue: props.modelValue as string | undefined,
+              label: props.label,
+              hint: props.fieldSchema.hint || props.fieldSchema.description,
+              disabled: props.disabled,
+              errorMessages: props.errorMessages,
+              rules: [...rulesFor(props.fieldSchema), urlRule],
+              'onUpdate:modelValue': (v: unknown) => emit('update:model-value', v)
+            },
+            { 'append-inner': () => urlLink(props.modelValue) }
+          )
+  }
+})
+
 const textCell: CellDef = { is: VTextField, lazy: true }
 const numberCell: CellDef = { is: VTextField, props: { type: 'number' }, lazy: true }
 
@@ -88,6 +157,11 @@ export const fieldTypes: Record<string, FieldTypeDef> = {
   boolean: { cell: { is: VCheckbox }, empty: () => false },
   object: { empty: () => ({}) },
   array: { empty: () => [] },
+  url: {
+    editor: UrlField,
+    cell: { is: VTextField, props: { type: 'url' }, lazy: true },
+    empty: () => ''
+  },
   evidence_table: {
     // Getter: EvidenceTableField imports this module back, so resolve it at render time
     get editor() {

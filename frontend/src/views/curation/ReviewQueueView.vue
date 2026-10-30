@@ -121,14 +121,19 @@
             Approve
           </v-btn>
         </div>
-        <v-btn
-          v-else
-          color="primary"
-          size="small"
-          :to="`/scopes/${item.scope_id}/curations/${item.id}`"
-        >
-          Review
-        </v-btn>
+        <div v-else class="d-flex justify-end ga-2">
+          <v-btn
+            variant="text"
+            size="small"
+            :to="`/scopes/${item.scope_id}/curations/${item.id}/second-view`"
+            data-test="open-second-view"
+          >
+            AI second view
+          </v-btn>
+          <v-btn color="primary" size="small" :to="`/scopes/${item.scope_id}/curations/${item.id}`">
+            Review
+          </v-btn>
+        </div>
       </template>
       <template #no-data>
         <div class="text-center py-8" data-testid="queue-empty">

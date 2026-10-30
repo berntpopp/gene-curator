@@ -93,11 +93,21 @@ describe('LlmSecondView', () => {
     expect(call(vm, 'shown', 6.5)).toBe(6.5)
   })
 
-  it('stays hidden when the feature is off and nothing ran, or the user may not see it', async () => {
+  it('names the collapsed header button, disagreements included (#530)', async () => {
+    const w = await mountView()
+    const header = w.get('button.v-expansion-panel-title')
+    expect(header.attributes('aria-label')).toBe('AI second view (advisory), 1 disagreement')
+  })
+
+  it('says why when the feature is off and nothing ran, or the user may not see it', async () => {
     api.secondView.mockResolvedValue({ ...view, enabled: false, runs: [], findings: [], diff: [] })
-    expect((await mountView()).find('[data-test="llm-second-view"]').exists()).toBe(false)
+    let w = await mountView()
+    expect(w.find('[data-test="llm-second-view"]').exists()).toBe(false)
+    expect(w.find('[data-test="second-view-off"]').exists()).toBe(true)
     api.secondView.mockRejectedValue({ response: { status: 403 } })
-    expect((await mountView()).find('[data-test="llm-second-view"]').exists()).toBe(false)
+    w = await mountView()
+    expect(w.find('[data-test="llm-second-view"]').exists()).toBe(false)
+    expect(w.find('[data-test="second-view-off"]').exists()).toBe(true)
   })
 
   it('records accept and dismiss per finding', async () => {
