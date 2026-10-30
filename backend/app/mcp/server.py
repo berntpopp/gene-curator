@@ -414,8 +414,9 @@ def admin_only_tools(app: FastAPI, names: dict[str, str]) -> frozenset[str]:
 
 
 class CallerToolFilter(Middleware):
-    """tools/list hides platform-admin tools from non-admins (the spec lets the list
-    vary by authorization); calling one still reaches the API, which answers 403."""
+    """tools/list hides platform-admin tools from non-admins and write tools from a
+    read-only token (the spec lets the list vary by authorization); calling one still
+    reaches the API, which answers 403."""
 
     def __init__(self, admin_only: frozenset[str]) -> None:
         self.admin_only = admin_only
@@ -427,6 +428,8 @@ class CallerToolFilter(Middleware):
     ) -> Any:
         tools = await call_next(context)
         token = get_access_token()
+        if token is not None and "write" not in token.scopes:  # monkey L4
+            tools = [t for t in tools if t.annotations and t.annotations.readOnlyHint]
         if token is not None and token.claims.get("role") == "admin":
             return tools
         return [tool for tool in tools if tool.name not in self.admin_only]
