@@ -239,12 +239,16 @@ def test_only_narrowable_mcp_reads_are_capped(
     token = pat(db_session, test_user_curator)
     curation_id = str(test_curation.id)
 
-    def text(path: str, name: str, **args: str) -> str:
+    def text(path: str, name: str, **args: object) -> str:
         return str(call(client, token, name, path=path, **args)["content"][0]["text"])
 
     # A whole curation is always readable; /mcp/full is never capped (parity)
-    for path in ("/mcp", "/mcp/full"):
-        assert len(text(path, "get_curation", curation_id=curation_id)) > 25_000
+    evidence = ["evidence_data"]
+    assert (
+        len(text("/mcp", "get_curation", curation_id=curation_id, fields=evidence))
+        > 25_000
+    )
+    assert len(text("/mcp/full", "get_curation", curation_id=curation_id)) > 25_000
 
     monkeypatch.setattr(audit, "MAX_RESULT_CHARS", 10)
     assert text("/mcp/full", "list_curations").startswith('{"curations"')

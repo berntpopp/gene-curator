@@ -34,6 +34,7 @@ from app.mcp.audit import (
     mark_internal,
 )
 from app.mcp.oauth import McpOAuthProvider, mount_oauth_routes
+from app.mcp.results import MCP_ONLY_ARGS
 
 # Routes no MCP tool exposes, with the reason (the parity test imports this)
 EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
@@ -79,6 +80,8 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
    lives in evidence_data (save_draft_curations or update_curation with
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.
+   get_curation leaves evidence_data out unless fields= names it; precuration
+   writes return the record without it (get_precuration reads it).
 4. Research (papers, genotypes, MONDO/HPO lookup): a literature MCP such as GeneFoundry;
    record the evidence here, validate_pmids(pmids) confirms the PMIDs you cite.
 5. Review: submit_curation(reviewer_email=...) submits and assigns the reviewer.
@@ -86,7 +89,8 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
    submit_peer_review(decision="approve" or "request_changes", with comments).
    curation_diff(baseline=): submitted is the latest submission (equal to the
    evidence right after submit), previous_submission the one before it: what
-   changed since the last review round.
+   changed since the last review round. Long text changes come as word_diff
+   ([-removed-]{+added+}), not the whole before and after.
 6. Active: one active curation per gene and scope.
 
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
@@ -313,6 +317,7 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     for arg, text in _ARG_DESCRIPTIONS.items():
         if arg in tool.parameters.get("properties", {}):
             tool.parameters["properties"][arg]["description"] = text
+    tool.parameters["properties"].update(MCP_ONLY_ARGS.get(tool.name, {}))
     for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
         tool.parameters["properties"][arg]["default"] = value
     read_only = route.method == "GET"
