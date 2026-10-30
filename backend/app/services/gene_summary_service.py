@@ -13,6 +13,7 @@ from sqlalchemy import func as sa_func, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
+from app.crud.curation import section_total
 from app.models.models import (
     ActiveCuration,
     CurationNew,
@@ -117,8 +118,8 @@ class GeneSummaryService:
             "stage": curation.workflow_stage.value,
             "in_progress": in_progress,
             "classification": curation.final_classification,
-            "genetic_score": scores.get("genetic_evidence_total", 0),
-            "experimental_score": scores.get("experimental_evidence_total", 0),
+            "genetic_score": section_total(scores, "genetic") or 0,
+            "experimental_score": section_total(scores, "experimental") or 0,
             "total_score": scores.get("total_score", 0),
             "last_updated": curation.updated_at.isoformat(),
             "curator_count": self._get_curator_count(
