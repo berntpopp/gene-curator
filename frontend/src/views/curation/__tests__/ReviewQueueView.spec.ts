@@ -309,7 +309,7 @@ describe('ReviewQueueView', () => {
       confirmState.settle(true)
       await flushPromises()
       const notice = wrapper.find('[data-test="approval-notice"]')
-      expect(notice.text()).toContain(message)
+      expect(notice.text()).toContain(message.replace('c9', 'of this gene'))
       expect(notice.find('a').attributes('href')).toBe('/scopes/sc1/curations/c9')
     })
 
