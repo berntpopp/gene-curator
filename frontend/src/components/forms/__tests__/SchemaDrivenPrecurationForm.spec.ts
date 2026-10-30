@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import SchemaDrivenPrecurationForm from '../SchemaDrivenPrecurationForm.vue'
+import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
 
 const confirmMock = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
@@ -28,6 +29,13 @@ const recovery = vi.hoisted(() => ({
 }))
 const schemaFields = vi.hoisted(() => ({ value: undefined as Record<string, unknown> | undefined }))
 
+const replaceKeeping = vi.hoisted(() =>
+  vi.fn((router: { replace: (to: unknown) => unknown }, to: unknown) => router.replace(to))
+)
+vi.mock('@/components/workspace/useUnsavedGuard', async importOriginal => ({
+  ...(await importOriginal<object>()),
+  replaceKeepingChanges: replaceKeeping
+}))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/stores/schemas', () => ({
@@ -608,6 +616,41 @@ describe('SchemaDrivenPrecurationForm', () => {
       await flushPromises()
 
       expect(wrapper.findComponent({ name: 'FormActions' }).exists()).toBe(false)
+    })
+  })
+})
+
+describe('SchemaDrivenPrecurationForm in a workspace frame', () => {
+  it('reports edits to the frame leave guard and clears them on save', async () => {
+    vi.clearAllMocks()
+    precurationsStore.fetchPrecurationById.mockResolvedValue({
+      evidence_data: { a: 1 },
+      status: 'draft'
+    })
+    precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1', lock_version: 2, updated_at: 'T' })
+    const frame = createWorkspaceFrame()
+    const wrapper = mount(SchemaDrivenPrecurationForm, {
+      props: { schemaId: 'schema-1', scopeId: 'scope-1', precurationId: 'p-1' },
+      global: { stubs, provide: { [WORKSPACE_FRAME]: frame } }
+    })
+    await flushPromises()
+    expect(frame.dirty.value).toBe(false)
+
+    internals(wrapper).handleEvidenceChange({ a: 1, disease: 'MONDO:1' })
+    expect(frame.dirty.value).toBe(true)
+    expect(await frame.save()).toBe(true)
+    expect(frame.dirty.value).toBe(false)
+  })
+
+  it('moves a new precuration to its editor without the leave prompt', async () => {
+    vi.clearAllMocks()
+    precurationsStore.createPrecuration.mockResolvedValue({ id: 'new-p' })
+    const wrapper = mountForm({ geneId: 'g-1' })
+    await flushPromises()
+    await internals(wrapper).handleSaveDraft()
+    expect(replaceKeeping).toHaveBeenCalledWith(expect.anything(), {
+      name: 'precuration-edit',
+      params: { scopeId: 'scope-1', precurationId: 'new-p' }
     })
   })
 })
