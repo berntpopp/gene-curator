@@ -339,3 +339,29 @@ async def test_openrouter_model_id_and_base_path_pass_through_unchanged() -> Non
     assert result.model == model
     assert str(seen[0].url) == "https://openrouter.ai/api/v1/chat/completions"
     assert json.loads(seen[0].content)["model"] == model
+
+
+@pytest.mark.asyncio
+async def test_mock_provider_default_output_fits_the_schema() -> None:
+    # B5: a console-created mock provider answered {} and every run failed invalid_output
+    from app.services.llm_runs import validate_output
+
+    schema = {
+        "type": "object",
+        "required": ["verdict", "confidence", "count", "flag", "findings", "meta"],
+        "properties": {
+            "verdict": {"type": "string", "enum": ["supported", "refuted"]},
+            "confidence": {"type": "number"},
+            "count": {"type": "integer"},
+            "flag": {"type": "boolean"},
+            "findings": {"type": "array"},
+            "meta": {"type": "object"},
+        },
+    }
+    mock = provider_registry.create("mock")
+    out = await mock.complete(
+        LLMRequest(system="s", user="u", max_tokens=9, output_schema=schema)
+    )
+    data = validate_output(out.text, schema)
+    assert data["verdict"] == "supported" and data["findings"] == []
+    assert json.loads((await mock.complete(REQ)).text) == {}

@@ -62,6 +62,24 @@ def test_assignment_then_started(
     assert body["counts"] == {"needs_you": 1, "waiting": 0, "done": 0}
 
 
+def test_assignment_started_by_someone_else_is_not_start_precuration(
+    client, db_session: Session, test_scope, test_gene, test_user_curator,
+    test_user_admin, test_precuration,
+):  # fmt: skip
+    # B6: another user already precurated the assigned gene into review
+    test_precuration.created_by = test_user_admin.id
+    test_precuration.status = "submitted"
+    db_session.add(
+        GeneScopeAssignment(
+            gene_id=test_gene.id, scope_id=test_scope.id,
+            assigned_curator_id=test_user_curator.id, is_active=True,
+        )
+    )  # fmt: skip
+    db_session.commit()
+    verbs = [i["verb"] for i in _get(client, test_user_curator)["items"]]
+    assert "Start precuration" not in verbs
+
+
 def test_changes_requested_waiting_done(
     client, db_session: Session, test_scope, test_gene, test_workflow_pair,
     test_user_curator, test_user_admin,

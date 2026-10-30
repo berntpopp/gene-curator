@@ -117,11 +117,10 @@ def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]
     items: list[WorkItem] = []
     rows = lambda *a: _rows(db, scopes, *a)  # noqa: E731
 
-    # Assigned genes nobody has started yet.
+    # Assigned genes nobody has started yet; another user's record is the real stage.
     started = lambda m: exists().where(  # noqa: E731
         m.gene_id == GeneScopeAssignment.gene_id,
         m.scope_id == GeneScopeAssignment.scope_id,
-        m.created_by == user.id,
     )
     for r in rows(
         GeneScopeAssignment,

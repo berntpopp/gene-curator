@@ -39,7 +39,6 @@ from app.models.llm import (
 from app.schemas.llm import FindingDecision, FindingOut, RunOut, SecondViewOut
 from app.services.llm_config import LLMCapError, call_config
 from app.services.llm_runs import (
-    PENDING,
     enqueue_run,
     load_golden,
     prepare_call,
@@ -220,18 +219,6 @@ def queue_second_view(
 ) -> SecondViewOut:
     """Queue a blind run per configured strategy; the worker runs them in the background."""
     curation = _reviewable(db, user, scope_id, curation_id)
-    # ponytail: two simultaneous requests can both pass this check; the caps still bound
-    # cost. Move it under enqueue_run's scope lock if duplicates show up.
-    pending = db.scalar(
-        select(LLMRun.id)
-        .where(LLMRun.curation_id == curation.id, LLMRun.status.in_(PENDING))
-        .limit(1)
-    )
-    if pending is not None:
-        raise HTTPException(
-            status_code=409,
-            detail="A second view is already running for this curation; wait for it",
-        )
     settings = db.get(ScopeLLMSettings, scope_id)
     strategies = [
         s
@@ -242,9 +229,15 @@ def queue_second_view(
     queued = 0
     for strategy in strategies:
         try:
-            enqueue_run(db, user, curation.id, strategy)
+            # until one run is queued, refuse under the scope lock if another is pending
+            enqueue_run(db, user, curation.id, strategy, exclusive=not queued)
             queued += 1
         except LLMCapError as exc:
+            if exc.code == "already_pending":
+                raise HTTPException(
+                    status_code=409,
+                    detail="A second view is already running for this curation; wait for it",
+                ) from exc
             refusal = exc.code
     if not queued:
         raise HTTPException(status_code=422, detail=refusal)

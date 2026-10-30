@@ -29,6 +29,7 @@ from app.models.llm import (
     ScopeLLMSettings,
 )
 from app.models.methodology import MethodologyVersion
+from app.schemas.curation import disease_fields
 from app.scoring.point_limits import scoring_configuration
 from app.services.llm_config import (
     LLMCapError,
@@ -212,9 +213,14 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
     evidence = curation.evidence_data or {}
     # Blind (#464): no scores, class or verdict rationale; the model judges the evidence.
     content = {"evidence_data": _shared(evidence)}
-    disease = str(evidence.get("disease_name") or "")
-    mondo = str(evidence.get("mondo_id") or "")
-    moi = str(evidence.get("mode_of_inheritance") or "")
+    precuration = curation.precuration
+    fields = disease_fields(
+        evidence, precuration.evidence_data if precuration else None
+    )
+    disease, mondo, moi = (
+        str(fields[k] or "")
+        for k in ("disease_name", "mondo_id", "mode_of_inheritance")
+    )
     return {
         "gene_symbol": gene.approved_symbol if gene else "",
         "hgnc_id": gene.hgnc_id if gene else "",
@@ -363,11 +369,19 @@ def _reserve(db: Session, settings: ScopeLLMSettings, model: LLMModel) -> None:
         raise LLMCapError("monthly_cost_cap")
 
 
-def enqueue_run(db: Session, user: UserNew, curation_id: UUID, strategy: str) -> LLMRun:
+def enqueue_run(
+    db: Session,
+    user: UserNew,
+    curation_id: UUID,
+    strategy: str,
+    *,
+    exclusive: bool = False,
+) -> LLMRun:
     """Check opt-in, model, prompt and caps and insert a queued run, atomically.
 
     The scope's settings row is locked first, so two enqueues for one scope serialize and
-    the second counts the first run. Any refusal raises LLMCapError (fail closed).
+    the second counts the first run. `exclusive` also refuses while the curation has a
+    pending run. Any refusal raises LLMCapError (fail closed).
     """
     curation = db.get(CurationNew, curation_id)
     if curation is None:
@@ -378,6 +392,12 @@ def enqueue_run(db: Session, user: UserNew, curation_id: UUID, strategy: str) ->
             .where(ScopeLLMSettings.scope_id == curation.scope_id)
             .with_for_update()
         )
+        if exclusive and db.scalar(
+            select(LLMRun.id)
+            .where(LLMRun.curation_id == curation.id, LLMRun.status.in_(PENDING))
+            .limit(1)
+        ):
+            raise LLMCapError("already_pending")
         settings = check_run_allowed(db, curation.scope_id)
         model, _ = _scope_model(db, settings.model_id)
         version = _published_version(

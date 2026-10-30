@@ -4,6 +4,7 @@ Prompt text, output text and API keys are never logged here.
 """
 
 import asyncio
+import json
 from dataclasses import dataclass
 from typing import Any, ClassVar, Protocol
 
@@ -212,8 +213,31 @@ class OpenAICompatibleProvider(_HTTPProvider):
         )
 
 
+_EMPTY: dict[str, Any] = {
+    "string": "",
+    "number": 0,
+    "integer": 0,
+    "boolean": False,
+    "array": [],
+    "object": {},
+}
+
+
+def _minimal_output(schema: dict[str, Any] | None) -> str:
+    """Smallest object with the schema's required top-level keys (first enum value)."""
+    props = (schema or {}).get("properties") or {}
+    out: dict[str, Any] = {}
+    for key in (schema or {}).get("required", []):
+        spec = props.get(key) or {}
+        out[key] = (
+            spec["enum"][0] if spec.get("enum") else _EMPTY.get(spec.get("type", ""))
+        )
+    return json.dumps(out)
+
+
 class MockProvider:
-    """Offline provider for tests and demos; returns `response_text` verbatim."""
+    """Offline provider for tests and demos; returns `response_text` verbatim, or by
+    default a minimal output that fits the request's schema."""
 
     kind: ClassVar[str] = "mock"
 
@@ -226,7 +250,7 @@ class MockProvider:
         timeout_s: float = MIN_TIMEOUT_S,
         transport: httpx.AsyncBaseTransport | None = None,
         uses_max_completion_tokens: bool = False,
-        response_text: str = "{}",
+        response_text: str | None = None,
     ) -> None:
         self.model = model
         self.response_text = response_text
@@ -234,11 +258,14 @@ class MockProvider:
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)
+        text = self.response_text
+        if text is None:
+            text = _minimal_output(request.output_schema)
         return LLMResponse(
-            text=self.response_text,
+            text=text,
             model=self.model,
             input_tokens=len(request.system.split()) + len(request.user.split()),
-            output_tokens=len(self.response_text.split()),
+            output_tokens=len(text.split()),
         )
 
 
