@@ -81,52 +81,32 @@ def get_catalogue_summary_stats(
     user_id: UUID | None = None,
     filters: GeneCatalogueFilters | None = None,
 ) -> GeneCatalogueSummaryStats:
-    """Get overall catalogue statistics.
+    """Counts of genes, curations, scopes and classes over the active, visible
+    curations the list shows (its filters apply to every number)."""
+    filters = filters or GeneCatalogueFilters()
 
-    Returns aggregated counts of genes, curations, scopes, and classification
-    distribution across all active curations.
-    """
-    # Count genes with active curations
-    total_genes = (
-        db.execute(
-            select(func.count(func.distinct(ActiveCuration.gene_id))).where(
-                ActiveCuration.archived_at.is_(None), _visible(user_id)
-            )
-        ).scalar()
-        or 0
-    )
+    def rows(*columns: Any) -> Any:
+        return _filtered(
+            select(*columns)
+            .select_from(ActiveCuration)
+            .join(CurationNew, ActiveCuration.curation_id == CurationNew.id)
+            .join(Gene, Gene.id == ActiveCuration.gene_id)
+            .where(ActiveCuration.archived_at.is_(None), _visible(user_id)),
+            filters,
+        )
 
-    # Count total active curations
-    total_curations = (
-        db.execute(
-            select(func.count(ActiveCuration.id)).where(
-                ActiveCuration.archived_at.is_(None), _visible(user_id)
-            )
-        ).scalar()
-        or 0
-    )
+    total_genes, total_curations, total_scopes = db.execute(
+        rows(
+            func.count(func.distinct(ActiveCuration.gene_id)),
+            func.count(ActiveCuration.id),
+            func.count(func.distinct(ActiveCuration.scope_id)),
+        )
+    ).one()
 
-    # Count scopes with active curations
-    total_scopes = (
-        db.execute(
-            select(func.count(func.distinct(ActiveCuration.scope_id))).where(
-                ActiveCuration.archived_at.is_(None), _visible(user_id)
-            )
-        ).scalar()
-        or 0
-    )
-
-    # Classification distribution, by lower-cased final class (keys and labels mix),
-    # over the rows the list shows
+    # by lower-cased final class (keys and labels mix)
     final = class_key_sql(CurationNew.final_classification)
-    counted = (
-        select(final, func.count(CurationNew.id))
-        .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
-        .join(Gene, Gene.id == ActiveCuration.gene_id)
-        .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
-    )
     classification_counts = db.execute(
-        _filtered(counted, filters or GeneCatalogueFilters()).group_by(final)
+        rows(final, func.count(CurationNew.id)).group_by(final)
     ).all()
 
     classification_summary = {

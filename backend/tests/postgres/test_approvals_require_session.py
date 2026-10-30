@@ -190,3 +190,8 @@ def test_option_on_a_token_cannot_remove_a_reviewer(
     by_person = client.delete(member, headers=_h(w.ann))
     assert by_person.status_code == 204, by_person.text
     assert _owner_scalar(active, str(w.scope), str(w.bob)) is False
+    back = client.patch(
+        member, json={"is_active": True}, headers={"Authorization": f"Bearer {token}"}
+    )
+    assert back.status_code == 403, back.text
+    assert _owner_scalar(active, str(w.scope), str(w.bob)) is False
