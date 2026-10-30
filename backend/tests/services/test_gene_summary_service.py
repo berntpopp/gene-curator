@@ -289,6 +289,7 @@ def test_consensus_and_conflicts_are_per_disease_entity(
             db_session, test_gene, scope, test_user_curator, test_workflow_pair, verdict
         )
         c.entity_key = key
+        c.evidence_data = {"mondo_id": key.split("|")[0]}
         db_session.query(ActiveCuration).filter_by(curation_id=c.id).update(
             {"entity_key": key}
         )
@@ -305,3 +306,14 @@ def test_consensus_and_conflicts_are_per_disease_entity(
     entity(other, "strong", "MONDO:1|AD")
     summary = GeneSummaryService(db_session).get_public_summary(test_gene.id)
     assert summary is not None and summary.has_conflicts is True
+    # W8 round 2: the disagreement names only the entity in conflict, counts scopes
+    assert summary.conflict_summary == {"definitive": 1, "strong": 1}
+    assert summary.public_scopes_count == 2
+    assert {s.mondo_id for s in summary.scope_summaries} == {"MONDO:1", "MONDO:2"}
+    full = GeneSummaryService(db_session).get_full_summary(
+        test_gene.id, test_user_curator
+    )
+    assert (full.public_scopes_count, full.conflict_summary) == (
+        2,
+        {"definitive": 1, "strong": 1},
+    )

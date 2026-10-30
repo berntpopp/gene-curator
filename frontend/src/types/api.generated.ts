@@ -6631,6 +6631,13 @@ export interface components {
              */
             has_conflicts: boolean;
             /**
+             * Conflict Summary
+             * @description classification_summary of the disease entities in conflict only
+             */
+            conflict_summary?: {
+                [key: string]: number;
+            };
+            /**
              * Scope Summaries
              * @description Per-scope summary details
              */
@@ -6700,6 +6707,13 @@ export interface components {
              * @description Whether different scopes have conflicting classifications
              */
             has_conflicts: boolean;
+            /**
+             * Conflict Summary
+             * @description classification_summary of the disease entities in conflict only
+             */
+            conflict_summary?: {
+                [key: string]: number;
+            };
             /**
              * Scope Summaries
              * @description Per-scope summary details
@@ -10157,6 +10171,11 @@ export interface components {
              * @description Disease of the curation
              */
             disease_name?: string | null;
+            /**
+             * Mondo Id
+             * @description MONDO id of the disease
+             */
+            mondo_id?: string | null;
             /**
              * Mode Of Inheritance
              * @description Mode of inheritance

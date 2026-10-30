@@ -18,6 +18,7 @@ class ScopeSummary(BaseModel):
     )
     curation_id: UUID | None = Field(None, description="Curation this row links to")
     disease_name: str | None = Field(None, description="Disease of the curation")
+    mondo_id: str | None = Field(None, description="MONDO id of the disease")
     mode_of_inheritance: str | None = Field(None, description="Mode of inheritance")
     stage: str | None = Field(None, description="Workflow stage of the curation")
     in_progress: bool = Field(
@@ -49,6 +50,10 @@ class GeneSummaryPublic(BaseModel):
     )
     has_conflicts: bool = Field(
         ..., description="Whether different scopes have conflicting classifications"
+    )
+    conflict_summary: dict[str, int] = Field(
+        default_factory=dict,
+        description="classification_summary of the disease entities in conflict only",
     )
     scope_summaries: list[ScopeSummary] = Field(
         ..., description="Per-scope summary details"
