@@ -96,7 +96,8 @@ def export_curations(
             )
         )
     rows = db.execute(query).unique().all()
-    items = [_item(*row) for row in rows[:limit]]
+    members = set(db.scalars(member_scope_ids(user_id))) if user_id else set()
+    items = [_item(members, *row) for row in rows[:limit]]
     last = rows[limit - 1] if len(rows) > limit else None
     return CurationExportPage(
         items=items,
@@ -105,6 +106,7 @@ def export_curations(
 
 
 def _item(
+    members: set[UUID],
     ac: ActiveCuration,
     c: CurationNew,
     gene: Gene,
@@ -116,6 +118,8 @@ def _item(
     updated_at: datetime,
 ) -> ExportCuration:
     scores: dict[str, Any] = c.computed_scores or {}
+    # #558: members always; others only when the public scope opted in
+    detail = scope.id in members or (scope.is_public and scope.export_evidence_public)
     parts = ac.entity_key.split("|")  # MONDO|MOI[|SUSCEPTIBILITY]
     moi = parts[1] if len(parts) > 1 else ""
     pre = c.precuration.evidence_data if c.precuration else None
@@ -142,6 +146,9 @@ def _item(
             version_id=c.methodology_version_id,
         ),
         pmids=sorted(evidence_pmids(c.evidence_data), key=int),
+        evidence=c.evidence_data if detail else None,
+        scores=c.computed_scores if detail else None,
+        summary=c.computed_summary if detail else None,
         curator_name=curator_name,
         reviewer_name=reviewer_name,
         approved_at=c.approved_at,

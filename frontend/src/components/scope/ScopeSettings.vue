@@ -82,6 +82,14 @@
         :disabled="saving || !canEditSettings"
         @update:model-value="markDirty"
       />
+      <v-switch
+        v-model="editableScope.export_evidence_public"
+        label="Export evidence publicly"
+        hint="Anyone can export this public scope's evidence as stored, including curator free text (rationales, notes)"
+        persistent-hint
+        :disabled="saving || !canEditSettings"
+        @update:model-value="markDirty"
+      />
 
       <div v-if="canEditSettings" class="d-flex align-center justify-end ga-3 mt-4">
         <span v-if="!isDirty" class="text-body-small text-medium-emphasis">No changes to save</span>
@@ -177,6 +185,7 @@
     institution?: string | null
     is_public?: boolean | null
     approvals_require_session?: boolean | null
+    export_evidence_public?: boolean | null
     created_by?: string | null
     default_workflow_pair_id?: string | null
   }
@@ -218,7 +227,8 @@
     description: '',
     institution: '',
     is_public: false,
-    approvals_require_session: false
+    approvals_require_session: false,
+    export_evidence_public: false
   })
 
   const {
@@ -270,6 +280,7 @@
         institution: editableScope.value.institution,
         is_public: editableScope.value.is_public,
         approvals_require_session: editableScope.value.approvals_require_session,
+        export_evidence_public: editableScope.value.export_evidence_public,
         default_workflow_pair_id: selectedWorkflowPairId.value
       }
 
@@ -329,7 +340,8 @@
       description: props.scope.description || '',
       institution: props.scope.institution || '',
       is_public: props.scope.is_public || false,
-      approvals_require_session: props.scope.approvals_require_session || false
+      approvals_require_session: props.scope.approvals_require_session || false,
+      export_evidence_public: props.scope.export_evidence_public || false
     }
     selectedWorkflowPairId.value = props.scope.default_workflow_pair_id || null
     isDirty.value = false

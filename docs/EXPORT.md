@@ -23,6 +23,11 @@ Platform admins get no bypass. Anonymous callers get `methodology.version = null
 (methodology versions are readable by signed-in users only); `methodology.version_id` is
 always set. Use a personal access token of a scope member to see archived rows and versions.
 
+`evidence`, `scores` and `summary` are set for scope members. Anyone else, anonymous callers
+included, gets them only when the scope is public and a scope admin turned on **Export
+evidence publicly** (`export_evidence_public`, off by default; turning it on needs a
+signed-in person, not a token or MCP call); otherwise they are `null`.
+
 ## Parameters
 
 | Parameter | Meaning |
@@ -47,7 +52,7 @@ harmless).
 `experimental_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
 (every PMID under a `pmid` key in the evidence, deduplicated, numerically sorted),
 `curator_name`, `reviewer_name` (who approved), `approved_at`, `activated_at`, `archived_at`,
-`archive_reason`, `updated_at`.
+`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what).
 
 - **Entity:** `entity_key` is `MONDO|MOI`, plus `|SUSCEPTIBILITY` for susceptibility entities,
   and `''` without a MONDO id. Treat it as an opaque match key; do not split it on `|`. Use
@@ -66,6 +71,17 @@ harmless).
   `genetic_evidence_total` and `experimental_evidence_total`; for custom point models without
   those keys, the model's `genetic_total` and `experimental_total`. `null` when the schema
   has no such section.
+- **Evidence:** `evidence` is the curation's evidence as stored, keyed by the field ids of
+  the methodology version `methodology.version_id`, non-scoring sections (for example a
+  clinical diagnostics section) included. Import it as an editable draft. It includes any
+  free text a curator entered in schema fields (rationales, notes); turn on
+  `export_evidence_public` only when that is fine to publish. Reviewer comments and LLM
+  findings are stored elsewhere and never exported.
+- **Score trace:** `scores` is the engine output as stored: the totals above plus, for
+  point-model engines, `trace`, whose `sections[].categories[].types[]` give each evidence
+  path's item count and summed points; `trace.total` is `total_score`. `scores.warnings`
+  holds the scoring warnings.
+  `summary` is the engine's verdict summary.
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
   `"Curation deleted"`; `null` on active rows.
 
@@ -84,6 +100,7 @@ harmless).
 ## Versioning
 
 `export_version` is `"1"`. Fields may be added within v1 (v0.11.0 added `relationship_type`,
-`final_classification` and `curator_classification_rationale`); consumers must ignore unknown
+`final_classification` and `curator_classification_rationale`; #558 added `evidence`, `scores`
+and `summary`); consumers must ignore unknown
 fields. Renaming, removing or changing the meaning of a
 field publishes a new version at a new path.

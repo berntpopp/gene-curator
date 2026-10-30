@@ -5722,6 +5722,25 @@ export interface components {
              * @description Cited PMIDs, deduplicated, sorted
              */
             pmids: string[];
+            /**
+             * Evidence
+             * @description Evidence as stored, keyed by the methodology's field ids
+             */
+            evidence?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Scores
+             * @description Computed scores as stored: section totals and per-row trace
+             */
+            scores?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Summary
+             * @description Computed summary of the verdict
+             */
+            summary?: string | null;
             /** Curator Name */
             curator_name?: string | null;
             /**
@@ -9513,6 +9532,11 @@ export interface components {
              * @default false
              */
             approvals_require_session: boolean;
+            /**
+             * Export Evidence Public
+             * @default false
+             */
+            export_evidence_public: boolean;
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
             /**
@@ -10554,6 +10578,8 @@ export interface components {
             is_public?: boolean | null;
             /** Approvals Require Session */
             approvals_require_session?: boolean | null;
+            /** Export Evidence Public */
+            export_evidence_public?: boolean | null;
             /**
              * Scope Config
              * @description Scope-specific configuration
@@ -10622,6 +10648,11 @@ export interface components {
              * @default false
              */
             approvals_require_session: boolean;
+            /**
+             * Export Evidence Public
+             * @default false
+             */
+            export_evidence_public: boolean;
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
             /**
