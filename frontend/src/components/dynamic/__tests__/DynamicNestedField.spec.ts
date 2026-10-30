@@ -240,3 +240,44 @@ describe('DynamicNestedField', () => {
     })
   })
 })
+
+describe('DynamicNestedField MONDO pick', () => {
+  const disease = {
+    mondo_id: { type: 'string', component: 'MONDOAutocomplete' },
+    disease_name: { type: 'string' }
+  } as Record<string, FieldSchema>
+  const pick = (w: VueWrapper, name: string) =>
+    w.findAllComponents({ name: 'DynamicField' })[0]!.vm.$emit('update:disease-name', name)
+
+  it('fills the sibling disease name of a nested object, as the top level does', () => {
+    const w = mountField({
+      fieldSchema: { type: 'object', properties: disease },
+      modelValue: { mondo_id: 'MONDO:1', disease_name: 'old' }
+    })
+    pick(w, '')
+    expect(w.emitted('update:model-value')).toBeUndefined() // a cleared term keeps the name
+    pick(w, 'Alport syndrome')
+    expect(w.emitted('update:model-value')!.at(-1)![0]).toMatchObject({
+      disease_name: 'Alport syndrome'
+    })
+  })
+
+  it('fills the disease name of the array row the term was picked in', () => {
+    const w = mountField({
+      fieldSchema: { type: 'array', items: { properties: disease } },
+      modelValue: [{ mondo_id: 'MONDO:1' }]
+    })
+    pick(w, 'Alport syndrome')
+    expect(w.emitted('update:model-value')!.at(-1)![0]).toEqual([
+      { mondo_id: 'MONDO:1', disease_name: 'Alport syndrome' }
+    ])
+  })
+
+  it('leaves objects without a disease name field alone', () => {
+    const w = mountField({
+      fieldSchema: { type: 'object', properties: { mondo_id: disease.mondo_id! } }
+    })
+    pick(w, 'Alport syndrome')
+    expect(w.emitted('update:model-value')).toBeUndefined()
+  })
+})
