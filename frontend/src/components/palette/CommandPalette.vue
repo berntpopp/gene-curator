@@ -66,6 +66,11 @@
               >
                 {{ curationStatusLabel(item.status) }}
               </v-chip>
+              <ClassificationMark
+                v-if="item.classification"
+                :classification="item.classification"
+                class="mr-2"
+              />
               {{ item.subtitle }}
             </span>
           </div>
@@ -95,6 +100,7 @@
   import { SHORTCUTS, useShortcuts } from '@/composables/useShortcuts'
   import { useNavEntries } from '@/components/navigation/useNavEntries'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
 
   interface Item {
     key: string
@@ -103,6 +109,7 @@
     subtitle: string
     mono?: boolean
     status?: string
+    classification?: string | null
     to: RouteLocationRaw
   }
   const LISTBOX_ID = 'palette-listbox'
@@ -136,6 +143,7 @@
         title: g.symbol,
         subtitle: g.hgnc_id,
         mono: true,
+        classification: g.classification,
         to: { name: 'GeneDetail', params: { id: g.id } }
       }))
     )

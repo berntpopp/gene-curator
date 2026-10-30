@@ -17,6 +17,7 @@ from app.core.logging import api_endpoint
 from app.core.search_text import MAX_SEARCH, escape_like
 from app.crud.scope_visibility import visible_scope_ids
 from app.models.models import (
+    ActiveCuration,
     CurationNew,
     CurationStatus,
     Gene,
@@ -65,8 +66,22 @@ def search(
         )
     contains, prefix = _like(q)
 
+    # Newest active classification in a scope the caller can see (#273)
+    classification = (
+        select(CurationNew.computed_verdict)
+        .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
+        .where(
+            ActiveCuration.gene_id == Gene.id,
+            ActiveCuration.archived_at.is_(None),
+            ActiveCuration.scope_id.in_(visible_scope_ids(current_user.id)),
+        )
+        .order_by(ActiveCuration.activated_at.desc())
+        .limit(1)
+        .correlate(Gene)
+        .scalar_subquery()
+    )
     genes = db.execute(
-        select(Gene.id, Gene.approved_symbol, Gene.hgnc_id)
+        select(Gene.id, Gene.approved_symbol, Gene.hgnc_id, classification)
         .where(
             Gene.approved_symbol.ilike(contains, escape="\\")
             | Gene.hgnc_id.ilike(prefix, escape="\\")
@@ -117,7 +132,10 @@ def search(
     ).all()
 
     return SearchResponse(
-        genes=[GeneHit(id=r[0], symbol=r[1], hgnc_id=r[2]) for r in genes],
+        genes=[
+            GeneHit(id=r[0], symbol=r[1], hgnc_id=r[2], classification=r[3])
+            for r in genes
+        ],
         curations=[
             CurationHit(
                 id=r[0],

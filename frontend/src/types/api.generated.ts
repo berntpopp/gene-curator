@@ -6058,6 +6058,8 @@ export interface components {
             symbol: string;
             /** Hgnc Id */
             hgnc_id: string;
+            /** Classification */
+            classification?: string | null;
         };
         /**
          * GeneListResponse
