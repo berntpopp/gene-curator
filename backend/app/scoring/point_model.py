@@ -194,7 +194,8 @@ def _type_points(
     """Entered rows' points; rows outside the type's range or non-finite are flagged and
     count nothing (#278), never clamped. Rows with points but no citation count nothing and are listed in ``excluded``.
     With ``group_by``, rows sharing a non-blank value score at most ``group_cap`` together (#557).
-    Counted case-row points add up in ``variants`` by normalised variant (the #559 hotspot flag)."""
+    Counted case-row and grouped points add up in ``variants`` by normalised variant (or
+    ``group_by`` value), after the group cap (the #559 hotspot flag)."""
     if type_def.get("rule") == "step":
         return _step_points(path, type_def, data, flags, excluded, applied)
     limits = type_def.get("range")
@@ -235,9 +236,8 @@ def _type_points(
                 typed = str(row[group_by])  # shown as the curator typed it
                 groups.setdefault(group, (typed, []))[1].append(len(points))
             points.append(value)
-            keys.append(
-                _norm(row.get("variant_1" if "variant_1" in row else "variant"))
-            )
+            variant = group_by or ("variant_1" if "variant_1" in row else "variant")
+            keys.append(_norm(row.get(variant)))
     if groups:
         _cap_groups(path, type_def["group_cap"], groups, points, capped)
     _count_variants(type_def, keys, points, variants)
@@ -250,7 +250,8 @@ def _count_variants(
     points: list[float],
     variants: dict[str, float],
 ) -> None:
-    if type_def.get("rule") == "case_row":
+    """Case rows and grouped rows (#557) feed the hotspot flag, with capped points."""
+    if type_def.get("rule") == "case_row" or type_def.get("group_by"):
         for key, value in zip(keys, points, strict=True):
             variants[key] = variants.get(key, 0.0) + value
 
