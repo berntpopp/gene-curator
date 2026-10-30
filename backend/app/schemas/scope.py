@@ -67,6 +67,7 @@ class ScopeUpdate(BaseModel):
     )
     is_public: bool | None = Field(None, description="Public scope visibility")
     approvals_require_session: bool | None = None
+    export_evidence_public: bool | None = None
     scope_config: dict[str, Any] | None = Field(
         None, description="Scope-specific configuration"
     )
@@ -84,6 +85,8 @@ class ScopeInDBBase(ScopeBase):
     is_active: bool
     # approvals only from a signed-in person, not a token or MCP call (#560)
     approvals_require_session: bool = False
+    # export evidence, scores and summary to non-members of a public scope (#558)
+    export_evidence_public: bool = False
     default_workflow_pair_id: UUID | None
     created_at: datetime
     updated_at: datetime

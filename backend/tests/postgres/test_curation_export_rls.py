@@ -186,3 +186,34 @@ def test_deleted_active_curation_archives_its_pointer(client: TestClient, w: W) 
                 (str(admin),),
             )
             cur.execute("DELETE FROM users WHERE id = %s", (str(admin),))
+
+
+def test_evidence_for_members_always_and_anonymous_once_the_scope_opts_in(
+    client: TestClient, w: W
+) -> None:
+    """#558: export_evidence_public (076) gates evidence, scores and summary for callers
+    outside the scope; a scope admin turns it on through the API as app_user."""
+    assert _mine(client, w, None)["pub_new"]["evidence"] is None
+    member = _mine(client, w, w.member)
+    assert member["pub_new"]["evidence"]["note"] == "pub_new"
+    assert member["priv"]["evidence"]["note"] == "priv"
+
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scope_memberships SET role = 'admin' WHERE user_id = %s",
+            (str(w.member),),
+        )
+    token = create_access_token({"sub": str(w.member)})
+    for sid in (w.pub, w.priv):
+        r = client.patch(
+            f"/api/v1/scopes/{sid}",
+            json={"export_evidence_public": True},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["export_evidence_public"] is True
+
+    anon = _mine(client, w, None)
+    assert set(anon) == {"pub_new"}  # the setting never opens a private scope
+    assert anon["pub_new"]["evidence"]["note"] == "pub_new"
+    assert anon["pub_new"]["scores"] == {}

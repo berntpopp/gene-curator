@@ -1,7 +1,7 @@
 """Export v1: reviewed curations for downstream publishers (#532). See docs/EXPORT.md."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -50,6 +50,14 @@ class ExportCuration(BaseModel):
     total_score: float | None = None
     methodology: ExportMethodology
     pmids: list[str] = Field(..., description="Cited PMIDs, deduplicated, sorted")
+    # #558: null unless the caller is a scope member or the scope exports evidence publicly
+    evidence: dict[str, Any] | None = Field(
+        None, description="Evidence as stored, keyed by the methodology's field ids"
+    )
+    scores: dict[str, Any] | None = Field(
+        None, description="Computed scores as stored: section totals and per-row trace"
+    )
+    summary: str | None = Field(None, description="Computed summary of the verdict")
     curator_name: str | None = None
     reviewer_name: str | None = Field(None, description="Who approved the curation")
     approved_at: datetime | None = None

@@ -76,6 +76,10 @@ class Scope(Base):
     approvals_require_session: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+    # 076 (#558): export evidence, scores and summary to non-members of a public scope
+    export_evidence_public: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # Configuration
