@@ -7,8 +7,10 @@ from uuid import UUID
 from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.crud.activation import same_entity
 from app.crud.review_round import in_current_round
 from app.models import (
+    ActiveCuration,
     CurationNew,
     CurationStatus,
     Gene,
@@ -19,6 +21,7 @@ from app.models import (
     Scope,
     ScopeMembership,
     UserNew,
+    WorkflowStage,
 )
 from app.schemas.curation import disease_fields
 from app.schemas.my_work import WorkItem, WorkKind, WorkTab
@@ -51,6 +54,25 @@ def _item(row: Any, kind: WorkKind, tab: WorkTab, verb: str, link: str) -> WorkI
         stage=getattr(stage, "value", stage),
         classification=getattr(obj, "computed_verdict", None),
     )
+
+
+def _done_precuration(db: Session, row: Any, verb: str, link: str) -> WorkItem:
+    """A finished precuration shows its entity as Active once that is (an approved one
+    stays at stage curation forever)."""
+    item = _item(row, "done", "done", verb, link)
+    pre = row[0]
+    if db.scalar(
+        select(ActiveCuration.curation_id)
+        .where(
+            ActiveCuration.gene_id == pre.gene_id,
+            ActiveCuration.scope_id == pre.scope_id,
+            ActiveCuration.archived_at.is_(None),
+            same_entity(ActiveCuration.entity_key, pre.entity_key),
+        )
+        .limit(1)
+    ):
+        item.stage = WorkflowStage.ACTIVE.value
+    return item
 
 
 def _rows(
@@ -240,7 +262,11 @@ def _reviews_waiting_done(
         for r in rows(
             model, kind, *mm, model.status.in_(done), model.updated_at >= cutoff
         ):
-            items.append(_item(r, "done", "done", f"Finished {kind}", link))
+            items.append(
+                _done_precuration(db, r, f"Finished {kind}", link)
+                if model is PrecurationNew
+                else _item(r, "done", "done", f"Finished {kind}", link)
+            )
 
     # My own approvals as reviewer (#391); requested changes go back to the curator
     my_approval = exists().where(
@@ -262,6 +288,6 @@ def _reviews_waiting_done(
         PrecurationNew.status == _S.APPROVED,
         PrecurationNew.updated_at >= cutoff,
     ):
-        items.append(_item(r, "done", "done", "Approved precuration", pview))
+        items.append(_done_precuration(db, r, "Approved precuration", pview))
 
     return items

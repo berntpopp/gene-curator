@@ -382,3 +382,33 @@ def test_rows_carry_disease_moi_stage_and_classification(
         "precuration",
         None,
     )
+
+
+def test_finished_precuration_shows_its_entity_active(
+    client, db_session: Session, test_scope, test_gene, test_workflow_pair,
+    test_user_curator, test_precuration,
+):  # fmt: skip
+    """W8 round 2: an approved precuration whose entity is Active says so, not Curation."""
+    from app.models import ActiveCuration
+
+    test_precuration.status, test_precuration.workflow_stage = "approved", "curation"
+    c = _cur(test_scope, test_gene, test_workflow_pair, test_user_curator, "active")
+    c.precuration_id = test_precuration.id
+    db_session.add(c)
+    db_session.flush()
+    active = ActiveCuration(
+        gene_id=test_gene.id, scope_id=test_scope.id, curation_id=c.id
+    )
+    db_session.add(active)
+    db_session.commit()
+
+    def pre_stage() -> str:
+        items = _get(client, test_user_curator)["items"]
+        (pre,) = [i for i in items if i["item_type"] == "precuration"]
+        assert pre["verb"] == "Finished precuration"
+        return pre["stage"]
+
+    assert pre_stage() == "active"
+    active.archived_at = datetime.now(UTC)
+    db_session.commit()
+    assert pre_stage() == "curation"
