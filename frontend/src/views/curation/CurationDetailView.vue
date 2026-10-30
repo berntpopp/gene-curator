@@ -197,6 +197,7 @@
                     >
                       Request changes
                     </v-btn>
+                    <v-btn v-if="canReview" :to="secondView" block>AI second view</v-btn>
                     <v-divider v-if="canDelete && (canSubmitForReview || canReview)" class="my-2" />
                     <v-btn
                       v-if="canDelete"
@@ -479,9 +480,7 @@
   // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => curation.value?.can_edit ?? false)
 
-  const canSubmitForReview = computed(() => {
-    return canEdit.value && curation.value?.status === 'draft'
-  })
+  const canSubmitForReview = computed(() => canEdit.value && curation.value?.status === 'draft')
 
   const canDelete = computed(() => curation.value?.can_delete ?? false)
 
@@ -489,6 +488,7 @@
   const myId = computed(() => (authStore.user as { id?: string } | null)?.id ?? '')
   const isCreator = computed(() => !!myId.value && curation.value?.created_by === myId.value)
   const canReview = computed(() => (curation.value?.can_review ?? false) && !isCreator.value)
+  const secondView = computed(() => ({ name: 'llm-second-view', params: route.params }))
 
   const reviewStore = useReviewStore()
   const scopeName = computed(() => {

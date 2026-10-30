@@ -5,7 +5,7 @@
     data-test="llm-second-view"
   >
     <v-expansion-panel value="ai">
-      <v-expansion-panel-title>
+      <v-expansion-panel-title :aria-label="title">
         <v-icon start icon="mdi-lightbulb-outline" />
         AI second view (advisory)
         <v-chip v-if="disagreements" size="small" color="warning" class="ml-2">
@@ -104,6 +104,9 @@
       </v-expansion-panel-text>
     </v-expansion-panel>
   </v-expansion-panels>
+  <p v-else-if="view !== undefined" class="text-body-medium" data-test="second-view-off">
+    No AI second view here: it is off for this scope, or you are not one of its reviewers.
+  </p>
 </template>
 
 <script setup lang="ts">
@@ -115,11 +118,17 @@
   const props = defineProps<{ scopeId: string; curationId: string }>()
 
   const store = useLlmStore()
-  const view = ref<Schema<'SecondViewOut'> | null>(null)
+  // undefined until loaded; null when the user may not see it
+  const view = ref<Schema<'SecondViewOut'> | null | undefined>(undefined)
   const open = ref<string[]>([])
   const busy = ref(false)
 
   const disagreements = computed(() => view.value?.diff.filter(r => r.disagree).length ?? 0)
+  // the collapsed header button's name, chip included (#530)
+  const title = computed(() => {
+    const n = disagreements.value
+    return `AI second view (advisory)${n ? `, ${n} disagreement${n === 1 ? '' : 's'}` : ''}`
+  })
   const shown = (v: number | string | null | undefined) => (v === null || v === undefined ? '-' : v)
 
   async function load(): Promise<void> {
