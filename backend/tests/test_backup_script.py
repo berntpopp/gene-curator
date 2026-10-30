@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # Fake docker: `pg_dump` writes DUMP_BODY (or fails), `pg_restore --list` fails on "corrupt".
 FAKE_DOCKER = """#!/bin/bash
 case "$*" in
-  *pg_dump*) printf '%s' "$DUMP_BODY"; [ "$DUMP_BODY" != fail ] ;;
+  *pg_dump*) printf '%s' "$DUMP_BODY"; sleep "${DUMP_SLEEP:-0}"; [ "$DUMP_BODY" != fail ] ;;
   *pg_restore*--list*) [ "$(cat)" != corrupt ] ;;
   *) exit 2 ;;
 esac
@@ -51,6 +51,35 @@ class BackupScriptTests(unittest.TestCase):
             self.assertEqual(len(files), 1)
             self.assertRegex(files[0].name, r"^backup_\d{8}_\d{6}\.dump$")
             self.assertEqual(files[0].read_text(), "PGDMP ok")
+
+    def test_two_runs_in_the_same_second_both_succeed(self) -> None:
+        """Monkey L7: runs in one second shared a .partial file and one failed."""
+        with tempfile.TemporaryDirectory() as directory:
+            backups = Path(directory) / "backups"
+            self.run_backup(backups, "PGDMP warm")  # creates bin/ once
+            for f in backups.iterdir():
+                f.unlink()
+            procs = [self.start_backup(backups) for _ in range(2)]
+            results = [p.communicate() and p.returncode for p in procs]
+            self.assertEqual(results, [0, 0])
+            self.assertTrue(all(f.suffix == ".dump" for f in backups.iterdir()))
+
+    def start_backup(self, backups: Path) -> subprocess.Popen[str]:
+        bin_dir = backups.parent / "bin"
+        return subprocess.Popen(  # noqa: S603 - fixed script path
+            [str(ROOT / "scripts" / "backup.sh"), str(backups)],
+            env={
+                **os.environ,
+                "PATH": f"{bin_dir}:{os.environ['PATH']}",
+                "DUMP_BODY": "PGDMP ok",
+                "DUMP_SLEEP": "0.3",
+                "POSTGRES_USER": "u",
+                "POSTGRES_DB": "d",
+            },
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
 
     def test_failed_dump_leaves_no_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

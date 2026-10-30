@@ -14,13 +14,13 @@ container=${POSTGRES_CONTAINER:-gene_curator_postgres}
 
 mkdir -p "$dir"
 file="$dir/backup_$(date +%Y%m%d_%H%M%S).dump"
-partial="$file.partial"
+partial=$(mktemp "$file.XXXXXX.partial")  # own file: runs in the same second can overlap
 trap 'rm -f "$partial"' EXIT
 
 docker exec "$container" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c > "$partial"
 # A truncated or corrupt archive fails to list its table of contents.
 docker exec -i "$container" pg_restore --list > /dev/null < "$partial"
-mv "$partial" "$file"
+mv -f "$partial" "$file"
 
 # Retention: newest $keep backups stay; only files this script names are touched.
 mapfile -t old < <(ls -1t "$dir"/backup_*.dump | tail -n +$((keep + 1)))
