@@ -38,6 +38,7 @@ detailed_health_check read_only=True destructive=False
 diff_prompt_versions read_only=True destructive=False
 execute_workflow_transition read_only=False destructive=True
 export_logs read_only=True destructive=False
+export_reviewed_curations read_only=True destructive=False
 fetch_hgnc_gene read_only=True destructive=False
 generate_json_schema read_only=False destructive=False
 get_assignment_statistics read_only=True destructive=False
