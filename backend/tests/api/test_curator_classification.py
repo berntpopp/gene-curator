@@ -59,6 +59,10 @@ def test_override_needs_a_rationale_at_submit_and_saves_keep_or_clear_it(
     assert [e["path"] for e in refused.json()["detail"]["errors"]] == [
         "curator_classification_rationale"
     ]
+    # before the first score: the verdict submit will compute, not "none"
+    assert refused.json()["detail"]["errors"][0]["message"].endswith(
+        "differs from the computed verdict (No known disease relationship)"
+    )
 
     # A draft save without the keys keeps them; the rationale alone is added
     r = client.patch(
@@ -161,6 +165,8 @@ def test_curation_detail_lists_the_choices(
     choices = _detail(client, admin_token, test_curation.id)["classification_choices"]
     keys = [c["key"] for c in choices]
     assert keys[0] == "definitive" and "no_known" in keys
+    assert choices[0]["label"] == "Definitive"  # a label, not the raw key
+    assert {"key": "no_known", "label": "No known disease relationship"} in choices
 
 
 def test_qualitative_curator_picks_the_agreeing_key_without_rationale(
@@ -194,23 +200,32 @@ def test_qualitative_curator_picks_the_agreeing_key_without_rationale(
     assert r.status_code == 200, r.text
     db_session.refresh(test_curation)
     assert test_curation.curator_classification == "strong_association"
-    test_curation.computed_verdict = "Strong Association"
-    assert not _unexplained_override(test_curation)
+    assert not _unexplained_override(test_curation, "Strong Association")
+
+
+def test_unscored_curation_agreeing_with_the_engine_needs_no_rationale(
+    db_session: Session, test_curation: CurationNew
+) -> None:
+    """computed_verdict is None before the first score; submit scores no_known."""
+    from app.services.review_guards import check_review_content
+
+    test_curation.computed_verdict = None
+    test_curation.curator_classification = "no_known"
+    db_session.commit()
+    check_review_content(db_session, test_curation)
 
 
 def test_override_equal_to_computed_needs_no_rationale(
     test_curation: CurationNew,
 ) -> None:
-    test_curation.computed_verdict = "No Known Disease Relationship"
     test_curation.curator_classification = "no_known"  # agreeing: no rationale
-    assert not _unexplained_override(test_curation)
-    test_curation.computed_verdict = "moderate"
+    assert not _unexplained_override(test_curation, "No Known Disease Relationship")
     test_curation.curator_classification = "moderate"
-    assert not _unexplained_override(test_curation)
+    assert not _unexplained_override(test_curation, "moderate")
     test_curation.curator_classification = "Limited"
-    assert _unexplained_override(test_curation)
+    assert _unexplained_override(test_curation, "moderate")
     test_curation.curator_classification_rationale = "  "
-    assert _unexplained_override(test_curation)
+    assert _unexplained_override(test_curation, "moderate")
 
 
 def _active(

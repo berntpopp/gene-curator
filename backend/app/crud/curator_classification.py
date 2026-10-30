@@ -9,6 +9,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.models import CurationNew
 from app.schemas.curation import CLASSIFICATION_KEYS, CuratorClassificationIn, class_key
+from app.scoring.classifications import TONES
 from app.scoring.clingen import ClinGenEngine
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
@@ -18,6 +19,17 @@ def class_key_sql(value: Any) -> ColumnElement[str]:
     """schemas.curation.class_key in SQL (PostgreSQL and SQLite), for grouping and filters."""
     key = func.replace(func.replace(func.lower(func.trim(value)), " ", "_"), "-", "_")
     return case((func.substr(key, 1, 8) == "no_known", "no_known"), else_=key)
+
+
+# ClinGen keys as the frontend labels them (config/classification.ts)
+_LABELS = {t: t.capitalize() for t in TONES} | {
+    "no_known": "No known disease relationship"
+}
+
+
+def class_label(value: str) -> str:
+    """A ClinGen key's label; any other value (an engine label, a custom key) as is."""
+    return _LABELS.get(value, value)
 
 
 def classification_choices(config: dict[str, Any]) -> list[dict[str, str]]:
@@ -41,7 +53,7 @@ def classification_choices(config: dict[str, Any]) -> list[dict[str, str]]:
     for c in entries:
         out.setdefault(class_key(c["key"]), str(c.get("label") or c["key"]))
     for v in verdicts:
-        out.setdefault(class_key(v), v)
+        out.setdefault(class_key(v), class_label(v))
     return [{"key": k, "label": label} for k, label in out.items()]
 
 
