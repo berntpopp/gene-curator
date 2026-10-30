@@ -129,6 +129,7 @@
     CELL_COMMIT_MS,
     cellFor,
     emptyValue,
+    isListType,
     safeHref,
     urlLink,
     urlRule
@@ -163,7 +164,11 @@
       schema,
       label: schema.title || humanize(key),
       cell: cellFor(schema),
-      rules: schema.type === 'url' ? [...rulesFor(schema), urlRule] : rulesFor(schema),
+      rules:
+        schema.type === 'url'
+          ? [...rulesFor(schema), urlRule]
+          : // The list cell offers only valid options; the enum rule checks a single value
+            rulesFor(isListType(schema) ? { ...schema, enum: undefined } : schema),
       pmid: schema.format === 'pmid',
       url: schema.type === 'url'
     }))

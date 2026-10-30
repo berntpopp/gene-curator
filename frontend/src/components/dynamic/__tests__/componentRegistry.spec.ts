@@ -136,4 +136,15 @@ describe('fieldTypes', () => {
     expect(cellFor({ type: 'unknown' })).toBe(fieldTypes.string!.cell)
     expect(fieldTypes.evidence_table!.editor).toBeTruthy()
   })
+
+  it('picks list cells for multiselect and array columns (#577)', () => {
+    const chips = { multiple: true, chips: true, closableChips: true }
+    expect(cellFor({ type: 'multiselect', enum: ['a'] }).props).toEqual({
+      ...chips,
+      items: [{ title: 'a', value: 'a' }]
+    })
+    expect(cellFor({ type: 'array' }).props).toEqual(chips)
+    expect(cellFor({ type: 'array' }).lazy).toBeFalsy()
+    expect(emptyValue({ type: 'multiselect' })).toEqual([])
+  })
 })
