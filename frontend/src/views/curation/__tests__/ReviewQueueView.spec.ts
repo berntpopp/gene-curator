@@ -273,6 +273,33 @@ describe('ReviewQueueView', () => {
       expect(wrapper.text()).not.toContain('PKD1')
     })
 
+    it('says why an approval created no curation and links the blocking one (#530)', async () => {
+      vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined)
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+        precurations: [pre],
+        total: 1
+      } as never)
+      const message = 'Precuration approved; no curation created: Open curation c9 covers'
+      vi.mocked(precurationsAPI.approvePrecuration).mockResolvedValue({
+        curation_created: false,
+        curation_id: 'c9',
+        message
+      } as never)
+      const wrapper = mount(ReviewQueueView, {
+        global: {
+          stubs: { 'router-link': { props: ['to'], template: '<a :href="to"><slot /></a>' } }
+        }
+      })
+      await flushPromises()
+      await wrapper.find('[data-test="approve-precuration"]').trigger('click')
+      confirmState.settle(true)
+      await flushPromises()
+      const notice = wrapper.find('[data-test="approval-notice"]')
+      expect(notice.text()).toContain(message)
+      expect(notice.find('a').attributes('href')).toBe('/scopes/sc1/curations/c9')
+    })
+
     it('does nothing when the approval confirmation is declined', async () => {
       vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
       vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({

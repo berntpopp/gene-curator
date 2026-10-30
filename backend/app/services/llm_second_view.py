@@ -62,7 +62,7 @@ def proposal(
 ) -> tuple[dict[str, float] | None, str | None]:
     """Engine scores and class of the output's proposed evidence, or (None, None)."""
     evidence = data.get("proposed_evidence")
-    if evidence is None:
+    if evidence is None or evidence == "":  # "" is no proposal (the mock sends it)
         return None, None
     try:
         # JSON text: structured-output schemas cannot hold a free-form object

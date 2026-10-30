@@ -13,7 +13,12 @@ from app.llm.output import InvalidLLMOutputError
 from app.models import CurationNew, Review
 from app.models.llm import LLMFinding, LLMRun
 from app.services import llm_worker
-from app.services.llm_runs import curation_values, enqueue_run, load_golden
+from app.services.llm_runs import (
+    GOLDEN_DIR,
+    curation_values,
+    enqueue_run,
+    load_golden,
+)
 from app.services.llm_second_view import (
     cited_findings,
     diff_rows,
@@ -279,3 +284,24 @@ async def test_a_failed_rerun_keeps_the_last_good_findings_and_diff(
     assert [f["category"] for f in view["findings"]] == ["case_level"]
     by_category = {r["category"]: r for r in view["diff"]}
     assert by_category["classification"]["skeptic"] == "limited"
+
+
+@pytest.mark.asyncio
+async def test_a_default_mock_provider_run_succeeds(
+    db_session: Session, world: World
+) -> None:
+    # B5: the mock's minimal output has proposed_evidence "", which means no proposal
+    world.version.output_schema = json.loads(
+        (GOLDEN_DIR / "output_schema.json").read_text()
+    )
+    db_session.commit()
+    run = enqueue_run(db_session, world.scope_admin, world.curation.id, "skeptic")
+    assert await llm_worker.process_next(factory(db_session.get_bind())) is True  # type: ignore[arg-type]
+    db_session.expire_all()
+    done = db_session.get(LLMRun, run.id)
+    assert done is not None
+    assert (done.status, done.error_code, done.proposed_verdict) == (
+        "succeeded",
+        None,
+        None,
+    )

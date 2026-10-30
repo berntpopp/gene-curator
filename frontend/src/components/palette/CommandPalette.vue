@@ -100,6 +100,7 @@
   import { SHORTCUTS, useShortcuts } from '@/composables/useShortcuts'
   import { useNavEntries } from '@/components/navigation/useNavEntries'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
+  import { formatInheritance } from '@/utils/inheritance'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
 
   interface Item {
@@ -152,7 +153,13 @@
       (r?.curations ?? []).map(c => ({
         key: `c-${c.id}`,
         title: `${c.gene_symbol} curation`,
-        subtitle: c.scope_name,
+        subtitle: [
+          c.disease_name,
+          c.mode_of_inheritance && formatInheritance(c.mode_of_inheritance),
+          c.scope_name
+        ]
+          .filter(Boolean)
+          .join(' · '),
         status: c.status,
         to: { name: 'curation-detail', params: { scopeId: c.scope_id, curationId: c.id } }
       }))

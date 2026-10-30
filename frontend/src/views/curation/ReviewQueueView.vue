@@ -13,6 +13,21 @@
       </v-chip>
     </div>
 
+    <v-alert
+      v-if="approvalNotice"
+      data-test="approval-notice"
+      type="warning"
+      variant="tonal"
+      closable
+      class="mb-4"
+      @click:close="approvalNotice = null"
+    >
+      {{ approvalNotice.message }}
+      <router-link :to="`/scopes/${approvalNotice.scopeId}/curations/${approvalNotice.curationId}`">
+        Open the blocking curation
+      </router-link>
+    </v-alert>
+
     <template v-if="loading">
       <v-row>
         <v-col v-for="n in 3" :key="n" cols="12">
@@ -175,6 +190,7 @@
   import { useWorkCountsStore } from '@/stores/workCounts'
   import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
+  import { blockedBy, type ApprovalNotice } from './approvalNotice'
 
   // A type, not an interface: DataTable rows need an index signature
   type ReviewItem = {
@@ -206,6 +222,7 @@
   // State
   const loading = ref(true)
   const curations = ref<ReviewItem[]>([])
+  const approvalNotice = ref<(ApprovalNotice & { scopeId: string }) | null>(null)
   const scopes = ref<Array<{ id: string; name: string }>>([])
   // Search, scope filter, sort and page live in the URL; My work deep-links here with ?q=<gene>
   const {
@@ -387,7 +404,8 @@
     if (!ok) return
     busyId.value = item.id
     try {
-      await precurationStore.approvePrecuration(item.id)
+      const blocked = blockedBy(await precurationStore.approvePrecuration(item.id))
+      approvalNotice.value = blocked && { ...blocked, scopeId: item.scope_id ?? '' }
       removeItem(item.id)
       notificationStore.addToast(`Precuration for ${item.gene_symbol} approved`, 'success')
     } catch (error) {

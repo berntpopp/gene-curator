@@ -408,11 +408,9 @@
     router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/curation/new`)
   }
 
-  /** Re-curation: a new curation that starts from the gene's active curation */
+  /** Re-curation from the gene's active curation; the form asks which when there are several */
   function startRecuration(gene: GeneRow) {
-    const active = geneCurations.value[gene.gene_id]
-    if (active)
-      router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/curation/new?from=${active.id}`)
+    router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/curation/new?recurate=1`)
   }
 
   /**

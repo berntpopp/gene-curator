@@ -174,6 +174,15 @@ describe('useCurationsStore', () => {
       expect(store.error).toEqual({ message: 'invalid' })
       expect(store.pagination.total).toBe(0)
     })
+
+    it('names the open curation a 409 says blocks the new one (#530)', async () => {
+      const store = useCurationsStore()
+      const detail = { message: 'Open curation c9 covers the whole gene', curation_id: 'c9' }
+      api.createCuration.mockRejectedValue({ response: { status: 409, data: { detail } } })
+
+      await expect(store.createCuration(newCuration)).rejects.toBeTruthy()
+      expect(store.error).toEqual({ message: detail.message, openCurationId: 'c9' })
+    })
   })
 
   describe('updateCuration', () => {

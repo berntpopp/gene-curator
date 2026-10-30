@@ -18,6 +18,9 @@ class CurationHit(BaseModel):
     scope_id: UUID
     scope_name: str
     status: str
+    disease_name: str | None = None
+    mondo_id: str | None = None
+    mode_of_inheritance: str | None = None
 
 
 class ScopeHit(BaseModel):

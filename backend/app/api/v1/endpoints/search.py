@@ -22,14 +22,19 @@ from app.models.models import (
     CurationNew,
     CurationStatus,
     Gene,
+    PrecurationNew,
     Scope,
     UserNew,
 )
+from app.schemas.curation import disease_fields
 from app.schemas.search import CurationHit, GeneHit, ScopeHit, SearchResponse
 
 router = APIRouter()
 
 MIN_Q, MAX_Q = 2, MAX_SEARCH
+# a gene split into disease entities (#530) has one curation per entity and scope
+# ponytail: a fixed cap; page or group by gene if a query ever matches more
+CURATION_HITS = 20
 
 
 def _like(q: str) -> tuple[str, str]:
@@ -56,7 +61,9 @@ def _visible(stmt: Any, user: UserNew, scope_id_col: Any) -> Any:
 @api_endpoint()
 def search(
     q: str = Query(..., description="Search text"),
-    limit: int = Query(5, ge=1, le=10, description="Max hits per group"),
+    limit: int = Query(
+        5, ge=1, le=10, description="Max gene and scope hits; curations: up to 20"
+    ),
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> SearchResponse:
@@ -119,9 +126,12 @@ def search(
                 CurationNew.scope_id,
                 Scope.name,
                 CurationNew.status,
+                CurationNew.evidence_data,
+                PrecurationNew.evidence_data,
             )
             .join(Gene, CurationNew.gene_id == Gene.id)
             .join(Scope, CurationNew.scope_id == Scope.id)
+            .outerjoin(PrecurationNew, CurationNew.precuration_id == PrecurationNew.id)
             .where(
                 CurationNew.status != CurationStatus.ARCHIVED,
                 Gene.approved_symbol.ilike(contains, escape="\\"),
@@ -135,7 +145,7 @@ def search(
             CurationNew.updated_at.desc(),
             CurationNew.id,
         )
-        .limit(limit)
+        .limit(CURATION_HITS)
     ).all()
 
     return SearchResponse(
@@ -150,6 +160,7 @@ def search(
                 scope_id=r[2],
                 scope_name=r[3],
                 status=getattr(r[4], "value", r[4]),
+                **disease_fields(r[5], r[6]),
             )
             for r in curations
         ],

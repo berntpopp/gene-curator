@@ -68,6 +68,19 @@
         {{ readonlyReason }}
       </v-alert>
 
+      <v-alert
+        v-if="approvalNotice"
+        data-test="approval-notice"
+        type="warning"
+        variant="tonal"
+        class="mb-4"
+      >
+        {{ approvalNotice.message }}
+        <router-link :to="`/scopes/${scopeId}/curations/${approvalNotice.curationId}`">
+          Open the blocking curation
+        </router-link>
+      </v-alert>
+
       <div v-if="canReview" class="d-flex flex-wrap align-center ga-2 mb-4">
         <span class="text-body-medium">This precuration is waiting for your review.</span>
         <v-spacer />
@@ -186,6 +199,7 @@
   import { useScopesStore } from '@/stores/scopes'
   import { useWorkCountsStore } from '@/stores/workCounts'
   import { readableApiError } from '@/utils/apiErrorText'
+  import { blockedBy, type ApprovalNotice } from './approvalNotice'
 
   interface ScopeRecord {
     default_workflow_pair_id?: string | null
@@ -246,6 +260,7 @@
   const status = ref<string | null>(null)
   // A scope reviewer or admin may review someone else's submitted precuration here (4-eyes)
   const canReview = ref(false)
+  const approvalNotice = ref<ApprovalNotice | null>(null)
   const reviewBusy = ref(false)
   const reviewError = ref<string | null>(null)
   const showReject = ref(false)
@@ -259,7 +274,11 @@
       confirmText: 'Approve'
     })
     if (ok)
-      await review(() => precurationsStore.approvePrecuration(precurationId.value!), 'approved')
+      await review(async () => {
+        approvalNotice.value = blockedBy(
+          await precurationsStore.approvePrecuration(precurationId.value!)
+        )
+      }, 'approved')
   }
 
   function openReject() {
@@ -282,7 +301,9 @@
       showReject.value = false
       notificationsStore.addToast(`Precuration ${done}`, 'success')
       useWorkCountsStore().fetch()
-      router.push({ name: 'review-queue' })
+      // An approval that created no curation stays here and says why
+      if (approvalNotice.value) canReview.value = false
+      else router.push({ name: 'review-queue' })
     } catch (err) {
       reviewError.value = readableApiError(err, 'Request failed')
       if (!showReject.value) notificationsStore.addToast(reviewError.value, 'error')

@@ -26,8 +26,13 @@
               </router-link>
               <template v-else>{{ s.scope_name }}</template>
             </td>
-            <td data-label="Disease" class="wide">{{ s.disease_name || EMPTY }}</td>
-            <td data-label="MOI">{{ s.mode_of_inheritance || EMPTY }}</td>
+            <td data-label="Disease" class="wide">
+              {{ s.disease_name || EMPTY }}
+              <span v-if="s.mondo_id" class="mono assertions__mondo">{{ s.mondo_id }}</span>
+            </td>
+            <td data-label="MOI">
+              {{ s.mode_of_inheritance ? formatInheritance(s.mode_of_inheritance) : EMPTY }}
+            </td>
             <td data-label="Stage">
               {{ stageLabel(s.stage) }}
               <span v-if="s.in_progress" class="assertions__progress">in progress</span>
@@ -60,6 +65,7 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { curationStatusLabel } from '@/config/status'
   import { EMPTY, formatDate } from '@/utils/format'
+  import { formatInheritance } from '@/utils/inheritance'
   import type { Schema } from '@/types/api'
 
   defineProps<{
@@ -125,6 +131,11 @@
     color: rgb(var(--v-theme-info));
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+
+  .assertions__mondo {
+    margin-left: 6px;
+    color: rgb(var(--v-theme-on-surface-variant));
   }
 
   .assertions__progress {

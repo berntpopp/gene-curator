@@ -132,9 +132,9 @@
   const HPO_SHORTCODES: Record<string, string> = {
     'HP:0000006': 'AD', // Autosomal dominant
     'HP:0000007': 'AR', // Autosomal recessive
-    'HP:0001417': 'XLD', // X-linked dominant
+    'HP:0001417': 'XL', // X-linked
     'HP:0001419': 'XLR', // X-linked recessive
-    'HP:0001423': 'XL', // X-linked
+    'HP:0001423': 'XLD', // X-linked dominant
     'HP:0001427': 'MT', // Mitochondrial
     'HP:0001428': 'SN', // Somatic mutation
     'HP:0001450': 'YL', // Y-linked

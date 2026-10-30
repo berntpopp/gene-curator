@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.crud.curation import OpenCurationExistsError, _patched, open_curation_id
+from app.crud.curation import _patched, open_conflict_message, open_curation_id
 from app.crud.optimistic_lock import claim_version
 from app.crud.precuration_entity import conflict, entity_key_of, open_draft, write_draft
 from app.crud.workflow_engine import workflow_engine
@@ -422,12 +422,10 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         curation = None
         key = db_obj.entity_key
         # One open curation per entity: an open one (e.g. a re-curation) stays the only one
+        blocking = open_curation_id(db, db_obj.gene_id, db_obj.scope_id, key)
         workflow_pair = (
             self._get_workflow_pair_for_precuration(db, db_obj)
-            if create_curation
-            and not open_curation_id(
-                db, db_obj.gene_id, db_obj.scope_id, db_obj.entity_key
-            )
+            if create_curation and not blocking
             else None
         )
 
@@ -470,7 +468,9 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             raced = open_curation_id(db, db_obj.gene_id, db_obj.scope_id, key)
             if raced is None:
                 raise
-            raise conflict(OpenCurationExistsError.MESSAGE, curation_id=raced) from None
+            raise conflict(
+                open_conflict_message(db, raced), curation_id=raced
+            ) from None
         if curation:
             db.refresh(curation)
         db.refresh(db_obj)
@@ -483,13 +483,18 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             approver_id=str(approver_id),
         )
 
+        message = "Precuration approved"
+        if curation:
+            message += f" and curation {curation.id} created"
+        elif create_curation and blocking:
+            message += "; no curation created: " + open_conflict_message(db, blocking)
         return PrecurationApprovalResult(
             precuration_id=db_obj.id,
             approved=True,
             curation_created=curation is not None,
-            curation_id=curation.id if curation else None,
-            message="Precuration approved"
-            + (f" and curation {curation.id} created" if curation else ""),
+            # the new curation, or the open one that blocked it
+            curation_id=curation.id if curation else blocking,
+            message=message,
         )
 
     def reject(

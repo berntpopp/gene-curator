@@ -12,6 +12,7 @@ const row = (over: Partial<ScopeSummary> = {}): ScopeSummary => ({
   classification: 'definitive',
   curation_id: 'c1',
   disease_name: 'Polycystic kidney disease 1',
+  mondo_id: 'MONDO:0008262',
   mode_of_inheritance: 'AD',
   stage: 'active',
   in_progress: false,
@@ -36,7 +37,8 @@ describe('GeneAssertions', () => {
     const text = wrapper.text()
     expect(text).toContain('Kidney genetics')
     expect(text).toContain('Polycystic kidney disease 1')
-    expect(text).toContain('AD')
+    expect(text).toContain('MONDO:0008262')
+    expect(text).toContain('Autosomal dominant')
     expect(text).toContain('Active')
     expect(text).toContain('Definitive')
     expect(text).toContain('16.5')

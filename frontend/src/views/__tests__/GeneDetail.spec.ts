@@ -290,12 +290,15 @@ describe('GeneDetail view', () => {
         summaryOf([scope(), scope({ scope_id: 's2', classification: 'disputed' })], {
           has_conflicts: true,
           consensus_classification: null,
-          classification_summary: { definitive: 1, disputed: 1 }
+          classification_summary: { definitive: 1, disputed: 1, limited: 3 },
+          conflict_summary: { definitive: 1, disputed: 1 }
         }) as never
       )
       const wrapper = mountView()
       await flushPromises()
       expect(wrapper.text()).toContain('Scopes disagree')
+      // only the entity in conflict: the agreeing entity's limited ×3 is not listed
+      expect(wrapper.find('[role="alert"]').text()).not.toContain('×3')
     })
 
     it.each([

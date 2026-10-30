@@ -4,6 +4,7 @@ Computes cross-scope statistics for a gene live from its active curations
 (ActiveCuration table) plus the caller's in-progress work; nothing is cached.
 """
 
+from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -39,25 +40,32 @@ def _aggregate(entries: list[dict[str, Any]]) -> dict[str, Any]:
     """
     counts: dict[str, int] = {}
     verdicts: dict[str, set[str]] = {}
-    for e in entries:
-        if not e["in_progress"]:
-            key = e["classification"] or "unknown"
-            counts[key] = counts.get(key, 0) + 1
-            entity = verdicts.setdefault(e["entity_key"], set())
-            if e["classification"]:
-                entity.add(e["classification"])
+    active = [e for e in entries if not e["in_progress"]]
+    for e in active:
+        key = e["classification"] or "unknown"
+        counts[key] = counts.get(key, 0) + 1
+        entity = verdicts.setdefault(e["entity_key"], set())
+        if e["classification"]:
+            entity.add(e["classification"])
     consensus = (
         max(sorted(counts), key=lambda k: counts[k])
         if counts and len(verdicts) == 1
         else None
     )
+    conflicting = {k for k, v in verdicts.items() if len(v) > 1}
+    conflict_counts = Counter(
+        e["classification"]
+        for e in active
+        if e["entity_key"] in conflicting and e["classification"]
+    )
     return {
         "classification_summary": counts,
+        "conflict_summary": dict(conflict_counts),
         "consensus_classification": consensus,
         "consensus_confidence": counts[consensus] / sum(counts.values())
         if consensus
         else None,
-        "has_conflicts": any(len(v) > 1 for v in verdicts.values()),
+        "has_conflicts": bool(conflicting),
     }
 
 
@@ -105,6 +113,7 @@ class GeneSummaryService:
             "curation_id": str(curation.id),
             "entity_key": curation.entity_key,
             "disease_name": disease["disease_name"],
+            "mondo_id": disease["mondo_id"],
             "mode_of_inheritance": disease["mode_of_inheritance"],
             "stage": curation.workflow_stage.value,
             "in_progress": in_progress,
@@ -170,8 +179,8 @@ class GeneSummaryService:
                 if str(c.id) not in active_ids
             ]
         entries.sort(key=_entry_order)
-        public_count = sum(
-            1 for e in entries if e["is_public"] and not e["in_progress"]
+        public_count = len(
+            {e["scope_id"] for e in entries if e["is_public"] and not e["in_progress"]}
         )
         agg = _aggregate(entries)
         return GeneSummaryFull(
@@ -239,7 +248,7 @@ class GeneSummaryService:
         agg = _aggregate(public_scope_summaries)
         return GeneSummaryPublic(
             gene_id=gene_id,
-            public_scopes_count=len(public_scope_summaries),
+            public_scopes_count=len({e["scope_id"] for e in public_scope_summaries}),
             scope_summaries=[
                 ScopeSummary.model_validate(e) for e in public_scope_summaries
             ],
@@ -247,4 +256,5 @@ class GeneSummaryService:
             classification_summary=agg["classification_summary"],
             consensus_classification=agg["consensus_classification"],
             has_conflicts=agg["has_conflicts"],
+            conflict_summary=agg["conflict_summary"],
         )

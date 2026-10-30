@@ -48,7 +48,7 @@ export const precurationSeed = {
             options: [
               { value: 'AD', label: 'Autosomal Dominant (HP:0000006)' },
               { value: 'AR', label: 'Autosomal Recessive (HP:0000007)' },
-              { value: 'XLD', label: 'X-linked Dominant (HP:0001417)' },
+              { value: 'XLD', label: 'X-linked Dominant (HP:0001423)' },
               { value: 'XLR', label: 'X-linked Recessive (HP:0001419)' },
               { value: 'SD', label: 'Semidominant (HP:0032113)' },
               { value: 'MT', label: 'Mitochondrial (HP:0001427)' },

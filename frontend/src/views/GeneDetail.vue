@@ -100,7 +100,7 @@
           :scope-count="activeCount"
           :has-conflicts="summary?.has_conflicts ?? false"
           :consensus="summary?.consensus_classification"
-          :classifications="summary?.classification_summary ?? {}"
+          :classifications="summary?.conflict_summary ?? {}"
         />
         <GeneAssertions class="mb-4" :scopes="scopes" :linked="auth.isAuthenticated" />
       </template>

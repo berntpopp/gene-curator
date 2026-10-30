@@ -4916,6 +4916,12 @@ export interface components {
             scope_name: string;
             /** Status */
             status: string;
+            /** Disease Name */
+            disease_name?: string | null;
+            /** Mondo Id */
+            mondo_id?: string | null;
+            /** Mode Of Inheritance */
+            mode_of_inheritance?: string | null;
         };
         /**
          * CurationListResponse
@@ -6631,6 +6637,13 @@ export interface components {
              */
             has_conflicts: boolean;
             /**
+             * Conflict Summary
+             * @description classification_summary of the disease entities in conflict only
+             */
+            conflict_summary?: {
+                [key: string]: number;
+            };
+            /**
              * Scope Summaries
              * @description Per-scope summary details
              */
@@ -6700,6 +6713,13 @@ export interface components {
              * @description Whether different scopes have conflicting classifications
              */
             has_conflicts: boolean;
+            /**
+             * Conflict Summary
+             * @description classification_summary of the disease entities in conflict only
+             */
+            conflict_summary?: {
+                [key: string]: number;
+            };
             /**
              * Scope Summaries
              * @description Per-scope summary details
@@ -10157,6 +10177,11 @@ export interface components {
              * @description Disease of the curation
              */
             disease_name?: string | null;
+            /**
+             * Mondo Id
+             * @description MONDO id of the disease
+             */
+            mondo_id?: string | null;
             /**
              * Mode Of Inheritance
              * @description Mode of inheritance
@@ -15899,7 +15924,7 @@ export interface operations {
             query: {
                 /** @description Search text */
                 q: string;
-                /** @description Max hits per group */
+                /** @description Max gene and scope hits; curations: up to 20 */
                 limit?: number;
             };
             header?: never;

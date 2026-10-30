@@ -60,6 +60,19 @@
         <v-btn variant="outlined" :to="{ name: 'Home' }">Go home</v-btn>
       </template>
     </v-alert>
+    <v-card v-else-if="choices.length" data-testid="entity-choices" variant="outlined">
+      <v-card-title>Choose the disease entity</v-card-title>
+      <v-card-subtitle>This gene has several disease entities in this scope.</v-card-subtitle>
+      <v-list>
+        <v-list-item
+          v-for="c in choices"
+          :key="c.id"
+          :title="c.label"
+          append-icon="mdi-chevron-right"
+          @click="pick(c.to)"
+        />
+      </v-list>
+    </v-card>
     <div v-else :class="['ws-grid', { 'ws-grid--panel': showPanel }]">
       <div class="ws-main">
         <!-- The one skeleton: until the schema is resolved and the form reports ready -->
@@ -140,7 +153,7 @@
    */
 
   import { ref, computed, watch, onMounted, provide } from 'vue'
-  import { useRouter, useRoute } from 'vue-router'
+  import { useRouter, useRoute, type RouteLocationRaw } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
   import { useScopesStore } from '@/stores/scopes'
   import { useCurationsStore } from '@/stores/curations'
@@ -159,6 +172,7 @@
   import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
   import { useUnsavedGuard } from '@/components/workspace/useUnsavedGuard'
   import { useSaveShortcut } from '@/composables/useSaveShortcut'
+  import { formatInheritance } from '@/utils/inheritance'
 
   interface CurationFormRecord {
     curation_schema_id?: string | null
@@ -232,6 +246,8 @@
   const scope = ref<ScopeRecord | null>(null)
   const pendingPrecurationId = ref<string | undefined>(undefined)
   const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
+  // Several disease entities (#530): the user picks one instead of getting the first
+  const choices = ref<{ id: string; label: string; to: RouteLocationRaw }[]>([])
 
   const isActive = computed(() => curation.value?.workflow_stage === 'active')
   // Saving is only possible for a draft or returned curation the user may edit (backend `can_edit`)
@@ -262,6 +278,17 @@
     () => formReady.value && !readonly.value
   )
   const scoreShown = ref(false)
+  // A create refused for an open curation (409, e.g. a legacy one covering the gene): open it
+  watch(
+    () => curationsStore.error?.openCurationId,
+    id => {
+      if (id && !curationId.value)
+        router.replace({
+          name: 'curation-edit',
+          params: { scopeId: scopeId.value, curationId: id }
+        })
+    }
+  )
   watch(
     frame.score,
     score => {
@@ -442,9 +469,23 @@
           gene_id: geneId.value
         })
         const candidates = curations.filter(c => !['active', 'archived'].includes(c.status))
-        const open = prefillFrom.value
-          ? await sameEntity(prefillFrom.value, candidates)
-          : candidates[0]
+        const actives = curations.filter(c => c.status === 'active')
+        // ?recurate (gene list): re-curate the gene's active curation, or pick one
+        const recurate = route.query.recurate !== undefined
+        if (recurate && !prefillFrom.value && actives.length > 1) {
+          await offer(actives, id => ({ query: { from: id } }))
+          return
+        }
+        const from = prefillFrom.value ?? (recurate ? actives[0]?.id : undefined)
+        if (from && from !== prefillFrom.value) router.replace({ query: { from } })
+        if (!from && candidates.length > 1) {
+          await offer(candidates, id => ({
+            name: 'curation-edit',
+            params: { scopeId: scopeId.value, curationId: id }
+          }))
+          return
+        }
+        const open = from ? await sameEntity(from, candidates) : candidates[0]
         if (open) {
           router.replace({
             name: 'curation-edit',
@@ -491,6 +532,23 @@
     } finally {
       loading.value = false
     }
+  }
+
+  async function offer(rows: { id: string }[], to: (id: string) => RouteLocationRaw) {
+    choices.value = await Promise.all(
+      rows.map(async ({ id }) => {
+        const c = await curationsStore.fetchCurationById(id)
+        const moi = c.mode_of_inheritance && formatInheritance(c.mode_of_inheritance)
+        const label = [c.disease_name || 'Disease not set', c.mondo_id, moi, c.status]
+        return { id, label: label.filter(Boolean).join(' · '), to: to(id) }
+      })
+    )
+  }
+
+  async function pick(to: RouteLocationRaw) {
+    choices.value = []
+    await router.replace(to)
+    await loadData()
   }
 
   /** A re-curation only meets an open curation of its own disease entity (#530): the same
