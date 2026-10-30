@@ -14,7 +14,6 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -22,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.async_bridge import run_blocking
 from app.core.capabilities import CREATE_GENE, EDIT, require, require_active_scope
 from app.core.database import get_db
 from app.core.enums import ScopeRole
@@ -187,7 +187,7 @@ def add_genes_to_scope(
         )
     require(db, current_user, scope_id, EDIT)
     require_active_scope(db.get(Scope, scope_id))
-    resolved = asyncio.run(resolve_genes(db, body.symbols)).items
+    resolved = run_blocking(resolve_genes(db, body.symbols)).items
     hits = {i.index: i.candidates[0] for i in resolved if i.status == "resolved"}
     missing = {c.hgnc_id: c.symbol for c in hits.values() if c.gene_id is None}
     problems: dict[str, str] = {}  # hgnc_id -> why no gene row was created

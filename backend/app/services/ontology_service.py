@@ -18,6 +18,7 @@ from urllib.parse import quote
 
 import httpx
 
+from app.core.async_bridge import run_blocking
 from app.core.logging import get_logger, timed_operation
 from app.schemas.validation import (
     HPOInheritancePattern,
@@ -34,6 +35,7 @@ from app.schemas.validation import (
 )
 
 logger = get_logger(__name__)
+
 
 # API base URLs
 MONDO_API_BASE = "https://www.ebi.ac.uk/ols4/api/v2"
@@ -573,7 +575,7 @@ def lookup_terms(curies: set[str]) -> tuple[list[str], list[str]]:
     missing = sorted(curies - _known_terms)
     if not missing:
         return [], []
-    found = asyncio.run(_lookup_all(missing))
+    found = run_blocking(_lookup_all(missing))
     _known_terms.update(c for c, ok in found.items() if ok)
     return (
         [c for c, ok in found.items() if ok is False],
