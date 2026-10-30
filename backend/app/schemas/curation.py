@@ -384,6 +384,7 @@ class CurationSummary(BaseModel):
     final_classification: str | None = None
     computed_scores: dict[str, Any] | None = None
     disease_name: str | None = None
+    relationship_type: RelationshipType = "mendelian"
     is_draft: bool
     created_at: datetime
     updated_at: datetime

@@ -13,6 +13,9 @@
         <h1 class="mono">{{ title }}</h1>
         <span v-if="subtitle" class="ws-title__disease">{{ subtitle }}</span>
         <span v-if="moi" class="text-medium-emphasis">{{ formatInheritance(moi) }}</span>
+        <span v-if="relationshipLabel(relationship)" class="text-medium-emphasis">
+          {{ relationshipLabel(relationship) }}
+        </span>
         <StageLine :stage="stage" :archived="archived" />
       </div>
 
@@ -60,7 +63,7 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import StageLine from './StageLine.vue'
   import SaveState from './SaveState.vue'
   import type { SaveState as SaveStateName } from './useWorkspaceFrame'
@@ -70,6 +73,7 @@
     title: string
     subtitle?: string
     moi?: string
+    relationship?: string
     stage?: string | null
     archived?: boolean
     /** Omitted where the page has no draft to save (precuration shell). */

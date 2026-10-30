@@ -77,6 +77,11 @@ describe('WorkspaceHeader', () => {
     )
   })
 
+  it('labels a susceptibility entity only (W9 monkey)', () => {
+    expect(mountHeader({ relationship: 'susceptibility' }).text()).toContain('Susceptibility')
+    expect(mountHeader({ relationship: 'mendelian' }).text()).not.toContain('Susceptibility')
+  })
+
   it('shows the inheritance in plain words', () => {
     const w = mountHeader({ moi: 'autosomal_dominant' })
     expect(w.text()).not.toContain('autosomal_dominant')

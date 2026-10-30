@@ -39,6 +39,7 @@ from app.schemas.curation import (
     CurationUpdate,
     EvidenceWarning,
     disease_fields,
+    relationship_of_key,
 )
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
@@ -364,6 +365,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         or 0.0,
                     },
                     disease_name=disease["disease_name"],
+                    relationship_type=relationship_of_key(row.CurationNew.entity_key),
                     is_draft=row.CurationNew.is_draft,
                     created_at=row.CurationNew.created_at,
                     updated_at=row.CurationNew.updated_at,

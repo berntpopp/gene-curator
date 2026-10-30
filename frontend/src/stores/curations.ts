@@ -27,6 +27,7 @@ function toSummary(c: Schema<'Curation'>): CurationRecord {
     computed_verdict: c.computed_verdict,
     final_classification: c.final_classification,
     computed_scores: c.computed_scores,
+    relationship_type: 'mendelian', // like the names: correct once the list is refetched
     is_draft: c.is_draft,
     created_at: c.created_at,
     updated_at: c.updated_at,

@@ -112,6 +112,16 @@ describe('ReviewQueueView', () => {
     expect(wrapper.text()).not.toContain('mt2-scope')
   })
 
+  it('labels a susceptibility entity in the disease column (W9 monkey)', async () => {
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({ relationship_type: 'susceptibility' })],
+      total: 1
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    expect(wrapper.text()).toContain('· Susceptibility')
+  })
+
   it('links a curation row to its AI second view (#530)', async () => {
     vi.mocked(curationsAPI.getCurations).mockResolvedValue({
       curations: [row({})],

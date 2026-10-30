@@ -15,3 +15,7 @@ export function formatInheritance(moi: string | null | undefined): string {
   const value = moi || ''
   return MOI_LABELS[value.toUpperCase()] || (value ? humanize(value.toLowerCase()) : 'Unknown')
 }
+
+/** The relationship type on an entity line (#539): `Susceptibility`, else '' (Mendelian is the default). */
+export const relationshipLabel = (type: string | null | undefined): string =>
+  type === 'susceptibility' ? 'Susceptibility' : ''

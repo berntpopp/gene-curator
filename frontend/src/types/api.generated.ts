@@ -5431,6 +5431,12 @@ export interface components {
             } | null;
             /** Disease Name */
             disease_name?: string | null;
+            /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /** Is Draft */
             is_draft: boolean;
             /**
@@ -11127,6 +11133,12 @@ export interface components {
             disease_name?: string | null;
             /** Mode Of Inheritance */
             mode_of_inheritance?: string | null;
+            /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /**
              * Stage
              * @description Workflow stage; null for assignments
