@@ -28,6 +28,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.logging import get_logger
 from app.core.validation_messages import size_message
+from app.mcp.results import MCP_ONLY_ARGS, shape
 
 logger = get_logger(__name__)
 
@@ -216,6 +217,17 @@ SLIM_KEYS = {
     "list_members": frozenset(
         {"invited_by", "invited_at", "team_id", "user_username", "user_orcid"}
     ),
+    # Precuration writes: the caller just sent the evidence; get_precuration reads it
+    **dict.fromkeys(
+        (
+            "create_precuration",
+            "update_precuration",
+            "save_draft_precurations",
+            "submit_precuration",
+            "reject_precuration",
+        ),
+        frozenset({"evidence_data"}),
+    ),
 }
 # About 8k tokens of JSON (~3 characters per token); Claude Code warns at 10k
 MAX_RESULT_CHARS = 25_000
@@ -246,14 +258,17 @@ def lean(value: Any, drop: frozenset[str] = frozenset()) -> Any:
     return value
 
 
-def _lean_block(block: mt.ContentBlock, drop: frozenset[str]) -> mt.ContentBlock:
+def _lean_block(
+    block: mt.ContentBlock, drop: frozenset[str], shaped: Any
+) -> mt.ContentBlock:
     if not isinstance(block, mt.TextContent):
         return block
     try:
         data = json.loads(block.text)
     except ValueError:
         return block
-    text = json.dumps(lean(data, drop), ensure_ascii=False, separators=(",", ":"))
+    data = shaped(lean(data, drop))
+    text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     return mt.TextContent(type="text", text=text)
 
 
@@ -415,9 +430,15 @@ class ToolAuditMiddleware(Middleware):
                 if problems:
                     outcome = "invalid_input"
                     raise _invalid_arguments(name, tool.parameters, problems)
+            args = context.message.arguments or {}
+            extra = {k: args.pop(k) for k in MCP_ONLY_ARGS.get(name, {}) if k in args}
             result = await call_next(context)
+
+            def shaped(data: Any) -> Any:
+                return shape(name, data, lean=self.lean, args=extra)
+
             # Text only: clients bill structuredContent again on top of its text copy
-            content = [_lean_block(block, drop) for block in result.content]
+            content = [_lean_block(block, drop, shaped) for block in result.content]
             size = sum(len(b.text) for b in content if isinstance(b, mt.TextContent))
             if self.lean and name in self.capped and size > MAX_RESULT_CHARS:
                 outcome = "response_too_large"
