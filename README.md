@@ -57,6 +57,22 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.11.0
+
+Run `make db-migrate` (071–075, applied in order) before restarting the backend. New are a
+curator classification next to the computed one, a relationship type (Mendelian or
+susceptibility; susceptibility entity keys end in `|SUSCEPTIBILITY`) and schema-defined
+classification vocabularies. Two scope settings, both off by default: `auto_second_view_on_submit`
+queues the LLM second view on submit, and `approvals_require_session` lets only a signed-in
+person approve (tokens and MCP can still comment). Custom schemas flag fields an LLM run may
+see with `"llm_share": true` (see [LLM](#llm)). Breaking: a save that moves a curation to
+another entity returns 409. Export consumers: see the KGDB contract notes in
+[docs/releases/v0.11.0.md](docs/releases/v0.11.0.md).
+([#553](https://github.com/berntpopp/gene-curator/pull/553),
+[#554](https://github.com/berntpopp/gene-curator/pull/554),
+[#555](https://github.com/berntpopp/gene-curator/pull/555),
+[#562](https://github.com/berntpopp/gene-curator/pull/562))
+
 ### Upgrading to v0.10.1
 
 Run `make db-migrate` before restarting the backend: it applies 070, which publishes a ClinGen
