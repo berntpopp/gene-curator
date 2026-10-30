@@ -466,7 +466,11 @@ def update_member_role(
             detail="Membership not found",
         )
 
-    if update_data.role not in (None, ScopeRole.VIEWER):
+    # a token neither grants review rights nor takes them from the human reviewers
+    if (
+        update_data.role not in (None, membership.role)
+        or update_data.is_active is False
+    ):
         require_signed_in_approver(request, scope, "Member changes")
 
     # Never leave a scope without an active admin
@@ -541,6 +545,7 @@ def remove_member(
     db: Session = Depends(get_db),
     scope_id: UUID,
     user_id: UUID,
+    request: Request,
     scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
     current_user: User = Depends(get_current_active_user),
 ) -> None:
@@ -580,6 +585,8 @@ def remove_member(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Membership not found",
         )
+
+    require_signed_in_approver(request, scope, "Member changes")
 
     # Prevent removing last admin
     if (

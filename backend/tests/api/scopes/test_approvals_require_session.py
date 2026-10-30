@@ -228,3 +228,25 @@ def test_a_token_cannot_add_or_promote_members_when_the_option_is_on(
         == 200
     )
     # successful adds write audit_log rows: covered in the Postgres lane
+
+
+def test_a_token_cannot_remove_or_demote_members_when_the_option_is_on(
+    client: TestClient,
+    db_session: Session,
+    owner: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    """Else an agent could remove the human reviewers (#560)."""
+    member = f"/api/v1/scopes/{scope_with_admin.id}/members/{reviewer.id}"
+    pat = _pat(client, owner)
+    _gate(db_session, scope_with_admin)
+    for r in (
+        client.delete(member, headers=pat),
+        client.patch(member, json={"role": "viewer"}, headers=pat),
+        client.patch(member, json={"is_active": False}, headers=pat),
+    ):
+        assert r.status_code == 403, r.text
+        assert r.json()["detail"].startswith("Member changes in this scope need")
+    assert client.patch(member, json={"notes": "x"}, headers=pat).status_code == 200
+    assert client.delete(member, headers=auth_headers(owner)).status_code == 204

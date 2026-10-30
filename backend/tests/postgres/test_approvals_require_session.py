@@ -148,3 +148,45 @@ def test_option_on_a_token_cannot_add_or_promote_a_reviewer(
     by_person = client.post(members, json=newcomer, headers=_h(w.ann))
     assert by_person.status_code == 201, by_person.text
     assert _owner_scalar(role, str(w.scope), str(w.frank)) == "reviewer"
+
+
+def test_option_on_a_token_cannot_remove_a_reviewer(
+    client: TestClient,  # noqa: F811
+    w: W,  # noqa: F811
+) -> None:
+    """An agent removing the human reviewers would lift the gate as well (#560)."""
+    member = f"/api/v1/scopes/{w.scope}/members/{w.bob}"
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scopes SET approvals_require_session = true WHERE id = %s",
+            (str(w.scope),),
+        )
+    token = _pat(client, w.ann)
+    removed = client.delete(member, headers={"Authorization": f"Bearer {token}"})
+    assert removed.status_code == 403, removed.text
+    r = client.post(
+        "/mcp/full",
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "remove_member",
+                "arguments": {"scope_id": str(w.scope), "user_id": str(w.bob)},
+            },
+        },
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json, text/event-stream",
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert "Member changes in this scope need" in _error(r.json()["result"])
+    active = (
+        "SELECT is_active FROM scope_memberships WHERE scope_id = %s AND user_id = %s"
+    )
+    assert _owner_scalar(active, str(w.scope), str(w.bob)) is True
+
+    by_person = client.delete(member, headers=_h(w.ann))
+    assert by_person.status_code == 204, by_person.text
+    assert _owner_scalar(active, str(w.scope), str(w.bob)) is False
