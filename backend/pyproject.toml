@@ -35,6 +35,7 @@ dependencies = [
     # "jsonschema>=4.0.0",  # temporarily disabled
     "cryptography>=44.0.0",
     "fastmcp>=3.4.7,<4.0.0",  # MCP server over the existing routes (#462)
+    "mcp>=1.30.0",  # transitive via fastmcp; floor pins the CVE fix outside the lock
 ]
 
 [project.optional-dependencies]
