@@ -2756,6 +2756,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/export/curations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Reviewed Curations
+         * @description Active and archived curations of the scopes the caller may see, oldest change first.
+         *
+         *     Anonymous callers see active curations of public scopes; members also see their
+         *     scopes' archived ones. Retracted curations are deleted and never appear.
+         */
+        get: operations["export_reviewed_curations_api_v1_export_curations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/gene-catalogue/matrix": {
         parameters: {
             query?: never;
@@ -4898,6 +4921,22 @@ export interface components {
              */
             merge?: boolean | null;
         };
+        /** CurationExportPage */
+        CurationExportPage: {
+            /**
+             * Export Version
+             * @default 1
+             * @constant
+             */
+            export_version: "1";
+            /** Items */
+            items: components["schemas"]["ExportCuration"][];
+            /**
+             * Next Cursor
+             * @description Pass as cursor for the next page; null on the last page
+             */
+            next_cursor?: string | null;
+        };
         /** CurationHit */
         CurationHit: {
             /**
@@ -5565,6 +5604,103 @@ export interface components {
             path: string;
             /** Message */
             message: string;
+        };
+        /** ExportCuration */
+        ExportCuration: {
+            /**
+             * Curation Id
+             * Format: uuid
+             */
+            curation_id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI, '' when the curation has no MONDO id
+             */
+            entity_key: string;
+            /**
+             * Url
+             * @description Link back to the curation in Gene Curator
+             */
+            url: string;
+            /**
+             * Status
+             * @description Curation status: active or archived
+             */
+            status: string;
+            /** Scope Name */
+            scope_name: string;
+            /** Hgnc Id */
+            hgnc_id: string;
+            /** Approved Symbol */
+            approved_symbol: string;
+            /** Disease Name */
+            disease_name?: string | null;
+            /** Mondo Id */
+            mondo_id?: string | null;
+            /**
+             * Mode Of Inheritance
+             * @description As entered
+             */
+            mode_of_inheritance?: string | null;
+            /**
+             * Moi Hpo Id
+             * @description HPO CURIE of the canonical MOI
+             */
+            moi_hpo_id?: string | null;
+            /** Computed Verdict */
+            computed_verdict?: string | null;
+            /** Genetic Score */
+            genetic_score?: number | null;
+            /** Experimental Score */
+            experimental_score?: number | null;
+            /** Total Score */
+            total_score?: number | null;
+            methodology: components["schemas"]["ExportMethodology"];
+            /**
+             * Pmids
+             * @description Cited PMIDs, deduplicated, sorted
+             */
+            pmids: string[];
+            /** Curator Name */
+            curator_name?: string | null;
+            /**
+             * Reviewer Name
+             * @description Who approved the curation
+             */
+            reviewer_name?: string | null;
+            /** Approved At */
+            approved_at?: string | null;
+            /**
+             * Activated At
+             * Format: date-time
+             */
+            activated_at: string;
+            /** Archived At */
+            archived_at?: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             * @description Last change; the paging key
+             */
+            updated_at: string;
+        };
+        /** ExportMethodology */
+        ExportMethodology: {
+            /**
+             * Schema Name
+             * @description Curation schema name
+             */
+            schema_name?: string | null;
+            /**
+             * Version
+             * @description Pinned methodology version; null when the caller may not read methodology versions (anonymous)
+             */
+            version?: number | null;
+            /**
+             * Version Id
+             * @description Pinned methodology version id
+             */
+            version_id?: string | null;
         };
         /**
          * FieldValidationRequest
@@ -16429,6 +16565,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeFilterOption"][];
+                };
+            };
+        };
+    };
+    export_reviewed_curations_api_v1_export_curations_get: {
+        parameters: {
+            query?: {
+                /** @description Scope name */
+                scope_name?: string | null;
+                /** @description Scope UUID */
+                scope_id?: string | null;
+                /** @description Only curations changed at or after this time (ISO 8601) */
+                updated_since?: string | null;
+                /** @description next_cursor of the previous page */
+                cursor?: string | null;
+                /** @description Page size */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationExportPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
