@@ -74,6 +74,7 @@ from app.services.curation_access import (
     _has_approved,
 )
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
+from app.services.llm_runs import queue_on_submit
 from app.services.review_assignment import assigned_reviewer, submit_reviewer
 from app.services.scope_permissions import ScopePermissionService
 
@@ -549,6 +550,7 @@ def submit_curation(
 
     if submitted is None:
         raise _conflict(curation, submit_in.lock_version)
+    queue_on_submit(db, submitted)  # #464: opt-in LLM second view; never fails submit
 
     if detail:
         return Curation.model_validate(submitted)

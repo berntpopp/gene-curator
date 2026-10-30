@@ -10112,6 +10112,11 @@ export interface components {
              */
             daily_run_cap: number;
             /**
+             * Auto Second View On Submit
+             * @default false
+             */
+            auto_second_view_on_submit: boolean;
+            /**
              * Lock Version
              * @default 0
              */
@@ -10144,6 +10149,11 @@ export interface components {
              * @default 0
              */
             daily_run_cap: number;
+            /**
+             * Auto Second View On Submit
+             * @default false
+             */
+            auto_second_view_on_submit: boolean;
         };
         /**
          * ScopeStatistics

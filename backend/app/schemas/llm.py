@@ -214,6 +214,7 @@ class ScopeSettingsUpdate(Revision):
     monthly_token_cap: int = Field(default=0, ge=0, le=10**12)
     monthly_cost_cap_cents: int = Field(default=0, ge=0, le=10**9)
     daily_run_cap: int = Field(default=0, ge=0, le=10**6)
+    auto_second_view_on_submit: bool = False
 
 
 class ScopeSettingsOut(_Out):
@@ -225,6 +226,7 @@ class ScopeSettingsOut(_Out):
     monthly_token_cap: int = 0
     monthly_cost_cap_cents: int = 0
     daily_run_cap: int = 0
+    auto_second_view_on_submit: bool = False
     lock_version: int = 0  # 0: never saved
 
 

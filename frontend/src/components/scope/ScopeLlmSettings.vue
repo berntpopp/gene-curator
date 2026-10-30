@@ -6,9 +6,19 @@
       <template v-else-if="form">
         <p class="text-body-medium text-medium-emphasis mb-4">
           Opt this scope in to LLM-assisted review. Only models and published prompt versions a
-          platform admin enabled are offered. A cap of 0 means no limit.
+          platform admin enabled are offered. A cap of 0 allows no runs.
         </p>
         <v-switch v-model="form.enabled" label="Enabled for this scope" color="primary" inset />
+        <v-switch
+          v-model="form.auto_second_view_on_submit"
+          label="Queue the second view when a curation is submitted"
+          hint="Runs are attributed to the admin who last saved these settings and count against the caps below; a refusal never blocks the submit."
+          persistent-hint
+          color="primary"
+          inset
+          class="mb-2"
+          data-test="auto-second-view"
+        />
         <v-select
           v-model="form.model_id"
           :items="modelItems"
@@ -130,7 +140,8 @@
     advocate_prompt_version_id: s.advocate_prompt_version_id ?? null,
     monthly_token_cap: s.monthly_token_cap,
     monthly_cost_cap_cents: s.monthly_cost_cap_cents,
-    daily_run_cap: s.daily_run_cap
+    daily_run_cap: s.daily_run_cap,
+    auto_second_view_on_submit: s.auto_second_view_on_submit
   })
 
   async function load(): Promise<void> {

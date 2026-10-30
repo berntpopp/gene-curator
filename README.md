@@ -208,6 +208,14 @@ N times the configured rate and a restart resets them. Behind a reverse proxy se
   variants, phenotypes, descriptions), never the curator's points, score status, rationale,
   summary or classification. Their output is advisory and cannot change a curation. Provider
   API keys are encrypted at rest and stay on the server; no response or log carries them.
+- Custom and derived schemas: a field is sent only if it is a seeded evidence key or flagged
+  `"llm_share": true` in `field_definitions`; `"llm_share": false` withholds even a seeded key.
+  Sharing is by key name at every depth, so schema validation refuses a name flagged
+  differently in two places, refuses the flag on curator judgement keys and warns about
+  fields a run would drop (#534).
+- Second view on submit (#464): opt-in per scope (`auto_second_view_on_submit`, off by
+  default). A submit queues it under the scope caps and never fails because of it; the run is
+  attributed to the admin who last saved the scope's LLM settings.
 - The database owner that runs the migrations must be a superuser (or have BYPASSRLS):
   SECURITY DEFINER functions read past FORCE ROW LEVEL SECURITY as that owner
   (`authenticate_personal_access_token` in 056, `llm_credential_ciphertext` in 057,

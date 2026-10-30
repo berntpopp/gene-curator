@@ -272,7 +272,10 @@ def test_schema_definition_diagnostics_carry_json_paths(validator: SchemaValidat
         "ui_configuration",
         "field_definitions.a.type",
     ]
-    assert [w["field"] for w in result.warnings] == ["ui_configuration.sections"]
+    assert [w["field"] for w in result.warnings] == [
+        "field_definitions",  # 'a' is not shared with LLM runs (#534)
+        "ui_configuration.sections",
+    ]
 
 
 # =============================================================================

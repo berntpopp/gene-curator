@@ -10,7 +10,7 @@ from app.crud.schema_validators import validate_schema_structure
 pytestmark = pytest.mark.unit
 
 VALID: dict[str, Any] = {
-    "field_definitions": {"gene": {"type": "text", "label": "Gene"}},
+    "field_definitions": {"gene": {"type": "text", "label": "Gene", "llm_share": True}},
     "workflow_states": ["draft", "submitted"],
     "ui_configuration": {"sections": []},
 }

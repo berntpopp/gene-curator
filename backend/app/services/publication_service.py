@@ -23,6 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
+from app.core.async_bridge import run_blocking
 from app.core.logging import get_logger, timed_operation
 from app.models.models import Publication
 from app.schemas.validation import (
@@ -495,7 +496,7 @@ def lookup_pmids(db: Session, pmids: set[str]) -> tuple[list[str], list[str]]:
     missing = sorted(pmids - cached)
     if not missing:
         return [], []
-    results = asyncio.run(_fetch_all(missing))
+    results = run_blocking(_fetch_all(missing))
     _cache_found(db, results)
     unknown = [
         r.pmid for r in results if (r.error or "").startswith("Publication not found")
