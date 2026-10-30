@@ -112,6 +112,19 @@ describe('ReviewQueueView', () => {
     expect(wrapper.text()).not.toContain('mt2-scope')
   })
 
+  it('links a curation row to its AI second view (#530)', async () => {
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({})],
+      total: 1
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    const link = wrapper
+      .findAllComponents({ name: 'VBtn' })
+      .find(b => b.attributes('data-test') === 'open-second-view')
+    expect(link?.props('to')).toBe('/scopes/sc1/curations/c1/second-view')
+  })
+
   it('shows an error toast when loading fails', async () => {
     vi.mocked(curationsAPI.getCurations).mockRejectedValue(new Error('offline'))
     const notifications = useNotificationsStore()
