@@ -20,6 +20,7 @@ const saved = {
   monthly_token_cap: 0,
   monthly_cost_cap_cents: 0,
   daily_run_cap: 0,
+  auto_second_view_on_submit: false,
   lock_version: 0
 }
 
@@ -58,7 +59,8 @@ describe('ScopeLlmSettings', () => {
       advocate_prompt_version_id: null,
       monthly_token_cap: 0,
       monthly_cost_cap_cents: 0,
-      daily_run_cap: 0
+      daily_run_cap: 0,
+      auto_second_view_on_submit: false
     })
     expect(w.text()).not.toMatch(/fingerprint|api key/i)
   })
@@ -70,7 +72,7 @@ describe('ScopeLlmSettings', () => {
     await flushPromises()
     expect(document.body.textContent).toContain('Enabling requires a model')
 
-    Object.assign(form, { model_id: 'm1', daily_run_cap: 5 })
+    Object.assign(form, { model_id: 'm1', daily_run_cap: 5, auto_second_view_on_submit: true })
     api.saveScopeSettings.mockResolvedValue({
       ...saved,
       enabled: true,
@@ -81,7 +83,13 @@ describe('ScopeLlmSettings', () => {
     await call(vm, 'save')
     expect(api.saveScopeSettings).toHaveBeenCalledWith(
       's1',
-      expect.objectContaining({ enabled: true, model_id: 'm1', daily_run_cap: 5, lock_version: 0 })
+      expect.objectContaining({
+        enabled: true,
+        model_id: 'm1',
+        daily_run_cap: 5,
+        auto_second_view_on_submit: true,
+        lock_version: 0
+      })
     )
     expect((vm.form as { lock_version: number }).lock_version).toBe(1)
     expect(showSuccess).toHaveBeenCalledWith('LLM settings saved')

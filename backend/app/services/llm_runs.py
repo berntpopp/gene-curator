@@ -17,9 +17,12 @@ from pydantic import RootModel
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app.core.database import RLS_USER_KEY
+from app.core.logging import get_logger
 from app.llm.output import InvalidLLMOutputError, parse_structured_output
 from app.llm.prompts import render_messages, wrap_untrusted
 from app.llm.providers import LLMProvider as Adapter, LLMProviderError, LLMRequest
+from app.llm.sharing import shared_keys
 from app.models import CurationNew, CurationSchema, Gene, UserNew
 from app.models.llm import (
     LLMModel,
@@ -39,6 +42,7 @@ from app.services.llm_config import (
 )
 from app.services.llm_second_view import cited_findings, proposal
 
+logger = get_logger(__name__)
 MTOK = Decimal(1_000_000)
 PENDING = ("queued", "running")
 GOLDEN_DIR = Path(__file__).parents[1] / "llm" / "golden"
@@ -47,125 +51,12 @@ GOLDEN_DIR = Path(__file__).parents[1] / "llm" / "golden"
 # --- data sharing ---------------------------------------------------------------
 
 
-# The only evidence_data keys (at any depth) sent to a provider: the evidence facts of the
-# seeded schemas. Curator judgement (points, score status, rationale, impact, replication,
-# summaries) is left out so the second view stays blind (#464); the postgres test
-# tests/postgres/test_llm_shared_fields.py lists those keys as excluded.
-# Anything else, e.g. a curator_name a custom schema adds, is dropped. ponytail: custom
-# schema fields need adding here; upgrade to a per-field share flag in the schema.
-SHARED_EVIDENCE_KEYS = frozenset(
-    {
-        "age",
-        "aggregate_variant_analysis",
-        "analysis_type",
-        "assay_method",
-        "autosomal_dominant_or_x_linked",
-        "autosomal_recessive",
-        "biochemical_function",
-        "case_control",
-        "case_control_data",
-        "case_level",
-        "case_level_data",
-        "cases_total",
-        "cases_with_variant",
-        "cases_with_variants",
-        "cell_culture",
-        "cell_culture_model",
-        "cell_line",
-        "cell_type",
-        "clinical_assessment",
-        "confidence_interval",
-        "consanguinity",
-        "contradictory_evidence",
-        "controls_total",
-        "controls_with_variant",
-        "controls_with_variants",
-        "de_novo",
-        "description",
-        "disease_mechanism_relevance",
-        "disease_name",
-        "disease_relevance",
-        "disease_tissue_relevance",
-        "entity_definition",
-        "ethnicity",
-        "evidence_type",
-        "experimental_category",
-        "experimental_evidence",
-        "expression",
-        "expression_method",
-        "family_label",
-        "function",
-        "functional_alteration",
-        "functional_data",
-        "functional_effect",
-        "gene_function_description",
-        "genetic_evidence",
-        "human",
-        "human_phenotype_match",
-        "inheritance_pattern_match",
-        "initial_assessment",
-        "interacting_protein",
-        "interaction_method",
-        "key_references",
-        "label",
-        "literature_review",
-        "literature_search_strategy",
-        "lod_score",
-        "lod_score_method",
-        "lumping_splitting",
-        "methods",
-        "mode_of_inheritance",
-        "model_type",
-        "models",
-        "modification",
-        "mondo_id",
-        "non_human_model_organism",
-        "non_patient_cells",
-        "odds_ratio",
-        "organism",
-        "other_variant_type",
-        "p_value",
-        "paternity_maternity_confirmed",
-        "patient_cells",
-        "pedigree_description",
-        "phase_confirmed",
-        "phenotype_observed",
-        "phenotype_rescued",
-        "phenotypes",
-        "pmid",
-        "predicted_or_proven_null",
-        "previous_testing",
-        "proband_label",
-        "proband_with_variant",
-        "protein_interaction",
-        "rescue",
-        "rescue_extent",
-        "rescue_method",
-        "sections",
-        "segregation",
-        "segregation_data",
-        "segregations",
-        "sex",
-        "single_variant_analysis",
-        "statistical_test",
-        "study_label",
-        "tissue_organ",
-        "variant",
-        "variant_1",
-        "variant_2",
-        "variant_engineered",
-        "variant_tested",
-        "variant_type",
-        "zygosity",
-    }
-)
-
-
-def _shared(value: Any) -> Any:
+def _shared(value: Any, keys: frozenset[str]) -> Any:
+    """`value` with only the shared keys, at any depth (app.llm.sharing)."""
     if isinstance(value, dict):
-        return {k: _shared(v) for k, v in value.items() if k in SHARED_EVIDENCE_KEYS}
+        return {k: _shared(v, keys) for k, v in value.items() if k in keys}
     if isinstance(value, list):
-        return [_shared(v) for v in value]
+        return [_shared(v, keys) for v in value]
     return value
 
 
@@ -207,13 +98,15 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
     """
     gene = db.get(Gene, curation.gene_id)
     methodology = db.execute(
-        select(CurationSchema.name, CurationSchema.version)
+        select(CurationSchema.name, CurationSchema.version, MethodologyVersion.snapshot)
         .join(MethodologyVersion, MethodologyVersion.schema_id == CurationSchema.id)
         .where(MethodologyVersion.id == curation.methodology_version_id)
     ).first()
     evidence = curation.evidence_data or {}
     # Blind (#464): no scores, class or verdict rationale; the model judges the evidence.
-    content = {"evidence_data": _shared(evidence)}
+    # the curation's own methodology version says which extra fields it shares (#534)
+    keys = shared_keys(methodology[2].get("field_definitions") if methodology else None)
+    content = {"evidence_data": _shared(evidence, keys)}
     precuration = curation.precuration
     fields = disease_fields(
         evidence, precuration.evidence_data if precuration else None
@@ -424,6 +317,64 @@ def enqueue_run(
         db.rollback()
         raise
     return run
+
+
+def queue_strategies(db: Session, user: UserNew, curation: CurationNew) -> int:
+    """Queue a blind run per configured strategy; the number queued.
+
+    Until one run is queued, refuses (already_pending) while another is pending, so one
+    request never starts a second view twice. Raises the last refusal if none queued.
+    """
+    settings = db.get(ScopeLLMSettings, curation.scope_id)
+    refusal = LLMCapError("llm_disabled")
+    queued = 0
+    for strategy in ("skeptic", "advocate"):
+        if not (settings and getattr(settings, f"{strategy}_prompt_version_id")):
+            continue
+        try:
+            enqueue_run(db, user, curation.id, strategy, exclusive=not queued)
+            queued += 1
+        except LLMCapError as exc:
+            if exc.code == "already_pending":
+                raise
+            refusal = exc
+    if not queued:
+        raise refusal
+    return queued
+
+
+def queue_on_submit(db: Session, curation: CurationNew) -> None:
+    """#464: after a successful submit, queue the second view when the scope opted in.
+
+    Runs on behalf of the admin who last saved the scope settings (they opted in; the
+    worker then sees what they may see), in its own session. Never fails the submit:
+    any refusal or error is logged and dropped.
+    """
+    try:
+        if db.get_bind().dialect.name == "postgresql":
+            # SECURITY DEFINER (073): the submitter may not read the scope settings
+            owner = db.scalar(
+                text("SELECT llm_auto_second_view_owner(:c)"), {"c": curation.id}
+            )
+        else:  # SQLite (tests): no RLS
+            settings = db.get(ScopeLLMSettings, curation.scope_id)
+            on = settings and settings.enabled and settings.auto_second_view_on_submit
+            owner = settings.updated_by if settings and on else None
+        if owner is None:
+            return
+        with Session(db.get_bind()) as owned:
+            owned.info[RLS_USER_KEY] = str(owner)
+            user = owned.get(UserNew, owner)
+            if user is None or not user.is_active:
+                raise LLMCapError("user_inactive")
+            queue_strategies(owned, user, curation)
+    except Exception as exc:  # advisory: the submit already succeeded
+        db.rollback()
+        logger.warning(
+            "Second view not queued on submit",
+            curation_id=str(curation.id),
+            reason=getattr(exc, "code", type(exc).__name__),
+        )
 
 
 # --- preview and call preparation -----------------------------------------------

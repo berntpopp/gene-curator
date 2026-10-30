@@ -184,6 +184,10 @@ class ScopeLLMSettings(Base):
         Integer, nullable=False, default=0
     )
     daily_run_cap: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # 073 (#464): queue the second view when a curation is submitted
+    auto_second_view_on_submit: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     lock_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_by: Mapped[PyUUID | None] = _user_fk()
     updated_at: Mapped[dt] = _now()

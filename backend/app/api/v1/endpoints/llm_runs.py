@@ -39,9 +39,9 @@ from app.models.llm import (
 from app.schemas.llm import FindingDecision, FindingOut, RunOut, SecondViewOut
 from app.services.llm_config import LLMCapError, call_config
 from app.services.llm_runs import (
-    enqueue_run,
     load_golden,
     prepare_call,
+    queue_strategies,
     run_golden_case,
 )
 from app.services.llm_second_view import second_view
@@ -219,28 +219,15 @@ def queue_second_view(
 ) -> SecondViewOut:
     """Queue a blind run per configured strategy; the worker runs them in the background."""
     curation = _reviewable(db, user, scope_id, curation_id)
-    settings = db.get(ScopeLLMSettings, scope_id)
-    strategies = [
-        s
-        for s in ("skeptic", "advocate")
-        if settings and getattr(settings, f"{s}_prompt_version_id")
-    ]
-    refusal = "llm_disabled"
-    queued = 0
-    for strategy in strategies:
-        try:
-            # until one run is queued, refuse under the scope lock if another is pending
-            enqueue_run(db, user, curation.id, strategy, exclusive=not queued)
-            queued += 1
-        except LLMCapError as exc:
-            if exc.code == "already_pending":
-                raise HTTPException(
-                    status_code=409,
-                    detail="A second view is already running for this curation; wait for it",
-                ) from exc
-            refusal = exc.code
-    if not queued:
-        raise HTTPException(status_code=422, detail=refusal)
+    try:
+        queue_strategies(db, user, curation)
+    except LLMCapError as exc:
+        if exc.code == "already_pending":
+            raise HTTPException(
+                status_code=409,
+                detail="A second view is already running for this curation; wait for it",
+            ) from exc
+        raise HTTPException(status_code=422, detail=exc.code) from exc
     return _view(db, curation)
 
 
