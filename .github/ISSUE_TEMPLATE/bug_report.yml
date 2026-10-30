@@ -117,7 +117,7 @@ body:
     attributes:
       label: Gene Curator Version
       description: Shown in the app bar (Version: x.y.z)
-      placeholder: v0.10.1
+      placeholder: v0.11.0
 
   - type: input
     id: browser

@@ -117,6 +117,7 @@ body:
         - v0.9.0 (MCP server and LLM configuration)
         - v0.10.0 (MCP OAuth, LLM second view and split disease entities)
         - v0.10.1 (Export, url fields and MOI options)
+        - v0.11.0 (Final classification, relationship type and signed-in approvals)
         - Future (Post v1.0)
         - Not sure
 
