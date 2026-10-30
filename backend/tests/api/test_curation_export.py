@@ -152,6 +152,21 @@ def test_private_scope_hidden_from_anonymous_and_archived_shown_to_members(
     assert r.json()["items"][0]["status"] == "archived"
 
 
+def test_soft_deleted_curation_is_not_exported(
+    client: TestClient,
+    db_session: Session,
+    pair: WorkflowPair,
+    test_gene: Gene,
+    test_scope: Scope,
+    viewer_token: str,
+) -> None:
+    c = _point(db_session, pair, test_gene, test_scope, T0)
+    c.status = CurationStatus.ARCHIVED  # soft delete: pointer keeps archived_at null
+    db_session.commit()
+    r = client.get(URL, headers={"Authorization": f"Bearer {viewer_token}"})
+    assert _ids(r) == []
+
+
 def test_archived_curation_of_public_scope_hidden_from_anonymous(
     client: TestClient,
     db_session: Session,

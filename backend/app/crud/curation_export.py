@@ -79,6 +79,11 @@ def export_curations(
                 CurationNew.status == CurationStatus.ACTIVE,
                 ActiveCuration.scope_id.in_(member_scope_ids(user_id)),
             ),
+            # A soft delete archives the curation but leaves its pointer unarchived
+            or_(
+                CurationNew.status != CurationStatus.ARCHIVED,
+                ActiveCuration.archived_at.is_not(None),
+            ),
         )
         .order_by(_changed_at, ActiveCuration.id)
         .limit(limit + 1)
