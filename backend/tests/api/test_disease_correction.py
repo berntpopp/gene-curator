@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AuditLogNew, CurationNew, CurationStatus, WorkflowStage
 from tests.api.scopes.factories import auth_headers, make_member, make_user
-from tests.unit.test_split_entities import World
+from tests.unit.test_split_entities import A, World
 
 pytestmark = pytest.mark.unit
 
@@ -254,3 +254,32 @@ def test_the_corrector_is_no_peer_reviewer(
     assert approving_reviewers(db_session, c) == 0
     assert not _can_user_review_curation(db_session, admin, c)
     assert _can_user_review_curation(db_session, world.reviewer, c)
+
+
+def test_a_short_reason_names_its_trimmed_length(
+    db_session: Session, client: TestClient
+) -> None:
+    """Monkey L5: '  a    ' was reported as 7 characters, min 3."""
+    world = World(db_session)
+    r = _correct(client, _legacy(world), _admin(world), reason="  a    ")
+    assert r.status_code == 422
+    assert "1 characters after trimming, min 3" in r.text, r.text
+
+
+def test_old_values_name_the_entity_the_precuration_supplied(
+    db_session: Session, client: TestClient
+) -> None:
+    """Monkey L5: the audit logged null old values for a curation whose disease
+    came from its precuration."""
+    world = World(db_session)
+    _, cid = world.approve({**A, "disease_name": "old"})
+    c = db_session.get(CurationNew, cid)
+    assert c is not None
+    assert _correct(client, c, _admin(world)).status_code == 200, c.evidence_data
+    audit = db_session.scalars(
+        select(AuditLogNew).where(AuditLogNew.change_type == "disease_correction")
+    ).one()
+    assert audit.old_values is not None
+    assert audit.old_values["disease_name"] == "old"
+    assert audit.old_values["mondo_id"] == A["mondo_id"]
+    assert audit.old_values["relationship_type"] == "mendelian"
