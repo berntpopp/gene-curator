@@ -33,7 +33,10 @@ always set. Use a personal access token of a scope member to see archived rows a
 | `limit` | Page size, 1-500, default 100 |
 
 Rows are ordered by `updated_at`, then an internal id. `next_cursor` is `null` on the last
-page. Keep the last `updated_at` you processed and pass it as `updated_since` next time.
+page. Keep the last `updated_at` you processed. `updated_at` is set at transaction start,
+so a slow commit can land behind a timestamp you already saw: start each incremental sync a
+few minutes before that `updated_at` and de-duplicate by `curation_id` (duplicates are
+harmless).
 
 ## Row fields
 
@@ -53,6 +56,9 @@ approved), `approved_at`, `activated_at`, `archived_at`, `updated_at`.
 - **Retraction:** retracted curations are hard deletes and never appear. To catch them, and
   archivals an anonymous caller cannot see, run a full sync (no `updated_since`) periodically
   and drop rows that are no longer returned.
+- **Soft delete:** members see a soft-deleted curation as `status: archived` with
+  `archived_at: null` (pre-existing, tracked separately). Treat `status`, not `archived_at`,
+  as the source of truth.
 
 ## Versioning
 
