@@ -24,7 +24,8 @@ vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confi
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
-  useRoute: () => route
+  useRoute: () => route,
+  onBeforeRouteLeave: vi.fn()
 }))
 
 import { genesAPI, scopesAPI, schemasAPI } from '@/api'

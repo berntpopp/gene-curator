@@ -11,7 +11,8 @@ vi.mock('@/api', () => ({
 const push = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
-  useRoute: () => ({ params: { scopeId: 'sc1', precurationId: 'p1' }, query: {} })
+  useRoute: () => ({ params: { scopeId: 'sc1', precurationId: 'p1' }, query: {} }),
+  onBeforeRouteLeave: vi.fn()
 }))
 vi.mock('@/api/precurations', () => ({
   precurationsAPI: {
