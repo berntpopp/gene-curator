@@ -1,6 +1,7 @@
 """Resolve a field's named validation rule (`"validation": "<rule>"`) into a regex pattern."""
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from app.core.schema_defaults import check_default_mappings, finite_number
 from app.core.schema_validation_result import SchemaValidationResult
@@ -115,8 +116,23 @@ def _as(kind: type, value: Any) -> Any:
 VALID_FIELD_TYPES = (
     *("text", "number", "boolean", "array", "object", "date", "select", "multiselect"),
     *("string", "integer", "enum", "textarea", "external_reference", "evidence_table"),
+    "url",
 )
 Diagnostic = tuple[str, str, str]  # (severity, JSON path, message)
+
+
+def valid_url(value: Any) -> bool:
+    """Blank (a cleared optional field: `required` is its own rule) or an http(s) URL with a
+    host without whitespace, like the form's `new URL` check (#538)."""
+    text = value.strip() if isinstance(value, str) else None
+    if text == "":
+        return True
+    try:
+        parts = urlsplit(text) if text else None
+    except ValueError:  # e.g. an unclosed IPv6 bracket
+        return False
+    host = parts.hostname if parts and parts.scheme in ("http", "https") else None
+    return bool(host) and not any(c.isspace() for c in host or "")
 
 
 def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
