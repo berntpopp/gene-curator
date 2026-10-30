@@ -156,10 +156,10 @@ class OntologyService:
             }
             # Restore saved IDs outside the suggestion branch without remapping them.
             if not re.fullmatch(r"MONDO:[0-9]{7}", query):
-                # shortcut: excludes susceptibility outside the human branch; use
-                # non-human exclusion if OLS adds a supported negative ancestor filter.
+                # Human disease or disease susceptibility (#539); OLS ORs the list.
                 params["directAncestor"] = (
-                    "http://purl.obolibrary.org/obo/MONDO_0700096"
+                    "http://purl.obolibrary.org/obo/MONDO_0700096,"
+                    "http://purl.obolibrary.org/obo/MONDO_0042489"
                 )
             response = await self._mondo_client.get("/entities", params=params)
 

@@ -13148,7 +13148,10 @@ export interface operations {
     };
     get_scoring_engine_info_api_v1_schemas_scoring_engines__engine_name__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description List the verdicts this schema's scoring config emits */
+                schema_id?: string | null;
+            };
             header?: never;
             path: {
                 engine_name: string;
