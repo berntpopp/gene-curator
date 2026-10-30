@@ -369,11 +369,19 @@ def _reserve(db: Session, settings: ScopeLLMSettings, model: LLMModel) -> None:
         raise LLMCapError("monthly_cost_cap")
 
 
-def enqueue_run(db: Session, user: UserNew, curation_id: UUID, strategy: str) -> LLMRun:
+def enqueue_run(
+    db: Session,
+    user: UserNew,
+    curation_id: UUID,
+    strategy: str,
+    *,
+    exclusive: bool = False,
+) -> LLMRun:
     """Check opt-in, model, prompt and caps and insert a queued run, atomically.
 
     The scope's settings row is locked first, so two enqueues for one scope serialize and
-    the second counts the first run. Any refusal raises LLMCapError (fail closed).
+    the second counts the first run. `exclusive` also refuses while the curation has a
+    pending run. Any refusal raises LLMCapError (fail closed).
     """
     curation = db.get(CurationNew, curation_id)
     if curation is None:
@@ -384,6 +392,12 @@ def enqueue_run(db: Session, user: UserNew, curation_id: UUID, strategy: str) ->
             .where(ScopeLLMSettings.scope_id == curation.scope_id)
             .with_for_update()
         )
+        if exclusive and db.scalar(
+            select(LLMRun.id)
+            .where(LLMRun.curation_id == curation.id, LLMRun.status.in_(PENDING))
+            .limit(1)
+        ):
+            raise LLMCapError("already_pending")
         settings = check_run_allowed(db, curation.scope_id)
         model, _ = _scope_model(db, settings.model_id)
         version = _published_version(
