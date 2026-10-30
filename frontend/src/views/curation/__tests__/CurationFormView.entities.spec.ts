@@ -23,13 +23,16 @@ vi.mock('@/composables/useLogger', () => ({
 }))
 
 const row = (id: string, status: string) => ({ id, status })
+// curation id -> its status and precuration (entity), when a test links them
+const links: Record<string, { status: string; precuration_id: string }> = {}
 const detail = (id: string) =>
   ({
     id,
     status: 'active',
     disease_name: `Disease ${id}`,
     mondo_id: `MONDO:${id}`,
-    mode_of_inheritance: 'AD'
+    mode_of_inheritance: 'AD',
+    ...links[id]
   }) as never
 
 const approvedPrecuration = (id: string) => ({
@@ -73,6 +76,7 @@ async function mountView(
 beforeEach(() => {
   vi.clearAllMocks()
   setActivePinia(createPinia())
+  for (const id of Object.keys(links)) delete links[id]
 })
 
 describe('CurationFormView entity choice', () => {
@@ -109,6 +113,28 @@ describe('CurationFormView entity choice', () => {
     expect(useCurationsStore().createCuration).not.toHaveBeenCalled()
     await wrapper.findAll('.v-list-item')[1]!.trigger('click')
     expect(routerReplace).toHaveBeenCalledWith({ query: { precuration_id: 'p2' } })
+  })
+
+  it('asks across every entity: open draft opens, active re-curates, the rest starts', async () => {
+    Object.assign(links, {
+      d1: { status: 'draft', precuration_id: 'p1' },
+      a1: { status: 'active', precuration_id: 'p2' }
+    })
+    const entities = ['p1', 'p2', 'p3'].map(approvedPrecuration)
+    const wrapper = await mountView([row('d1', 'draft'), row('a1', 'active')], {}, entities)
+    const items = () => wrapper.findAll('[data-testid="entity-choices"] .v-list-item')
+    expect(items()).toHaveLength(3)
+    expect(routerReplace).not.toHaveBeenCalled()
+    for (const i of [0, 1, 2]) {
+      await items()[i]!.trigger('click')
+      await flushPromises()
+    }
+    expect(routerReplace.mock.calls.map(([to]) => to)).toEqual([
+      { name: 'curation-edit', params: { scopeId: 'sc1', curationId: 'd1' } },
+      { query: { from: 'a1' } },
+      { query: { precuration_id: 'p3' } }
+    ])
+    expect(useCurationsStore().createCuration).not.toHaveBeenCalled()
   })
 
   it('starts the curation of the precuration named in the route', async () => {

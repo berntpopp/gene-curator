@@ -160,7 +160,7 @@
   import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
   import { useUnsavedGuard } from '@/components/workspace/useUnsavedGuard'
   import { useSaveShortcut } from '@/composables/useSaveShortcut'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { entityChoices, label } from './entityChoices'
 
   interface CurationFormRecord {
     curation_schema_id?: string | null
@@ -464,6 +464,19 @@
         }
         const from = prefillFrom.value ?? (recurate ? actives[0]?.id : undefined)
         if (from && from !== prefillFrom.value) router.replace({ query: { from } })
+        // Several approved entities (#530): ask, then open, re-curate or start the chosen one
+        const chosen = route.query.precuration_id as RouteId
+        if (chosen) return await startEntity({ ...entityOf, precuration_id: chosen })
+        if (!from) {
+          const approved = { ...entityOf, status: 'approved' }
+          const { precurations } = await precurationsStore.fetchPrecurations(approved)
+          if (precurations.length > 1) {
+            const kept = curations.filter(c => c.status !== 'archived')
+            const linked = await Promise.all(kept.map(c => curationsStore.fetchCurationById(c.id)))
+            choices.value = entityChoices(precurations, linked, scopeId.value)
+            return
+          }
+        }
         if (!from && candidates.length > 1) {
           await offer(candidates, id => ({
             name: 'curation-edit',
@@ -480,21 +493,6 @@
           return
         }
 
-        // Several approved entities and none open (#530): ask, then start the chosen one
-        const chosen = route.query.precuration_id as RouteId
-        if (chosen) return await startEntity({ ...entityOf, precuration_id: chosen })
-        const approved = await precurationsStore.fetchPrecurations({
-          ...entityOf,
-          status: 'approved'
-        })
-        if (!from && approved.precurations.length > 1) {
-          choices.value = approved.precurations.map(p => ({
-            id: p.id,
-            label: label(p),
-            to: { query: { precuration_id: p.id } }
-          }))
-          return
-        }
         await checkPrecurationStatus(geneId.value)
 
         // Redirect if no approved precuration exists
@@ -534,13 +532,6 @@
       loading.value = false
     }
   }
-
-  type Entity = { disease_name?: string | null; mondo_id?: string | null }
-  const label = (c: Entity & { mode_of_inheritance?: string | null }, ...more: string[]) =>
-    [c.disease_name || 'Disease not set', c.mondo_id]
-      .concat(c.mode_of_inheritance ? formatInheritance(c.mode_of_inheritance) : [], more)
-      .filter(Boolean)
-      .join(' · ')
 
   async function offer(rows: { id: string }[], to: (id: string) => RouteLocationRaw) {
     choices.value = await Promise.all(
