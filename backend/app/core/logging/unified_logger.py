@@ -260,12 +260,12 @@ class UnifiedLogger:
             task.add_done_callback(self._handle_db_log_exception)
         elif _main_loop is not None and _main_loop.is_running():
             # A temporary loop (asyncio.run in a worker thread) must not touch the
-            # engine's connections: hand the write to the main loop, keeping context.
-            extra_data = {**self._get_current_context(), **extra_data}
-            asyncio.run_coroutine_threadsafe(
-                self._log_to_database_async(level, message, error, extra_data),
-                _main_loop,
-            )
+            # engine's connections: hand the write to the main loop (context is copied).
+            coro = self._log_to_database_async(level, message, error, extra_data)
+            try:
+                asyncio.run_coroutine_threadsafe(coro, _main_loop)
+            except RuntimeError:  # main loop closed during shutdown; console only
+                coro.close()
         # else: no live main loop known; console only
 
     def debug(self, message: str, **kwargs):

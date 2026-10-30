@@ -89,3 +89,33 @@ def test_write_from_temporary_loop_skipped_without_live_main_loop(
     assert foreign_tasks == [0]
     assert db.calls == []
     console.info.assert_called_once()
+
+
+def test_hand_off_to_closing_main_loop_does_not_raise(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    closing = MagicMock()
+    closing.is_running.return_value = True  # stale: closes before the hand-off
+    closing.call_soon_threadsafe.side_effect = RuntimeError("Event loop is closed")
+    monkeypatch.setattr(ul, "_main_loop", closing)
+    db = RecordingDbLogger()
+    log = _logger(db)
+
+    async def fetch() -> None:
+        log.info("Publication fetched")
+
+    errors: list[BaseException] = []
+    worker = threading.Thread(target=lambda: _run_capturing(fetch, errors))
+    worker.start()
+    worker.join()
+
+    assert errors == []
+    assert db.calls == []
+    closing.call_soon_threadsafe.assert_called_once()
+
+
+def _run_capturing(fn: Any, errors: list[BaseException]) -> None:
+    try:
+        asyncio.run(fn())
+    except BaseException as exc:
+        errors.append(exc)
