@@ -43,7 +43,9 @@ const hits = {
       gene_symbol: 'PKD2',
       scope_id: 's1',
       scope_name: 'Kidney',
-      status: 'in_review'
+      status: 'in_review',
+      disease_name: 'Polycystic kidney disease 2',
+      mode_of_inheritance: 'AD'
     }
   ],
   scopes: [{ id: 's1', name: 'kidney', display_name: 'Kidney genetics' }]
@@ -117,6 +119,12 @@ describe('CommandPalette', () => {
     const genes = options().filter(o => o.textContent?.includes('HGNC:'))
     expect(genes[0]!.textContent).toContain('Definitive')
     expect(genes[1]!.textContent).not.toContain('classified')
+  })
+
+  it('names the disease and MOI of a curation hit (#530)', async () => {
+    await type('pkd')
+    const [hit] = options().filter(o => o.textContent?.includes('PKD2 curation'))
+    expect(hit!.textContent).toContain('Polycystic kidney disease 2 · Autosomal dominant · Kidney')
   })
 
   it('debounces typing into one request and renders grouped results', async () => {

@@ -4916,6 +4916,12 @@ export interface components {
             scope_name: string;
             /** Status */
             status: string;
+            /** Disease Name */
+            disease_name?: string | null;
+            /** Mondo Id */
+            mondo_id?: string | null;
+            /** Mode Of Inheritance */
+            mode_of_inheritance?: string | null;
         };
         /**
          * CurationListResponse
@@ -15918,7 +15924,7 @@ export interface operations {
             query: {
                 /** @description Search text */
                 q: string;
-                /** @description Max hits per group */
+                /** @description Max gene and scope hits; curations: up to 20 */
                 limit?: number;
             };
             header?: never;

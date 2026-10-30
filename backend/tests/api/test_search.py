@@ -233,3 +233,22 @@ def test_gene_hit_shows_the_highest_verdict_of_split_entities(
     make_member(db_session, test_scope, member, "viewer")
     hits = _search(client, member, "hnf1b").json()["genes"]
     assert [g["classification"] for g in hits] == ["Definitive"]
+
+
+def test_curation_hits_name_the_entity_and_keep_every_entity(
+    client, db_session, test_scope: Scope, test_workflow_pair: WorkflowPair
+):
+    # W8 round 2: a gene split into six entities lost the sixth to the per-group cap
+    gene = _gene(db_session, "HNF1B", 1)
+    user = make_user(db_session)
+    make_member(db_session, test_scope, user, "viewer")
+    for n in range(6):
+        c = _curation(db_session, test_scope, gene, test_workflow_pair, user)
+        c.entity_key = f"MONDO:{n}|AD"
+        c.evidence_data = {"disease_name": f"Disease {n}", "mode_of_inheritance": "AD"}
+    db_session.commit()
+    hits = _search(client, user, "HNF1B").json()["curations"]
+    assert len(hits) == 6
+    assert {(h["disease_name"], h["mode_of_inheritance"]) for h in hits} == {
+        (f"Disease {n}", "AD") for n in range(6)
+    }

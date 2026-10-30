@@ -431,13 +431,13 @@ describe('GeneList', () => {
       expect(push).not.toHaveBeenCalled()
     })
 
-    it('starts a re-curation from the active curation', async () => {
+    it('starts a re-curation; the form picks the active curation or asks (#530)', async () => {
       getCurations.mockResolvedValue({
         curations: [{ id: 'c-7', gene_id: 'g-1', status: 'active', updated_at: '2025-01-01' }]
       } as never)
       const vm = internals(await mountList())
       vm.startRecuration({ gene_id: 'g-1' })
-      expect(push).toHaveBeenCalledWith('/scopes/scope-1/genes/g-1/curation/new?from=c-7')
+      expect(push).toHaveBeenCalledWith('/scopes/scope-1/genes/g-1/curation/new?recurate=1')
     })
 
     it('starts precuration instead of completing when none exists', async () => {
