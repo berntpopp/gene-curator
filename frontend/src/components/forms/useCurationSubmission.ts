@@ -7,6 +7,7 @@ import { useLogger } from '@/composables/useLogger'
 import { replaceKeepingChanges } from '@/components/workspace/useUnsavedGuard'
 import { apiDetail } from './apiDetail'
 import type { ApiErrorLike } from './types'
+import type { CuratorCall } from './CuratorClassificationField.vue'
 
 export type EvidenceData = Record<string, unknown>
 
@@ -25,6 +26,8 @@ export interface CurationSubmissionOptions {
   /** Precuration a new curation links to (a re-curation carries its source's). */
   precurationId?: () => string | null
   evidenceData: Ref<EvidenceData>
+  /** Saved with the evidence of an existing curation (#533) */
+  curatorCall?: Ref<CuratorCall>
   lockVersion: Ref<number>
   canSubmit: () => boolean
   clearRecovery: () => void
@@ -135,6 +138,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       const payload = {
         // A copy: nested edits typed during the save mutate the form's objects in place
         evidence_data: JSON.parse(JSON.stringify(evidenceData.value)) as EvidenceData,
+        ...options.curatorCall?.value,
         lock_version: lockVersion.value
       }
 
@@ -188,6 +192,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const evidence = JSON.parse(JSON.stringify(evidenceData.value)) as EvidenceData
         const updated = (await curationsStore.updateCuration(id, {
           evidence_data: evidence,
+          ...options.curatorCall?.value,
           lock_version: lockVersion.value
         })) as CurationRecord
         // The update bumped the version: keep it, so a retry after a refused submit is not stale

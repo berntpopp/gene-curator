@@ -402,7 +402,7 @@
       curator_id: curation.created_by,
       curator_name: curation.curator_name,
       status: curation.status,
-      classification: curation.computed_verdict,
+      classification: curation.final_classification ?? curation.computed_verdict,
       score: Number(curation.computed_scores?.total_score) || 0,
       updated_at: curation.updated_at,
       created_at: curation.created_at

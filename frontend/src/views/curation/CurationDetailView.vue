@@ -65,8 +65,15 @@
                   <div class="text-body-large">Total Points</div>
                 </v-col>
                 <v-col cols="12" md="6" class="text-center">
-                  <ClassificationMark :classification="classification" class="text-title-large" />
+                  <ClassificationMark :classification="final" class="text-title-large" />
                   <div class="text-body-small mt-2">Gene-Disease Validity Classification</div>
+                  <div
+                    v-if="final !== classification"
+                    class="text-body-small text-medium-emphasis"
+                    data-testid="calculated-classification"
+                  >
+                    Curator classification; calculated: {{ classification || '—' }}
+                  </div>
                 </v-col>
               </v-row>
             </v-card-text>
@@ -361,7 +368,9 @@
       v-model="review.showApprove.value"
       :gene-symbol="curation?.gene_symbol"
       :scope-name="scopeName"
-      :classification="classification"
+      :classification="final"
+      :calculated="classification"
+      :rationale="rationale"
       :total="formatScore(scores.total)"
       :curator="curation?.curator_name"
       :blockers="blockers"
@@ -475,7 +484,9 @@
       curation.value.created_by === (authStore.user as { id?: string } | null)?.id
   )
 
-  const { scores, classification } = useCurationClassification(() => curation.value)
+  const { scores, classification, final, rationale } = useCurationClassification(
+    () => curation.value
+  )
 
   // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => curation.value?.can_edit ?? false)

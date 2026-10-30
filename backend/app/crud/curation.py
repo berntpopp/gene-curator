@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.logging import get_logger
 from app.crud.activation import same_entity
 from app.crud.base import CRUDBase
+from app.crud.curator_classification import curator_call
 from app.crud.optimistic_lock import update_if_version
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
@@ -348,6 +349,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         if verdict
                         else None
                     ),
+                    final_classification=row.CurationNew.final_classification,
                     computed_scores={
                         "total_score": scores.get("total_score", 0.0),
                         "genetic_score": scores.get("genetic_evidence_total", 0.0),
@@ -506,6 +508,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             warnings, unknown = check_ids(db, evidence)
             values["evidence_data"] = evidence
             values.update(_computed(db, db_obj, evidence, (shrunk + warnings, unknown)))
+        values.update(curator_call(db, db_obj, obj_in))
         if not update_if_version(
             db, CurationNew, db_obj.id, obj_in.lock_version, values
         ):
@@ -537,6 +540,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             "is_draft": True,
             "auto_saved_at": _utc_now(),
             "updated_by": user_id,
+            **curator_call(db, db_obj, draft_data),
         }
         if not update_if_version(
             db, CurationNew, db_obj.id, draft_data.lock_version, values

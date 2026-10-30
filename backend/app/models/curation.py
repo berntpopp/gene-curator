@@ -24,8 +24,10 @@ from sqlalchemy import (
     Text,
     text,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.database import Base
 from app.core.db_types import (
@@ -276,6 +278,19 @@ class CurationNew(Base):
     computed_fields: Mapped[dict[str, Any]] = mapped_column(
         compatible_jsonb(), default={}
     )
+
+    # Curator's call (#533): overrides the computed verdict; rationale required if it differs
+    curator_classification: Mapped[str | None] = mapped_column(String(100))
+    curator_classification_rationale: Mapped[str | None] = mapped_column(Text)
+
+    @hybrid_property
+    def final_classification(self) -> str | None:
+        return self.curator_classification or self.computed_verdict
+
+    @final_classification.inplace.expression
+    @classmethod
+    def _final_classification_expression(cls) -> ColumnElement[str | None]:
+        return func.coalesce(cls.curator_classification, cls.computed_verdict)
 
     # Auto-save functionality (nullable)
     auto_saved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))

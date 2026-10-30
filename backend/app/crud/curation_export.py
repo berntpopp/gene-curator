@@ -129,6 +129,8 @@ def _item(
         ),
         moi_hpo_id=_MOI_HPO.get(moi),
         computed_verdict=c.computed_verdict,
+        final_classification=c.final_classification,
+        curator_classification_rationale=c.curator_classification_rationale,
         genetic_score=scores.get("genetic_evidence_total"),
         experimental_score=scores.get("experimental_evidence_total"),
         total_score=scores.get("total_score"),

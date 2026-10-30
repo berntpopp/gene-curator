@@ -16,4 +16,20 @@ describe('useCurationClassification', () => {
     expect(scores.value.total).toBeNull()
     expect(classification.value).toBe('')
   })
+
+  it('labels the final classification, the calculated one without an override', () => {
+    const c = {
+      computed_verdict: 'moderate',
+      final_classification: 'Disputed',
+      curator_classification_rationale: 'Contradicting cohort'
+    }
+    const { classification, final, rationale } = useCurationClassification(() => c)
+    expect([classification.value, final.value, rationale.value]).toEqual([
+      'Moderate',
+      'Disputed',
+      'Contradicting cohort'
+    ])
+    const plain = useCurationClassification(() => ({ computed_verdict: 'moderate' }))
+    expect([plain.final.value, plain.rationale.value]).toEqual(['Moderate', ''])
+  })
 })

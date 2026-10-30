@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.logging import get_logger
 from app.core.search_text import escape_like
 from app.crud.curation import get_disease_fields
+from app.crud.curator_classification import class_key_sql
 from app.crud.scope_visibility import visible_scope_ids
 from app.models import ActiveCuration, CurationNew, Gene, PrecurationNew, Scope, UserNew
+from app.schemas.curation import class_key
 from app.schemas.gene_catalogue import (
     GeneCatalogueEntry,
     GeneCatalogueFilters,
@@ -88,18 +90,17 @@ def get_catalogue_summary_stats(
         or 0
     )
 
-    # Classification distribution
+    # Classification distribution, by lower-cased final class (keys and labels mix)
+    final = class_key_sql(CurationNew.final_classification)
     classification_counts = db.execute(
-        select(CurationNew.computed_verdict, func.count(CurationNew.id))
+        select(final, func.count(CurationNew.id))
         .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
         .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
-        .group_by(CurationNew.computed_verdict)
+        .group_by(final)
     ).all()
 
     classification_summary = {
-        verdict.lower() if verdict else "unknown": count
-        for verdict, count in classification_counts
-        if verdict
+        verdict: count for verdict, count in classification_counts if verdict
     }
 
     return GeneCatalogueSummaryStats(
@@ -167,7 +168,8 @@ def get_catalogue_entries(
         base_query = base_query.join(
             CurationNew, ActiveCuration.curation_id == CurationNew.id
         ).where(
-            func.lower(CurationNew.computed_verdict) == filters.classification.lower()
+            class_key_sql(CurationNew.final_classification)
+            == class_key(filters.classification)
         )
 
     if filters.disease:
@@ -225,7 +227,7 @@ def _build_scope_curation_summary(
     genetic_score = scores.get("genetic_evidence_total")
     experimental_score = scores.get("experimental_evidence_total")
     total_score = scores.get("total_score")
-    classification = curation.computed_verdict
+    classification = curation.final_classification
 
     summary = ScopeCurationSummary(
         scope_id=scope.id,
@@ -234,6 +236,7 @@ def _build_scope_curation_summary(
         is_public=scope.is_public,
         **disease,
         classification=classification,
+        computed_verdict=curation.computed_verdict,
         genetic_score=genetic_score,
         experimental_score=experimental_score,
         total_score=total_score,
@@ -241,8 +244,7 @@ def _build_scope_curation_summary(
         curator_name=curator.name if curator else None,
     )
 
-    class_key = classification.lower() if classification else None
-    return summary, class_key, disease_name
+    return summary, class_key(classification) if classification else None, disease_name
 
 
 def _build_catalogue_entry(
@@ -279,7 +281,8 @@ def _build_catalogue_entry(
         )
     if filters.classification:
         curation_query = curation_query.where(
-            func.lower(CurationNew.computed_verdict) == filters.classification.lower()
+            class_key_sql(CurationNew.final_classification)
+            == class_key(filters.classification)
         )
     if filters.disease:
         curation_query = _where_disease(curation_query, filters.disease)
@@ -294,13 +297,13 @@ def _build_catalogue_entry(
     diseases: set[str] = set()
 
     for active_curation, curation, scope, curator in results:
-        summary, class_key, disease_name = _build_scope_curation_summary(
+        summary, key, disease_name = _build_scope_curation_summary(
             active_curation, curation, scope, curator
         )
         scope_curations.append(summary)
 
-        if class_key:
-            classifications[class_key] += 1
+        if key:
+            classifications[key] += 1
         if disease_name:
             diseases.add(disease_name)
 
@@ -367,19 +370,19 @@ def get_available_classifications(
     """
     results = (
         db.execute(
-            select(func.distinct(CurationNew.computed_verdict))
+            select(func.distinct(class_key_sql(CurationNew.final_classification)))
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
             .where(
                 ActiveCuration.archived_at.is_(None),
                 _visible(user_id),
-                CurationNew.computed_verdict.isnot(None),
+                CurationNew.final_classification.isnot(None),
             )
         )
         .scalars()
         .all()
     )
 
-    return sorted([r.lower() for r in results if r])
+    return sorted(r for r in results if r)
 
 
 def get_available_diseases(

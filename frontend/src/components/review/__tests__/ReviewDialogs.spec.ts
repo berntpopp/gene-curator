@@ -22,6 +22,18 @@ const approveProps = {
 }
 
 describe('ApproveChecklistDialog', () => {
+  it('shows the calculated and the proposed final classification with the rationale', () => {
+    const w = mount(
+      ApproveChecklistDialog,
+      opts({ ...approveProps, calculated: 'Strong', rationale: 'Replicated over 5 years' })
+    )
+    expect(w.find('[data-testid=approve-calculated]').text()).toBe('Strong')
+    expect(w.find('[data-testid=approve-final]').text()).toBe('Definitive')
+    expect(w.find('[data-testid=approve-rationale]').text()).toContain('Replicated over 5 years')
+    expect(w.text()).toContain('If you disagree, request changes')
+    expect(w.text()).toContain('Definitive: replication over time is documented')
+  })
+
   it('names what is approved and shows classification, score and curator', () => {
     const w = mount(ApproveChecklistDialog, opts(approveProps))
     expect(w.text()).toContain('Approve PKD1 for Kidney genetics?')

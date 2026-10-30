@@ -225,6 +225,20 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).not.toContain('/ 6')
   })
 
+  it('leads with the final classification and gives the reviewer both (#533)', async () => {
+    const wrapper = await load({
+      can_review: true,
+      computed_verdict: 'moderate',
+      final_classification: 'Disputed',
+      curator_classification_rationale: 'Contradicting cohort'
+    })
+    expect(wrapper.find('[data-testid=calculated-classification]').text()).toContain('Moderate')
+    const dialog = wrapper.findComponent(ApproveChecklistDialog)
+    expect(dialog.props('classification')).toBe('Disputed')
+    expect(dialog.props('calculated')).toBe('Moderate')
+    expect(dialog.props('rationale')).toBe('Contradicting cohort')
+  })
+
   it('shows no caps and unknown breakdown rows for a legacy row without trace (#266)', async () => {
     const wrapper = await load({ computed_scores: { total_score: 5 }, computed_verdict: 'limited' })
     expect(wrapper.text()).not.toContain('max')

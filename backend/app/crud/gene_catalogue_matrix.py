@@ -13,8 +13,10 @@ from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.search_text import escape_like
+from app.crud.curator_classification import class_key_sql
 from app.models import ActiveCuration, CurationNew, Gene, Scope, ScopeMembership
 from app.models.models import CurationStatus
+from app.schemas.curation import class_key
 from app.schemas.gene_catalogue_matrix import (
     Agreement,
     MatrixCell,
@@ -31,7 +33,7 @@ VERDICT_ORDER = ("definitive", "strong", "moderate", "limited", "disputed", "ref
 
 
 def verdict_rank(verdict: str | None) -> int:
-    v = (verdict or "").lower()
+    v = class_key(verdict or "")
     return VERDICT_ORDER.index(v) if v in VERDICT_ORDER else len(VERDICT_ORDER)
 
 
@@ -39,8 +41,8 @@ def _agreement(active: list[CurationNew]) -> Agreement:
     """Per gene-disease-MOI entity (#530): scopes agree or disagree on the same entity."""
     by_entity: dict[str, list[str]] = defaultdict(list)
     for c in active:
-        if c.computed_verdict:
-            by_entity[c.entity_key].append(c.computed_verdict.lower())
+        if c.final_classification:
+            by_entity[c.entity_key].append(class_key(c.final_classification))
     if any(len(set(v)) > 1 for v in by_entity.values()):
         return "disagree"
     if any(len(v) > 1 for v in by_entity.values()):
@@ -114,7 +116,9 @@ def get_matrix(
             )
         )
     if agreement:
-        distinct = func.count(func.distinct(func.lower(CurationNew.computed_verdict)))
+        distinct = func.count(
+            func.distinct(class_key_sql(CurationNew.final_classification))
+        )
 
         def entities(*having: Any) -> Any:
             """Genes with an entity whose visible active verdicts match `having`."""
@@ -124,7 +128,7 @@ def get_matrix(
                 .where(
                     ActiveCuration.archived_at.is_(None),
                     ActiveCuration.scope_id.in_(visible),
-                    CurationNew.computed_verdict.is_not(None),
+                    CurationNew.final_classification.is_not(None),
                 )
                 .group_by(ActiveCuration.gene_id, ActiveCuration.entity_key)
                 .having(*having)
@@ -180,7 +184,7 @@ def get_matrix(
         # An active curation outranks an in-progress revision; several active entities
         # in one scope show the highest verdict (last write wins; stable on id).
         for c in sorted(
-            active, key=lambda c: (-verdict_rank(c.computed_verdict), str(c.id))
+            active, key=lambda c: (-verdict_rank(c.final_classification), str(c.id))
         ):
             actives[c.gene_id].append(c)
             cells[c.gene_id][c.scope_id] = _cell(c, in_progress=False)
@@ -215,7 +219,7 @@ def _cell(c: CurationNew, *, in_progress: bool) -> MatrixCell:
     return MatrixCell(
         scope_id=c.scope_id,
         curation_id=c.id,
-        classification=c.computed_verdict,
+        classification=c.final_classification,
         stage=c.workflow_stage.value,
         status=c.status.value,
         total_score=(c.computed_scores or {}).get("total_score"),

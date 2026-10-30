@@ -13,8 +13,12 @@
     </p>
     <dl class="summary mb-4">
       <div>
-        <dt>Classification</dt>
-        <dd>{{ classification || '—' }}</dd>
+        <dt>Calculated</dt>
+        <dd data-testid="approve-calculated">{{ calculated || '—' }}</dd>
+      </div>
+      <div>
+        <dt>Final (you confirm)</dt>
+        <dd data-testid="approve-final">{{ classification || '—' }}</dd>
       </div>
       <div>
         <dt>Score</dt>
@@ -25,6 +29,15 @@
         <dd>{{ curator || '—' }}</dd>
       </div>
     </dl>
+    <p v-if="rationale" class="text-body-medium mb-4" data-testid="approve-rationale">
+      <strong>Curator's rationale:</strong> {{ rationale }}
+    </p>
+    <p
+      v-if="calculated && classification && calculated !== classification"
+      class="text-body-small text-medium-emphasis mb-4"
+    >
+      Approving confirms the curator's final classification. If you disagree, request changes.
+    </p>
 
     <fieldset class="checks">
       <legend class="text-body-small font-weight-medium mb-1">Checked against SOP v11</legend>
@@ -95,7 +108,10 @@
     modelValue: boolean
     geneSymbol?: string | null
     scopeName?: string | null
+    /** The final classification approval publishes; `calculated` is the computed verdict */
     classification?: string | null
+    calculated?: string | null
+    rationale?: string | null
     total: number | string
     curator?: string | null
     blockers: { key: string; label: string; queried?: boolean }[]
@@ -125,7 +141,7 @@
 <style scoped>
   .summary {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 12px;
     padding: 12px;
     border: 1px solid rgb(var(--v-theme-outline, var(--v-border-color)));

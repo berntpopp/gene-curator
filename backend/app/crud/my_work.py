@@ -52,7 +52,7 @@ def _item(row: Any, kind: WorkKind, tab: WorkTab, verb: str, link: str) -> WorkI
         disease_name=disease["disease_name"],
         mode_of_inheritance=disease["mode_of_inheritance"],
         stage=getattr(stage, "value", stage),
-        classification=getattr(obj, "computed_verdict", None),
+        classification=getattr(obj, "final_classification", None),
     )
 
 

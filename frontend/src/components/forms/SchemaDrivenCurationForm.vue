@@ -57,6 +57,14 @@
             </template>
             No schema assigned to this curation. Please contact an administrator.
           </v-alert>
+
+          <!-- Saved with an existing curation only: create takes evidence alone -->
+          <CuratorClassificationField
+            v-if="version && curationId"
+            v-model="curatorCall"
+            :calculated="score?.classification ?? curationsStore.currentCuration?.computed_verdict"
+            :readonly="readonly"
+          />
         </v-card-text>
 
         <template v-if="!frame">
@@ -138,6 +146,7 @@
   import FormActions from '@/components/forms/FormActions.vue'
   import ScoreSummary from './ScoreSummary.vue'
   import LumpingSplittingSection from './LumpingSplittingSection.vue'
+  import CuratorClassificationField, { type CuratorCall } from './CuratorClassificationField.vue'
   import { useConfirm } from '@/composables/useConfirm'
   import { pmidsIn, usePmidLookup } from '@/composables/usePmidLookup'
   import { WORKSPACE_FRAME, type ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
@@ -181,6 +190,10 @@
 
   // Form state
   const evidenceData = ref<EvidenceData>({})
+  const curatorCall = ref<CuratorCall>({
+    curator_classification: null,
+    curator_classification_rationale: null
+  })
   const isDraft = ref(true)
   const ready = ref(false) // schema and curation (and precuration) have been requested
   const isValid = ref(true) // Updated via validation-change event
@@ -296,6 +309,7 @@
       workflowPairId: () => props.workflowPairId,
       precurationId: () => precurationId.value,
       evidenceData,
+      curatorCall,
       lockVersion,
       canSubmit: () => canSubmit.value,
       clearRecovery,
@@ -318,7 +332,12 @@
   // entity, and owns Ctrl+S and the Save/Submit buttons.
   const frame = inject(WORKSPACE_FRAME, null)
   frame?.attachForm({
-    evidence: evidenceData,
+    // The leave guard and save state cover the curator's call too (#533)
+    evidence: computed(() =>
+      curatorCall.value.curator_classification || curatorCall.value.curator_classification_rationale
+        ? { ...evidenceData.value, curator_call: curatorCall.value }
+        : evidenceData.value
+    ),
     saving: savingDraft,
     savedAt,
     conflict,
@@ -568,6 +587,10 @@
         serverVersion = recoveryVersion(curation)
         pinnedVersionId.value = curation.methodology_version_id ?? null
         lockVersion.value = curation.lock_version || 0
+        curatorCall.value = {
+          curator_classification: curation.curator_classification ?? null,
+          curator_classification_rationale: curation.curator_classification_rationale ?? null
+        }
         isDraft.value = curation.status === 'draft'
         curationStatus.value = curation.status || 'draft'
 

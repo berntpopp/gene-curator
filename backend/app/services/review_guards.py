@@ -12,7 +12,7 @@ from app.crud.precuration_required import (
 )
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
-from app.schemas.curation import EvidenceWarning, disease_fields
+from app.schemas.curation import EvidenceWarning, class_key, disease_fields
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
 from app.services.evidence_ids import InvalidEvidenceError, evidence_errors
@@ -78,6 +78,17 @@ def _curation_review_evidence(db: Session, item: CurationNew) -> dict[str, Any]:
     return {**evidence, "entity_definition": entity}
 
 
+def _unexplained_override(item: CurationNew) -> bool:
+    """A curator classification other than the computed verdict, without a rationale (#533)."""
+    proposed = class_key(item.curator_classification or "")
+    computed = class_key(item.computed_verdict or "")
+    return (
+        bool(proposed)
+        and proposed != computed
+        and not (item.curator_classification_rationale or "").strip()
+    )
+
+
 def _uncited_rows(
     db: Session, item: CurationNew, evidence: dict[str, Any]
 ) -> list[EvidenceWarning]:
@@ -118,6 +129,17 @@ def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> Non
         raise InvalidEvidenceError(errors)
     if isinstance(item, CurationNew) and (uncited := _uncited_rows(db, item, evidence)):
         raise InvalidEvidenceError(uncited)
+    if isinstance(item, CurationNew) and _unexplained_override(item):
+        raise InvalidEvidenceError(
+            [
+                EvidenceWarning(
+                    path="curator_classification_rationale",
+                    message="A rationale is required when the curator classification "
+                    f"({item.curator_classification}) differs from the computed verdict "
+                    f"({item.computed_verdict or 'none'})",
+                )
+            ]
+        )
     if isinstance(item, PrecurationNew) and evidence.get(
         "lumping_splitting_applicable"
     ):

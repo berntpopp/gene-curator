@@ -15,6 +15,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint
 from app.core.search_text import MAX_SEARCH, escape_like
+from app.crud.curator_classification import class_key_sql
 from app.crud.gene_catalogue_matrix import VERDICT_ORDER
 from app.crud.scope_visibility import visible_scope_ids
 from app.models.models import (
@@ -78,11 +79,11 @@ def search(
     # into several disease entities (#530) shows its strongest, newest first on ties
     rank = case(
         {v: n for n, v in enumerate(VERDICT_ORDER)},
-        value=func.lower(CurationNew.computed_verdict),
+        value=class_key_sql(CurationNew.final_classification),
         else_=len(VERDICT_ORDER),
     )
     classification = (
-        select(CurationNew.computed_verdict)
+        select(CurationNew.final_classification)
         .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
         .where(
             ActiveCuration.gene_id == Gene.id,
