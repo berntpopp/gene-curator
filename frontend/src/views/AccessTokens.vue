@@ -2,7 +2,7 @@
   <v-container>
     <v-row justify="center">
       <v-col cols="12" md="10" lg="8">
-        <h1 class="text-headline-large mb-2">Access tokens</h1>
+        <h1 class="page-title text-headline-large mb-2">Access tokens</h1>
         <p class="text-body-medium text-medium-emphasis mb-6">
           Personal access tokens let MCP clients and scripts act as you, with exactly your
           permissions. Treat them like passwords and revoke any token you no longer use.
