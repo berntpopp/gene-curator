@@ -639,6 +639,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             genetic_score=genetic_score,
             experimental_score=experimental_score,
             breakdown=result.evidence_breakdown,
+            warnings=result.warnings,
             calculated_at=_utc_now(),
         )
 
