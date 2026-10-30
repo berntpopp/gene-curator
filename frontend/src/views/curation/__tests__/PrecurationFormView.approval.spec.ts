@@ -72,6 +72,18 @@ describe('PrecurationFormView approval result', () => {
     expect(wrapper.find('[data-testid="approve-precuration"]').exists()).toBe(false)
   })
 
+  it('shows the approved status the approval returned, not Submitted', async () => {
+    const message = 'Precuration approved; no curation created: Open curation c9 covers'
+    const wrapper = await approveWith({
+      approved: true,
+      curation_created: false,
+      curation_id: 'c9',
+      message
+    })
+    expect(wrapper.find('[data-testid="precuration-status"]').text()).not.toContain('Submitted')
+    expect(wrapper.find('[data-testid="precuration-status"]').text()).toContain('Approved')
+  })
+
   it('returns to the queue when the approval created the curation', async () => {
     const wrapper = await approveWith({ curation_created: true, curation_id: 'c1', message: 'ok' })
     expect(wrapper.find('[data-test="approval-notice"]').exists()).toBe(false)

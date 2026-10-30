@@ -282,6 +282,7 @@
     if (ok)
       await review(async () => {
         const result = await precurationsStore.approvePrecuration(precurationId.value!)
+        if (result.approved) status.value = 'approved'
         approvalNotice.value = blockedBy(result)
       }, 'approved')
   }
