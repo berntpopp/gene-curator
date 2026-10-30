@@ -8,7 +8,7 @@ from sqlalchemy import and_, case, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.core.config import settings
-from app.crud.curation import get_disease_fields
+from app.crud.curation import DELETED_REASON, get_disease_fields
 from app.crud.scope_visibility import member_scope_ids, visible_scope_ids
 from app.models import (
     ActiveCuration,
@@ -31,7 +31,7 @@ from app.services.publication_service import evidence_pmids
 
 _MOI_HPO = {abbr.upper(): hpo.upper() for abbr, (_, hpo) in _MOI_SYNONYMS.items()}
 
-# Re-curation and archiving touch the pointer; a soft delete touches only the curation
+# The pointer or the curation, whichever changed last (re-curation, archive, delete)
 _changed_at = case(
     (CurationNew.updated_at > ActiveCuration.updated_at, CurationNew.updated_at),
     else_=ActiveCuration.updated_at,
@@ -79,11 +79,7 @@ def export_curations(
                 CurationNew.status == CurationStatus.ACTIVE,
                 ActiveCuration.scope_id.in_(member_scope_ids(user_id)),
             ),
-            # A soft delete archives the curation but leaves its pointer unarchived
-            or_(
-                CurationNew.status != CurationStatus.ARCHIVED,
-                ActiveCuration.archived_at.is_not(None),
-            ),
+            ActiveCuration.archive_reason.is_distinct_from(DELETED_REASON),
         )
         .order_by(_changed_at, ActiveCuration.id)
         .limit(limit + 1)
