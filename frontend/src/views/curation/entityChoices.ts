@@ -1,13 +1,14 @@
 import type { RouteLocationRaw } from 'vue-router'
-import { formatInheritance } from '@/utils/inheritance'
+import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
 
 type Entity = { disease_name?: string | null; mondo_id?: string | null }
-type Moi = { mode_of_inheritance?: string | null }
+type Moi = { mode_of_inheritance?: string | null; relationship_type?: string | null }
 
-/** "Disease · MONDO id · inheritance · extra" for an entity chooser row. */
+/** "Disease · MONDO id · inheritance · relationship · extra" for an entity chooser row. */
 export const label = (c: Entity & Moi, ...more: string[]) =>
   [c.disease_name || 'Disease not set', c.mondo_id]
-    .concat(c.mode_of_inheritance ? formatInheritance(c.mode_of_inheritance) : [], more)
+    .concat(c.mode_of_inheritance ? formatInheritance(c.mode_of_inheritance) : [])
+    .concat(relationshipLabel(c.relationship_type), more)
     .filter(Boolean)
     .join(' · ')
 

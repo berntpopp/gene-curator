@@ -25,6 +25,7 @@ const item = (o: Partial<Schema<'WorkItem'>>): Schema<'WorkItem'> => ({
   scope_name: 'kidney-genetics',
   link: '/scopes/s1/curations/c1/edit',
   updated_at: null,
+  relationship_type: 'mendelian',
   ...o
 })
 

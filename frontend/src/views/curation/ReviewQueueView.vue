@@ -74,6 +74,12 @@
           Precuration
         </v-chip>
       </template>
+      <template #item.disease_name="{ item }">
+        {{ item.disease_name }}
+        <span v-if="relationshipLabel(item.relationship_type)" class="text-medium-emphasis">
+          · {{ relationshipLabel(item.relationship_type) }}
+        </span>
+      </template>
       <template #item.status="{ item }">
         <v-chip color="warning" size="small" variant="tonal">
           {{ curationStatusLabel(item.status) }}
@@ -186,6 +192,7 @@
   import BaseDialog from '@/components/BaseDialog.vue'
   import { REVIEW_TEXT_MAX } from '@/components/review/reviewModel'
   import { curationStatusLabel } from '@/config/status'
+  import { relationshipLabel } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useConfirm } from '@/composables/useConfirm'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -204,6 +211,7 @@
     gene_id: string
     gene_symbol?: string | null
     disease_name?: string | null
+    relationship_type?: string | null
     scope_id?: string | null
     scope_name?: string | null
     curator_name?: string | null
@@ -340,6 +348,7 @@
         gene_id: c.gene_id,
         gene_symbol: c.gene_symbol,
         disease_name: c.disease_name,
+        relationship_type: c.relationship_type,
         scope_id: c.scope_id,
         scope_name: scopeNames.get(c.scope_id ?? '') ?? c.scope_name,
         curator_name: c.curator_name,
@@ -372,6 +381,7 @@
             gene_id: p.gene_id,
             gene_symbol: p.gene_symbol,
             disease_name: p.disease_name,
+            relationship_type: p.relationship_type,
             scope_id: p.scope_id,
             scope_name: scopeNames.get(p.scope_id) ?? p.scope_name,
             curator_name: p.curator_name,

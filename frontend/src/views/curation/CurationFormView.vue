@@ -6,6 +6,7 @@
       :title="gene?.approved_symbol || (isEdit ? 'Curation' : 'New curation')"
       :subtitle="frame.meta.value.disease"
       :moi="frame.meta.value.moi"
+      :relationship="frame.meta.value.relationship"
       :stage="curation?.workflow_stage ?? 'curation'"
       :archived="curation?.status === 'archived'"
       :state="guard.denied.value || guard.failed.value ? undefined : frame.state.value"

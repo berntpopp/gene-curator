@@ -39,6 +39,7 @@ from app.schemas.curation import (
     CurationUpdate,
     EvidenceWarning,
     disease_fields,
+    relationship_of_key,
 )
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
@@ -364,6 +365,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         or 0.0,
                     },
                     disease_name=disease["disease_name"],
+                    relationship_type=relationship_of_key(row.CurationNew.entity_key),
                     is_draft=row.CurationNew.is_draft,
                     created_at=row.CurationNew.created_at,
                     updated_at=row.CurationNew.updated_at,
@@ -415,11 +417,6 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             pre.evidence_data if pre else None,
             {"precuration_id": pre.id} if pre else {},
         )
-        # One open curation per entity (approval already created a draft, #398)
-        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
-        if open_id:
-            raise OpenCurationExistsError(open_id, open_conflict_message(db, open_id))
-
         # Create curation
         now = _utc_now()
         db_obj = CurationNew(
@@ -438,6 +435,13 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             created_at=now,
             updated_at=now,
         )
+        # A re-curation keeps the source's call (422 for an unknown class)
+        for key, value in curator_call(db, db_obj, obj_in).items():
+            setattr(db_obj, key, value)
+        # One open curation per entity (approval already created a draft, #398)
+        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
+        if open_id:
+            raise OpenCurationExistsError(open_id, open_conflict_message(db, open_id))
         _update_computed_scores(db, db_obj)
         db.add(db_obj)
         try:

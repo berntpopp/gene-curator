@@ -412,3 +412,33 @@ def test_finished_precuration_shows_its_entity_active(
     active.archived_at = datetime.now(UTC)
     db_session.commit()
     assert pre_stage() == "curation"
+
+
+def test_two_entities_of_one_gene_are_two_done_rows(client, db_session: Session):
+    """W9 monkey: two approved precurations of one gene (Mendelian, Susceptibility)."""
+    from app.crud.precuration import precuration_crud
+    from tests.api.scopes.factories import make_precuration
+
+    scope, gene = make_scope(db_session), make_gene(db_session)
+    curator, bob = make_user(db_session), make_user(db_session)
+    make_member(db_session, scope, curator, "curator")
+    make_member(db_session, scope, bob, "reviewer")
+    ids = set()
+    for rel in ("mendelian", "susceptibility"):
+        p = make_precuration(db_session, scope=scope, gene=gene, creator=curator)
+        p.evidence_data = {"mondo_id": "MONDO:1", "mode_of_inheritance": "AD",
+                           "relationship_type": rel}  # fmt: skip
+        p.status = "submitted"
+        db_session.commit()
+        precuration_crud.approve_and_create_curation(
+            db_session, db_obj=p, approver_id=bob.id, create_curation=True
+        )
+        ids.add(str(p.id))
+    for user in (curator, bob):
+        done = {
+            i["item_id"]: i["relationship_type"]
+            for i in _get(client, user)["items"]
+            if i["kind"] == "done" and i["item_type"] == "precuration"
+        }
+        assert set(done) == ids
+        assert sorted(done.values()) == ["mendelian", "susceptibility"]

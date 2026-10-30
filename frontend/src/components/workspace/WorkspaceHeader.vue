@@ -13,6 +13,9 @@
         <h1 class="mono">{{ title }}</h1>
         <span v-if="subtitle" class="ws-title__disease">{{ subtitle }}</span>
         <span v-if="moi" class="text-medium-emphasis">{{ formatInheritance(moi) }}</span>
+        <span v-if="relationshipLabel(relationship)" class="text-medium-emphasis">
+          {{ relationshipLabel(relationship) }}
+        </span>
         <StageLine :stage="stage" :archived="archived" />
       </div>
 
@@ -60,7 +63,9 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
+  import { rowLabel } from '@/views/curation/curationScores'
+  import { useValidationStore } from '@/stores/validation'
   import StageLine from './StageLine.vue'
   import SaveState from './SaveState.vue'
   import type { SaveState as SaveStateName } from './useWorkspaceFrame'
@@ -70,6 +75,7 @@
     title: string
     subtitle?: string
     moi?: string
+    relationship?: string
     stage?: string | null
     archived?: boolean
     /** Omitted where the page has no draft to save (precuration shell). */
@@ -86,13 +92,16 @@
 
   // A blocked Submit without blocker text (form invalid or empty) says why once clicked
   const tried = ref(false)
-  const reasons = computed(() =>
-    props.blockers?.length
-      ? props.blockers
-      : tried.value && !props.canSubmit
-        ? ['Complete the required evidence before submitting']
-        : []
-  )
+  // The form's validation errors name the field; the generic text is the last resort
+  const validation = useValidationStore()
+  const reasons = computed(() => {
+    if (props.blockers?.length) return props.blockers
+    if (!tried.value || props.canSubmit) return []
+    const errors = (validation.getValidationResult('form')?.errors ?? []).map(
+      e => `${rowLabel(String(e.field))}: ${String(e.message)}`
+    )
+    return errors.length ? errors : ['Complete the required evidence before submitting']
+  })
   function onSubmit() {
     tried.value = !props.canSubmit
     emit('submit')

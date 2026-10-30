@@ -4626,9 +4626,13 @@ export interface components {
         };
         /**
          * CurationCreate
-         * @description Schema for creating a new curation.
+         * @description Schema for creating a new curation; a re-curation carries the curator's call.
          */
         CurationCreate: {
+            /** Curator Classification */
+            curator_classification?: string | null;
+            /** Curator Classification Rationale */
+            curator_classification_rationale?: string | null;
             /**
              * Gene Id
              * Format: uuid
@@ -5431,6 +5435,12 @@ export interface components {
             } | null;
             /** Disease Name */
             disease_name?: string | null;
+            /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /** Is Draft */
             is_draft: boolean;
             /**
@@ -10429,9 +10439,14 @@ export interface components {
             scope_id: string;
             /**
              * Scope Name
-             * @description Scope name (e.g., kidney-genetics)
+             * @description Scope slug (e.g., kidney-genetics), as tools take it
              */
             scope_name: string;
+            /**
+             * Scope Display Name
+             * @description Scope name to show people
+             */
+            scope_display_name: string;
             /**
              * Is Public
              * @description Whether scope is public
@@ -11127,6 +11142,12 @@ export interface components {
             disease_name?: string | null;
             /** Mode Of Inheritance */
             mode_of_inheritance?: string | null;
+            /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /**
              * Stage
              * @description Workflow stage; null for assignments

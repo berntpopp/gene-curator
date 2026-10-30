@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.curation import RelationshipType
+
 WorkTab = Literal["needs_you", "waiting", "done"]
 WorkKind = Literal[
     "assignment", "draft", "changes_requested", "review", "waiting", "done"
@@ -26,6 +28,7 @@ class WorkItem(BaseModel):
     updated_at: datetime | None = None
     disease_name: str | None = None
     mode_of_inheritance: str | None = None
+    relationship_type: RelationshipType = "mendelian"
     stage: str | None = Field(None, description="Workflow stage; null for assignments")
     classification: str | None = Field(
         None, description="Calculated classification (curations only)"

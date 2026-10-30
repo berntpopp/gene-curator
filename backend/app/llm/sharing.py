@@ -117,6 +117,7 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "proband_label",
         "proband_with_variant",
         "protein_interaction",
+        "relationship_type",
         "rescue",
         "rescue_extent",
         "rescue_method",

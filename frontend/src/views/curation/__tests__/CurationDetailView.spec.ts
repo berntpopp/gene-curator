@@ -6,7 +6,7 @@ import { setActivePinia, createPinia } from 'pinia'
 const router = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn() }))
 
 vi.mock('@/api', () => ({
-  curationsAPI: { getCuration: vi.fn(), submitCuration: vi.fn() },
+  curationsAPI: { getCuration: vi.fn(), getCurations: vi.fn(), submitCuration: vi.fn() },
   workflowAPI: { transitionCuration: vi.fn() },
   schemasAPI: { getWorkflowPairById: vi.fn(), getSchemaById: vi.fn() }
 }))
@@ -301,6 +301,22 @@ describe('CurationDetailView', () => {
     expect(wrapper.findComponent(ReviewDiff).props('canReply')).toBe(true)
     expect(wrapper.text()).not.toContain('Approve')
     expect(wrapper.text()).toContain('Waiting for review by another scope reviewer (4-eyes)')
+  })
+
+  it('says the approval replaces the active version only when one of its entity exists', async () => {
+    useAuthStore().user = { id: 'bob' } as never
+    const wrapper = await load({ can_review: true, created_by: 'alice', mondo_id: 'MONDO:1' })
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [{ id: 'a1' }] } as never)
+    vi.mocked(curationsAPI.getCuration).mockResolvedValue({
+      id: 'a1',
+      mondo_id: 'MONDO:1'
+    } as never)
+    await wrapper
+      .findAll('button')
+      .find(b => b.text() === 'Approve')!
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.findComponent(ApproveChecklistDialog).props('replaces')).toBe(true)
   })
 
   it('replaces Approve with the remaining count once this reviewer approved (#430)', async () => {

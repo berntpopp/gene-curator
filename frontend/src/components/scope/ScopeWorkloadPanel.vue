@@ -5,12 +5,14 @@
       <thead>
         <tr>
           <th scope="col">Curator</th>
+          <th scope="col" class="num">Assigned</th>
           <th scope="col" class="num">Open</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="r in rows" :key="r.name">
           <td>{{ r.name }}</td>
+          <td class="num">{{ r.assigned }}</td>
           <td class="num">{{ r.open }}</td>
         </tr>
       </tbody>
@@ -23,20 +25,24 @@
 </template>
 
 <script setup lang="ts">
-  /** Open genes per curator, computed from the scope's assignment rows (no workload endpoint is used). */
+  /** Assigned and open genes per curator, from the scope's assignment rows (no workload endpoint). */
   import { computed } from 'vue'
 
   const props = defineProps<{
     genes: { curator_id?: string | null; curator_name: string; stage: string }[]
   }>()
 
+  // An assigned gene counts whatever its stage; Open leaves out the active ones
   const rows = computed(() => {
-    const open = new Map<string, number>()
+    const byName = new Map<string, { name: string; assigned: number; open: number }>()
     for (const g of props.genes) {
-      if (!g.curator_id || g.stage === 'active') continue
-      open.set(g.curator_name, (open.get(g.curator_name) ?? 0) + 1)
+      if (!g.curator_id) continue
+      const r = byName.get(g.curator_name) ?? { name: g.curator_name, assigned: 0, open: 0 }
+      r.assigned++
+      if (g.stage !== 'active') r.open++
+      byName.set(g.curator_name, r)
     }
-    return [...open].map(([name, n]) => ({ name, open: n })).sort((a, b) => b.open - a.open)
+    return [...byName.values()].sort((a, b) => b.open - a.open || b.assigned - a.assigned)
   })
 </script>
 

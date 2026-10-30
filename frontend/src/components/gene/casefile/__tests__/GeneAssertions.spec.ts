@@ -7,7 +7,8 @@ type ScopeSummary = Schema<'ScopeSummary'>
 
 const row = (over: Partial<ScopeSummary> = {}): ScopeSummary => ({
   scope_id: 's1',
-  scope_name: 'Kidney genetics',
+  scope_name: 'kidney-genetics',
+  scope_display_name: 'Kidney genetics',
   is_public: true,
   classification: 'definitive',
   curation_id: 'c1',
@@ -33,6 +34,12 @@ const mountIt = (scopes: ScopeSummary[], linked = true) =>
   })
 
 describe('GeneAssertions', () => {
+  it('shows the scope display name, not its slug', () => {
+    const w = mountIt([row({ scope_name: 'kidney-slug', scope_display_name: 'Kidney Genetics' })])
+    expect(w.text()).toContain('Kidney Genetics')
+    expect(w.text()).not.toContain('kidney-slug')
+  })
+
   it('shows scope, disease, MOI, stage, classification, score and date per scope', () => {
     const wrapper = mountIt([row()])
     const text = wrapper.text()
@@ -47,9 +54,9 @@ describe('GeneAssertions', () => {
   })
 
   it('names a susceptibility relationship next to the MOI only', () => {
-    expect(mountIt([row()]).text()).not.toContain('susceptibility')
+    expect(mountIt([row()]).text()).not.toContain('Susceptibility')
     expect(mountIt([row({ relationship_type: 'susceptibility' })]).text()).toContain(
-      '(susceptibility)'
+      '(Susceptibility)'
     )
   })
 

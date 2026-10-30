@@ -331,7 +331,8 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 
 # Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
 # only on purpose. Bytes are the tools/list response as a client receives it.
-SURFACE_BUDGET = {"curator": (47, 35_800), "admin": (47, 35_800)}  # +#533, #560 fields
+# +#533, #560 fields; W9: create_curation takes the curator's call
+SURFACE_BUDGET = {"curator": (47, 36_000), "admin": (47, 36_000)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)

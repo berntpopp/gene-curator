@@ -40,6 +40,9 @@
         <span v-if="item.mode_of_inheritance" class="text-medium-emphasis">
           · {{ formatInheritance(item.mode_of_inheritance) }}
         </span>
+        <span v-if="relationshipLabel(item.relationship_type)" class="text-medium-emphasis">
+          · {{ relationshipLabel(item.relationship_type) }}
+        </span>
       </template>
       <template #item.stage="{ item }">
         {{ item.stage ? humanize(item.stage) : EMPTY }}
@@ -74,7 +77,7 @@
   import PendingInvitations from '@/components/dashboard/PendingInvitations.vue'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { humanize } from '@/components/dynamic/fieldLabels'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import { EMPTY } from '@/utils/format'
 
   const TABS: { value: WorkTab; label: string }[] = [
