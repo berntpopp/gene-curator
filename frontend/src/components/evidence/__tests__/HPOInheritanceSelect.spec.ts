@@ -60,6 +60,19 @@ describe('HPOInheritanceSelect', () => {
     return { wrapper, vm: wrapper.vm as unknown as SelectInternals }
   }
 
+  it('maps the X-linked HPO terms to their own shortcodes', async () => {
+    vi.mocked(ontologyAPI.getInheritancePatterns).mockResolvedValue({
+      ...response,
+      mendelian: [
+        { hpo_id: 'HP:0001417', name: 'X-linked inheritance', category: 'mendelian' },
+        { hpo_id: 'HP:0001423', name: 'X-linked dominant inheritance', category: 'mendelian' },
+        { hpo_id: 'HP:0001419', name: 'X-linked recessive inheritance', category: 'mendelian' }
+      ]
+    })
+    const { vm } = await mountSelect()
+    expect(vm.mendelianPatterns.map(p => p.shortcode)).toEqual(['XL', 'XLD', 'XLR'])
+  })
+
   it('loads patterns on mount, adds shortcodes and builds section headers', async () => {
     const { vm } = await mountSelect()
 
