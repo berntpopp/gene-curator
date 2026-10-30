@@ -551,8 +551,6 @@ class CRUDGeneScopeAssignment(
                     existing.priority = priority_level
                     if assignment_notes:
                         existing.assignment_notes = assignment_notes
-                    if due_date:
-                        existing.due_date = due_date
                     updated.append(existing)
                     continue
                 if existing and existing.is_active:
