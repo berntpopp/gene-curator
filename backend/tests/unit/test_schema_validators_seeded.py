@@ -222,6 +222,14 @@ class TestPointModel:
             ".bands[0].requires",
         ]
 
+    def test_require_variant_must_be_a_bool(self) -> None:
+        ok = self.section(types=[{"path": "p", "require_variant": True}])
+        bad = self.section(types=[{"path": "p", "require_variant": "yes"}])
+        assert self.scoring(sections=ok) == []
+        assert self.scoring(sections=bad) == [
+            ".sections[0].categories[0].types[0].require_variant"
+        ]
+
     @pytest.mark.parametrize("rng", [[3, 0], [0], ["0", 1], "0..3"])
     def test_type_range_must_be_ordered_pair(self, rng: Any) -> None:
         sections = self.section(combine="avg", types=[{"path": "p", "range": rng}])
