@@ -12,8 +12,7 @@ from fastapi.testclient import TestClient
 
 from app.core.security import get_password_hash
 from tests.postgres.test_methodology_versions import W, _h, _owner, client, w
-from tests.postgres.test_point_model_pinned import _create
-from tests.unit.test_point_model import _custom_model
+from tests.postgres.test_point_model_pinned import _create, use_custom_model
 
 pytestmark = pytest.mark.postgres
 __all__ = ["client", "w"]  # fixtures shared with the methodology version tests
@@ -65,11 +64,8 @@ def test_refused_publish_inserts_no_version(
 
 def test_impact_lists_only_visible_curations(client: TestClient, w: W) -> None:
     curation = _create(client, w, w.genes[0])  # v1 (ClinGen template): total 2
-    _set(
-        w,
-        "scoring_configuration",
-        {"engine": "clingen_sop_v11", "point_model": _custom_model()},
-    )
+    with _owner() as conn, conn.cursor() as cur:
+        use_custom_model(cur, w.schema)
     r = client.post(
         f"/api/v1/schemas/curation-schemas/{w.schema}/versions", headers=_h(w.admin)
     )

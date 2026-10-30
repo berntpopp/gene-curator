@@ -165,9 +165,69 @@ def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
     elif isinstance(ui, dict) and "sections" not in ui:
         msg = "UI configuration missing 'sections' - form may not render properly"
         out.append(("warning", "ui_configuration.sections", msg))
-    out += _check_scoring(schema.get("scoring_configuration"))
+    known = fields if isinstance(fields, dict) else None
+    out += _check_scoring(schema.get("scoring_configuration"), known)
     out += _check_rules(schema.get("validation_rules"), names)
+    if known is not None:
+        out += _check_conditions(known)
     return out
+
+
+def _children(cfg: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    """(JSON key, child fields) of an object field or table, as normalizeDefinition.ts reads them."""
+    for key in ("properties", "columns", "item_schema"):
+        if isinstance(cfg.get(key), dict):
+            return key, cfg[key]
+    items = cfg.get("items")
+    if isinstance(items, dict) and isinstance(items.get("properties"), dict):
+        return "items.properties", items["properties"]
+    return None
+
+
+def _top_fields(fields: dict[str, Any]) -> dict[str, Any]:
+    """Flat fields plus the seeded ``sections[].fields[]`` shape, by data key."""
+    out = {
+        k: v for k, v in fields.items() if k != "sections" or not isinstance(v, list)
+    }
+    for _, name, cfg in _field_items(fields):
+        out.setdefault(name, cfg)
+    return out
+
+
+def field_exists(fields: dict[str, Any], path: str) -> bool:
+    """Whether a dotted data path names a field; numeric segments index a list.
+    ponytail: below a field without readable children (leaf, list columns) anything passes."""
+    node: dict[str, Any] | None = _top_fields(fields)
+    for key in path.split("."):
+        if node is None:
+            return True
+        if key.isdigit():
+            continue
+        cfg = node.get(key)
+        if not isinstance(cfg, dict):
+            return False
+        found = _children(cfg)
+        node = found[1] if found else None
+    return True
+
+
+def _check_conditions(fields: dict[str, Any]) -> list[Diagnostic]:
+    """A ``visible_when``/``show_when`` path that names no field never holds (#576)."""
+    out: list[Diagnostic] = []
+    todo = [(path, cfg) for path, _, cfg in _field_items(fields)]
+    while todo:
+        path, cfg = todo.pop()
+        if not isinstance(cfg, dict):
+            continue
+        for key in ("visible_when", "show_when"):
+            condition = cfg.get(key)
+            for target in condition if isinstance(condition, dict) else ():
+                if not field_exists(fields, str(target)):
+                    msg = f"{key} names an unknown field: {target}"
+                    out.append(("error", f"{path}.{key}.{target}", msg))
+        if found := _children(cfg):
+            todo += [(f"{path}.{found[0]}.{k}", c) for k, c in found[1].items()]
+    return sorted(out)
 
 
 def _field_items(fields: dict[str, Any]) -> Any:
@@ -279,7 +339,9 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, int | float) and not isinstance(value, bool)
 
 
-def _check_scoring(scoring: Any) -> list[Diagnostic]:
+def _check_scoring(
+    scoring: Any, fields: dict[str, Any] | None = None
+) -> list[Diagnostic]:
     path = "scoring_configuration"
     if scoring is None:
         return []  # absent or null both mean "no scoring"
@@ -296,7 +358,13 @@ def _check_scoring(scoring: Any) -> list[Diagnostic]:
             msg = f"Unknown scoring engine: {scoring['engine']}"
             out.append(("error", f"{path}.engine", msg))
     if isinstance(scoring.get("point_model"), dict):
-        out += _check_point_model(scoring["point_model"], f"{path}.point_model")
+        model = scoring["point_model"]
+        out += _check_point_model(model, f"{path}.point_model")
+        if fields is not None:
+            out += _check_model_paths(model, f"{path}.point_model", fields)
+    elif scoring.get("engine") == "point_model":
+        msg = "The point_model engine needs a point_model"
+        out.append(("error", f"{path}.point_model", msg))
     if "classifications" in scoring:
         out += check_classifications(scoring, path)
     return out
@@ -360,6 +428,50 @@ def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
     flags_path = f"{path}.review_flags"
     out += _check_review_flags(model.get("review_flags", {}), flags_path, section_keys)
     return out
+
+
+def _check_model_paths(
+    model: dict[str, Any], path: str, fields: dict[str, Any]
+) -> list[Diagnostic]:
+    """Evidence paths the model reads must name fields, or they silently score 0 (#576).
+    ponytail: skipped when no section key is a field (the fields do not describe the
+    evidence); a section that is a flat list is scored by the legacy rule, not by paths."""
+    top = _top_fields(fields)
+    sections = _dicts(_as(list, model.get("sections")))
+    if not any(section.get("key") in top for _, section in sections):
+        return []
+    found: list[tuple[str, str]] = []  # (JSON path, data path)
+    for i, section in sections:
+        found.append((f"{path}.sections[{i}].key", str(section.get("key"))))
+        if _as(dict, top.get(str(section.get("key")))).get("type") == "array":
+            continue
+        for j, cat in _dicts(_as(list, section.get("categories"))):
+            for k, item in _dicts(_as(list, cat.get("types"))):
+                at = f"{path}.sections[{i}].categories[{j}].types[{k}]"
+                table = f"{section.get('key')}.{item.get('path')}"
+                found.append((f"{at}.path", table))
+                if isinstance(item.get("field"), str):
+                    found.append((f"{at}.field", f"{table}.{item['field']}"))
+                for m, rule in _dicts(_as(list, item.get("points_when"))):
+                    conditions = [(f"{at}.points_when[{m}]", rule)] + [
+                        (f"{at}.points_when[{m}].and[{n}]", c)
+                        for n, c in _dicts(_as(list, rule.get("and")))
+                    ]
+                    found += [
+                        (f"{p}.field", f"{table}.{c['field']}")
+                        for p, c in conditions
+                        if isinstance(c.get("field"), str)
+                    ]
+    for i, override in _dicts(_as(list, model.get("overrides"))):
+        at = f"{path}.overrides[{i}]"
+        found.append((f"{at}.when", str(override.get("when"))))
+        if isinstance(override.get("field"), str):
+            found.append((f"{at}.field", f"{override.get('when')}.{override['field']}"))
+    return [
+        ("error", at, f"Unknown evidence field: {target}")
+        for at, target in found
+        if not field_exists(fields, target)
+    ]
 
 
 def _check_review_flags(flags: Any, path: str, sections: set[Any]) -> list[Diagnostic]:
@@ -450,6 +562,7 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
         out += _need(item, path, {"group_by": str})
         if not _is_number(item.get("group_cap")):
             out.append(("error", f"{path}.group_cap", "group_cap must be a number"))
+    out += _check_point_rules(item, path)
     if item.get("rule") == "case_row" and "blank_at" not in item:
         out.append(("error", f"{path}.blank_at", "case_row requires blank_at"))
     rng = item.get("range")
@@ -461,6 +574,62 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
     ):
         msg = "range must be [min, max] numbers with min <= max"
         out.append(("error", f"{path}.range", msg))
+    return out
+
+
+CONDITION_KEYS = {"field", "in", "gt", "gte", "lt", "lte", "present"}
+
+
+def _check_condition(
+    cond: dict[str, Any], path: str, extra: set[str]
+) -> list[Diagnostic]:
+    out = _need(cond, path, {"field": str})
+    out += [
+        ("error", f"{path}.{key}", f"Unknown condition key: {key}")
+        for key in cond
+        if key not in CONDITION_KEYS | extra
+    ]
+    if "in" in cond and not isinstance(cond["in"], list):
+        out.append(("error", f"{path}.in", "'in' must be a list"))
+    out += [
+        ("error", f"{path}.{op}", f"'{op}' must be a number")
+        for op in ("gt", "gte", "lt", "lte")
+        if op in cond and not _is_number(cond[op])
+    ]
+    if not isinstance(cond.get("present", True), bool):
+        out.append(("error", f"{path}.present", "'present' must be true or false"))
+    if not (CONDITION_KEYS - {"field"}) & set(cond):
+        msg = "A condition needs one of in, gt, gte, lt, lte, present"
+        out.append(("error", path, msg))
+    return out
+
+
+def _check_point_rules(item: dict[str, Any], path: str) -> list[Diagnostic]:
+    """#576: ``points_when`` rules and the ``step`` rule, as the interpreter indexes them."""
+    out: list[Diagnostic] = []
+    rules = item.get("points_when", [])
+    if not isinstance(rules, list):
+        out.append(("error", f"{path}.points_when", "points_when must be a list"))
+    for i, rule in _items(_as(list, rules), f"{path}.points_when", out):
+        at = f"{path}.points_when[{i}]"
+        out += _check_condition(rule, at, {"points", "and"})
+        if not _is_number(rule.get("points")):
+            out.append(("error", f"{at}.points", "points must be a number"))
+        for j, cond in _items(_as(list, rule.get("and", [])), f"{at}.and", out):
+            out += _check_condition(cond, f"{at}.and[{j}]", set())
+        if not isinstance(rule.get("and", []), list):
+            out.append(("error", f"{at}.and", "'and' must be a list"))
+    if item.get("rule") != "step":
+        return out
+    out += _need(item, path, {"field": str, "steps": list})
+    steps = _items(_as(list, item.get("steps")), f"{path}.steps", out)
+    lows: list[float] = [s.get("min", 0) for _, s in steps]
+    if not all(
+        _is_number(s.get("min")) and _is_number(s.get("points")) for _, s in steps
+    ):
+        out.append(("error", f"{path}.steps", "Each step needs numeric min and points"))
+    elif lows != sorted(set(lows)):
+        out.append(("error", f"{path}.steps", "Step min must increase"))
     return out
 
 

@@ -12,6 +12,24 @@ from .clingen import ENGINE_NAME, ClinGenEngine
 from .gencc import GenCCEngine
 from .qualitative import QualitativeEngine
 
+POINT_MODEL_ENGINE = "point_model"
+
+
+class PointModelEngine(ClinGenEngine):
+    """The point-model interpreter under a neutral name, so a non-ClinGen methodology need
+    not declare clingen_sop_v11 (#576). Its schema must carry its own point_model."""
+
+    @property
+    def name(self) -> str:
+        return POINT_MODEL_ENGINE
+
+    @property
+    def version(self) -> str:
+        return "1.0.0"
+
+    def supports_schema(self, schema_name: str, schema_version: str) -> bool:
+        return False
+
 
 class ScoringEngineRegistry:
     """Registry for scoring engines."""
@@ -23,6 +41,7 @@ class ScoringEngineRegistry:
     def _register_default_engines(self) -> None:
         """Register built-in scoring engines."""
         self.register(ClinGenEngine())
+        self.register(PointModelEngine())
         self.register(GenCCEngine())
         self.register(QualitativeEngine())
 
