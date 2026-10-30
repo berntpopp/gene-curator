@@ -108,6 +108,7 @@ get_workflow_pairs read_only=True destructive=False
 get_workflow_state read_only=True destructive=False
 get_workflow_statistics read_only=True destructive=False
 health_check read_only=True destructive=False
+import_methodology read_only=False destructive=True
 invite_member read_only=False destructive=False
 list_curations read_only=True destructive=False
 list_llm_models read_only=True destructive=False

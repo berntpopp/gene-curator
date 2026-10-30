@@ -255,6 +255,7 @@ _REST_NOISE = re.compile(
 _DESTRUCTIVE = re.compile(
     r"/(approve|reject|transition|bulk-transition|submit|merge|deactivate|publish)$"
     r"|/curation-schemas/[^/]+/versions$"  # publishes a methodology version
+    r"|/methodologies/import$"  # overwrites schemas, publishes versions
 )
 # Updates overwrite (PUT/PATCH) and are flagged too, except saving a draft or reading
 _SAFE_UPDATE = re.compile(r"/(draft|read|read-all)$")
