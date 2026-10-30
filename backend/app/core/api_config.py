@@ -403,7 +403,6 @@ class APIConfig(BaseModel):
                 requests_per_minute=AUTHENTICATED_RATE_LIMIT_PER_MINUTE,
                 burst_size=AUTHENTICATED_RATE_LIMIT_BURST,
             ),
-            "curator": RateLimitConfig(requests_per_minute=500, burst_size=75),
             "admin": RateLimitConfig(
                 requests_per_minute=ADMIN_RATE_LIMIT_PER_MINUTE,
                 burst_size=ADMIN_RATE_LIMIT_BURST,
@@ -576,7 +575,7 @@ def get_rate_limit(limit_type: str = "default") -> RateLimitConfig:
     Get rate limit configuration for specific user type.
 
     Args:
-        limit_type: Type of rate limit (default, authenticated, curator, admin).
+        limit_type: Type of rate limit (default, authenticated, admin).
 
     Returns:
         RateLimitConfig for the requested type, falls back to default.

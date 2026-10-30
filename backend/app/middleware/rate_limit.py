@@ -20,8 +20,8 @@ MAX_BUCKETS = 10_000
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Per user (valid JWT or personal access token) or per client IP; off unless features.enable_rate_limiting.
 
-    ponytail: buckets live in process memory, so each uvicorn worker limits on its own;
-    move to Redis if exact cross-worker limits matter. Anonymous clients are keyed by
+    Known limit (owner decision, Wave 8): buckets live in process memory, so each uvicorn
+    worker limits on its own and N workers allow up to N times the configured rate. Anonymous clients are keyed by
     request.client, so run uvicorn with --forwarded-allow-ips for the proxy in front.
     """
 
