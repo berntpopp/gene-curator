@@ -12,6 +12,7 @@
 
 import { defineComponent, h, type Component, type PropType } from 'vue'
 import { VCheckbox } from 'vuetify/components/VCheckbox'
+import { VCombobox } from 'vuetify/components/VCombobox'
 import { VIcon } from 'vuetify/components/VIcon'
 import { VSelect } from 'vuetify/components/VSelect'
 import { VTextField } from 'vuetify/components/VTextField'
@@ -157,6 +158,7 @@ export const fieldTypes: Record<string, FieldTypeDef> = {
   boolean: { cell: { is: VCheckbox }, empty: () => false },
   object: { empty: () => ({}) },
   array: { empty: () => [] },
+  multiselect: { empty: () => [] },
   url: {
     editor: UrlField,
     cell: { is: VTextField, props: { type: 'url' }, lazy: true },
@@ -175,13 +177,20 @@ export function emptyValue(field: FieldSchema): unknown {
   return field.default ?? fieldTypes[field.type ?? '']?.empty() ?? null
 }
 
+/** multiselect and array cells hold a list (#577) */
+export const isListType = (field: FieldSchema) =>
+  field.type === 'multiselect' || field.type === 'array'
+
 export function cellFor(field: FieldSchema): CellDef {
+  // Options pick from a list; an array without options takes typed entries
+  const list = isListType(field) ? { multiple: true, chips: true, closableChips: true } : {}
   if (field.enum) {
     const items = (field.enumOptions ?? field.enum).map(o =>
       typeof o === 'object' ? { title: o.label ?? o.value, value: o.value } : { title: o, value: o }
     )
-    return { is: VSelect, props: { items } }
+    return { is: VSelect, props: { ...list, items } }
   }
+  if (isListType(field)) return { is: VCombobox, props: list }
   if (field.format === 'date') return { is: VTextField, props: { type: 'date' }, lazy: true }
   return fieldTypes[field.type ?? '']?.cell ?? textCell
 }
