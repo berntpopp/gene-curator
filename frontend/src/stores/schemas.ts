@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { schemasAPI } from '@/api'
+import { scopeService } from '@/services/scopeService'
 import { errorMessage } from './apiError'
 import { useValidationStore } from './validation'
 import type { Schema } from '@/types/api'
@@ -161,6 +162,32 @@ export const useSchemasStore = defineStore('schemas', {
       } catch (error) {
         this.error = errorMessage(error, 'Request failed')
         throw error
+      }
+    },
+
+    /** Publish the saved schema as a new methodology version; new curations pin it. */
+    async publishVersion(id: string) {
+      const version = await schemasAPI.publishVersion(id)
+      delete useValidationStore().jsonSchemas[id]
+      return version
+    },
+
+    /**
+     * What a new version reaches: the workflow pairs using the schema, the scopes whose
+     * default pair is one of them, and the latest published version.
+     */
+    async fetchPublishImpact(id: string) {
+      const [pairs, scopes, versions] = await Promise.all([
+        schemasAPI.getWorkflowPairs({ limit: 1000 }),
+        scopeService.fetchScopes({ limit: 1000 }),
+        schemasAPI.getVersions(id)
+      ])
+      const used = pairs.filter(p => p.precuration_schema_id === id || p.curation_schema_id === id)
+      const pairIds = new Set(used.map(p => p.id))
+      return {
+        pairs: used,
+        scopes: scopes.filter(s => pairIds.has(s.default_workflow_pair_id ?? '')),
+        latest: versions[0] ?? null
       }
     },
 

@@ -34,6 +34,25 @@
       @blur="handleBlur"
     />
 
+    <!-- List values: multiselect picks options; an array without item fields takes typed entries -->
+    <component
+      :is="fieldSchema.enum ? VSelect : VCombobox"
+      v-else-if="isList"
+      :model-value="modelValue ?? []"
+      :items="listItems"
+      :label="getFieldLabel()"
+      :variant="variant"
+      :hint="fieldSchema.hint"
+      :persistent-hint="!!fieldSchema.hint"
+      :rules="validationRules"
+      :error-messages="getErrorMessages()"
+      :disabled="isDisabled"
+      multiple
+      chips
+      closable-chips
+      @update:model-value="updateValue"
+    />
+
     <!-- Registry editor for the field type (evidence_table) -->
     <component
       :is="typeEditor"
@@ -96,6 +115,7 @@
 
 <script setup lang="ts">
   import { computed, type Component } from 'vue'
+  import { VCombobox, VSelect } from 'vuetify/components'
   import { componentRegistry, fieldTypes } from './componentRegistry'
   import { useLogger } from '@/composables/useLogger'
   import { useValidationRules } from './composables/useValidationRules'
@@ -173,6 +193,17 @@
     if (s.type !== 'string') return null
     return s.multiline ? 'textarea' : s.enum ? 'select' : s.format === 'date' ? 'date' : 'text'
   })
+
+  const isList = computed(
+    () =>
+      props.fieldSchema.type === 'multiselect' ||
+      (props.fieldSchema.type === 'array' && !props.fieldSchema.items)
+  )
+  const listItems = computed(() =>
+    (props.fieldSchema.enumOptions ?? props.fieldSchema.enum ?? []).map(o =>
+      typeof o === 'object' ? { title: o.label ?? o.value, value: o.value } : { title: o, value: o }
+    )
+  )
 
   const typeEditor = computed(() => fieldTypes[props.fieldSchema.type ?? '']?.editor)
   const isDisabled = computed(

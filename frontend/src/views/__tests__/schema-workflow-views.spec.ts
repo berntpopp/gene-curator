@@ -469,12 +469,13 @@ describe('SchemaEditor', () => {
     expect(wrapper.text()).toContain('Derive')
     expect(wrapper.text()).not.toContain('Duplicate schema')
     expect(wrapper.text()).toContain('curation schema v2.0.0')
-    expect(wrapper.text()).toContain('"max": 12')
+    const textareas = wrapper.findAll('textarea').map(t => (t.element as HTMLTextAreaElement).value)
+    expect(textareas.some(v => v.includes('"max": 12'))).toBe(true)
     const stats = wrapper.text().replace(/\s+/g, ' ')
     expect(stats).toContain('Total Fields:2')
   })
 
-  it('saves edited JSON and metadata, then leaves edit mode', async () => {
+  it('saves metadata and all five blocks, then leaves edit mode', async () => {
     const { vm, schemas } = await mountView()
     const update = vi
       .spyOn(schemas, 'updateSchema')
@@ -482,34 +483,38 @@ describe('SchemaEditor', () => {
     vm.isEditing = true
     await nextTick()
     vm.editableSchema = { name: 'Renamed', version: '2.0.0', description: 'd', is_active: false }
-    vm.jsonSchemaText = '{"x": {"required": true}}'
-    vm.scoringConfigText = ''
+    call(vm, 'setBlock', 'field_definitions', { x: { type: 'text' } })
+    call(vm, 'setBlock', 'ui_configuration', { sections: [] })
+    call(vm, 'setBlock', 'scoring_configuration', null)
     await call(vm, 'saveSchema')
     expect(update).toHaveBeenCalledWith('s1', {
       name: 'Renamed',
       version: '2.0.0',
       description: 'd',
       is_active: false,
-      field_definitions: { x: { required: true } },
+      field_definitions: { x: { type: 'text' } },
+      ui_configuration: { sections: [] },
+      validation_rules: {},
+      workflow_states: {},
       scoring_configuration: null
     })
     expect(vm.isEditing).toBe(false)
   })
 
-  it('refuses to save invalid JSON and flags it', async () => {
-    const { vm, schemas } = await mountView()
+  it('refuses to save while a JSON block is invalid and flags its tab', async () => {
+    const { wrapper, vm, schemas } = await mountView()
     const update = vi.spyOn(schemas, 'updateSchema').mockResolvedValue(undefined as never)
     vm.isEditing = true
     await nextTick()
-    vm.jsonSchemaText = '{nope'
-    call(vm, 'validateJson')
-    expect(vm.isValidJson).toBe(false)
-    expect(vm.jsonError).not.toBe('')
+    const ui = wrapper.findAll('textarea')[3]! // description, scoring tab, Advanced: fields, ui
+    await ui.setValue('{nope')
+    expect(vm.hasJsonErrors).toBe(true)
+    expect(wrapper.text()).toContain('JSON')
     await call(vm, 'saveSchema')
     expect(update).not.toHaveBeenCalled()
-    vm.jsonSchemaText = '{}'
-    call(vm, 'validateJson')
-    expect(vm.isValidJson).toBe(true)
+    await ui.setValue('{"sections": []}')
+    expect(vm.hasJsonErrors).toBe(false)
+    expect((vm.draft as Record<string, unknown>).ui_configuration).toEqual({ sections: [] })
   })
 
   it('shows the backend reason when a save fails', async () => {
@@ -529,16 +534,16 @@ describe('SchemaEditor', () => {
     const update = vi.spyOn(schemas, 'updateSchema').mockResolvedValue(undefined as never)
     vm.isEditing = true
     await nextTick()
-    vm.scoringConfigText = '{bad'
-    call(vm, 'validateScoringConfig')
-    await nextTick()
-    expect(vm.scoringError).not.toBe('')
-    expect(wrapper.text()).toContain(String(vm.scoringError))
+    const scoring = wrapper.findAll('textarea')[1]! // after the description
+    await scoring.setValue('{bad')
+    const message = (vm.jsonErrors as Record<string, string>).scoring_tab
+    expect(message).not.toBe('')
+    expect(wrapper.text()).toContain(String(message))
     await call(vm, 'saveSchema')
     expect(update).not.toHaveBeenCalled()
-    vm.scoringConfigText = '{"max": 1}'
-    call(vm, 'validateScoringConfig')
-    expect(vm.scoringError).toBe('')
+    await scoring.setValue('{"max": 1}')
+    expect(vm.hasJsonErrors).toBe(false)
+    expect((vm.draft as Record<string, unknown>).scoring_configuration).toEqual({ max: 1 })
   })
 
   it('shows scoring even when the schema has none, so it can be added', async () => {
@@ -578,11 +583,13 @@ describe('SchemaEditor', () => {
     const { vm } = await mountView()
     vm.isEditing = true
     vm.editableSchema = { name: 'Changed' }
-    vm.jsonSchemaText = 'junk'
+    call(vm, 'setBlock', 'field_definitions', { junk: { type: 'text' } })
     call(vm, 'cancelEdit')
     expect(vm.isEditing).toBe(false)
     expect((vm.editableSchema as { name: string }).name).toBe('ClinGen curation')
-    expect(String(vm.jsonSchemaText)).toContain('"a"')
+    expect((vm.draft as Record<string, unknown>).field_definitions).toEqual(
+      curationSchema.field_definitions
+    )
   })
 
   it('shows the validation errors and warnings inline, and Valid when clean', async () => {

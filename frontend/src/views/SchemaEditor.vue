@@ -16,7 +16,7 @@
           @click="router.push({ name: 'SchemaManagement' })"
         />
         <div>
-          <h1 class="text-headline-large font-weight-bold">
+          <h1 class="page-title text-headline-large font-weight-bold">
             {{ isEditing ? 'Edit' : 'View' }} Schema: {{ schema.name }}
           </h1>
           <p class="text-body-large text-medium-emphasis mt-1">
@@ -34,7 +34,7 @@
             color="success"
             variant="flat"
             :loading="saving"
-            :disabled="!isValidJson || !!scoringError"
+            :disabled="hasJsonErrors"
             @click="saveSchema"
           >
             <v-icon start>mdi-content-save</v-icon>
@@ -119,53 +119,57 @@
             </ul>
           </v-alert>
 
-          <!-- JSON Schema Definition -->
           <v-card class="mb-6">
-            <v-card-title class="d-flex align-center">
-              <v-icon start>mdi-code-json</v-icon>
-              Field definitions
-            </v-card-title>
+            <v-tabs v-model="tab" color="primary" show-arrows>
+              <v-tab value="fields" prepend-icon="mdi-form-select">Fields</v-tab>
+              <v-tab value="preview" prepend-icon="mdi-eye">Preview</v-tab>
+              <v-tab value="scoring" prepend-icon="mdi-calculator">Scoring</v-tab>
+              <v-tab value="advanced" prepend-icon="mdi-code-json">
+                Advanced JSON
+                <v-badge v-if="hasJsonErrors" color="error" dot inline class="ml-2" />
+              </v-tab>
+            </v-tabs>
+            <v-divider />
             <v-card-text>
-              <div v-if="!isEditing" class="mb-4">
-                <pre class="json-display">{{ formatJson(schema.field_definitions) }}</pre>
-              </div>
-              <v-textarea
-                v-else
-                v-model="jsonSchemaText"
-                label="Field Definitions (JSON)"
-                variant="outlined"
-                rows="20"
-                class="json-input"
-                :error="!isValidJson"
-                :error-messages="jsonError ? [jsonError] : []"
-                @input="validateJson"
-              />
-              <div v-if="isEditing" class="text-body-small text-medium-emphasis mt-2">
-                Define the fields of this schema as a JSON object keyed by field name
-              </div>
-            </v-card-text>
-          </v-card>
-
-          <!-- Scoring Configuration -->
-          <v-card v-if="schema.scoring_configuration || isEditing">
-            <v-card-title class="d-flex align-center">
-              <v-icon start>mdi-calculator</v-icon>
-              Scoring configuration
-            </v-card-title>
-            <v-card-text>
-              <div v-if="!isEditing">
-                <pre class="json-display">{{ formatJson(schema.scoring_configuration) }}</pre>
-              </div>
-              <v-textarea
-                v-else
-                v-model="scoringConfigText"
-                label="Scoring Configuration"
-                variant="outlined"
-                rows="10"
-                class="json-input"
-                :error-messages="scoringError ? [scoringError] : []"
-                @input="validateScoringConfig"
-              />
+              <v-window v-model="tab">
+                <v-window-item value="fields">
+                  <FieldsEditor
+                    :model-value="draft.field_definitions"
+                    :readonly="!isEditing"
+                    @update:model-value="v => (draft.field_definitions = v)"
+                  />
+                </v-window-item>
+                <v-window-item value="preview">
+                  <DynamicForm
+                    v-if="tab === 'preview'"
+                    :schema-id="schemaId"
+                    :definition="draft"
+                    title=""
+                    hide-actions
+                    hide-scoring
+                  />
+                </v-window-item>
+                <v-window-item value="scoring" eager>
+                  <JsonBlockEditor
+                    :model-value="draft.scoring_configuration"
+                    label="Scoring configuration (JSON)"
+                    hint="Engine, point model and classifications; empty for no scoring"
+                    nullable
+                    :readonly="!isEditing"
+                    @update:model-value="v => (draft.scoring_configuration = v)"
+                    @error="m => (jsonErrors.scoring_tab = m)"
+                  />
+                </v-window-item>
+                <v-window-item value="advanced" eager>
+                  <AdvancedJson
+                    :model-value="draft"
+                    :errors="jsonErrors"
+                    :readonly="!isEditing"
+                    @update="setBlock"
+                    @error="(key, message) => (jsonErrors[key] = message)"
+                  />
+                </v-window-item>
+              </v-window>
             </v-card-text>
           </v-card>
         </v-col>
@@ -203,6 +207,18 @@
                   Validate schema
                 </v-btn>
 
+                <v-btn
+                  color="primary"
+                  variant="flat"
+                  block
+                  :disabled="isEditing"
+                  :title="isEditing ? 'Save or cancel your edits first' : undefined"
+                  @click="publishOpen = true"
+                >
+                  <v-icon start>mdi-send</v-icon>
+                  Publish version
+                </v-btn>
+
                 <v-btn variant="outlined" block @click="exportSchema">
                   <v-icon start>mdi-download</v-icon>
                   Export schema
@@ -223,6 +239,13 @@
         </v-col>
       </v-row>
     </div>
+
+    <PublishDialog
+      v-if="schema"
+      v-model="publishOpen"
+      :schema-id="schemaId"
+      :schema-name="schema.name"
+    />
 
     <v-alert v-else-if="error" type="error" variant="tonal">
       <template #prepend>
@@ -245,6 +268,12 @@
   import { showError } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
   import { useConfirm } from '@/composables/useConfirm'
+  import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import FieldsEditor from '@/components/schema-editor/FieldsEditor.vue'
+  import AdvancedJson from '@/components/schema-editor/AdvancedJson.vue'
+  import JsonBlockEditor from '@/components/schema-editor/JsonBlockEditor.vue'
+  import PublishDialog from '@/components/schema-editor/PublishDialog.vue'
+  import { clone, fieldIds, readLayout, type BlockKey } from '@/components/schema-editor/fieldModel'
 
   interface ApiError {
     message?: string
@@ -253,6 +282,15 @@
 
   type SchemaDetail = Schema<'CurationSchema'>
   type ValidationResult = Schema<'SchemaValidationResult'>
+  type Blocks = Record<BlockKey, unknown> & { field_definitions: Record<string, unknown> }
+
+  const BLOCK_KEYS: BlockKey[] = [
+    'field_definitions',
+    'ui_configuration',
+    'validation_rules',
+    'scoring_configuration',
+    'workflow_states'
+  ]
 
   const route = useRoute()
   const router = useRouter()
@@ -265,29 +303,30 @@
   const isEditing = ref(false)
   const schema = ref<SchemaDetail | null>(null)
   const editableSchema = ref<Schema<'CurationSchemaUpdate'>>({})
-  const jsonSchemaText = ref('')
-  const scoringConfigText = ref('')
-  const isValidJson = ref(true)
-  const jsonError = ref('')
-  const scoringError = ref('')
+  // The five JSON blocks being edited; every tab edits this one draft
+  const draft = ref<Blocks>({ field_definitions: {} } as Blocks)
+  // Parse error per JSON editor ('' = valid); Save is blocked while any is set
+  const jsonErrors = ref<Record<string, string>>({})
+  const tab = ref('fields')
+  const publishOpen = ref(false)
   const validation = ref<ValidationResult | null>(null)
   const basicForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   const schemaId = computed(() => String(route.params.id))
+  const hasJsonErrors = computed(() => Object.values(jsonErrors.value).some(Boolean))
 
   const statusOptions = [
     { title: 'Active', value: true },
     { title: 'Inactive', value: false }
   ]
 
-  const formatJson = (obj: unknown) => {
-    return JSON.stringify(obj, null, 2)
+  const setBlock = (key: BlockKey, value: unknown) => {
+    ;(draft.value as Record<BlockKey, unknown>)[key] = value
   }
 
-  const fieldDefinitions = () => Object.values(schema.value?.field_definitions ?? {})
-  const getFieldCount = () => fieldDefinitions().length
+  const getFieldCount = () => fieldIds(readLayout(schema.value?.field_definitions)).length
 
-  // Seed the edit buffer and JSON editors from a loaded schema
+  // Seed the edit buffer and the draft blocks from a loaded schema
   const resetEditor = (source: SchemaDetail) => {
     editableSchema.value = {
       name: source.name,
@@ -295,44 +334,25 @@
       description: source.description,
       is_active: source.is_active
     }
-    jsonSchemaText.value = formatJson(source.field_definitions)
-    scoringConfigText.value = source.scoring_configuration
-      ? formatJson(source.scoring_configuration)
-      : ''
-  }
-
-  const validateJson = () => {
-    try {
-      JSON.parse(jsonSchemaText.value)
-      isValidJson.value = true
-      jsonError.value = ''
-    } catch (e) {
-      isValidJson.value = false
-      jsonError.value = (e as Error).message
-    }
-  }
-
-  const validateScoringConfig = () => {
-    try {
-      if (scoringConfigText.value.trim()) JSON.parse(scoringConfigText.value)
-      scoringError.value = ''
-    } catch (e) {
-      scoringError.value = (e as Error).message
-    }
+    draft.value = clone(
+      Object.fromEntries(BLOCK_KEYS.map(key => [key, source[key] ?? null]))
+    ) as Blocks
+    draft.value.field_definitions ??= {}
+    jsonErrors.value = {}
   }
 
   const saveSchema = async () => {
     if (!basicForm.value) return
     const { valid } = await basicForm.value.validate()
-    if (!valid || !isValidJson.value || scoringError.value) return
+    if (!valid || hasJsonErrors.value) return
 
     saving.value = true
     try {
       schema.value = await schemasStore.updateSchema(schemaId.value, {
         ...editableSchema.value,
-        field_definitions: JSON.parse(jsonSchemaText.value),
-        scoring_configuration: scoringConfigText.value ? JSON.parse(scoringConfigText.value) : null
+        ...(draft.value as Schema<'CurationSchemaUpdate'>)
       })
+      resetEditor(schema.value)
       isEditing.value = false
       validation.value = null
     } catch (error) {
@@ -441,20 +461,6 @@
 </script>
 
 <style scoped>
-  .json-display {
-    background-color: rgba(var(--v-theme-surface-variant), 0.1);
-    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-    border-radius: 4px;
-    padding: 16px;
-    overflow-x: auto;
-    font-family: var(--font-mono);
-    font-size: 14px;
-  }
-
-  .json-input :deep(textarea) {
-    font-family: monospace;
-  }
-
   .d-grid {
     display: grid;
   }
