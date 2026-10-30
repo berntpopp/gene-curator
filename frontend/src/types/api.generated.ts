@@ -6565,6 +6565,8 @@ export interface components {
              * Format: date-time
              */
             assigned_at: string;
+            /** Due Date */
+            due_date?: string | null;
             /**
              * Has Active Work
              * @description Has active work

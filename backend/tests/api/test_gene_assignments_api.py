@@ -1,5 +1,6 @@
 """API tests for /gene-assignments endpoints: scope access, admin-only actions and curator assignment."""
 
+from datetime import date
 from uuid import uuid4
 
 import pytest
@@ -632,3 +633,29 @@ def test_available_genes_excludes_every_active_assignment(
 
     assert response.status_code == 200
     assert [g["approved_symbol"] for g in response.json()] == ["FREEG"]
+
+
+def test_assignment_summaries_carry_due_date(
+    client: TestClient,
+    db_session: Session,
+    admin_token: str,
+    test_gene: Gene,
+    test_scope: Scope,
+    test_user_curator: UserNew,
+) -> None:
+    """Every list read path returns due_date, so the scope gene list can show it (#281)."""
+    _assignment(
+        db_session,
+        test_gene,
+        test_scope,
+        due_date=date(2026, 12, 1),
+        assigned_curator_id=test_user_curator.id,
+    )
+    headers = _auth(admin_token)
+    by_scope = client.get(f"{BASE}/scope/{test_scope.id}", headers=headers).json()
+    listed = client.get(f"{BASE}/?scope_id={test_scope.id}", headers=headers).json()
+    by_curator = client.get(
+        f"{BASE}/curator/{test_user_curator.id}/assignments", headers=headers
+    ).json()
+    for rows in (by_scope, listed["assignments"], by_curator):
+        assert rows[0]["due_date"] == "2026-12-01"

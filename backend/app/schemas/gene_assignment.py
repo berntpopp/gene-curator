@@ -2,7 +2,7 @@
 Pydantic schemas for gene-scope assignments.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
@@ -177,6 +177,7 @@ class GeneScopeAssignmentSummary(BaseModel):
     )
     is_active: bool
     assigned_at: datetime
+    due_date: date | None = None
     has_active_work: bool = Field(default=False, description="Has active work")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

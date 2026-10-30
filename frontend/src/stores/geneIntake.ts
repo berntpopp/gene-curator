@@ -11,6 +11,8 @@ export interface IntakeResult {
   added: number
   alreadyInScope: number
   failed: number
+  /** Added, but the curator could not be set on them. */
+  notAssigned: number
 }
 
 /** The backend caps bulk create and bulk assign at 100 items per request. */
@@ -42,9 +44,15 @@ export const useGeneIntakeStore = defineStore('geneIntake', () => {
 
   /**
    * Create genes missing locally, then assign all of them to the scope. Both steps run in chunks
-   * of 100; a failing chunk counts its genes as failed and the rest carry on.
+   * of 100; a failing chunk counts its genes as failed and the rest carry on. A curator, when
+   * given, is set in a second call on the new assignments only: the bulk endpoint would also
+   * take over unassigned genes already in the scope (curator and priority), which must keep theirs.
    */
-  async function addToScope(scopeId: string, picks: IntakePick[]): Promise<IntakeResult> {
+  async function addToScope(
+    scopeId: string,
+    picks: IntakePick[],
+    curatorId: string | null = null
+  ): Promise<IntakeResult> {
     const unique = [...new Map(picks.map(p => [p.hgnc_id, p])).values()]
     const ids = unique.flatMap(p => (p.gene_id ? [p.gene_id] : []))
     let failed = 0
@@ -77,6 +85,7 @@ export const useGeneIntakeStore = defineStore('geneIntake', () => {
 
     let added = 0
     let alreadyInScope = 0
+    let notAssigned = 0
     for (const chunk of chunks(ids)) {
       try {
         const r = await assignmentsAPI.bulkAssignGenes({
@@ -88,11 +97,24 @@ export const useGeneIntakeStore = defineStore('geneIntake', () => {
         added += r.total_created
         alreadyInScope += r.total_skipped
         failed += r.total_errors
+        const created = curatorId ? r.created_assignments.map(a => a.gene_id) : []
+        if (created.length) {
+          try {
+            await assignmentsAPI.bulkAssignGenes({
+              gene_ids: created,
+              scope_id: scopeId,
+              assigned_curator_id: curatorId,
+              priority_level: 'medium'
+            })
+          } catch {
+            notAssigned += created.length
+          }
+        }
       } catch {
         failed += chunk.length
       }
     }
-    return { added, alreadyInScope, failed }
+    return { added, alreadyInScope, failed, notAssigned }
   }
 
   return { resolve, addToScope }

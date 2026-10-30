@@ -63,19 +63,10 @@
             <v-btn
               v-if="canReassign"
               size="small"
-              variant="text"
-              data-testid="paste-genes"
-              @click="showPasteModal = true"
-            >
-              Paste list
-            </v-btn>
-            <v-btn
-              v-if="canReassign"
-              size="small"
               color="primary"
               variant="flat"
               data-testid="add-genes"
-              @click="showAddModal = true"
+              @click="showPasteModal = true"
             >
               Add genes
             </v-btn>
@@ -104,6 +95,9 @@
             </v-chip>
           </template>
           <template #item.priority="{ item }">{{ getPriorityLabel(item.priority) }}</template>
+          <template #item.due_date="{ item }">
+            <span :data-testid="`due-${item.gene_id}`">{{ formatDate(item.due_date) }}</span>
+          </template>
           <template #item.updated_at="{ item }">{{ formatDate(item.updated_at) }}</template>
           <template #item.actions="{ item }">
             <GeneRowActions
@@ -136,7 +130,7 @@
                   variant="text"
                   size="small"
                   color="primary"
-                  @click="showAddModal = true"
+                  @click="showPasteModal = true"
                 >
                   Add genes
                 </v-btn>
@@ -149,8 +143,6 @@
     </div>
 
     <PasteGenesDialog v-model="showPasteModal" :scope-id="scopeId" @added="refresh" />
-
-    <AddGeneModal v-model="showAddModal" :scope-id="scopeId" @added="handleGenesAdded" />
 
     <AssignCuratorModal
       v-model="showAssignModal"
@@ -210,7 +202,6 @@
   import GeneBulkBar from './GeneBulkBar.vue'
   import ScopeWorkloadPanel from '@/components/scope/ScopeWorkloadPanel.vue'
   import PasteGenesDialog from '@/components/scope/intake/PasteGenesDialog.vue'
-  import AddGeneModal from '@/components/gene/AddGeneModal.vue'
   import AssignCuratorModal from '@/components/gene/AssignCuratorModal.vue'
   import GeneDetailModal from '@/components/gene/GeneDetailModal.vue'
   import ReassignGeneModal from '@/components/gene/ReassignGeneModal.vue'
@@ -270,7 +261,6 @@
   }
 
   // Modal state
-  const showAddModal = ref(false)
   const showPasteModal = ref(false)
   const showAssignModal = ref(false)
   const showGeneDetailModal = ref(false)
@@ -298,6 +288,7 @@
     { title: 'Curator', key: 'curator_name' },
     { title: 'Stage', key: 'stage' },
     { title: 'Priority', key: 'priority' },
+    { title: 'Due', key: 'due_date' },
     { title: 'Updated', key: 'updated_at' },
     { title: 'Actions', key: 'actions', sortable: false }
   ])
@@ -484,17 +475,6 @@
     } finally {
       isRemoving.value = false
     }
-  }
-
-  /**
-   * Handle genes added to catalog
-   */
-  function handleGenesAdded() {
-    refresh()
-    notificationStore.addToast(
-      'Genes added to this scope. You can now assign them to curators.',
-      'success'
-    )
   }
 
   /**

@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import PasteGenesDialog from '../PasteGenesDialog.vue'
 import { geneResolveAPI } from '@/api/geneResolve'
 import { assignmentsAPI } from '@/api/assignments'
+import { scopeService } from '@/services/scopeService'
 
 const addToast = vi.hoisted(() => vi.fn())
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
@@ -13,9 +14,12 @@ vi.mock('@/composables/useLogger', () => ({
 vi.mock('@/api/geneResolve', () => ({ geneResolveAPI: { resolve: vi.fn() } }))
 vi.mock('@/api/genes', () => ({ genesAPI: { bulkCreateGenes: vi.fn(), searchGenes: vi.fn() } }))
 vi.mock('@/api/assignments', () => ({ assignmentsAPI: { bulkAssignGenes: vi.fn() } }))
+vi.mock('@/services/scopeService', () => ({ scopeService: { fetchMembers: vi.fn() } }))
 
 const resolve = vi.mocked(geneResolveAPI.resolve)
 const bulkAssign = vi.mocked(assignmentsAPI.bulkAssignGenes)
+const fetchMembers = vi.mocked(scopeService.fetchMembers)
+const member = (user_id: string, role: string) => ({ user_id, role, user_full_name: user_id })
 const local = (n: number) => ({
   hgnc_id: `HGNC:${n}`,
   symbol: `G${n}`,
@@ -52,6 +56,9 @@ const response = {
   counts: { resolved: 3, ambiguous: 1, not_found: 1 }
 }
 
+const select = (w: ReturnType<typeof mount>, testid: string) =>
+  w.findAllComponents({ name: 'VSelect' }).find(c => c.attributes('data-testid') === testid)!
+
 const dialogStub = { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
 
 function mountDialog() {
@@ -75,6 +82,7 @@ async function resolved() {
 describe('PasteGenesDialog', () => {
   beforeEach(() => {
     ;[resolve, bulkAssign].forEach(m => m.mockReset())
+    fetchMembers.mockResolvedValue([] as never)
     addToast.mockReset()
   })
 
@@ -108,7 +116,7 @@ describe('PasteGenesDialog', () => {
     const w = await resolved()
     expect(w.find('[data-testid=add]').text()).toContain('Add 2 genes to scope')
 
-    w.findAllComponents({ name: 'VSelect' })[0]!.vm.$emit('update:modelValue', 'HGNC:3')
+    select(w, 'choose-3').vm.$emit('update:modelValue', 'HGNC:3')
     await flushPromises()
     expect(w.find('[data-testid=summary]').text()).toContain('3 selected.')
     await flushPromises()
@@ -118,9 +126,74 @@ describe('PasteGenesDialog', () => {
     await flushPromises()
 
     expect(bulkAssign.mock.calls[0]![0].gene_ids).toEqual(['g1', 'g2', 'g3'])
+    expect(bulkAssign.mock.calls[0]![0].assigned_curator_id).toBeNull()
     expect(addToast).toHaveBeenCalledWith('3 genes added', 'success')
     expect(w.emitted('added')).toHaveLength(1)
     expect(w.emitted('update:modelValue')![0]).toEqual([false])
+  })
+
+  it('assigns only the newly added genes to a chosen curator (#281)', async () => {
+    fetchMembers.mockResolvedValue([
+      member('cur', 'curator'),
+      member('adm', 'admin'),
+      member('view', 'viewer')
+    ] as never)
+    // g1 is new; g2 is already in the scope (maybe unassigned) and must stay untouched
+    bulkAssign
+      .mockResolvedValueOnce({
+        total_created: 1,
+        total_skipped: 1,
+        total_errors: 0,
+        created_assignments: [{ gene_id: 'g1' }]
+      } as never)
+      .mockResolvedValueOnce({ total_created: 1, total_skipped: 0, total_errors: 0 } as never)
+    const w = await resolved()
+    const picker = select(w, 'curator-picker')
+    expect((picker.props('items') as { user_id: string }[]).map(c => c.user_id)).toEqual([
+      'cur',
+      'adm'
+    ])
+    picker.vm.$emit('update:modelValue', 'cur')
+    await flushPromises()
+    await w.find('[data-testid=add]').trigger('click')
+    await flushPromises()
+    expect(bulkAssign.mock.calls[0]![0]).toMatchObject({
+      gene_ids: ['g1', 'g2'],
+      assigned_curator_id: null
+    })
+    expect(bulkAssign.mock.calls[1]![0]).toMatchObject({
+      gene_ids: ['g1'],
+      assigned_curator_id: 'cur'
+    })
+    expect(addToast).toHaveBeenCalledWith('1 gene added, 1 already in scope', 'success')
+  })
+
+  it('says which added genes did not get the curator', async () => {
+    fetchMembers.mockResolvedValue([member('cur', 'curator')] as never)
+    bulkAssign
+      .mockResolvedValueOnce({
+        total_created: 2,
+        total_skipped: 0,
+        total_errors: 0,
+        created_assignments: [{ gene_id: 'g1' }, { gene_id: 'g2' }]
+      } as never)
+      .mockRejectedValueOnce(new Error('curator left'))
+    const w = await resolved()
+    select(w, 'curator-picker').vm.$emit('update:modelValue', 'cur')
+    await flushPromises()
+    await w.find('[data-testid=add]').trigger('click')
+    await flushPromises()
+    expect(addToast).toHaveBeenCalledWith('2 genes added, 2 not assigned to the curator', 'warning')
+    expect(w.emitted('added')).toHaveLength(1)
+  })
+
+  it('still adds genes when the curator list cannot load', async () => {
+    fetchMembers.mockRejectedValue(new Error('down'))
+    bulkAssign.mockResolvedValue({ total_created: 2, total_skipped: 0, total_errors: 0 } as never)
+    const w = await resolved()
+    await w.find('[data-testid=add]').trigger('click')
+    await flushPromises()
+    expect(addToast).toHaveBeenCalledWith('2 genes added', 'success')
   })
 
   it('reports genes already in the scope and failures', async () => {

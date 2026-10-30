@@ -59,8 +59,17 @@ describe('GeneBulkBar', () => {
     expect(w.emitted('changed')![0]).toEqual([[]])
   })
 
-  it('has no due date action (assignment summaries carry no due date to show)', () => {
-    expect(mountBar().find('[data-testid=bulk-due]').exists()).toBe(false)
+  it('sets a due date on every selected assignment, only once one is picked (#281)', async () => {
+    update.mockResolvedValue({ is_active: true } as never)
+    const w = mountBar()
+    const apply = w.find('[data-testid=bulk-due-apply]')
+    expect(apply.attributes('disabled')).toBeDefined()
+    await w.find('[data-testid=bulk-due-input] input').setValue('2026-12-01')
+    await apply.trigger('click')
+    await flushPromises()
+    expect(update).toHaveBeenCalledWith('a1', { due_date: '2026-12-01' })
+    expect(update).toHaveBeenCalledWith('a2', { due_date: '2026-12-01' })
+    expect(addToast).toHaveBeenCalledWith('Due date set to 2026-12-01 for 2 genes', 'success')
   })
 
   it('names the failed genes and keeps only them selected', async () => {

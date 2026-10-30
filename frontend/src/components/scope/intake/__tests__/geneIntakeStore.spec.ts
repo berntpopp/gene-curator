@@ -39,7 +39,7 @@ describe('geneIntake store', () => {
       assigned_curator_id: null,
       priority_level: 'medium'
     })
-    expect(r).toEqual({ added: 2, alreadyInScope: 1, failed: 0 })
+    expect(r).toEqual({ added: 2, alreadyInScope: 1, failed: 0, notAssigned: 0 })
   })
 
   it('creates genes that only exist at HGNC, including ones created meanwhile', async () => {
@@ -64,7 +64,7 @@ describe('geneIntake store', () => {
       { hgnc_id: 'HGNC:3', approved_symbol: 'C', details: undefined }
     ])
     expect(bulkAssign.mock.calls[0]![0].gene_ids).toEqual(['g1', 'new1', 'old3'])
-    expect(r).toEqual({ added: 2, alreadyInScope: 0, failed: 2 })
+    expect(r).toEqual({ added: 2, alreadyInScope: 0, failed: 2, notAssigned: 0 })
   })
 
   it('does not call the assignment endpoint when nothing could be created', async () => {
@@ -73,7 +73,7 @@ describe('geneIntake store', () => {
       { hgnc_id: 'HGNC:2', symbol: 'B', gene_id: null }
     ])
     expect(bulkAssign).not.toHaveBeenCalled()
-    expect(r).toEqual({ added: 0, alreadyInScope: 0, failed: 2 })
+    expect(r).toEqual({ added: 0, alreadyInScope: 0, failed: 2, notAssigned: 0 })
   })
 
   it('sends create and assign in chunks of 100, creating before assigning', async () => {
@@ -104,7 +104,7 @@ describe('geneIntake store', () => {
       'assign100',
       'assign50'
     ])
-    expect(r).toEqual({ added: 250, alreadyInScope: 0, failed: 0 })
+    expect(r).toEqual({ added: 250, alreadyInScope: 0, failed: 0, notAssigned: 0 })
   })
 
   it('counts a failed chunk as failed and carries on with the others', async () => {
@@ -117,7 +117,7 @@ describe('geneIntake store', () => {
       gene_id: `g${i}`
     }))
     const r = await useGeneIntakeStore().addToScope('s1', picks)
-    expect(r).toEqual({ added: 20, alreadyInScope: 0, failed: 100 })
+    expect(r).toEqual({ added: 20, alreadyInScope: 0, failed: 100, notAssigned: 0 })
   })
 
   it('sends a gene once even when several rows point at it', async () => {
