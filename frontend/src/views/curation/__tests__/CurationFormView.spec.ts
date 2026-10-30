@@ -60,6 +60,7 @@ const mountView = async (
   vi.spyOn(scopes, 'fetchScope').mockResolvedValue({ default_workflow_pair_id: 'wp1' } as never)
   vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('curator' as never)
   vi.spyOn(curations, 'fetchCurations').mockResolvedValue({ curations: [] } as never)
+  vi.spyOn(precurations, 'fetchPrecurations').mockResolvedValue({ precurations: [] } as never)
   setup?.({ schemas, scopes, curations, precurations, genes })
   const wrapper = mount(CurationFormView, { global: { stubs: { ...stubs, ...extraStubs } } })
   await flushPromises()
@@ -199,9 +200,8 @@ describe('CurationFormView', () => {
     routeState.params = { scopeId: 'sc1', geneId: 'g1' }
     const { vm } = await mountView(({ genes, precurations }) => {
       vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'HNF1B' } as never)
-      vi.spyOn(precurations, 'fetchCurationPrecuration').mockImplementation(async () => {
-        return { status: 'approved' } as never
-      })
+      const approved = { status: 'approved' } as never
+      vi.spyOn(precurations, 'fetchCurationPrecuration').mockResolvedValue(approved)
     })
     expect(vm.formGene).toEqual({ symbol: 'HNF1B' })
     expect(vm.precurationStatus).toBe('approved')

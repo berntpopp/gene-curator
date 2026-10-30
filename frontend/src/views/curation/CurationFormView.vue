@@ -137,19 +137,7 @@
    * CurationFormView
    *
    * Scope-aware wrapper for creating/editing curations.
-   * Implements schema resolution with 5-level priority chain.
-   *
-   * Schema Resolution Priority:
-   * 1. Existing curation's curation_schema_id
-   * 2. User selected schema (selectedSchemaId ref)
-   * 3. Route query param (schema_id)
-   * 4. Workflow pair default for scope
-   * 5. Single available schema auto-select
-   *
-   * Routes:
-   * - /scopes/:scopeId/curations/new (new curation)
-   * - /scopes/:scopeId/curations/:curationId/edit (edit existing)
-   * - /scopes/:scopeId/genes/:geneId/curation/new (new from gene)
+   * Schema resolution: a 5-level priority chain (resolvedSchemaId).
    */
 
   import { ref, computed, watch, onMounted, provide } from 'vue'
@@ -464,10 +452,8 @@
       // Check precuration status for new curations (not edits)
       if (!curationId.value && geneId.value) {
         // One open curation per entity: open it (e.g. the draft approval created)
-        const { curations } = await curationsStore.fetchCurations({
-          scope_id: scopeId.value,
-          gene_id: geneId.value
-        })
+        const entityOf = { scope_id: scopeId.value, gene_id: geneId.value }
+        const { curations } = await curationsStore.fetchCurations(entityOf)
         const candidates = curations.filter(c => !['active', 'archived'].includes(c.status))
         const actives = curations.filter(c => c.status === 'active')
         // ?recurate (gene list): re-curate the gene's active curation, or pick one
@@ -494,6 +480,21 @@
           return
         }
 
+        // Several approved entities and none open (#530): ask, then start the chosen one
+        const chosen = route.query.precuration_id as RouteId
+        if (chosen) return await startEntity({ ...entityOf, precuration_id: chosen })
+        const approved = await precurationsStore.fetchPrecurations({
+          ...entityOf,
+          status: 'approved'
+        })
+        if (!from && approved.precurations.length > 1) {
+          choices.value = approved.precurations.map(p => ({
+            id: p.id,
+            label: label(p),
+            to: { query: { precuration_id: p.id } }
+          }))
+          return
+        }
         await checkPrecurationStatus(geneId.value)
 
         // Redirect if no approved precuration exists
@@ -534,15 +535,30 @@
     }
   }
 
+  type Entity = { disease_name?: string | null; mondo_id?: string | null }
+  const label = (c: Entity & { mode_of_inheritance?: string | null }, ...more: string[]) =>
+    [c.disease_name || 'Disease not set', c.mondo_id]
+      .concat(c.mode_of_inheritance ? formatInheritance(c.mode_of_inheritance) : [], more)
+      .filter(Boolean)
+      .join(' · ')
+
   async function offer(rows: { id: string }[], to: (id: string) => RouteLocationRaw) {
     choices.value = await Promise.all(
       rows.map(async ({ id }) => {
         const c = await curationsStore.fetchCurationById(id)
-        const moi = c.mode_of_inheritance && formatInheritance(c.mode_of_inheritance)
-        const label = [c.disease_name || 'Disease not set', c.mondo_id, moi, c.status]
-        return { id, label: label.filter(Boolean).join(' · '), to: to(id) }
+        return { id, label: label(c, c.status), to: to(id) }
       })
     )
+  }
+
+  async function startEntity(body: { scope_id: string; gene_id: string; precuration_id: string }) {
+    const workflow_pair_id = resolvedWorkflowPairId.value ?? ''
+    // a 409 names the entity's open curation, which the openCurationId watcher opens
+    const created = await curationsStore
+      .createCuration({ ...body, workflow_pair_id, evidence_data: {} })
+      .catch(error => (curationsStore.error?.openCurationId ? null : Promise.reject(error)))
+    const params = { scopeId: scopeId.value, curationId: created?.id }
+    if (created) await router.replace({ name: 'curation-edit', params })
   }
 
   async function pick(to: RouteLocationRaw) {

@@ -32,17 +32,35 @@ const detail = (id: string) =>
     mode_of_inheritance: 'AD'
   }) as never
 
-async function mountView(rows: { id: string; status: string }[], query: Record<string, string>) {
+const approvedPrecuration = (id: string) => ({
+  id,
+  status: 'approved',
+  disease_name: `Disease ${id}`,
+  mondo_id: `MONDO:${id}`,
+  mode_of_inheritance: 'AR'
+})
+
+async function mountView(
+  rows: { id: string; status: string }[],
+  query: Record<string, string>,
+  approved: ReturnType<typeof approvedPrecuration>[] = []
+) {
   Object.assign(routeState, { params: { scopeId: 'sc1', geneId: 'g1' }, query })
   const curations = useCurationsStore()
   vi.spyOn(useSchemasStore(), 'fetchSchemas').mockResolvedValue(undefined as never)
   vi.spyOn(useSchemasStore(), 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
-  vi.spyOn(useScopesStore(), 'fetchScope').mockResolvedValue({} as never)
+  vi.spyOn(useScopesStore(), 'fetchScope').mockResolvedValue({
+    default_workflow_pair_id: 'wp1'
+  } as never)
   vi.spyOn(useScopesStore(), 'fetchUserRole').mockResolvedValue('curator' as never)
   vi.spyOn(useGenesStore(), 'fetchGeneById').mockResolvedValue({} as never)
   vi.spyOn(usePrecurationsStore(), 'fetchCurationPrecuration').mockResolvedValue({
     status: 'approved'
   } as never)
+  vi.spyOn(usePrecurationsStore(), 'fetchPrecurations').mockResolvedValue({
+    precurations: approved
+  } as never)
+  vi.spyOn(curations, 'createCuration').mockResolvedValue({ id: 'new1' } as never)
   vi.spyOn(curations, 'fetchCurations').mockResolvedValue({ curations: rows } as never)
   vi.spyOn(curations, 'fetchCurationById').mockImplementation(async id => detail(id))
   const wrapper = mount(CurationFormView, {
@@ -81,6 +99,45 @@ describe('CurationFormView entity choice', () => {
     const wrapper = await mountView([row('a', 'active')], { recurate: '1' })
     expect(wrapper.find('[data-testid="entity-choices"]').exists()).toBe(false)
     expect(routerReplace).toHaveBeenCalledWith({ query: { from: 'a' } })
+  })
+
+  it('asks which approved entity to curate when several exist and none is open', async () => {
+    const wrapper = await mountView([], {}, [approvedPrecuration('p1'), approvedPrecuration('p2')])
+    const list = wrapper.find('[data-testid="entity-choices"]')
+    expect(list.text()).toContain('Disease p1 · MONDO:p1 · Autosomal recessive')
+    expect(list.text()).toContain('Disease p2')
+    expect(useCurationsStore().createCuration).not.toHaveBeenCalled()
+    await wrapper.findAll('.v-list-item')[1]!.trigger('click')
+    expect(routerReplace).toHaveBeenCalledWith({ query: { precuration_id: 'p2' } })
+  })
+
+  it('starts the curation of the precuration named in the route', async () => {
+    await mountView([], { precuration_id: 'p2' }, [approvedPrecuration('p1')])
+    expect(useCurationsStore().createCuration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gene_id: 'g1',
+        scope_id: 'sc1',
+        workflow_pair_id: 'wp1',
+        precuration_id: 'p2'
+      })
+    )
+    expect(routerReplace).toHaveBeenCalledWith({
+      name: 'curation-edit',
+      params: { scopeId: 'sc1', curationId: 'new1' }
+    })
+  })
+
+  it('leaves a refused start (409) to the open-curation redirect', async () => {
+    vi.spyOn(useCurationsStore(), 'createCuration').mockImplementationOnce(async () => {
+      useCurationsStore().error = { message: 'blocked', openCurationId: 'c9' }
+      throw new Error('409')
+    })
+    await mountView([], { precuration_id: 'p2' })
+    expect(routerReplace).toHaveBeenCalledTimes(1)
+    expect(routerReplace).toHaveBeenCalledWith({
+      name: 'curation-edit',
+      params: { scopeId: 'sc1', curationId: 'c9' }
+    })
   })
 
   it('opens the open curation a create was refused for (409)', async () => {
