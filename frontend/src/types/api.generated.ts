@@ -1708,8 +1708,8 @@ export interface paths {
         /**
          * Get Workflow Audit Trail
          * @description Review history of a curation: every submission and review decision with the reviewer's
-         *     notes; audit_id is the evidence snapshot, usable as curation_diff baseline (other items, and
-         *     unknown ones, have an empty trail).
+         *     notes; audit_id is the evidence snapshot, usable as curation_diff baseline (a precuration
+         *     has an empty trail). Unknown or hidden items are 404, like other reads.
          */
         get: operations["get_workflow_audit_trail_api_v1_workflow__item_type___item_id__audit_trail_get"];
         put?: never;
