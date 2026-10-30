@@ -66,7 +66,6 @@ harmless).
   `genetic_evidence_total` and `experimental_evidence_total`; for custom point models without
   those keys, the model's `genetic_total` and `experimental_total`. `null` when the schema
   has no such section.
-  <!-- TODO(release): custom-model totals ship with #563; drop this note if it merges without them. -->
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
   `"Curation deleted"`; `null` on active rows.
 
