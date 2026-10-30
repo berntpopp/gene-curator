@@ -338,3 +338,28 @@ def test_reviewer_done_counts_own_approvals(client, db_session: Session):
     assert done[str(p.id)]["verb"] == "Approved precuration"
     assert body["counts"]["done"] == 2
     assert _get(client, other)["counts"]["done"] == 0
+
+
+def test_rows_carry_disease_moi_stage_and_classification(
+    client, db_session: Session, test_scope, test_gene, test_workflow_pair,
+    test_user_curator, test_precuration,
+):  # fmt: skip
+    """#277: rows say which disease, MOI, stage and classification they are about."""
+    test_precuration.evidence_data = {
+        "entity_definition": {"disease_name": "Foo syndrome"},
+        "mode_of_inheritance": "AD",
+    }
+    c = _cur(test_scope, test_gene, test_workflow_pair, test_user_curator, "draft")
+    c.precuration_id = test_precuration.id  # disease comes from the linked precuration
+    c.computed_verdict = "moderate"
+    db_session.add(c)
+    db_session.commit()
+    items = {i["item_type"]: i for i in _get(client, test_user_curator)["items"]}
+    cur, pre = items["curation"], items["precuration"]
+    assert (cur["disease_name"], cur["mode_of_inheritance"]) == ("Foo syndrome", "AD")
+    assert (cur["stage"], cur["classification"]) == ("curation", "moderate")
+    assert (pre["disease_name"], pre["stage"], pre["classification"]) == (
+        "Foo syndrome",
+        "precuration",
+        None,
+    )

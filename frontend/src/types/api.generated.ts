@@ -2753,58 +2753,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/curations/{curation_id}/evidence": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Evidence Items
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        get: operations["list_evidence_items_api_v1_curations__curation_id__evidence_get"];
-        put?: never;
-        /**
-         * Create Evidence Item
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        post: operations["create_evidence_item_api_v1_curations__curation_id__evidence_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/curations/{curation_id}/evidence/{item_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Update Evidence Item
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        put: operations["update_evidence_item_api_v1_curations__curation_id__evidence__item_id__put"];
-        post?: never;
-        /**
-         * Delete Evidence Item
-         * @deprecated
-         * @description Deprecated, not scored: use save_draft_curations to record evidence.
-         */
-        delete: operations["delete_evidence_item_api_v1_curations__curation_id__evidence__item_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/genes/{gene_id}/summary": {
         parameters: {
             query?: never;
@@ -5574,142 +5522,6 @@ export interface components {
             disagree: boolean;
         };
         /**
-         * EvidenceItem
-         * @description Complete evidence item schema
-         */
-        EvidenceItem: {
-            /**
-             * Evidence Category
-             * @description Evidence category: case_level, segregation, case_control, expression, protein_function, models, rescue
-             */
-            evidence_category: string;
-            /**
-             * Evidence Type
-             * @description Evidence type: genetic or experimental
-             */
-            evidence_type: string;
-            /**
-             * Evidence Data
-             * @description Complete evidence data structure (JSONB)
-             */
-            evidence_data: {
-                [key: string]: unknown;
-            };
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Curation Id
-             * Format: uuid
-             */
-            curation_id: string;
-            /**
-             * Computed Score
-             * @description Always null: evidence items are not scored
-             */
-            computed_score?: number | null;
-            /**
-             * Score Note
-             * @description Why this item does not change the curation score
-             * @default Evidence items are supporting records and are not scored. The curation's score comes from its evidence_data: add the row to the matching table there and save it with save_draft_curations (PATCH /curations/{id}/draft) to score it.
-             */
-            score_note: string;
-            /**
-             * Score Metadata
-             * @description Scoring calculation details
-             */
-            score_metadata?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Unverified Pmids
-             * @description PMIDs not verified: PubMed was unreachable when the item was saved
-             */
-            unverified_pmids?: string[];
-            /**
-             * Validation Status
-             * @description Validation status
-             */
-            validation_status: string;
-            /**
-             * Validation Errors
-             * @description Validation errors if any
-             */
-            validation_errors?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Validated At
-             * @description Validation timestamp
-             */
-            validated_at?: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /**
-             * Created By
-             * Format: uuid
-             */
-            created_by: string;
-            /** Updated By */
-            updated_by?: string | null;
-            /**
-             * Is Deleted
-             * @default false
-             */
-            is_deleted: boolean;
-        };
-        /**
-         * EvidenceItemCreate
-         * @description Schema for creating evidence item
-         */
-        EvidenceItemCreate: {
-            /**
-             * Evidence Category
-             * @description Evidence category: case_level, segregation, case_control, expression, protein_function, models, rescue
-             */
-            evidence_category: string;
-            /**
-             * Evidence Type
-             * @description Evidence type: genetic or experimental
-             */
-            evidence_type: string;
-            /**
-             * Evidence Data
-             * @description Complete evidence data structure (JSONB)
-             */
-            evidence_data: {
-                [key: string]: unknown;
-            };
-        };
-        /**
-         * EvidenceItemUpdate
-         * @description Schema for updating evidence item
-         */
-        EvidenceItemUpdate: {
-            /**
-             * Evidence Data
-             * @description Updated evidence data
-             */
-            evidence_data?: {
-                [key: string]: unknown;
-            } | null;
-            /**
-             * Validation Status
-             * @description Validation status: pending, valid, invalid
-             */
-            validation_status?: string | null;
-        };
-        /**
          * EvidenceWarning
          * @description A value a draft keeps but that needs fixing before submit.
          */
@@ -6146,6 +5958,8 @@ export interface components {
             symbol: string;
             /** Hgnc Id */
             hgnc_id: string;
+            /** Classification */
+            classification?: string | null;
         };
         /**
          * GeneListResponse
@@ -10940,6 +10754,20 @@ export interface components {
             link: string;
             /** Updated At */
             updated_at?: string | null;
+            /** Disease Name */
+            disease_name?: string | null;
+            /** Mode Of Inheritance */
+            mode_of_inheritance?: string | null;
+            /**
+             * Stage
+             * @description Workflow stage; null for assignments
+             */
+            stage?: string | null;
+            /**
+             * Classification
+             * @description Calculated classification (curations only)
+             */
+            classification?: string | null;
         };
         /**
          * WorkflowAnalytics
@@ -16486,138 +16314,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MatrixResponse"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_evidence_items_api_v1_curations__curation_id__evidence_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvidenceItem"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_evidence_item_api_v1_curations__curation_id__evidence_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EvidenceItemCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvidenceItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_evidence_item_api_v1_curations__curation_id__evidence__item_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EvidenceItemUpdate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvidenceItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_evidence_item_api_v1_curations__curation_id__evidence__item_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                curation_id: string;
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {

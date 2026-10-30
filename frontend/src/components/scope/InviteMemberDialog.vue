@@ -87,6 +87,18 @@
         </template>
       </v-select>
 
+      <v-switch
+        v-model="direct"
+        data-testid="direct-add"
+        color="primary"
+        inset
+        hide-details="auto"
+        label="Add directly, without an invitation"
+        hint="The role takes effect at once and the user is notified; there is nothing to accept."
+        persistent-hint
+        class="mb-4"
+      />
+
       <!-- Optional Notes -->
       <v-textarea
         v-model="notes"
@@ -107,8 +119,8 @@
         :loading="submitting"
         @click="handleSubmit"
       >
-        <v-icon start>mdi-send</v-icon>
-        Send invitation
+        <v-icon start>{{ direct ? 'mdi-account-plus' : 'mdi-send' }}</v-icon>
+        {{ direct ? 'Add member' : 'Send invitation' }}
       </v-btn>
     </template></BaseDialog
   >
@@ -138,6 +150,7 @@
     id?: string
     userName?: string | null
     userEmail?: string | null
+    direct?: boolean
   }
 
   // ============================================
@@ -183,6 +196,7 @@
   const selectedUser = ref<InviteCandidate | null>(null)
   const selectedRole = ref<Schema<'ScopeRole'>>('viewer')
   const notes = ref('')
+  const direct = ref(false) // POST /members: accepted at once (#505), no consent step
 
   // ============================================
   // COMPUTED
@@ -259,6 +273,7 @@
     selectedUser.value = null
     selectedRole.value = 'viewer'
     notes.value = ''
+    direct.value = false
     if (formRef.value) {
       formRef.value.reset()
     }
@@ -311,8 +326,11 @@
         role: selectedRole.value
       })
 
-      const result = (await scopeStore.inviteMember(props.scopeId, invitationData)) as
-        InvitedPayload | undefined
+      const result = (await scopeStore.inviteMember(
+        props.scopeId,
+        invitationData,
+        direct.value
+      )) as InvitedPayload | undefined
 
       logger.info('Invitation sent successfully', {
         scopeId: props.scopeId,
@@ -323,7 +341,8 @@
       emit('invited', {
         ...result,
         userName: selectedUser.value?.name,
-        userEmail: selectedUser.value?.email
+        userEmail: selectedUser.value?.email,
+        direct: direct.value
       })
 
       // Reset and close

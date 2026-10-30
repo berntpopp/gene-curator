@@ -35,6 +35,7 @@ interface MemberInternals {
   confirmRemoveMember: (member: { user_id: string; role: string }) => void
   removeMember: () => Promise<void>
   handleInvited: (payload: {
+    direct?: boolean
     userName?: string | null
     userEmail?: string | null
     id?: string
@@ -183,6 +184,14 @@ describe('MemberManagement', () => {
     expect(vm.existingMemberIds).toEqual(['u1', 'u2'])
   })
 
+  it('excludes a platform admin who is not a member from their own search', async () => {
+    const { vm } = await mountMembers()
+    const auth = useAuthStore()
+    auth.user = { id: 'pa', role: 'admin' } as unknown as typeof auth.user
+
+    expect(vm.existingMemberIds).toEqual(['u1', 'u2', 'pa'])
+  })
+
   it('reports a failed member load', async () => {
     vi.mocked(scopeService.fetchMembers).mockRejectedValueOnce(new Error('403'))
     await mountMembers()
@@ -265,5 +274,13 @@ describe('MemberManagement', () => {
     await vm.handleInvited({ userEmail: 'new@example.org' })
 
     expect(snackbarState.message).toBe('Invitation sent to new@example.org')
+  })
+
+  it('announces a direct add as added, not invited', async () => {
+    const { vm } = await mountMembers()
+
+    await vm.handleInvited({ userName: 'Grace Hopper', direct: true })
+
+    expect(snackbarState.message).toBe('Grace Hopper added to the scope')
   })
 })

@@ -162,3 +162,41 @@ def test_public_scope_is_visible_to_everyone_signed_in(
         assert [c["id"] for c in _search(client, user, "pkd2").json()["curations"]] == [
             str(cur.id)
         ]
+
+
+def test_gene_hit_carries_visible_active_classification(
+    client, db_session, test_scope: Scope, test_workflow_pair: WorkflowPair
+):
+    """#273: a gene hit shows its active classification, from visible scopes only."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.models import ActiveCuration
+
+    hidden = Scope(name="hidden-cls", display_name="Hidden", is_active=True)
+    db_session.add(hidden)
+    db_session.commit()
+    gene = _gene(db_session, "COL4A5", 5)
+    _gene(db_session, "COL4A3", 3)  # no active curation: no classification
+    owner = make_user(db_session)
+    now = datetime.now(UTC)
+    for scope, verdict, at in (
+        (test_scope, "definitive", now - timedelta(days=1)),
+        (hidden, "refuted", now),  # newer, but not visible to the member
+    ):
+        c = _curation(db_session, scope, gene, test_workflow_pair, owner)
+        c.computed_verdict = verdict
+        db_session.add(
+            ActiveCuration(
+                gene_id=gene.id, scope_id=scope.id, curation_id=c.id, activated_at=at
+            )
+        )
+    db_session.commit()
+    member = make_user(db_session)
+    make_member(db_session, test_scope, member, "viewer")
+
+    def cls(user):
+        hits = _search(client, user, "col4a").json()["genes"]
+        return {g["symbol"]: g["classification"] for g in hits}
+
+    assert cls(member) == {"COL4A5": "definitive", "COL4A3": None}
+    assert cls(make_user(db_session)) == {"COL4A5": None, "COL4A3": None}

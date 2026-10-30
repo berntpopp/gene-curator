@@ -9,6 +9,7 @@ class GeneHit(BaseModel):
     id: UUID
     symbol: str
     hgnc_id: str
+    classification: str | None = None
 
 
 class CurationHit(BaseModel):

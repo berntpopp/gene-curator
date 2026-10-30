@@ -43,6 +43,10 @@
                   :disabled="disabled"
                   :readonly="readonly"
                   @update:model-value="updateArrayItem(index, subFieldName, $event)"
+                  @update:disease-name="
+                    fillsName(fieldSchema.items?.properties, $event) &&
+                    updateArrayItem(index, 'disease_name', $event)
+                  "
                   @component-fallback="$emit('component-fallback', $event)"
                 />
               </v-col>
@@ -94,6 +98,10 @@
               :disabled="disabled"
               :readonly="readonly"
               @update:model-value="updateObjectField(subFieldName, $event)"
+              @update:disease-name="
+                fillsName(fieldSchema.properties, $event) &&
+                updateObjectField('disease_name', $event)
+              "
               @component-fallback="$emit('component-fallback', $event)"
             />
           </v-col>
@@ -185,6 +193,11 @@
       transition: 'background-color 0.2s ease'
     }
   }
+
+  // A MONDO pick names the sibling disease_name, as DynamicForm does at the top level;
+  // a cleared term keeps the name, which the curator may have edited
+  const fillsName = (fields: Record<string, FieldSchema> | undefined, name: string) =>
+    !!name && !!fields?.disease_name
 
   // Array field methods
   const addArrayItem = () => {

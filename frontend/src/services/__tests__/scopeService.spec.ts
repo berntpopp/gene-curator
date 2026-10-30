@@ -163,6 +163,15 @@ describe('scopeService', () => {
     expect(client.patch).toHaveBeenCalledWith('/scopes/s1/members/u1', { role: 'reviewer' })
   })
 
+  it('inviteMember with direct posts to /members (#505)', async () => {
+    client.post.mockResolvedValue(response({ id: 'm2' }))
+    await scopeService.inviteMember('s1', { user_id: 'u1', role: 'viewer' } as never, true)
+    expect(client.post).toHaveBeenCalledWith('/scopes/s1/members', {
+      user_id: 'u1',
+      role: 'viewer'
+    })
+  })
+
   it('declineInvitation hits the decline endpoint', async () => {
     client.post.mockResolvedValue(response({}))
 

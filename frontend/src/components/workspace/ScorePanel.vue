@@ -44,6 +44,7 @@
       loading?: boolean
       canSubmit: boolean
       readonly: boolean
+      /** Why Submit is blocked, including rows it would refuse (the workspace frame) */
       blockers?: string[]
     }>(),
     { blockers: () => [] }
@@ -59,7 +60,6 @@
         .map(w => String(w.message))
     ])
   ])
-  const refused = computed(() => !!props.score?.excluded?.some(e => e.refused))
 
   const checks = computed(() => [
     ...props.blockers.map(text => ({ text, warn: true })),
@@ -68,11 +68,9 @@
       : [
           props.loading
             ? { text: 'Checking evidence…', warn: false }
-            : refused.value
-              ? { text: 'Fix the rows that score 0 before submitting', warn: true }
-              : props.canSubmit
-                ? { text: 'Ready to submit', warn: false }
-                : { text: 'Complete the required evidence before submitting', warn: true }
+            : props.canSubmit
+              ? { text: 'Ready to submit', warn: false }
+              : { text: 'Complete the required evidence before submitting', warn: true }
         ]),
     ...(props.score?.hasContradictory
       ? [

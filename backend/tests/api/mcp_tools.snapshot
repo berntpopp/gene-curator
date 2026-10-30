@@ -14,7 +14,6 @@ complete_precuration read_only=False destructive=False
 count_search_genes read_only=True destructive=False
 create_curation read_only=False destructive=False
 create_curation_schema read_only=False destructive=False
-create_evidence_item read_only=False destructive=False
 create_gene read_only=False destructive=False
 create_gene_assignment read_only=False destructive=False
 create_llm_model read_only=False destructive=False
@@ -30,7 +29,6 @@ deactivate_gene_assignment read_only=False destructive=True
 decline_invitation read_only=False destructive=False
 delete_curation read_only=False destructive=True
 delete_curation_schema read_only=False destructive=True
-delete_evidence_item read_only=False destructive=True
 delete_gene read_only=False destructive=True
 delete_precuration read_only=False destructive=True
 delete_scope read_only=False destructive=True
@@ -111,7 +109,6 @@ get_workflow_statistics read_only=True destructive=False
 health_check read_only=True destructive=False
 invite_member read_only=False destructive=False
 list_curations read_only=True destructive=False
-list_evidence_items read_only=True destructive=False
 list_llm_models read_only=True destructive=False
 list_llm_providers read_only=True destructive=False
 list_llm_runs read_only=True destructive=False
@@ -162,7 +159,6 @@ test_validation_with_examples read_only=False destructive=False
 unassign_curator_from_gene read_only=False destructive=False
 update_curation read_only=False destructive=True
 update_curation_schema read_only=False destructive=True
-update_evidence_item read_only=False destructive=True
 update_gene read_only=False destructive=True
 update_gene_assignment read_only=False destructive=True
 update_llm_model read_only=False destructive=True

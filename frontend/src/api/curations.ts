@@ -85,49 +85,6 @@ export const curationsAPI = {
   },
 
   /**
-   * Add evidence item to curation
-   * @param id - Curation UUID
-   * @param evidenceItem - Evidence item data (category, type, description, pmids)
-   */
-  async addEvidenceItem(
-    id: string,
-    evidenceItem: Schema<'EvidenceItemCreate'>
-  ): Promise<Schema<'EvidenceItem'>> {
-    const response = await apiClient.post<Schema<'EvidenceItem'>>(
-      `/curations/${id}/evidence`,
-      evidenceItem
-    )
-    return response.data
-  },
-
-  /**
-   * Update evidence item
-   * @param curationId - Curation UUID
-   * @param evidenceId - Evidence item UUID
-   * @param evidenceItem - Updated evidence data
-   */
-  async updateEvidenceItem(
-    curationId: string,
-    evidenceId: string,
-    evidenceItem: Schema<'EvidenceItemUpdate'>
-  ): Promise<Schema<'EvidenceItem'>> {
-    const response = await apiClient.put<Schema<'EvidenceItem'>>(
-      `/curations/${curationId}/evidence/${evidenceId}`,
-      evidenceItem
-    )
-    return response.data
-  },
-
-  /**
-   * Delete evidence item
-   * @param curationId - Curation UUID
-   * @param evidenceId - Evidence item UUID
-   */
-  async deleteEvidenceItem(curationId: string, evidenceId: string): Promise<void> {
-    await apiClient.delete(`/curations/${curationId}/evidence/${evidenceId}`)
-  },
-
-  /**
    * Calculate ClinGen score for curation
    * @param id - Curation UUID
    */

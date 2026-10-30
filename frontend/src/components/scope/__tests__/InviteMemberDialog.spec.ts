@@ -73,15 +73,33 @@ describe('InviteMemberDialog', () => {
     await vm.handleSubmit()
     await flushPromises()
 
-    expect(invite).toHaveBeenCalledWith('scope-1', {
-      role: 'curator',
-      user_id: 'u1',
-      notes: 'Welcome'
-    })
+    expect(invite).toHaveBeenCalledWith(
+      'scope-1',
+      {
+        role: 'curator',
+        user_id: 'u1',
+        notes: 'Welcome'
+      },
+      false
+    )
     expect(wrapper.emitted('invited')?.[0]).toEqual([
-      { id: 'm-1', userName: 'Ada Lovelace', userEmail: 'ada@example.org' }
+      { id: 'm-1', userName: 'Ada Lovelace', userEmail: 'ada@example.org', direct: false }
     ])
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([false])
+  })
+
+  it('adds the member directly when the admin turns the switch on (#505)', async () => {
+    const store = useScopesStore()
+    const invite = vi.spyOn(store, 'inviteMember').mockResolvedValue({ id: 'm-2' } as never)
+    const { wrapper, vm } = mountDialog()
+    vm.selectedUser = { id: 'u2', name: 'Grace' }
+    await wrapper.findComponent('[data-testid="direct-add"]').setValue(true)
+    expect(document.body.textContent).toContain('Add member')
+
+    await vm.handleSubmit()
+
+    expect(invite).toHaveBeenCalledWith('scope-1', { role: 'viewer', user_id: 'u2' }, true)
+    expect(wrapper.emitted('invited')?.[0]?.[0]).toMatchObject({ direct: true })
   })
 
   it('does nothing when submitting without a user', async () => {

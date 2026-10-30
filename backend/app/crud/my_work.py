@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, exists, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.crud.review_round import in_current_round
 from app.models import (
@@ -20,6 +20,7 @@ from app.models import (
     ScopeMembership,
     UserNew,
 )
+from app.schemas.curation import disease_fields
 from app.schemas.my_work import WorkItem, WorkKind, WorkTab
 
 DONE_WINDOW = timedelta(days=7)
@@ -28,6 +29,11 @@ _S = CurationStatus
 
 def _item(row: Any, kind: WorkKind, tab: WorkTab, verb: str, link: str) -> WorkItem:
     obj, symbol, scope_name, item_type = row
+    pre = getattr(obj, "precuration", None)  # a curation falls back to its precuration
+    disease = disease_fields(
+        getattr(obj, "evidence_data", None), pre.evidence_data if pre else None
+    )
+    stage = getattr(obj, "workflow_stage", None)
     return WorkItem(
         kind=kind,
         tab=tab,
@@ -40,6 +46,10 @@ def _item(row: Any, kind: WorkKind, tab: WorkTab, verb: str, link: str) -> WorkI
         scope_name=scope_name,
         link=link.format(s=obj.scope_id, i=obj.id, g=obj.gene_id),
         updated_at=getattr(obj, "updated_at", None) or obj.assigned_at,
+        disease_name=disease["disease_name"],
+        mode_of_inheritance=disease["mode_of_inheritance"],
+        stage=getattr(stage, "value", stage),
+        classification=getattr(obj, "computed_verdict", None),
     )
 
 
@@ -52,6 +62,8 @@ def _rows(
         .join(Scope, Scope.id == model.scope_id)
         .where(model.scope_id.in_(scopes), *where)
     )
+    if model is CurationNew:
+        stmt = stmt.options(selectinload(CurationNew.precuration))
     return [(o, g, s, kind) for o, g, s in db.execute(stmt)]
 
 
