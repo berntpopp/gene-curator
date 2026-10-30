@@ -57,11 +57,6 @@ api:
       requests_per_minute: 300
       burst_size: 50
 
-    # Rate limit for curator/reviewer users
-    curator:
-      requests_per_minute: 500
-      burst_size: 75
-
     # Rate limit for admin users
     admin:
       requests_per_minute: 1000

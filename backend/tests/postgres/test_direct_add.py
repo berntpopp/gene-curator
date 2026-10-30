@@ -2,7 +2,8 @@
 
 Platform and scope admins add an existing user as an accepted member in one step
 (audited, notified); a curator cannot; nobody adds themselves; a pending invitation
-still grants nothing; at most one workflow pair is the default and create_scope uses it.
+still grants nothing; at most one workflow pair is the default and create_scope uses it;
+a removed member cannot reactivate their own row, not even by moving it (066).
 """
 
 import os
@@ -234,3 +235,41 @@ def test_member_cannot_change_own_role_but_can_accept(client: TestClient, w: W) 
             (str(w.cur), str(w.scope)),
         )
         assert cur.fetchone() == ("curator",)
+
+
+def test_removed_member_cannot_reactivate_own_row(client: TestClient, w: W) -> None:
+    other = uuid4()  # a scope w.cur administers, so RLS alone would accept the move
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO scopes (id, name, display_name, is_public, created_by) "
+            "VALUES (%s, %s, 'DA2', false, %s)",
+            (str(other), f"da-{other}", str(w.cur)),
+        )
+        cur.execute(
+            "INSERT INTO scope_memberships (scope_id, user_id, role, invited_by, "
+            "accepted_at) VALUES (%s, %s, 'admin', %s, now())",
+            (str(other), str(w.cur), str(w.cur)),
+        )
+    gone = client.delete(
+        f"/api/v1/scopes/{w.scope}/members/{w.cur}", headers=_h(w.sadmin)
+    )
+    assert gone.status_code == 204, gone.text
+    for sql, args in (
+        ("UPDATE scope_memberships SET is_active = true", ()),
+        (
+            "UPDATE scope_memberships SET is_active = true, scope_id = %s, user_id = %s",
+            (str(other), str(w.a)),
+        ),
+    ):
+        with pytest.raises(psycopg2.errors.InsufficientPrivilege):
+            _as_app_user(
+                w.cur,
+                sql + " WHERE user_id = %s AND scope_id = %s",
+                *args,
+                str(w.cur),
+                str(w.scope),
+            )
+    assert (
+        client.get(f"/api/v1/scopes/{w.scope}/members", headers=_h(w.cur)).status_code
+        == 403
+    )
