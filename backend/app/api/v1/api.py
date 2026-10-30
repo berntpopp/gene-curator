@@ -24,6 +24,7 @@ from app.api.v1.endpoints import (
     llm_runs,
     llm_scope,
     logs,
+    methodology_import,
     my_work,
     notifications,
     oauth,
@@ -63,6 +64,9 @@ api_router.include_router(
 )
 api_router.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
+api_router.include_router(
+    methodology_import.router, prefix="/schemas", tags=["schemas"]
+)
 api_router.include_router(
     schema_validation.router, prefix="/validation", tags=["validation"]
 )
