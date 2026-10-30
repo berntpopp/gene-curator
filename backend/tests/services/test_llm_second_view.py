@@ -2,6 +2,7 @@
 the three-way diff, and advisory-only output (nothing in the curation changes)."""
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -251,3 +252,30 @@ def test_diff_puts_disagreements_first(db_session: Session, world: World) -> Non
             "disagree": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_rerun_keeps_the_last_good_findings_and_diff(
+    db_session: Session, world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bind = db_session.get_bind()
+    canned(monkeypatch, _output())
+    good = enqueue_run(db_session, world.scope_admin, world.curation.id, "skeptic")
+    good.created_at = datetime(
+        2026, 1, 1, tzinfo=UTC
+    )  # SQLite now() ties within a second
+    db_session.commit()
+    await llm_worker.process_next(factory(bind))  # type: ignore[arg-type]
+    canned(monkeypatch, _output(proposed_evidence="{broken"))
+    failed = enqueue_run(db_session, world.scope_admin, world.curation.id, "skeptic")
+    await llm_worker.process_next(factory(bind))  # type: ignore[arg-type]
+
+    db_session.expire_all()
+    curation = db_session.get(CurationNew, world.curation.id)
+    assert curation is not None
+    view = second_view(db_session, curation)
+    [shown] = view["runs"]
+    assert (shown["run_id"], shown["status"]) == (failed.id, "failed")
+    assert [f["category"] for f in view["findings"]] == ["case_level"]
+    by_category = {r["category"]: r for r in view["diff"]}
+    assert by_category["classification"]["skeptic"] == "limited"
