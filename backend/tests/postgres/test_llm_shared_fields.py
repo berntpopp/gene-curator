@@ -12,8 +12,8 @@ from app.services.llm_runs import SHARED_EVIDENCE_KEYS
 
 pytestmark = pytest.mark.postgres
 
-# User identity, never sent to a provider.
-EXCLUDED: frozenset[str] = frozenset()
+# Never sent to a provider: the curator's own conclusion (the second view is blind, #464).
+EXCLUDED: frozenset[str] = frozenset({"preliminary_verdict"})
 
 
 def _keys(fields: Any) -> Iterator[str]:

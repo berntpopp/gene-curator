@@ -53,7 +53,7 @@
         <v-text-field
           v-model="form.model_id"
           label="Model ID (dated)"
-          hint="Pin a dated release, e.g. claude-sonnet-4-5-20250929 or gpt-4o-2024-08-06"
+          hint="Pin a release, e.g. claude-sonnet-5-5 or gpt-4o-2024-08-06"
           persistent-hint
           :rules="[required, dated]"
           maxlength="200"
@@ -136,9 +136,10 @@
     { title: '', key: 'actions', sortable: false, hideable: false, align: 'end' }
   ]
   // Mirrors the backend DATED_MODEL_ID pattern (schemas/llm.py)
-  const DATED = /^[A-Za-z0-9][A-Za-z0-9._:/-]*(\d{8}|\d{4}-\d{2}-\d{2})$/
+  const DATED = /^([A-Za-z0-9][A-Za-z0-9._:/-]*(\d{8}|\d{4}-\d{2}-\d{2})|claude-[a-z]+-\d+(-\d+)?)$/
   const required = (v: string) => !!String(v ?? '').trim() || 'Required'
-  const dated = (v: string) => DATED.test(v ?? '') || 'Must end in a release date'
+  const dated = (v: string) =>
+    DATED.test(v ?? '') || 'Must be a pinned release, e.g. claude-sonnet-5-5 or gpt-4o-2024-08-06'
   const nonNegative = (v: string | number) => Number(v) >= 0 || 'Must be 0 or more'
   // v-model.number leaves an empty field as '', which must never reach the API
   const intIn = (min: number, max: number) => (v: unknown) =>

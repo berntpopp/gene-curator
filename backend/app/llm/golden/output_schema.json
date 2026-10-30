@@ -1,9 +1,40 @@
 {
   "type": "object",
-  "required": ["verdict", "rationale"],
+  "required": [
+    "findings",
+    "proposed_evidence"
+  ],
   "additionalProperties": false,
   "properties": {
-    "verdict": {"type": "string", "enum": ["supported", "insufficient", "refuted"]},
-    "rationale": {"type": "string"}
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "category",
+          "message",
+          "citations"
+        ],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "proposed_evidence": {
+      "type": "string",
+      "description": "JSON text of the proposed evidence_data object"
+    }
   }
 }

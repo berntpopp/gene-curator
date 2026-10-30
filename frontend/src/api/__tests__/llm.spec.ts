@@ -53,7 +53,20 @@ const rows: [string, () => Promise<unknown>, 'get' | 'post' | 'put' | 'patch', u
     () => llmAPI.saveScopeSettings('s', B),
     'put',
     ['/scopes/s/llm-settings', B]
-  ]
+  ],
+  [
+    'secondView',
+    () => llmAPI.secondView('s', 'c'),
+    'get',
+    ['/scopes/s/curations/c/llm-second-view']
+  ],
+  [
+    'requestSecondView',
+    () => llmAPI.requestSecondView('s', 'c'),
+    'post',
+    ['/scopes/s/curations/c/llm-second-view']
+  ],
+  ['decideFinding', () => llmAPI.decideFinding('f', B), 'patch', ['/llm-findings/f', B]]
 ]
 
 describe('llmAPI', () => {

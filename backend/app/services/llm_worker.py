@@ -12,6 +12,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -27,7 +28,7 @@ from app.llm.prompts import PromptTemplateError
 from app.llm.providers import LLMProviderError, provider_registry
 from app.llm.ssrf import UnsafeURLError
 from app.models import CurationNew, UserNew
-from app.models.llm import LLMRun
+from app.models.llm import LLMFinding, LLMRun
 from app.services.llm_config import LLMCapError
 from app.services.llm_runs import (
     PreparedCall,
@@ -36,6 +37,7 @@ from app.services.llm_runs import (
     request_sha256,
     validate_output,
 )
+from app.services.llm_second_view import cited_findings, proposal
 
 logger = get_logger(__name__)
 
@@ -76,6 +78,9 @@ class Outcome:
     output_tokens: int = 0
     cost: Decimal = field(default_factory=lambda: Decimal(0))
     request_sha256: str | None = None
+    findings: list[dict[str, Any]] = field(default_factory=list)
+    proposed_scores: dict[str, float] | None = None
+    proposed_verdict: str | None = None
 
 
 def _claim(factory: SessionFactory) -> tuple[UUID, UUID] | None:
@@ -110,7 +115,21 @@ def _finish(
 ) -> None:
     with factory() as db:
         _as_user(db, user_id)
-        db.execute(
+        keep = outcome.status == "succeeded" and outcome.findings
+        run = db.get(LLMRun, run_id) if keep else None
+        if run is not None and run.curation_id is not None:
+            # inserted while the run is still running (065 RLS), committed with its finish
+            db.add_all(
+                LLMFinding(
+                    run_id=run_id,
+                    curation_id=run.curation_id,
+                    scope_id=run.scope_id,
+                    **finding,
+                )
+                for finding in outcome.findings
+            )
+            db.flush()
+        finished = db.execute(
             update(LLMRun)
             .where(LLMRun.id == run_id, LLMRun.status == "running")
             .values(
@@ -120,11 +139,16 @@ def _finish(
                 output_tokens=outcome.output_tokens,
                 cost_cents=outcome.cost,
                 request_sha256=outcome.request_sha256,
+                proposed_scores=outcome.proposed_scores,
+                proposed_verdict=outcome.proposed_verdict,
                 duration_ms=ms,
                 finished_at=func.now(),
             )
             .execution_options(synchronize_session=False)
         )
+        if finished.rowcount == 0:  # type: ignore[attr-defined]  # no longer running
+            db.rollback()
+            return
         db.commit()
 
 
@@ -137,8 +161,12 @@ async def _call(prepared: PreparedCall, outcome: Outcome) -> None:
     outcome.cost = cost_cents(
         prepared.model, response.input_tokens, response.output_tokens
     )
-    # Validated output is handed to the consumer (#464, #465); nothing partial is kept.
-    validate_output(response.text, prepared.output_schema)
+    # Advisory output only (#464, #465): cited findings and the engine's class for the
+    # proposed evidence; any failure keeps nothing.
+    data = validate_output(response.text, prepared.output_schema)
+    scores, verdict = proposal(data, prepared.scoring_config)
+    outcome.findings = cited_findings(data)
+    outcome.proposed_scores, outcome.proposed_verdict = scores, verdict
     outcome.status = "succeeded"
 
 

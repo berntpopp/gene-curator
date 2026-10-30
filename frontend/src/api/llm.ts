@@ -89,5 +89,22 @@ export const llmAPI = {
   ): Promise<Schema<'ScopeSettingsOut'>> {
     const url = `/scopes/${scopeId}/llm-settings`
     return (await apiClient.put<Schema<'ScopeSettingsOut'>>(url, data)).data
+  },
+
+  /** AI second view (#464, #465): advisory findings and the three-way diff, for reviewers. */
+  async secondView(scopeId: string, curationId: string): Promise<Schema<'SecondViewOut'>> {
+    const url = `/scopes/${scopeId}/curations/${curationId}/llm-second-view`
+    return (await apiClient.get<Schema<'SecondViewOut'>>(url)).data
+  },
+  /** Queues blind skeptic and advocate runs; they finish in the background. */
+  async requestSecondView(scopeId: string, curationId: string): Promise<Schema<'SecondViewOut'>> {
+    const url = `/scopes/${scopeId}/curations/${curationId}/llm-second-view`
+    return (await apiClient.post<Schema<'SecondViewOut'>>(url)).data
+  },
+  async decideFinding(
+    findingId: string,
+    data: Schema<'FindingDecision'>
+  ): Promise<Schema<'FindingOut'>> {
+    return (await apiClient.patch<Schema<'FindingOut'>>(`/llm-findings/${findingId}`, data)).data
   }
 }

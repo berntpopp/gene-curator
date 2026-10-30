@@ -599,3 +599,25 @@ def test_bare_body_key_is_not_echoed_in_422(
     r = client.put(f"{BASE}/providers/{provider['id']}/key", json=body, headers=h)
     assert r.status_code == 422
     assert SECRET not in r.text and "4242424242" not in r.text
+
+
+@pytest.mark.parametrize(
+    ("model_id", "code"),
+    [("claude-sonnet-5-5", 201), ("claude-sonnet-latest", 422), ("claude-x", 422)],
+)
+def test_versioned_claude_ids_are_pinned_but_aliases_are_not(
+    client: TestClient, h: dict[str, str], model_id: str, code: int
+) -> None:
+    provider = _provider(client, h)
+    r = client.post(
+        f"{BASE}/models",
+        json={
+            "provider_id": provider["id"],
+            "model_id": model_id,
+            "input_price_per_mtok_cents": "200",
+            "output_price_per_mtok_cents": "1000",
+            "max_tokens": 8192,
+        },
+        headers=h,
+    )
+    assert r.status_code == code, r.text

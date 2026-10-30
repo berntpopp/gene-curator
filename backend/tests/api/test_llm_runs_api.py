@@ -74,7 +74,18 @@ def test_admin_test_run_over_the_golden_set(
 ) -> None:
     url = f"/api/v1/admin/llm/prompt-versions/{world.version.id}/test-run"
     body = {"model_id": str(world.model.id)}
-    canned(monkeypatch, '{"verdict": "supported"}')
+    limited = llm_runs.load_golden()[0]["expert_evidence"]
+    finding = {"category": "case_level", "message": "P1 twice", "citations": ["1"]}
+    canned(
+        monkeypatch,
+        json.dumps(
+            {
+                "verdict": "supported",  # the world's schema requires it
+                "findings": [finding],
+                "proposed_evidence": json.dumps(limited),
+            }
+        ),
+    )
 
     r = client.post(url, json=body, headers=auth(admin_token))
 
@@ -82,9 +93,9 @@ def test_admin_test_run_over_the_golden_set(
     out = r.json()
     assert out["model"] == "mock-model" and out["total"] == len(llm_runs.load_golden())
     by_case = {c["case"]: c for c in out["cases"]}
-    assert by_case["strong_definitive"]["ok"] is True
-    assert by_case["contradicted"]["error_code"] == "unexpected_output"
-    assert out["passed"] == 1
+    assert by_case["double_counted_proband"]["ok"] is True  # limited, flagged
+    assert by_case["missing_replication"]["error_code"] == "unexpected_output"
+    assert out["passed"] == 3  # the three limited cases
 
     assert client.post(url, json=body, headers=_h(world)).status_code == 403
     missing = {"model_id": str(uuid4())}

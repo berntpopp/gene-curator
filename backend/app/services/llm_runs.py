@@ -29,12 +29,14 @@ from app.models.llm import (
     ScopeLLMSettings,
 )
 from app.models.methodology import MethodologyVersion
+from app.scoring.point_limits import scoring_configuration
 from app.services.llm_config import (
     LLMCapError,
     call_config,
     check_run_allowed,
     month_start,
 )
+from app.services.llm_second_view import cited_findings, proposal
 
 MTOK = Decimal(1_000_000)
 PENDING = ("queued", "running")
@@ -137,7 +139,6 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "pmid",
         "points",
         "predicted_or_proven_null",
-        "preliminary_verdict",
         "previous_testing",
         "proband_counted_points",
         "proband_label",
@@ -223,11 +224,8 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
         .where(MethodologyVersion.id == curation.methodology_version_id)
     ).first()
     evidence = curation.evidence_data or {}
-    content = {
-        "evidence_data": _shared(evidence),
-        "computed_scores": curation.computed_scores or {},  # engine output only
-        "computed_verdict": curation.computed_verdict,
-    }
+    # Blind (#464): no scores, class or verdict rationale; the model judges the evidence.
+    content = {"evidence_data": _shared(evidence)}
     disease = str(evidence.get("disease_name") or "")
     mondo = str(evidence.get("mondo_id") or "")
     moi = str(evidence.get("mode_of_inheritance") or "")
@@ -239,7 +237,7 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
         "mode_of_inheritance": _typed("mode_of_inheritance", moi, moi in MOI_CODES),
         "methodology": f"{methodology[0]} {methodology[1]}" if methodology else "",
         "curation_data": json.dumps(content, sort_keys=True, default=str),
-        "evidence_text": curation.computed_summary or "",
+        "evidence_text": "",  # was the verdict rationale; kept so older prompts render
     }
 
 
@@ -430,6 +428,7 @@ class PreparedCall:
     request: LLMRequest
     output_schema: dict[str, Any]
     model: LLMModel
+    scoring_config: dict[str, Any]
 
 
 def prepare_call(
@@ -453,7 +452,14 @@ def prepare_call(
     )
     request = build_request(version, curation_values(db, curation), model.max_tokens)
     config = call_config(db, provider, model) if run else {}
-    return PreparedCall(provider.kind, config, request, version.output_schema, model)
+    scoring = scoring_configuration(
+        db,
+        curation.workflow_pair_id,
+        run.methodology_version_id if run else curation.methodology_version_id,
+    )
+    return PreparedCall(
+        provider.kind, config, request, version.output_schema, model, scoring
+    )
 
 
 # --- golden set -----------------------------------------------------------------
@@ -470,9 +476,17 @@ async def run_golden_case(
     version: PromptTemplateVersion,
     case: dict[str, Any],
     max_tokens: int,
+    strategy: str = "skeptic",
 ) -> dict[str, Any]:
-    """One golden case: ok when the output validates and matches every `expect` pair."""
-    request = build_request(version, case["values"], max_tokens)
+    """One golden case: ok when the output validates and meets `expect`.
+
+    `classification`: the engine's class (ClinGen SOP v11 defaults) for the proposed
+    evidence, i.e. agreement with the expert class. `flags`: categories the skeptic must
+    raise as cited findings (not checked for the advocate). Other keys: equal output keys.
+    """
+    # evidence_text: older prompts still name it; the blind view sends it empty
+    values = {"evidence_text": "", **case["values"]}
+    request = build_request(version, values, max_tokens)
     result: dict[str, Any] = {
         "case": case["name"],
         "ok": False,
@@ -492,8 +506,20 @@ async def run_golden_case(
     except InvalidLLMOutputError:
         result["error_code"] = "invalid_output"
         return result
-    expect = case.get("expect", {})
-    result["ok"] = all(data.get(k) == v for k, v in expect.items())
+    expect = dict(case.get("expect", {}))
+    flags = set(expect.pop("flags", []))
+    classification = expect.pop("classification", None)
+    try:
+        verdict = proposal(data, {})[1] if classification else None
+    except InvalidLLMOutputError:
+        result["error_code"] = "invalid_output"
+        return result
+    raised = {f["category"] for f in cited_findings(data)}
+    result["ok"] = (
+        all(data.get(k) == v for k, v in expect.items())
+        and verdict == classification
+        and (strategy != "skeptic" or flags <= raised)
+    )
     if not result["ok"]:
         result["error_code"] = "unexpected_output"
     return result
