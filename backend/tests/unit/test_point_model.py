@@ -487,7 +487,7 @@ def test_recompute_scores_with_the_pinned_version(
     assert test_curation.computed_verdict == "limited"
 
 
-def test_recompute_logs_class_changes_and_skips_other_engines(
+def test_recompute_logs_class_changes_and_uses_other_engines(
     db_session: Session,
     test_curation: CurationNew,
     test_user_admin: object,
@@ -532,7 +532,8 @@ def test_recompute_logs_class_changes_and_skips_other_engines(
     db_session.commit()
     recompute_scores.recompute_all_scores(db_session)
     db_session.refresh(test_curation)
-    assert test_curation.computed_verdict == "keep"  # never scored with ClinGen points
+    # scored by the GenCC engine, never with ClinGen points (#496)
+    assert test_curation.computed_verdict == "No Known Disease Relationship"
 
     test_curation.methodology_version_id = v1.id
     test_curation.computed_scores = {"total_score": 12.0}  # same class, other total
