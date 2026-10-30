@@ -23,7 +23,7 @@ from app.core.security import (
 )
 from app.crud import personal_access_token as pat_crud
 from app.crud.user import user_crud
-from app.models import UserNew
+from app.models import Scope, UserNew
 
 logger = get_logger(__name__)
 
@@ -115,6 +115,32 @@ def reject_personal_access_token(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not allowed with a personal access token; sign in instead",
+        )
+
+
+def is_session_request(request: Request) -> bool:
+    """False for a personal access token, an MCP OAuth token (a PAT row) or an MCP call."""
+    from app.mcp.audit import is_internal  # app.mcp imports this module
+
+    return not (
+        getattr(request.state, "personal_access_token", False)
+        or is_internal(request.scope)
+    )
+
+
+def require_signed_in_approver(
+    request: Request, scope: Scope | None, what: str = "Approvals"
+) -> None:
+    """403 when scope.approvals_require_session and the caller is no signed-in person (#560)."""
+    if (
+        scope is not None
+        and scope.approvals_require_session
+        and not is_session_request(request)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{what} in this scope need a signed-in person, not a token or "
+            "MCP call; comments, requested changes and rejections still work",
         )
 
 

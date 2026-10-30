@@ -17,12 +17,16 @@ Author: Claude Code (Automated Implementation)
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_active_user, require_scope_role
+from app.core.deps import (
+    get_current_active_user,
+    require_scope_role,
+    require_signed_in_approver,
+)
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.core.search_text import MAX_SEARCH, NO_NUL, escape_like
@@ -166,6 +170,7 @@ def invite_member(
     db: Session = Depends(get_db),
     scope_id: UUID,
     invitation_in: ScopeMembershipCreate,
+    request: Request,
     scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
@@ -194,6 +199,8 @@ def invite_member(
     Raises:
         HTTPException 400: User not found or already a member
     """
+    # a token adding a reviewer it controls would lift the approval gate (#560)
+    require_signed_in_approver(request, scope, "Member changes")
     try:
         membership = scope_membership_crud.create_invitation(
             db,
@@ -240,6 +247,7 @@ def add_member(
     db: Session = Depends(get_db),
     scope_id: UUID,
     member_in: ScopeMembershipCreate,
+    request: Request,
     scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
@@ -252,6 +260,7 @@ def add_member(
     audit log and the user gets a notification. You cannot add yourself. Use
     invite_member when the user should consent first.
     """
+    require_signed_in_approver(request, scope, "Member changes")
     if member_in.user_id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -412,6 +421,7 @@ def update_member_role(
     scope_id: UUID,
     user_id: UUID,
     update_data: ScopeMembershipUpdate,
+    request: Request,
     scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
@@ -455,6 +465,9 @@ def update_member_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Membership not found",
         )
+
+    if update_data.role not in (None, ScopeRole.VIEWER):
+        require_signed_in_approver(request, scope, "Member changes")
 
     # Never leave a scope without an active admin
     demotes = update_data.role is not None and update_data.role != ScopeRole.ADMIN

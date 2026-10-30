@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+from starlette.requests import Request
 
 from app.models import CurationStatus, PrecurationNew, UserNew, WorkflowStage
 from app.schemas.precuration import PrecurationReject
@@ -135,6 +136,8 @@ def test_viewer_endpoint_direct(
     kwargs = (
         {"rejection_data": PrecurationReject(reason="Needs changes")}
         if action == "reject"
+        else {"request": Request({"type": "http", "headers": []})}
+        if action == "approve"
         else {}
     )
     with pytest.raises(HTTPException) as error:
@@ -175,6 +178,8 @@ def test_authorized_precuration_decision_direct(
     kwargs = (
         {"rejection_data": PrecurationReject(reason="Needs changes")}
         if action == "reject"
+        else {"request": Request({"type": "http", "headers": []})}
+        if action == "approve"
         else {}
     )
     getattr(precurations, f"{action}_precuration")(

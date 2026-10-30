@@ -72,6 +72,10 @@ class Scope(Base):
 
     # Status
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # 074 (#560): approvals need a signed-in person, not a token or MCP call
+    approvals_require_session: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # Configuration

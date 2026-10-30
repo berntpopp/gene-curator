@@ -16,7 +16,7 @@ Author: Claude Code (Automated Implementation)
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -428,7 +428,9 @@ def update_scope(
     db: Session = Depends(get_db),
     scope_id: UUID,
     scope_in: ScopeUpdate,
+    request: Request,
     scope: Scope = Depends(deps.require_scope_role(ScopeRole.ADMIN)),
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> Scope:
     """
     Update scope details.
@@ -446,12 +448,25 @@ def update_scope(
         Updated scope object
     """
     # Scope is already validated by require_scope_role dependency
+    gate = scope_in.approvals_require_session
+    # an agent may not lift its own approval gate
+    if (
+        gate is not None
+        and gate != scope.approvals_require_session
+        and not deps.is_session_request(request)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Changing approvals_require_session needs a signed-in person",
+        )
     updated_scope = scope_crud.update(db, db_obj=scope, obj_in=scope_in)
 
     logger.info(
         "Scope updated",
         scope_id=str(scope_id),
         scope_name=updated_scope.name,
+        user_id=str(current_user.id),
+        approvals_require_session=updated_scope.approvals_require_session,
     )
 
     return updated_scope

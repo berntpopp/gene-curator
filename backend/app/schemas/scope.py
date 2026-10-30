@@ -66,6 +66,7 @@ class ScopeUpdate(BaseModel):
         None, max_length=255, description="Owning institution"
     )
     is_public: bool | None = Field(None, description="Public scope visibility")
+    approvals_require_session: bool | None = None
     scope_config: dict[str, Any] | None = Field(
         None, description="Scope-specific configuration"
     )
@@ -81,6 +82,8 @@ class ScopeInDBBase(ScopeBase):
 
     id: UUID
     is_active: bool
+    # approvals only from a signed-in person, not a token or MCP call (#560)
+    approvals_require_session: bool = False
     default_workflow_pair_id: UUID | None
     created_at: datetime
     updated_at: datetime
