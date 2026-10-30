@@ -14,6 +14,7 @@ const row = (over: Partial<ScopeSummary> = {}): ScopeSummary => ({
   disease_name: 'Polycystic kidney disease 1',
   mondo_id: 'MONDO:0008262',
   mode_of_inheritance: 'AD',
+  relationship_type: 'mendelian',
   stage: 'active',
   in_progress: false,
   genetic_score: 10,
@@ -43,6 +44,13 @@ describe('GeneAssertions', () => {
     expect(text).toContain('Definitive')
     expect(text).toContain('16.5')
     expect(text).toContain('2026-10-17')
+  })
+
+  it('names a susceptibility relationship next to the MOI only', () => {
+    expect(mountIt([row()]).text()).not.toContain('susceptibility')
+    expect(mountIt([row({ relationship_type: 'susceptibility' })]).text()).toContain(
+      '(susceptibility)'
+    )
   })
 
   it('links the scope and the curation when signed in', () => {

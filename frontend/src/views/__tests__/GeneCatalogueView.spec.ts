@@ -3,7 +3,11 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 
-const api = vi.hoisted(() => ({ getMatrix: vi.fn(), getScopes: vi.fn() }))
+const api = vi.hoisted(() => ({
+  getMatrix: vi.fn(),
+  getScopes: vi.fn(),
+  getClassifications: vi.fn()
+}))
 vi.mock('@/api/catalogueMatrix', () => ({ catalogueMatrixAPI: api }))
 const scopesApi = vi.hoisted(() => ({ fetchUserScopes: vi.fn() }))
 const userScopes = vi.hoisted(() => ({
@@ -19,6 +23,7 @@ vi.mock('@/stores/scopes', () => ({
 }))
 
 import { useAuthStore } from '@/stores/auth'
+import { useCatalogueMatrixStore } from '@/stores/catalogueMatrix'
 import GeneCatalogueView from '../GeneCatalogueView.vue'
 
 const scopes = [
@@ -90,6 +95,7 @@ describe('GeneCatalogueView', () => {
     localStorage.clear()
     api.getScopes.mockReset().mockResolvedValue(scopes)
     api.getMatrix.mockReset().mockResolvedValue(response)
+    api.getClassifications.mockReset().mockResolvedValue(['limited', 'definitive'])
     userScopes.list = []
     scopesApi.fetchUserScopes.mockReset().mockResolvedValue([])
   })
@@ -149,6 +155,14 @@ describe('GeneCatalogueView', () => {
       limit: 50
     })
     expect(wrapper.find('[data-testid="filter-agreement"]').text()).toContain('Disagree')
+  })
+
+  it('filters by a classification the catalogue has, strongest first (#539)', async () => {
+    const { wrapper } = await mountView('/genes?classification=definitive')
+    expect(api.getMatrix.mock.calls.at(-1)![0]).toMatchObject({ classification: 'definitive' })
+    expect(wrapper.find('[data-testid="filter-classification"]').text()).toContain('Definitive')
+    const store = useCatalogueMatrixStore()
+    expect(store.classifications).toEqual(['limited', 'definitive'])
   })
 
   it('uses the saved default view when the URL names no scopes', async () => {

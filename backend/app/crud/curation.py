@@ -17,6 +17,7 @@ from app.crud.activation import same_entity
 from app.crud.base import CRUDBase
 from app.crud.curator_classification import curator_call
 from app.crud.optimistic_lock import update_if_version
+from app.crud.precuration_entity import refuse_entity_change, refuse_other_entity
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     ActiveCuration,
@@ -401,6 +402,14 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             raise ValueError(
                 "An approved precuration for this gene and scope is required"
             )
+        pre = db.get(PrecurationNew, precuration_id) if precuration_id else None
+        refuse_other_entity(
+            db,
+            entity_key,
+            obj_in.evidence_data,
+            pre.evidence_data if pre else None,
+            {"precuration_id": pre.id} if pre else {},
+        )
         # One open curation per entity (approval already created a draft, #398)
         open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
         if open_id:
@@ -505,6 +514,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         values: dict[str, Any] = {"updated_by": user_id, "updated_at": _utc_now()}
         if obj_in.evidence_data is not None:
             evidence, shrunk = _patched(db_obj, obj_in.evidence_data, obj_in.merge)
+            refuse_entity_change(db, db_obj, evidence)
             warnings, unknown = check_ids(db, evidence)
             values["evidence_data"] = evidence
             values.update(_computed(db, db_obj, evidence, (shrunk + warnings, unknown)))
@@ -532,6 +542,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         """Save as draft with auto-save timestamp, whatever the content, plus warnings on
         its IDs (lookups precede the write). None if lock_version is stale."""
         evidence, shrunk = _patched(db_obj, draft_data.evidence_data, draft_data.merge)
+        refuse_entity_change(db, db_obj, evidence)
         warnings, unknown = check_ids(db, evidence)
         warnings = shrunk + warnings
         values = {

@@ -7,10 +7,15 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.models import CurationStatus, WorkflowStage
-from app.schemas.curation import MERGE_DESCRIPTION, EvidenceWarning
+from app.schemas.curation import (
+    MERGE_DESCRIPTION,
+    EvidenceWarning,
+    RelationshipType,
+    relationship_type,
+)
 from app.schemas.review_comment import REVIEW_TEXT_MAX
 from app.schemas.scope import SCOPE_NAME
 from app.schemas.workflow_engine import AssignedReviewer
@@ -129,6 +134,12 @@ class PrecurationInDBBase(BaseModel):
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
+    @computed_field  # type: ignore[prop-decorator]  # pydantic's documented idiom
+    @property
+    def relationship_type(self) -> RelationshipType:
+        """mendelian or susceptibility, from evidence_data (#539)."""
+        return relationship_type(self.evidence_data, None)
+
 
 # ========================================
 # RESPONSE SCHEMAS
@@ -181,6 +192,7 @@ class PrecurationSummary(BaseModel):
     mondo_id: str | None
     disease_name: str | None
     mode_of_inheritance: str | None
+    relationship_type: RelationshipType = "mendelian"
     is_draft: bool
     created_at: datetime
     updated_at: datetime

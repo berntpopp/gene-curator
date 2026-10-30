@@ -304,12 +304,12 @@ def test_author_may_draft_several_entities(db_session: Session) -> None:
     assert found and found.id == b.id
 
 
-def test_entity_key_sql_is_the_one_in_067() -> None:
+def test_entity_key_sql_is_the_one_in_072() -> None:
     from pathlib import Path
 
     from app.models.curation import ENTITY_KEY_SQL
 
-    sql = Path(__file__).parents[3] / "database/sql/067_split_disease_entities.sql"
+    sql = Path(__file__).parents[3] / "database/sql/072_relationship_type.sql"
     assert ENTITY_KEY_SQL in sql.read_text()
 
 

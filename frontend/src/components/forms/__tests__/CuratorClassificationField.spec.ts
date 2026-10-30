@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createVuetify } from 'vuetify'
 import CuratorClassificationField from '../CuratorClassificationField.vue'
+import { registerClassifications } from '@/config/classification'
 
 const mountField = (curator: string | null, rationale: string | null = null) =>
   mount(CuratorClassificationField, {
@@ -13,6 +14,50 @@ const mountField = (curator: string | null, rationale: string | null = null) =>
   })
 
 describe('CuratorClassificationField', () => {
+  const pick = (choices: { key: string; label: string }[], calculated: string, curator: string) =>
+    mount(CuratorClassificationField, {
+      props: {
+        modelValue: { curator_classification: curator, curator_classification_rationale: null },
+        calculated,
+        choices
+      },
+      global: { plugins: [createVuetify()] }
+    })
+
+  it('offers a declared vocabulary with its labels (#539)', () => {
+    registerClassifications([
+      { key: 'established_risk', label: 'Established association', order: 1, tone: 'strong' }
+    ])
+    const w = pick(
+      [
+        { key: 'established_risk', label: 'established_risk' },
+        { key: 'uncertain_risk', label: 'Uncertain' }
+      ],
+      'established_risk',
+      'uncertain_risk'
+    )
+    expect(w.findComponent({ name: 'VSelect' }).props('items')).toEqual([
+      { title: 'Established association', value: 'established_risk' },
+      { title: 'Uncertain', value: 'uncertain_risk' }
+    ])
+    expect(w.findComponent({ name: 'VTextarea' }).exists()).toBe(true)
+  })
+
+  it('offers a qualitative schema its own classes, not the ClinGen ones', () => {
+    const choices = [
+      { key: 'strong_association', label: 'Strong Association' },
+      { key: 'weak_association', label: 'Weak Association' }
+    ]
+    const w = pick(choices, 'Strong Association', 'weak_association')
+    expect(w.findComponent({ name: 'VSelect' }).props('items')).toEqual([
+      { title: 'Strong Association', value: 'strong_association' },
+      { title: 'Weak Association', value: 'weak_association' }
+    ])
+    expect(w.findComponent({ name: 'VTextarea' }).exists()).toBe(true) // differs
+    const same = pick(choices, 'Strong Association', 'strong_association')
+    expect(same.findComponent({ name: 'VTextarea' }).exists()).toBe(false)
+  })
+
   it('offers the ClinGen classes as keys with their labels', () => {
     const items = mountField(null).findComponent({ name: 'VSelect' }).props('items')
     expect(items).toContainEqual({ title: 'No known disease relationship', value: 'no_known' })

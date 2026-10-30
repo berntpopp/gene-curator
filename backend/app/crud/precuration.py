@@ -29,7 +29,7 @@ from app.models import (
     WorkflowPair,
     WorkflowStage,
 )
-from app.schemas.curation import EvidenceWarning, disease_fields
+from app.schemas.curation import EvidenceWarning, disease_fields, relationship_type
 from app.schemas.precuration import (
     PrecurationApprovalResult,
     PrecurationCreate,
@@ -197,6 +197,9 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 status=row.PrecurationNew.status,
                 workflow_stage=row.PrecurationNew.workflow_stage,
                 **disease_fields(row.PrecurationNew.evidence_data, None),
+                relationship_type=relationship_type(
+                    row.PrecurationNew.evidence_data, None
+                ),
                 is_draft=row.PrecurationNew.is_draft,
                 created_at=row.PrecurationNew.created_at,
                 updated_at=row.PrecurationNew.updated_at,

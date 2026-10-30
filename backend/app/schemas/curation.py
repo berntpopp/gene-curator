@@ -4,7 +4,7 @@ Follows existing patterns from gene_assignment.py (InDBBase pattern).
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -223,19 +223,47 @@ class CurationDraftResult(Curation):
 _DISEASE_KEYS = ("disease_name", "mondo_id", "mode_of_inheritance")
 
 
+def _pick(source: dict[str, Any] | None, key: str) -> Any:
+    source = source or {}
+    nested = source.get("entity_definition")
+    return source.get(key) or (nested.get(key) if isinstance(nested, dict) else None)
+
+
 def disease_fields(
     evidence: dict[str, Any] | None, precuration: dict[str, Any] | None
 ) -> dict[str, Any]:
     """Disease fields from the flat or nested (`entity_definition.*`) shape; evidence wins."""
+    return {k: _pick(evidence, k) or _pick(precuration, k) for k in _DISEASE_KEYS}
 
-    def pick(source: dict[str, Any] | None, key: str) -> Any:
-        source = source or {}
-        nested = source.get("entity_definition")
-        return source.get(key) or (
-            nested.get(key) if isinstance(nested, dict) else None
-        )
 
-    return {k: pick(evidence, k) or pick(precuration, k) for k in _DISEASE_KEYS}
+RelationshipType = Literal["mendelian", "susceptibility"]
+SUSCEPTIBILITY_SUFFIX = "|SUSCEPTIBILITY"
+
+
+def relationship_of_key(entity_key: str | None) -> RelationshipType:
+    """A curation's relationship type: the one its entity_key names (#539)."""
+    return (
+        "susceptibility"
+        if (entity_key or "").endswith(SUSCEPTIBILITY_SUFFIX)
+        else "mendelian"
+    )
+
+
+def relationship_type(
+    evidence: dict[str, Any] | None, precuration: dict[str, Any] | None
+) -> RelationshipType:
+    """mendelian unless the evidence (else the precuration) says susceptibility (#539);
+    the same rule as the entity_key suffix in ENTITY_KEY_SQL."""
+    raw = _pick(evidence, "relationship_type") or _pick(
+        precuration, "relationship_type"
+    )
+    susceptibility = str(raw or "").strip().lower() == "susceptibility"
+    return "susceptibility" if susceptibility else "mendelian"
+
+
+class ClassificationChoice(BaseModel):
+    key: str = Field(..., description="Class key, as curator_classification stores it")
+    label: str
 
 
 class CurationDetail(CurationInDBBase):
@@ -260,10 +288,15 @@ class CurationDetail(CurationInDBBase):
     disease_name: str | None = None
     mondo_id: str | None = None
     mode_of_inheritance: str | None = None
+    relationship_type: RelationshipType = "mendelian"
 
     # User permissions for this curation (set by endpoint based on current user)
     can_edit: bool = False
     can_review: bool = False
+    classification_choices: list[ClassificationChoice] = Field(
+        default_factory=list,
+        description="Classes a curator may choose: the schema's vocabulary or its engine's",
+    )
     can_delete: bool = False
     # Open review round only: the user's approval is recorded / approvals still needed (#430)
     has_approved: bool = False
@@ -332,6 +365,7 @@ class CurationDetail(CurationInDBBase):
 
         # Priority: evidence_data > precuration_data
         data.update(disease_fields(evidence, precuration_data))
+        data["relationship_type"] = relationship_of_key(curation.entity_key)
 
         return cls(**data)
 

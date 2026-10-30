@@ -17,7 +17,7 @@ from app.crud.curation import get_disease_fields
 from app.crud.curator_classification import class_key_sql
 from app.crud.scope_visibility import visible_scope_ids
 from app.models import ActiveCuration, CurationNew, Gene, PrecurationNew, Scope, UserNew
-from app.schemas.curation import class_key
+from app.schemas.curation import class_key, relationship_of_key
 from app.schemas.gene_catalogue import (
     GeneCatalogueEntry,
     GeneCatalogueFilters,
@@ -217,9 +217,8 @@ def _build_scope_curation_summary(
         Tuple of (summary, classification_key, disease_name)
     """
     evidence = curation.evidence_data or {}
-    disease = get_disease_fields(
-        evidence, curation.precuration.evidence_data if curation.precuration else None
-    )
+    pre = curation.precuration.evidence_data if curation.precuration else None
+    disease = get_disease_fields(evidence, pre)
     disease_name = disease["disease_name"]
 
     # Extract scores from computed_scores first
@@ -235,6 +234,7 @@ def _build_scope_curation_summary(
         scope_display_name=scope.display_name,
         is_public=scope.is_public,
         **disease,
+        relationship_type=relationship_of_key(curation.entity_key),
         classification=classification,
         computed_verdict=curation.computed_verdict,
         genetic_score=genetic_score,

@@ -168,6 +168,14 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).toContain('Autosomal recessive')
   })
 
+  it('names a susceptibility relationship next to the inheritance only (#539)', async () => {
+    const mendelian = await load({ mode_of_inheritance: 'AD', relationship_type: 'mendelian' })
+    expect(mendelian.text()).not.toContain('Susceptibility')
+    expect(mendelian.text()).not.toContain('Not specified')
+    const sus = await load({ mode_of_inheritance: 'AD', relationship_type: 'susceptibility' })
+    expect(sus.text()).toContain('Susceptibility')
+  })
+
   it.each([
     [{ back: '/review-queue' }, 'back'],
     [null, 'push']

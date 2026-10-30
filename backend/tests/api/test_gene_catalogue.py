@@ -100,6 +100,16 @@ def test_catalogue_returns_disease_from_precuration(
     assert detail["mode_of_inheritance"] == "X-linked"
 
 
+def test_catalogue_relationship_type_comes_from_the_entity_key(
+    client: TestClient, db_session: Session, active_curation: CurationNew
+) -> None:
+    """#539: no relationship_type in the evidence; the suffixed key decides."""
+    active_curation.entity_key = "MONDO:0000001|AD|SUSCEPTIBILITY"
+    db_session.commit()
+    entry = client.get("/api/v1/gene-catalogue/").json()["entries"][0]
+    assert entry["scope_curations"][0]["relationship_type"] == "susceptibility"
+
+
 def test_sort_by_total_curations_and_unknown_sort_rejected(
     client: TestClient, active_curation: CurationNew
 ) -> None:

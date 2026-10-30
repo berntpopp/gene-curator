@@ -4512,6 +4512,16 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
+        /** ClassificationChoice */
+        ClassificationChoice: {
+            /**
+             * Key
+             * @description Class key, as curator_classification stores it
+             */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /**
          * Curation
          * @description Full curation response schema.
@@ -4784,6 +4794,12 @@ export interface components {
             /** Mode Of Inheritance */
             mode_of_inheritance?: string | null;
             /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
+            /**
              * Can Edit
              * @default false
              */
@@ -4793,6 +4809,11 @@ export interface components {
              * @default false
              */
             can_review: boolean;
+            /**
+             * Classification Choices
+             * @description Classes a curator may choose: the schema's vocabulary or its engine's
+             */
+            classification_choices?: components["schemas"]["ClassificationChoice"][];
             /**
              * Can Delete
              * @default false
@@ -5651,7 +5672,7 @@ export interface components {
             curation_id: string;
             /**
              * Entity Key
-             * @description MONDO|MOI, '' when the curation has no MONDO id
+             * @description MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility; '' when the curation has no MONDO id
              */
             entity_key: string;
             /**
@@ -5684,6 +5705,13 @@ export interface components {
              * @description HPO CURIE of the canonical MOI
              */
             moi_hpo_id?: string | null;
+            /**
+             * Relationship Type
+             * @description mendelian or susceptibility (#539)
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /** Computed Verdict */
             computed_verdict?: string | null;
             /**
@@ -8588,6 +8616,12 @@ export interface components {
              * @description Who last requested changes (computed_fields.rejected_by)
              */
             rejected_by_name?: string | null;
+            /**
+             * Relationship Type
+             * @description mendelian or susceptibility, from evidence_data (#539).
+             * @enum {string}
+             */
+            readonly relationship_type: "mendelian" | "susceptibility";
         };
         /**
          * PrecurationApprovalResult
@@ -8742,6 +8776,12 @@ export interface components {
             required_fields?: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Relationship Type
+             * @description mendelian or susceptibility, from evidence_data (#539).
+             * @enum {string}
+             */
+            readonly relationship_type: "mendelian" | "susceptibility";
         };
         /**
          * PrecurationDraftResult
@@ -8822,6 +8862,12 @@ export interface components {
              * @default []
              */
             warnings: components["schemas"]["EvidenceWarning"][];
+            /**
+             * Relationship Type
+             * @description mendelian or susceptibility, from evidence_data (#539).
+             * @enum {string}
+             */
+            readonly relationship_type: "mendelian" | "susceptibility";
         };
         /**
          * PrecurationDraftSave
@@ -8974,6 +9020,12 @@ export interface components {
             rejected_by_name?: string | null;
             /** @description Submit with a reviewer: who it was routed to */
             assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
+            /**
+             * Relationship Type
+             * @description mendelian or susceptibility, from evidence_data (#539).
+             * @enum {string}
+             */
+            readonly relationship_type: "mendelian" | "susceptibility";
         };
         /**
          * PrecurationSummary
@@ -9007,6 +9059,12 @@ export interface components {
             disease_name: string | null;
             /** Mode Of Inheritance */
             mode_of_inheritance: string | null;
+            /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /** Is Draft */
             is_draft: boolean;
             /**
@@ -9616,8 +9674,15 @@ export interface components {
              */
             mode_of_inheritance?: string | null;
             /**
+             * Relationship Type
+             * @description mendelian or susceptibility (#539)
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
+            /**
              * Classification
-             * @description Final classification (curator's if set, else computed): definitive, strong, moderate, limited, no_known, disputed, refuted
+             * @description Final classification (curator's if set, else computed): a key of the schema's classes (ClinGen: definitive, strong, moderate, limited, no_known, disputed, refuted)
              */
             classification?: string | null;
             /**
@@ -10372,7 +10437,7 @@ export interface components {
             is_public: boolean;
             /**
              * Classification
-             * @description Classification: definitive, strong, moderate, limited, no_known, disputed, refuted
+             * @description Classification key of the schema (ClinGen: definitive, strong, moderate, limited, no_known, disputed, refuted)
              */
             classification?: string | null;
             /**
@@ -10395,6 +10460,13 @@ export interface components {
              * @description Mode of inheritance
              */
             mode_of_inheritance?: string | null;
+            /**
+             * Relationship Type
+             * @description mendelian or susceptibility (#539)
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /**
              * Stage
              * @description Workflow stage of the curation
@@ -16700,6 +16772,8 @@ export interface operations {
                 search?: string | null;
                 /** @description Only genes whose active classifications agree or disagree */
                 agreement?: ("agree" | "disagree") | null;
+                /** @description Only genes with an active curation of this class in a shown scope */
+                classification?: string | null;
                 skip?: number;
                 limit?: number;
                 sort_order?: "asc" | "desc";

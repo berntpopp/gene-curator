@@ -22,6 +22,7 @@ from app.models import (
 )
 from app.models.curation import _MOI_SYNONYMS
 from app.models.methodology import MethodologyVersion
+from app.schemas.curation import relationship_of_key
 from app.schemas.curation_export import (
     CurationExportPage,
     ExportCuration,
@@ -115,7 +116,9 @@ def _item(
     updated_at: datetime,
 ) -> ExportCuration:
     scores: dict[str, Any] = c.computed_scores or {}
-    _, _, moi = ac.entity_key.partition("|")
+    parts = ac.entity_key.split("|")  # MONDO|MOI[|SUSCEPTIBILITY]
+    moi = parts[1] if len(parts) > 1 else ""
+    pre = c.precuration.evidence_data if c.precuration else None
     return ExportCuration(
         curation_id=c.id,
         entity_key=ac.entity_key,
@@ -124,10 +127,9 @@ def _item(
         scope_name=scope.name,
         hgnc_id=gene.hgnc_id,
         approved_symbol=gene.approved_symbol,
-        **get_disease_fields(
-            c.evidence_data, c.precuration.evidence_data if c.precuration else None
-        ),
+        **get_disease_fields(c.evidence_data, pre),
         moi_hpo_id=_MOI_HPO.get(moi),
+        relationship_type=relationship_of_key(ac.entity_key),
         computed_verdict=c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,

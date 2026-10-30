@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.curation import RelationshipType
+
 
 class ScopeSummary(BaseModel):
     """Summary of curation for a single scope"""
@@ -14,12 +16,15 @@ class ScopeSummary(BaseModel):
     is_public: bool = Field(..., description="Whether scope is public")
     classification: str | None = Field(
         None,
-        description="Classification: definitive, strong, moderate, limited, no_known, disputed, refuted",
+        description="Classification key of the schema (ClinGen: definitive, strong, moderate, limited, no_known, disputed, refuted)",
     )
     curation_id: UUID | None = Field(None, description="Curation this row links to")
     disease_name: str | None = Field(None, description="Disease of the curation")
     mondo_id: str | None = Field(None, description="MONDO id of the disease")
     mode_of_inheritance: str | None = Field(None, description="Mode of inheritance")
+    relationship_type: RelationshipType = Field(
+        "mendelian", description="mendelian or susceptibility (#539)"
+    )
     stage: str | None = Field(None, description="Workflow stage of the curation")
     in_progress: bool = Field(
         False, description="True for a member's not-yet-active curation"

@@ -133,6 +133,13 @@
                           {{ formatInheritance(curation.mode_of_inheritance) }}
                         </v-chip>
                         <span v-else class="text-body-large mt-1">Not specified</span>
+                        <v-chip
+                          v-if="curation.relationship_type === 'susceptibility'"
+                          variant="outlined"
+                          class="mt-1 ml-1"
+                        >
+                          Susceptibility
+                        </v-chip>
                       </div>
                       <div class="mb-4">
                         <div class="text-body-small text-medium-emphasis">Status</div>
@@ -393,6 +400,7 @@
   import { readableApiError } from '@/utils/apiErrorText'
   import { formatDateTime } from '@/utils/format'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
+  import { registerClassifications } from '@/config/classification'
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, schemasAPI } from '@/api'
@@ -427,6 +435,7 @@
     disease_name?: string | null
     mondo_id?: string | null
     mode_of_inheritance?: string | null
+    relationship_type?: string | null
     workflow_stage?: string | null
     curator_name?: string | null
     created_by?: string | null
@@ -532,6 +541,7 @@
       if (curationSchemaId.value) {
         const schema = await schemasAPI.getSchemaById(curationSchemaId.value)
         isClinGenSchema.value = schema.scoring_configuration?.engine === 'clingen_sop_v11'
+        registerClassifications(schema.scoring_configuration?.classifications)
         schemaFields.value = schema.field_definitions
       }
       logger.debug('Curation schema loaded', {

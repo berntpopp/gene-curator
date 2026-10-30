@@ -33,6 +33,11 @@ def get_catalogue_matrix(
     agreement: Literal["agree", "disagree"] | None = Query(
         None, description="Only genes whose active classifications agree or disagree"
     ),
+    classification: str | None = Query(
+        None,
+        max_length=100,
+        description="Only genes with an active curation of this class in a shown scope",
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     sort_order: Literal["asc", "desc"] = Query("asc"),
@@ -48,6 +53,7 @@ def get_catalogue_matrix(
         current_user.id if current_user else None,
         search=search,
         agreement=agreement,
+        classification=classification,
         skip=skip,
         limit=limit,
         descending=sort_order == "desc",
