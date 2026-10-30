@@ -467,9 +467,9 @@ def update_member_role(
         )
 
     # a token neither grants review rights nor takes them from the human reviewers
-    if (
-        update_data.role not in (None, membership.role)
-        or update_data.is_active is False
+    if update_data.role not in (None, membership.role) or update_data.is_active not in (
+        None,
+        membership.is_active,
     ):
         require_signed_in_approver(request, scope, "Member changes")
 

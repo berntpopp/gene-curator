@@ -250,3 +250,7 @@ def test_a_token_cannot_remove_or_demote_members_when_the_option_is_on(
         assert r.json()["detail"].startswith("Member changes in this scope need")
     assert client.patch(member, json={"notes": "x"}, headers=pat).status_code == 200
     assert client.delete(member, headers=auth_headers(owner)).status_code == 204
+    # nor bring a removed reviewer back
+    back = client.patch(member, json={"is_active": True}, headers=pat)
+    assert back.status_code == 403, back.text
+    assert back.json()["detail"].startswith("Member changes in this scope need")
