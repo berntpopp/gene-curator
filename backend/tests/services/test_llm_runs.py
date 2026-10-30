@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.llm.output import InvalidLLMOutputError
 from app.llm.providers import LLMProviderError, LLMRequest, LLMResponse, MockProvider
+from app.models import PrecurationNew
 from app.models.llm import LLMRun
 from app.services.llm_config import LLMCapError
 from app.services.llm_runs import (
@@ -252,3 +253,16 @@ def test_pending_runs_are_priced_at_their_pinned_model(
     world.settings.monthly_cost_cap_cents = 501
     db_session.commit()
     enqueue_run(db_session, world.scope_admin, world.curation.id, "skeptic")
+
+
+def test_disease_and_moi_come_from_nested_shape_and_precuration(
+    db_session: Session, world: World, test_precuration: PrecurationNew
+) -> None:
+    # B1: seeded schemas nest disease fields under entity_definition; the rest is on the precuration
+    world.curation.evidence_data = {"entity_definition": {"mode_of_inheritance": "AD"}}
+    world.curation.precuration_id = test_precuration.id
+    db_session.commit()
+    values = curation_values(db_session, world.curation)
+    assert values["mode_of_inheritance"] == "AD"
+    assert values["mondo_id"] == "MONDO:0000001"
+    assert "Test Disease" in values["disease_name"]

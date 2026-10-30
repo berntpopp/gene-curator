@@ -29,6 +29,7 @@ from app.models.llm import (
     ScopeLLMSettings,
 )
 from app.models.methodology import MethodologyVersion
+from app.schemas.curation import disease_fields
 from app.scoring.point_limits import scoring_configuration
 from app.services.llm_config import (
     LLMCapError,
@@ -212,9 +213,14 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
     evidence = curation.evidence_data or {}
     # Blind (#464): no scores, class or verdict rationale; the model judges the evidence.
     content = {"evidence_data": _shared(evidence)}
-    disease = str(evidence.get("disease_name") or "")
-    mondo = str(evidence.get("mondo_id") or "")
-    moi = str(evidence.get("mode_of_inheritance") or "")
+    precuration = curation.precuration
+    fields = disease_fields(
+        evidence, precuration.evidence_data if precuration else None
+    )
+    disease, mondo, moi = (
+        str(fields[k] or "")
+        for k in ("disease_name", "mondo_id", "mode_of_inheritance")
+    )
     return {
         "gene_symbol": gene.approved_symbol if gene else "",
         "hgnc_id": gene.hgnc_id if gene else "",
