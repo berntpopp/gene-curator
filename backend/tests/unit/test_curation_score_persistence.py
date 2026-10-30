@@ -376,3 +376,29 @@ def _twelve_points() -> dict:
             }
         }
     }
+
+
+def test_calculate_score_reads_custom_section_totals(
+    db_session: Session, test_curation: CurationNew
+) -> None:
+    """A custom point model's sections (genetic, experimental) are not ClinGen names."""
+    from tests.unit.test_point_model import _version
+
+    def section(key: str, points: int) -> dict:
+        types = [{"path": "rows", "default": points}]
+        return {"key": key, "categories": [{"key": "c", "types": types}]}
+
+    model = {
+        "sections": [section("genetic", 2), section("experimental", 6)],
+        "bands": [{"class": "strong", "min": 8}, {"class": "limited"}],
+    }
+    version = _version(db_session, test_curation, 1, {"point_model": model})
+    test_curation.methodology_version_id = version.id
+    test_curation.evidence_data = {
+        "genetic": {"rows": [{"pmid": "12345678"}]},
+        "experimental": {"rows": [{"pmid": "12345678"}]},
+    }
+    db_session.commit()
+    result = curation_crud.calculate_score(db_session, test_curation)
+    assert (result.genetic_score, result.experimental_score) == (2, 6)
+    assert result.total_score == 8

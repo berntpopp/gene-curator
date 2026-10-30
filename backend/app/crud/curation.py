@@ -121,6 +121,12 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def section_total(scores: dict[str, Any], section: str) -> Any:
+    """A section total: ClinGen `genetic_evidence_total`, else a custom point model's
+    `genetic_total` (engine key = section key + _total)."""
+    return scores.get(f"{section}_evidence_total", scores.get(f"{section}_total"))
+
+
 def get_disease_fields(
     evidence: dict[str, Any] | None, precuration_evidence: dict[str, Any] | None
 ) -> dict[str, Any]:
@@ -353,10 +359,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                     final_classification=row.CurationNew.final_classification,
                     computed_scores={
                         "total_score": scores.get("total_score", 0.0),
-                        "genetic_score": scores.get("genetic_evidence_total", 0.0),
-                        "experimental_score": scores.get(
-                            "experimental_evidence_total", 0.0
-                        ),
+                        "genetic_score": section_total(scores, "genetic") or 0.0,
+                        "experimental_score": section_total(scores, "experimental")
+                        or 0.0,
                     },
                     disease_name=disease["disease_name"],
                     is_draft=row.CurationNew.is_draft,
@@ -620,8 +625,8 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         )
 
         # Extract genetic and experimental scores from the scores dict
-        genetic_score = result.scores.get("genetic_evidence_total", 0.0)
-        experimental_score = result.scores.get("experimental_evidence_total", 0.0)
+        genetic_score = section_total(result.scores, "genetic") or 0.0
+        experimental_score = section_total(result.scores, "experimental") or 0.0
 
         return CurationScoreResponse(
             curation_id=db_obj.id,

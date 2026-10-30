@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.core.search_text import escape_like
-from app.crud.curation import get_disease_fields
+from app.crud.curation import get_disease_fields, section_total
 from app.crud.curator_classification import class_key_sql
 from app.crud.scope_visibility import visible_scope_ids
 from app.models import ActiveCuration, CurationNew, Gene, PrecurationNew, Scope, UserNew
@@ -223,8 +223,8 @@ def _build_scope_curation_summary(
 
     # Extract scores from computed_scores first
     scores = curation.computed_scores or {}
-    genetic_score = scores.get("genetic_evidence_total")
-    experimental_score = scores.get("experimental_evidence_total")
+    genetic_score = section_total(scores, "genetic")
+    experimental_score = section_total(scores, "experimental")
     total_score = scores.get("total_score")
     classification = curation.final_classification
 

@@ -259,6 +259,13 @@ def test_entry_does_not_invent_scores_when_persisted_scores_missing(
     assert entry.diseases == ["Test disease"]
     scope_view = entry.scope_curations[0]
     assert scope_view.genetic_score is None
+
+    curation = db_session.query(CurationNew).one()
+    curation.computed_scores = {"genetic_total": 2, "experimental_total": 6}
+    db_session.commit()
+    [entry] = catalogue.get_catalogue_entries(db_session, GeneCatalogueFilters())[0]
+    view = entry.scope_curations[0]
+    assert (view.genetic_score, view.experimental_score) == (2, 6)  # custom sections
     assert scope_view.classification is None
     assert scope_view.curator_name == "Curator User"
     assert scope_view.mondo_id == "MONDO:0000001"
