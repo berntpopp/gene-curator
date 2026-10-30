@@ -180,7 +180,7 @@
    * router.push(`/scopes/${scopeId}/genes/${geneId}/precuration/new`)
    */
 
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, provide } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { genesAPI, scopesAPI, schemasAPI } from '@/api'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -192,6 +192,8 @@
   import WorkspaceHeader from '@/components/workspace/WorkspaceHeader.vue'
   import NoCurateAccess from '@/components/workspace/NoCurateAccess.vue'
   import { useCurateGuard } from '@/components/workspace/useCurateGuard'
+  import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
+  import { useUnsavedGuard } from '@/components/workspace/useUnsavedGuard'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { REVIEW_TEXT_MAX } from '@/components/review/reviewModel'
   import { curationStatusLabel } from '@/config/status'
@@ -226,6 +228,10 @@
   const logger = useLogger()
   const precurationsStore = usePrecurationsStore()
   const authStore = useAuthStore()
+  // The form reports its draft to the frame; the guard asks before unsaved edits are lost
+  const frame = createWorkspaceFrame()
+  provide(WORKSPACE_FRAME, frame)
+  useUnsavedGuard(frame.dirty)
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -275,9 +281,9 @@
     })
     if (ok)
       await review(async () => {
-        approvalNotice.value = blockedBy(
-          await precurationsStore.approvePrecuration(precurationId.value!)
-        )
+        const result = await precurationsStore.approvePrecuration(precurationId.value!)
+        if (result.approved) status.value = 'approved'
+        approvalNotice.value = blockedBy(result)
       }, 'approved')
   }
 
@@ -366,6 +372,7 @@
    * Navigate to scope dashboard or workflow confirmation
    */
   function handleFormSubmit() {
+    frame.markClean() // submitted: nothing left to lose
     notificationsStore.addToast('Precuration submitted successfully', 'success')
     router.push({
       name: 'scope-dashboard',
@@ -379,6 +386,7 @@
    * Navigate back to scope dashboard
    */
   function handleCancel() {
+    frame.markClean() // the form already asked before discarding
     router.push({
       name: 'scope-dashboard',
       params: { scopeId: scopeId.value }

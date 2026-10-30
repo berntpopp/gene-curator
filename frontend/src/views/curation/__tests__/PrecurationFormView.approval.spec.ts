@@ -11,7 +11,8 @@ vi.mock('@/api', () => ({
 const push = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
-  useRoute: () => ({ params: { scopeId: 'sc1', precurationId: 'p1' }, query: {} })
+  useRoute: () => ({ params: { scopeId: 'sc1', precurationId: 'p1' }, query: {} }),
+  onBeforeRouteLeave: vi.fn()
 }))
 vi.mock('@/api/precurations', () => ({
   precurationsAPI: {
@@ -69,6 +70,18 @@ describe('PrecurationFormView approval result', () => {
     expect(notice.find('a').attributes('href')).toBe('/scopes/sc1/curations/c9')
     expect(push).not.toHaveBeenCalled()
     expect(wrapper.find('[data-testid="approve-precuration"]').exists()).toBe(false)
+  })
+
+  it('shows the approved status the approval returned, not Submitted', async () => {
+    const message = 'Precuration approved; no curation created: Open curation c9 covers'
+    const wrapper = await approveWith({
+      approved: true,
+      curation_created: false,
+      curation_id: 'c9',
+      message
+    })
+    expect(wrapper.find('[data-testid="precuration-status"]').text()).not.toContain('Submitted')
+    expect(wrapper.find('[data-testid="precuration-status"]').text()).toContain('Approved')
   })
 
   it('returns to the queue when the approval created the curation', async () => {

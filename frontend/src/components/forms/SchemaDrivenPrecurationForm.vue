@@ -101,7 +101,7 @@
    * />
    */
 
-  import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+  import { ref, computed, watch, inject, onMounted, onBeforeUnmount } from 'vue'
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
   import { usePrecurationsStore } from '@/stores/precurations'
@@ -117,6 +117,8 @@
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import SaveState from '@/components/workspace/SaveState.vue'
+  import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
+  import { replaceKeepingChanges } from '@/components/workspace/useUnsavedGuard'
   import FormActions from '@/components/forms/FormActions.vue'
   import { useConfirm } from '@/composables/useConfirm'
   import type { Schema } from '@/types/api'
@@ -316,8 +318,8 @@
   /**
    * Save draft
    */
-  async function handleSaveDraft() {
-    if (conflict.value) return // never save over the newer version; the user reloads
+  async function handleSaveDraft(): Promise<boolean> {
+    if (conflict.value) return false // never save over the newer version; the user reloads
     savingDraft.value = true
     try {
       const existingId = props.precurationId ?? createdId.value
@@ -335,7 +337,7 @@
       } else {
         // Create new precuration as draft
         const created = await precurationsStore.createPrecuration(createPayload())
-        router.replace({
+        replaceKeepingChanges(router, {
           name: 'precuration-edit',
           params: { scopeId: props.scopeId, precurationId: created.id }
         })
@@ -344,9 +346,11 @@
       savedAt.value = Date.now()
 
       notificationsStore.addToast('Draft saved', 'success')
+      return true
     } catch (error) {
       logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
+      return false
     } finally {
       savingDraft.value = false
     }
@@ -402,6 +406,16 @@
   }
 
   const { confirm } = useConfirm()
+
+  // The view's leave guard (when it provides a workspace frame) compares with the saved draft
+  const frame = inject(WORKSPACE_FRAME, null)
+  frame?.attachForm({
+    evidence: evidenceData,
+    saving: savingDraft,
+    savedAt,
+    conflict,
+    save: handleSaveDraft
+  })
 
   /**
    * Cancel editing
@@ -479,6 +493,7 @@
     await loadSchema()
     // Local drafts are compared with what the form now shows; none until the saved one loaded
     if (!props.precurationId || serverVersion) setBaseline(evidenceData.value, serverVersion)
+    frame?.markClean(props.precurationId ? undefined : {})
     logger.debug('SchemaDrivenPrecurationForm mounted', {
       schemaId: props.schemaId,
       precurationId: props.precurationId
