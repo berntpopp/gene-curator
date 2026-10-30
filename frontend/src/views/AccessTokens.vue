@@ -66,7 +66,7 @@
                       size="small"
                       variant="text"
                       color="error"
-                      :aria-label="`Revoke ${t.name}`"
+                      :aria-label="`Revoke ${t.name}, created ${formatDateTime(t.created_at)}`"
                       @click="revoke(t)"
                     >
                       Revoke
