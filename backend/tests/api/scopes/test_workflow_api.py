@@ -11,6 +11,7 @@ from app.models.models import (
     CurationNew,
     CurationStatus,
     GeneScopeAssignment,
+    PrecurationNew,
     Scope,
     UserNew,
     WorkflowStage as S,
@@ -514,17 +515,24 @@ def test_analytics_rejects_period_below_minimum(
     assert response.status_code == 422
 
 
-def test_audit_trail_returns_item_envelope(
+def test_audit_trail_of_an_unknown_item_is_404(
     client: TestClient, curator: UserNew
 ) -> None:
-    item = uuid4()
+    for item_type in ("curation", "precuration", "gene"):
+        response = client.get(
+            f"{BASE}/{item_type}/{uuid4()}/audit-trail", headers=auth_headers(curator)
+        )
+        assert response.status_code == 404, item_type
 
+
+def test_audit_trail_of_a_precuration_is_empty(
+    client: TestClient, test_precuration: PrecurationNew, test_user_curator: UserNew
+) -> None:
     response = client.get(
-        f"{BASE}/curation/{item}/audit-trail", headers=auth_headers(curator)
+        f"{BASE}/precuration/{test_precuration.id}/audit-trail",
+        headers=auth_headers(test_user_curator),
     )
-
-    assert response.status_code == 200
-    assert response.json()["item_id"] == str(item)
+    assert response.status_code == 200, response.text
     assert response.json()["entries"] == []
 
 

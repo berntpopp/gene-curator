@@ -21,6 +21,7 @@ from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
     Gene,
+    PrecurationNew,
     Review,
     ReviewStatus,
     Scope,
@@ -427,13 +428,19 @@ def get_workflow_audit_trail(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowAuditTrail:
     """Review history of a curation: every submission and review decision with the reviewer's
-    notes; audit_id is the evidence snapshot, usable as curation_diff baseline (other items, and
-    unknown ones, have an empty trail)."""
-    curation = db.get(CurationNew, item_id) if item_type == "curation" else None
-    entries = []
-    if curation is not None:
-        require(db, current_user, curation.scope_id, VIEW)
-        entries = audit_entries(db, curation, item_type)
+    notes; audit_id is the evidence snapshot, usable as curation_diff baseline (a precuration
+    has an empty trail). Unknown or hidden items are 404, like other reads."""
+    item: CurationNew | PrecurationNew | None = None
+    if item_type == "curation":
+        item = db.get(CurationNew, item_id)
+    elif item_type == "precuration":
+        item = db.get(PrecurationNew, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail=f"{item_type} not found")
+    require(db, current_user, item.scope_id, VIEW)
+    entries = (
+        audit_entries(db, item, item_type) if isinstance(item, CurationNew) else []
+    )
     return WorkflowAuditTrail(
         item_id=item_id,
         item_type=item_type,

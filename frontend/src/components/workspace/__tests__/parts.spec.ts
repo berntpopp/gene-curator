@@ -88,6 +88,33 @@ const score = (over: Partial<ScoreSnapshot> = {}): ScoreSnapshot => ({
 describe('ScorePanel', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
+  it('names an out-of-range row by its label, in the flags and the submit reason', () => {
+    useValidationStore().validationResults.form = {
+      errors: [
+        {
+          field: 'genetic_evidence.case_level[0].points',
+          type: 'range',
+          message: 'Value must not exceed 3'
+        }
+      ],
+      warnings: [
+        {
+          field: 'scoring',
+          type: 'scoring',
+          message: 'genetic_evidence.case_level[0].points = 5 is outside the pinned range 0-3'
+        }
+      ]
+    } as never
+    const w = mount(ScorePanel, { props: { score: score(), canSubmit: false, readonly: false } })
+    const label = 'Genetic evidence › case level #1 › Points'
+    expect(w.find('[data-testid="score-flags"]').text()).toContain(
+      `${label} = 5 is outside the pinned range 0-3`
+    )
+    expect(w.text()).toContain(`${label}: Value must not exceed 3`)
+    expect(w.text()).not.toContain('genetic_evidence.case_level[0]')
+    expect(w.text()).not.toContain('Complete the required evidence')
+  })
+
   it('lists the rows the score flags, next to the score', () => {
     useValidationStore().validationResults.form = {
       warnings: [

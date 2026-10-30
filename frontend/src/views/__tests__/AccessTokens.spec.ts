@@ -76,6 +76,19 @@ describe('AccessTokens view', () => {
     expect(rows[1]!.find('button').exists()).toBe(false)
   })
 
+  it('gives two connections of one client distinct revoke labels', async () => {
+    const name = 'OAuth: Claude Code'
+    api.list.mockResolvedValue([
+      token({ id: 'o1', name, created_at: '2026-10-01T08:00:00Z' }),
+      token({ id: 'o2', name, created_at: '2026-10-03T09:30:00Z' })
+    ])
+    const labels = (await mountView())
+      .findAll('[data-test="token-row"] button')
+      .map(b => b.attributes('aria-label'))
+    expect(new Set(labels).size).toBe(2)
+    expect(labels[0]).toContain(name)
+  })
+
   it('creates a token, shows the plaintext once and forgets it on Done', async () => {
     api.create.mockResolvedValue({ ...token({ id: 'new', name: 'cli' }), token: SECRET })
     const w = await mountView()

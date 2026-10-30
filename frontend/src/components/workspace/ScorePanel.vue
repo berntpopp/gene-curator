@@ -35,6 +35,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import ScoreTrace from '@/components/curation/ScoreTrace.vue'
+  import { rowLabel } from '@/views/curation/curationScores'
   import { useValidationStore } from '@/stores/validation'
   import type { ScoreSnapshot } from './useWorkspaceFrame'
 
@@ -52,26 +53,36 @@
 
   // Rows the scoring engine flags in the live preview (e.g. invalid or missing PMIDs)
   const validation = useValidationStore()
+  // Scoring warnings start with the row's evidence path (`a.rows[0].points = 5 ...`)
+  const labelled = (message: string) =>
+    message.replace(/^(\S+\[\d+\]\S*)(?= = )/, path => rowLabel(path))
   const flags = computed(() => [
     ...new Set([
       ...(props.score?.excluded ?? []).map(e => e.text),
       ...(validation.getValidationResult('form')?.warnings ?? [])
         .filter(w => w.type === 'scoring')
-        .map(w => String(w.message))
+        .map(w => labelled(String(w.message)))
     ])
   ])
+  // Why the form is invalid, by field label (e.g. a row outside its range)
+  const errors = computed(() =>
+    (validation.getValidationResult('form')?.errors ?? []).map(
+      e => `${rowLabel(String(e.field))}: ${String(e.message)}`
+    )
+  )
+
+  const status = () => {
+    if (props.blockers.length) return props.blockers.map(text => ({ text, warn: true }))
+    if (props.loading) return [{ text: 'Checking evidence…', warn: false }]
+    if (props.canSubmit) return [{ text: 'Ready to submit', warn: false }]
+    const why = errors.value.length
+      ? errors.value
+      : ['Complete the required evidence before submitting']
+    return why.map(text => ({ text, warn: true }))
+  }
 
   const checks = computed(() => [
-    ...props.blockers.map(text => ({ text, warn: true })),
-    ...(props.blockers.length
-      ? []
-      : [
-          props.loading
-            ? { text: 'Checking evidence…', warn: false }
-            : props.canSubmit
-              ? { text: 'Ready to submit', warn: false }
-              : { text: 'Complete the required evidence before submitting', warn: true }
-        ]),
+    ...status(),
     ...(props.score?.hasContradictory
       ? [
           {

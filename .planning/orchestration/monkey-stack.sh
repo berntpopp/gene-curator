@@ -31,6 +31,7 @@ up)
   K=$(cd "$WT/backend" && uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
   cd "$WT/backend"; DATABASE_URL=postgresql://app_user:app_password@localhost:5455/gene_curator_dev \
     ENVIRONMENT=development DEBUG=true SECRET_KEY=monkey_secret ALLOWED_ORIGINS=$O \
+    GENE_CURATOR_PUBLIC_URL=http://localhost:8052 GENE_CURATOR_FRONTEND_URL=http://localhost:5190 \
     LLM_CREDENTIAL_KEYS="{\"k1\":\"$K\"}" LLM_CREDENTIAL_ACTIVE_KID=k1 \
     GENE_CURATOR_API__CORS__ALLOW_ORIGINS=$O \
     nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8052 >"$LOG/monkey-api.log" 2>&1 </dev/null 9>&- &

@@ -253,6 +253,8 @@ class SecondViewRun(BaseModel):
     prompt_version: int | None
     methodology_version: int | None
     proposed_verdict: str | None
+    status: str
+    error_code: str | None
     finished_at: datetime | None
 
 

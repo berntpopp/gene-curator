@@ -342,3 +342,47 @@ def test_migration_060_is_recorded() -> None:
             "SELECT count(*) FROM schema_migrations WHERE filename = '060_llm_runs_worker.sql'"
         )
         assert cur.fetchone()[0] == 1
+
+
+def test_concurrent_second_views_queue_once(
+    w: W, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # B2: two simultaneous requests both passed an unlocked pending check
+    _exec(
+        "UPDATE scope_llm_settings SET daily_run_cap = 10 WHERE scope_id = %s",
+        str(w.scope),
+    )
+    first_checked = threading.Event()
+    reserve = llm_runs._reserve
+
+    def slow_reserve(*args: Any) -> None:
+        reserve(*args)
+        if not first_checked.is_set():
+            first_checked.set()
+            time.sleep(1.0)
+
+    monkeypatch.setattr(llm_runs, "_reserve", slow_reserve)
+
+    def view() -> UUID:
+        with _as(w.scope_admin) as db:
+            user = _user(db, w.scope_admin)
+            return enqueue_run(db, user, w.curation, "skeptic", exclusive=True).id
+
+    def second() -> UUID:
+        assert first_checked.wait(15)
+        return view()
+
+    with ThreadPoolExecutor(2) as pool:
+        futures = [pool.submit(view), pool.submit(second)]
+        outcomes: list[Any] = []
+        for f in futures:
+            try:
+                outcomes.append(f.result())
+            except LLMCapError as exc:
+                outcomes.append(exc.code)
+
+    assert outcomes.count("already_pending") == 1, outcomes
+    with _as(w.scope_admin) as db:
+        assert (
+            len(db.scalars(select(LLMRun).where(LLMRun.scope_id == w.scope)).all()) == 1
+        )

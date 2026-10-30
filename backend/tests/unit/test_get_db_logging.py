@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import OperationalError
 
 from app.core import database
@@ -15,6 +16,8 @@ pytestmark = pytest.mark.unit
     ("error", "logged"),
     [
         (HTTPException(status_code=403), False),
+        # a body missing lock_version is a client error (422), not a database error
+        (RequestValidationError([{"loc": ("body", "lock_version")}]), False),
         (OperationalError("SELECT 1", {}, Exception("down")), True),
     ],
 )

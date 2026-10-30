@@ -64,9 +64,10 @@ def run_migration(s):
 
 
 def test_fresh_database_has_successors_without_replacing_v1(owner_session):
+    # versions 1-2 are 049's; 068 publishes ClinGen_SOP_v11 v3 on top
     rows = owner_session.execute(
         text(
-            "SELECT c.name, mv.version, mv.snapshot #>> '{scoring_configuration,point_model,sections,0,categories,1,types,0,rule}' FROM curation_schemas c JOIN methodology_versions mv ON mv.schema_id=c.id WHERE c.name IN ('ClinGen_SOP_v11', 'ClinGen Gene-Disease Validity SOP') ORDER BY c.name,mv.version"
+            "SELECT c.name, mv.version, mv.snapshot #>> '{scoring_configuration,point_model,sections,0,categories,1,types,0,rule}' FROM curation_schemas c JOIN methodology_versions mv ON mv.schema_id=c.id WHERE c.name IN ('ClinGen_SOP_v11', 'ClinGen Gene-Disease Validity SOP') AND mv.version <= 2 ORDER BY c.name,mv.version"
         )
     ).all()
     assert len(rows) == 4
@@ -329,7 +330,7 @@ def test_successor_new_segregation_rows_start_unassigned_while_v1_keeps_zero(
 ):
     defaults = owner_session.execute(
         text(
-            "SELECT mv.version, mv.snapshot #> '{field_definitions,genetic_evidence,properties,segregation,items,properties,points,default}' FROM curation_schemas c JOIN methodology_versions mv ON mv.schema_id=c.id WHERE c.name IN ('ClinGen_SOP_v11', 'ClinGen Gene-Disease Validity SOP') ORDER BY c.name,mv.version"
+            "SELECT mv.version, mv.snapshot #> '{field_definitions,genetic_evidence,properties,segregation,items,properties,points,default}' FROM curation_schemas c JOIN methodology_versions mv ON mv.schema_id=c.id WHERE c.name IN ('ClinGen_SOP_v11', 'ClinGen Gene-Disease Validity SOP') AND mv.version <= 2 ORDER BY c.name,mv.version"
         )
     ).all()
     assert defaults == [(1, 0), (2, None)] * 2

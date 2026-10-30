@@ -10,6 +10,7 @@ from typing import Annotated, Any, ClassVar
 from uuid import UUID as PyUUID  # noqa: N811
 
 from fastapi import HTTPException, status
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy import Connection, String, create_engine, event, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -142,8 +143,9 @@ def get_db() -> Generator[Session, None, None]:
             yield session
             session.commit()
         except Exception as e:
-            # HTTPExceptions (401/403/400...) are API outcomes, not database errors
-            if not isinstance(e, HTTPException):
+            # HTTPExceptions (401/403/400...) and request validation (422) are API
+            # outcomes, not database errors
+            if not isinstance(e, HTTPException | RequestValidationError):
                 logger.error("Database error", error=e)
             session.rollback()
             raise

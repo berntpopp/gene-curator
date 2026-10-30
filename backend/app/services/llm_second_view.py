@@ -81,7 +81,9 @@ def proposal(
 # --- read model -----------------------------------------------------------------
 
 
-def _latest_runs(db: Session, curation_id: UUID) -> dict[str, dict[str, Any]]:
+def _latest_runs(
+    db: Session, curation_id: UUID, statuses: tuple[str, ...]
+) -> dict[str, dict[str, Any]]:
     rows = db.execute(
         select(LLMRun, PromptTemplateVersion.version, MethodologyVersion.version)
         .outerjoin(
@@ -90,8 +92,11 @@ def _latest_runs(db: Session, curation_id: UUID) -> dict[str, dict[str, Any]]:
         .outerjoin(
             MethodologyVersion, MethodologyVersion.id == LLMRun.methodology_version_id
         )
-        .where(LLMRun.curation_id == curation_id, LLMRun.status == "succeeded")
-        .order_by(LLMRun.finished_at.desc(), LLMRun.created_at.desc())
+        .where(
+            LLMRun.curation_id == curation_id,
+            LLMRun.status.in_(statuses),
+        )
+        .order_by(LLMRun.created_at.desc())
     ).all()
     latest: dict[str, dict[str, Any]] = {}
     for run, prompt_version, methodology_version in rows:
@@ -147,8 +152,11 @@ def diff_rows(curation: CurationNew, runs: dict[str, LLMRun]) -> list[dict[str, 
 
 
 def second_view(db: Session, curation: CurationNew) -> dict[str, Any]:
-    latest = _latest_runs(db, curation.id)
-    runs = {s: v["run"] for s, v in latest.items()}
+    # The latest finished run per strategy is shown with its status; findings and the diff
+    # stay on the latest successful one, so a failed rerun hides nothing
+    latest = _latest_runs(db, curation.id, ("succeeded", "failed"))
+    good = _latest_runs(db, curation.id, ("succeeded",))
+    runs = {s: v["run"] for s, v in good.items()}
     findings = (
         db.scalars(
             select(LLMFinding)
@@ -177,6 +185,8 @@ def second_view(db: Session, curation: CurationNew) -> dict[str, Any]:
                 "prompt_version": v["prompt_version"],
                 "methodology_version": v["methodology_version"],
                 "proposed_verdict": v["run"].proposed_verdict,
+                "status": v["run"].status,
+                "error_code": v["run"].error_code,
                 "finished_at": v["run"].finished_at,
             }
             for s, v in sorted(latest.items())

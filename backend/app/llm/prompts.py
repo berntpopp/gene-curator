@@ -28,6 +28,8 @@ UNTRUSTED_DATA_NOTICE = (
 )
 
 _PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+# `<` before a letter, past any non-word characters: every tag-like token, never p<0.05
+_TAG_OPEN = re.compile(r"<(?=[\W_]*[A-Za-z])")
 
 
 class PromptTemplateError(ValueError):
@@ -44,8 +46,11 @@ def template_placeholders(template: str) -> set[str]:
 
 
 def wrap_untrusted(name: str, value: str) -> str:
-    # Escape angle brackets so free text cannot close the block or open a fake one.
-    escaped = value.replace("<", "&lt;").replace(">", "&gt;")
+    # Free text cannot close the block or open a fake one. Non-ASCII goes as \uXXXX, as
+    # curation_data's json.dumps does, so no look-alike, invisible or combining character
+    # survives; then every tag-like `<` is neutralized. c.1000C>T, p<0.05 stay verbatim.
+    ascii_text = value.encode("ascii", "backslashreplace").decode("ascii")
+    escaped = _TAG_OPEN.sub("&lt;", ascii_text)
     return f'<untrusted_data name="{name}">\n{escaped}\n</untrusted_data>'
 
 
