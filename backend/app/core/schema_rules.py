@@ -123,10 +123,11 @@ Diagnostic = tuple[str, str, str]  # (severity, JSON path, message)
 
 def valid_url(value: Any) -> bool:
     """Blank (a cleared optional field: `required` is its own rule) or an http(s) URL with a
-    host without whitespace, like the form's `new URL` check (#538)."""
-    text = value.strip() if isinstance(value, str) else None
-    if text == "":
+    host without whitespace, like the form's `new URL` check (#538). Only spaces is not blank,
+    so a required url of spaces fails here."""
+    if value == "":
         return True
+    text = value.strip() if isinstance(value, str) else None
     try:
         parts = urlsplit(text) if text else None
     except ValueError:  # e.g. an unclosed IPv6 bracket
