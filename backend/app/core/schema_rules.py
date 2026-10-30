@@ -344,6 +344,9 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
     out += _optional(item, path, ("rule", "points_key"))
     if "default" in item and not _is_number(item["default"]):
         out.append(("error", f"{path}.default", "default must be a number"))
+    if not isinstance(item.get("require_variant", False), bool):
+        msg = "require_variant must be true or false"
+        out.append(("error", f"{path}.require_variant", msg))
     if (
         "blank_at" in item
         and item["blank_at"] is not None
