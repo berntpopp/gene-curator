@@ -292,9 +292,13 @@ export const useScopesStore = defineStore('scopes', () => {
     }
   }
 
-  async function inviteMember(scopeId: string, invitationData: Schema<'ScopeMembershipCreate'>) {
+  async function inviteMember(
+    scopeId: string,
+    invitationData: Schema<'ScopeMembershipCreate'>,
+    direct = false
+  ) {
     try {
-      const result = await scopeService.inviteMember(scopeId, invitationData)
+      const result = await scopeService.inviteMember(scopeId, invitationData, direct)
 
       // Refresh members list
       await fetchMembers(scopeId)
@@ -302,7 +306,8 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Member invited', {
         scope_id: scopeId,
         email: invitationData.email || 'existing_user',
-        role: invitationData.role
+        role: invitationData.role,
+        direct
       })
       return result
     } catch (err) {
