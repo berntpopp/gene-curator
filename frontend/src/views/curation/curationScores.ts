@@ -22,6 +22,7 @@ export interface ScoreTrace {
   class: string
   sections: TraceSection[]
   classification_rule: Record<string, unknown> | null
+  capped_groups: Record<string, unknown>[]
 }
 export interface EvidenceScores {
   total: number | null
@@ -51,6 +52,7 @@ export function storedScores(value: unknown): EvidenceScores {
           total: number(t.total),
           class: typeof t.class === 'string' ? t.class : '',
           classification_rule: record(t.classification_rule),
+          capped_groups: objects(t.capped_groups),
           sections: objects(t.sections).map(s => ({
             ...values(s),
             categories: objects(s.categories).map(c => ({

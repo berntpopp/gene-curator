@@ -2,8 +2,8 @@
 
 A point model (``scoring_configuration.point_model``, else the template file named after
 ``scoring_configuration.engine``) is ``{total_cap, sections: [{key, cap, categories:
-[{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?}]}]}],
-overrides: [{when, field?, in?, class}], bands}``. ``path`` is dotted and relative to the section's evidence.
+[{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?, group_by?, group_cap?}]}]}],
+overrides: [{when, field?, in?, class}], bands: [{class, min?, requires?, section_min?}]}``. ``path`` is dotted and relative to the section's evidence.
 """
 
 import json
@@ -80,11 +80,17 @@ def _type_points(
     rule: ItemRule,
     flags: list[Any],
     excluded: list[Any],
+    capped: list[Any],
 ) -> list[float]:
     """Entered rows' points; rows outside the type's range or non-finite are flagged and
-    count nothing (#278), never clamped. Rows with points but no citation count nothing and are listed in ``excluded``."""
+    count nothing (#278), never clamped. Rows with points but no citation count nothing and are listed in ``excluded``.
+    With ``group_by``, rows sharing a non-blank value score at most ``group_cap`` together (#557)."""
     limits = type_def.get("range")
-    points = []
+    group_by = type_def.get("group_by")
+    groups: dict[
+        str, tuple[str, list[int]]
+    ] = {}  # normalised -> (typed, point indexes)
+    points: list[float] = []
     for i, row in indexed(_at(data, type_def["path"])):
         value = rule(type_def, row)
         if value is None:
@@ -111,8 +117,31 @@ def _type_points(
         if value > 0 and (why := uncited(row, case_level, by_status=case_row)):
             excluded.append({"path": f"{path}[{i}]", **why})
         elif not flagged:  # flagged rows count nothing (#278); the trace lists them
+            if group_by and (group := str(row.get(group_by) or "").strip().casefold()):
+                typed = str(row[group_by])  # shown as the curator typed it
+                groups.setdefault(group, (typed, []))[1].append(len(points))
             points.append(value)
+    if groups:
+        _cap_groups(path, type_def["group_cap"], groups, points, capped)
     return points
+
+
+def _cap_groups(
+    path: str,
+    cap: float,
+    groups: dict[str, tuple[str, list[int]]],
+    points: list[float],
+    capped: list[Any],
+) -> None:
+    """Cap each group's summed points in place; the group's first row carries the cap,
+    so the trace's item count still counts rows."""
+    for typed, at in groups.values():
+        raw = sum(points[i] for i in at)
+        if raw > cap:
+            capped.append({"path": path, "value": typed, "raw": raw, "capped": cap})
+            for i in at:
+                points[i] = 0.0
+            points[at[0]] = cap
 
 
 def _section_points(
@@ -122,6 +151,7 @@ def _section_points(
     legacy: LegacyRule | None,
     flags: list[Any],
     excluded: list[Any],
+    capped: list[Any],
 ) -> dict[str, dict[str, list[float]]]:
     """{category key: {type path: [item points]}} for one section's evidence."""
     if isinstance(data, list) and legacy is not None:
@@ -137,15 +167,23 @@ def _section_points(
             rule = rules.get(type_def.get("rule", ""), default_points)
             path = f"{section['key']}.{type_def['path']}"
             out[category["key"]][type_def["path"]] = _type_points(
-                path, type_def, data, rule, flags, excluded
+                path, type_def, data, rule, flags, excluded, capped
             )
     return out
 
 
 def classify(
-    model: dict[str, Any], total: float, evidence: dict[str, Any]
+    model: dict[str, Any],
+    total: float,
+    evidence: dict[str, Any],
+    sections: dict[str, float],
 ) -> dict[str, Any]:
-    """First matching override (curator-asserted evidence), else first matching band."""
+    """First matching override (curator-asserted evidence), else first matching band.
+
+    ``sections`` are the capped section scores a band's ``section_min`` is checked against;
+    bands passed over only for a section minimum are listed in the rule's ``skipped``.
+    """
+    skipped: list[dict[str, Any]] = []
     for override in model.get("overrides", []):
         value = evidence.get(override["when"])
         if "field" in override:  # only rows whose field holds one of the "in" values
@@ -158,8 +196,18 @@ def classify(
         if total >= band.get("min", float("-inf")) and (
             "requires" not in band or evidence.get(band["requires"]) is True
         ):
-            return dict(band)
-    return {"class": "no_known"}  # ponytail: only reached when no band lacks a min
+            short = [
+                {"class": band["class"], "section": key, "min": low, "score": got}
+                for key, low in band.get("section_min", {}).items()
+                if (got := sections.get(key, 0)) < low
+            ]
+            if not short:
+                return {**band, "skipped": skipped} if skipped else dict(band)
+            skipped += short
+    # ponytail: only reached when no band lacks a min
+    return (
+        {"class": "no_known", "skipped": skipped} if skipped else {"class": "no_known"}
+    )
 
 
 def score(
@@ -172,9 +220,11 @@ def score(
     sections = []
     flags: list[Any] = []
     excluded: list[Any] = []
+    capped: list[Any] = []
     for section in model["sections"]:
+        data = evidence.get(section["key"])
         points = _section_points(
-            section, evidence.get(section["key"]), rules or {}, legacy, flags, excluded
+            section, data, rules or {}, legacy, flags, excluded, capped
         )
         categories = [_category(c, points[c["key"]]) for c in section["categories"]]
         raw = sum(c["score"] for c in categories)
@@ -191,7 +241,7 @@ def score(
     raw_total = sum(s["score"] for s in sections)
     total_cap = model.get("total_cap")
     total = raw_total if total_cap is None else min(raw_total, total_cap)
-    band = classify(model, total, evidence)
+    band = classify(model, total, evidence, {s["key"]: s["score"] for s in sections})
     trace = {
         "raw_total": raw_total,
         "total_cap": total_cap,
@@ -202,6 +252,8 @@ def score(
     }
     if flags:  # only then: unflagged traces stay as stored
         trace["out_of_range"] = flags
+    if capped:
+        trace["capped_groups"] = capped
     return {
         "total": total,
         "class": band["class"],
