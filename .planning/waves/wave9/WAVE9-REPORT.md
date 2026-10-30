@@ -88,16 +88,87 @@ across papers), and KGDB's own sync (#437) absorbing the v0.11.0 contract change
 - Regenerate `.planning/codebase` with `/gsd-map-codebase`.
 - Claude.ai custom connector over MCP OAuth still untested (needs a public HTTPS URL).
 
+## Open issue triage (2026-10-30, master v0.11.0)
+
+| Issue | Verdict | Size | Kidney |
+|---|---|---|---|
+| #466 epic MCP + LLM second view | done, closable (#462/#489/#464/#465 closed) | - | yes, shipped |
+| #278 curation workspace | done, closable | - | yes, shipped |
+| #374 UI leftovers | one gap: `views/AccessTokens.vue:5` h1 lacks `page-title` | S | no |
+| #104 instructions | `FAQ.vue` covers the flow; owner call | S | low |
+| #558 export evidence/scores/summary | not started; raw rows would be public for public scopes | S | high (KGDB #448) |
+| #559 reviewer flags | not started; pass model into `evidence_warnings` (`evidence_lint.py:102`) | M | yes (#439) |
+| #567 duplicate precurations | not started; helper in `crud/precuration_entity.py`, no migration | S | yes (integrity) |
+| #284 granular permissions | partial; `delete_precuration` lets any curator archive another's draft (S); rest L, split | S+L | indirect |
+| #281 scope page / intake | partial; `due_date` in summary, curator picker in paste dialog, delete `AddGeneModal.vue` | M | medium |
+| #218 scope roles in User Management | partial; backend exists, UI missing | M | low-medium |
+| #276 catalogue matrix | partial; sticky gene column, Disagreements preset (S); reorder + server-saved view later | S/M | low |
+| #216 workflow management polish | partial; static stage grid, fixed version, duplicate-pair warning, links | S | no |
+| #105 adopt ClinGen | partial; schema route works; marker field + help text, no fetch (GeneFoundry rule) | S | yes (#439 step 0) |
+| #86 backup | partial; `make db-backup` exists; script with integrity check + retention, README restore | S | prod |
+| #453 legacy disease gaps | partial; needs owner decision who corrects | M | low |
+| #447 segregation by family/method | not started; needs clinical design (SOP v11 pp.28-35) | L | medium |
+| #282 admin builders, #219 schema field editor | not started | L | no |
+
 ## Wave 10 prompt
 
 ```text
 You are the Wave 10 orchestrator for Gene Curator (/home/bernt-popp/development/gene-curator, GitHub
-berntpopp/gene-curator, master at v0.11.0). Ponytail full for you and every agent. Orchestrate only: dispatch, review,
-merge, release; agents report in 15 lines. Read first: .planning/waves/wave9/WAVE9-REPORT.md, docs/releases/v0.11.0.md.
-Rules and steps as in Wave 9 (setup.sh worktrees, briefs from rules.md, failing test first, Postgres tests as app_user
-for RLS/workflow/saves, make ci + diff-cover before ready, ponytail-review on every PR, one serial merge loop).
-Scope: #558 export evidence rows and per-row points (KGDB #448), #559 configurable reviewer flags, #567 duplicate
-precurations per entity; then the follow-ups above if the owner agrees. Fresh-stack monkey test after merges, one fix
-PR per round, then release v0.12.0 and WAVE10-REPORT.md.
+berntpopp/gene-curator, master at v0.11.0). Ponytail full for you and every agent: smallest complete change, deletion
+beats addition. Orchestrate only: dispatch, review, merge, release; agents report in 15 lines; you do not pull source
+files or full diffs into your context.
+
+Read first (only these): .planning/waves/wave9/WAVE9-REPORT.md (triage table, follow-ups), docs/releases/v0.11.0.md,
+.planning/orchestration/rules.md.
+
+## Step 0: owner decisions (one AskUserQuestion, max 4 questions, recommended option first)
+1. #558 export evidence: members only, anonymous rows keep today's fields (Recommended) / public for public scopes.
+2. #453 legacy disease gaps: scope admins correct the disease entity through an audited correction (Recommended) /
+   close as won't fix (legacy only).
+3. Close #466, #278 now and #104 as covered by the FAQ (Recommended) / keep #104 open with named topics.
+4. Wave 10 also takes #276 small part, #216 and #218 (Recommended) / kidney items only.
+Record the answers at the top of WAVE10-REPORT.md. Ask nothing else.
+
+## Step 1: workstreams (parallel, disjoint files, migration numbers fixed up front; next free is 076)
+| WS | Scope | Owns | Migration | Review |
+|---|---|---|---|---|
+| W10A export | #558 evidence, scores, summary in the export per Step 0; docs/EXPORT.md; test that row points sum into the trace | schemas/curation_export.py, crud/curation_export.py, docs/EXPORT.md | none | full Opus, privacy focus, Postgres test anonymous vs member |
+| W10B flags | #559 configurable reviewer flags (band margin, experimental > genetic, recurrent-variant hotspot reusing the #557 group walk); validator | scoring/evidence_lint.py, scoring/point_model.py, core/schema_rules.py point-model part, ScoreTrace/ScorePanel display | none | full Opus |
+| W10C integrity | #567 one open precuration per gene, scope and entity (409 naming it); #284 slice: delete_precuration only by creator or scope admin; #453 per Step 0 | crud/precuration_entity.py, crud/precuration.py create path, endpoints/precurations.py delete, disease-gap correction path | 076 only if #453 needs it | full Opus, Postgres tests as app_user |
+| W10D intake | #281 rest: due_date in GeneScopeAssignmentSummary + Due column + bulk due date, curator picker in PasteGenesDialog via /gene-assignments/bulk, delete AddGeneModal.vue; #218 scope roles column + editor in User Management (existing direct add) | scope gene list/intake components, schemas/gene_assignment.py, UserManagement.vue | none | full Opus |
+| W10E small | #374 AccessTokens h1 class; #86 scripts/backup.sh (pg_dump, pg_restore --list check, retention) + README restore, db-backup removes partial file; #105 classification_source schema field guidance (no fetch); #276 sticky gene column + Disagreements preset; #216 polish | those files only | none | quick delta |
+
+Rules for agents (put them in every brief via setup.sh): as in Wave 9. One worktree each via
+.planning/orchestration/setup.sh, run setups one after another, no backticks in double-quoted notes. Backend gates
+need SECRET_KEY=x DATABASE_URL=postgresql://u:p@localhost/x. Failing test first. Any change to RLS, triggers,
+workflow transitions, saves or permissions adds a backend/tests/postgres/ test of the real API flow as app_user.
+make ci (includes test-postgres, unique PGTEST_PORT per agent) and make diff-cover before ready; pgrep -c -f
+'^make (ci|test-postgres)' under 2 first. Draft PRs; never continue-on-error, || true, .skip; make api-types after
+schema changes. Secrets never reach the browser or logs. Stay in owned files; shared files get additive edits only.
+
+## Step 2: machine safety
+At most 5 implementers, at most 2 heavy gates at once. Poll at 60 s.
+
+## Step 3: review and merge
+ponytail:ponytail-review on every PR (full Opus for A-D, quick delta for E and fix rounds); must-fix goes back to the
+same agent. Review may run while GitHub CI runs; stop the merge on a must-fix. One serial merge loop
+(.planning/orchestration/merge.sh N, never chained pgrep waiters). If merge.sh reports no CI run on the head, watch the
+run and merge by hand when green and behind_by is 0. Checkpoint make ci on fresh master in its own worktree after the
+last feature merge.
+
+## Step 4: verify end to end
+Fresh-stack monkey test (.planning/orchestration/monkey-stack.sh up origin/master; 5455/8052/5190) with two testers in
+parallel: UI (Playwright: intake with due dates and assignment, scope roles from User Management, reviewer flags in the
+score panel, duplicate precuration refused, catalogue sticky column) and API/MCP (export evidence anonymous vs member,
+flags on a kidney-like schema, #567 and delete permissions via token and MCP, backup script on the monkey DB). Genes
+split A-M / N-Z. One fix PR per tester, then a narrow re-check of exactly those findings.
+
+## Step 5: release v0.12.0 and report
+release/v0.12.0: notes (every claim cites a merged PR, fact-checked), README upgrade, version bump in every file holding
+0.11.0 (not history), docs/EXPORT.md current. Merge, then git pull and confirm HEAD is the release merge before the
+signed tag; gh release create --verify-tag. Cleanup worktrees and branches (GitHub API). WAVE10-REPORT.md as in Wave 9,
+carrying the follow-ups listed in WAVE9-REPORT.md that remain open.
+
+Out of scope unless the owner says otherwise: #282, #219, #447, #284 beyond the delete slice.
 End every reply with what you skipped or did not check, in one line.
 ```
