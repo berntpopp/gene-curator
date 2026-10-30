@@ -39,25 +39,27 @@
       </template>
 
       <template v-for="s in store.scopes" :key="s.id" #[`item.scope:${s.id}`]="{ item }">
-        <template v-for="c in [cellOf(item, s.id)]" :key="c?.curation_id ?? s.id">
-          <router-link
-            v-if="c"
-            :to="`/scopes/${s.id}/curations/${c.curation_id}`"
-            class="cell-link"
-            :aria-label="cellLabel(c, item.approved_symbol, s.display_name)"
-          >
-            <span v-if="c.in_progress" class="text-medium-emphasis">
-              {{ curationStatusLabel(c.status) }}
+        <router-link
+          v-for="c in cellsOf(item, s.id)"
+          :key="c.curation_id"
+          :to="`/scopes/${s.id}/curations/${c.curation_id}`"
+          class="cell-link"
+          :aria-label="cellLabel(c, item.approved_symbol, s.display_name)"
+        >
+          <span v-if="c.in_progress" class="text-medium-emphasis">
+            {{ curationStatusLabel(c.status) }}
+          </span>
+          <template v-else>
+            <ClassificationMark :classification="c.classification" />
+            <span v-if="c.total_score != null" class="score mono">
+              {{ c.total_score.toFixed(1) }}
             </span>
-            <template v-else>
-              <ClassificationMark :classification="c.classification" />
-              <span v-if="c.total_score != null" class="score mono">
-                {{ c.total_score.toFixed(1) }}
-              </span>
-            </template>
-          </router-link>
-          <span v-else class="text-medium-emphasis">not in scope</span>
-        </template>
+          </template>
+          <span v-if="c.relationship_type === 'susceptibility'" class="text-medium-emphasis">
+            (susceptibility)
+          </span>
+        </router-link>
+        <span v-if="!cellsOf(item, s.id).length" class="text-medium-emphasis">not in scope</span>
       </template>
 
       <template #item.agreement="{ item }">
@@ -75,7 +77,11 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import ScopePicker from '@/components/catalogue/ScopePicker.vue'
   import { useTableUrlState } from '@/composables/useTableUrlState'
-  import { compareClassifications, getClassification } from '@/config/classification'
+  import {
+    compareClassifications,
+    getClassification,
+    registerClassifications
+  } from '@/config/classification'
   import { curationStatusLabel } from '@/config/status'
   import { useAuthStore } from '@/stores/auth'
   import { useCatalogueMatrixStore } from '@/stores/catalogueMatrix'
@@ -92,6 +98,12 @@
     none: '—'
   }
   const store = useCatalogueMatrixStore()
+  // each scope's declared classes label and colour its custom keys (#539)
+  watch(
+    () => store.scopes,
+    list => list.forEach(s => registerClassifications(s.classifications)),
+    { immediate: true }
+  )
   const filterDefs = computed(() => [
     {
       key: 'agreement',
@@ -139,10 +151,13 @@
       ? curationStatusLabel(c.status)
       : getClassification(c.classification).label
     const score = !c.in_progress && c.total_score != null ? ` ${c.total_score.toFixed(1)}` : ''
-    return `${visible}${score}, open ${symbol} curation in ${scope}`
+    const type = c.relationship_type === 'susceptibility' ? ' (susceptibility)' : ''
+    return `${visible}${score}${type}, open ${symbol} curation in ${scope}`
   }
 
-  const cellOf = (row: Row, scopeId: string) => row.cells?.find(c => c.scope_id === scopeId)
+  // one cell per relationship type, so a susceptibility curation never hides the mendelian one
+  const cellsOf = (row: Row, scopeId: string) =>
+    row.cells?.filter(c => c.scope_id === scopeId) ?? []
 
   function setScopes(ids: string[]) {
     store.saveDefault(ids)
@@ -227,6 +242,10 @@
   .cell-link {
     color: inherit;
     text-decoration: none;
+  }
+
+  .cell-link {
+    display: block;
   }
 
   .gene-link {

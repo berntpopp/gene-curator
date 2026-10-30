@@ -23,6 +23,7 @@ class HPOValidator(ExternalValidator):
             base_url=HPO_API_BASE,
             headers={"Accept": "application/json"},
             timeout=10.0,
+            follow_redirects=True,  # OLS moved to /ols4 and answers 301
         )
 
     async def validate(self, hpo_term: str) -> ValidationResult:

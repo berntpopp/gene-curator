@@ -1740,30 +1740,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/workflow/configuration/{scope_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Workflow Configuration
-         * @description Get workflow configuration for a scope.
-         */
-        get: operations["get_workflow_configuration_api_v1_workflow_configuration__scope_id__get"];
-        /**
-         * Update Workflow Configuration
-         * @description Update workflow configuration for a scope. Requires admin privileges.
-         */
-        put: operations["update_workflow_configuration_api_v1_workflow_configuration__scope_id__put"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/workflow/analytics": {
         parameters: {
             query?: never;
@@ -7582,7 +7558,8 @@ export interface components {
         };
         /**
          * MatrixCell
-         * @description One gene in one scope: the active curation, else the member's in-progress one.
+         * @description One gene in one scope and relationship type: the active curation, else the
+         *     member's in-progress one.
          */
         MatrixCell: {
             /**
@@ -7590,6 +7567,12 @@ export interface components {
              * Format: uuid
              */
             scope_id: string;
+            /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /**
              * Curation Id
              * Format: uuid
@@ -7614,6 +7597,20 @@ export interface components {
              * @description True when not yet active; only visible to scope members
              */
             in_progress: boolean;
+        };
+        /**
+         * MatrixClassification
+         * @description A class the scope's schema declares (#539), so the catalogue labels custom keys.
+         */
+        MatrixClassification: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Order */
+            order: number;
+            /** Tone */
+            tone: string;
         };
         /** MatrixResponse */
         MatrixResponse: {
@@ -7672,6 +7669,11 @@ export interface components {
             display_name: string;
             /** Is Public */
             is_public: boolean;
+            /**
+             * Classifications
+             * @description Declared classes of the scope's default workflow schema
+             */
+            classifications?: components["schemas"]["MatrixClassification"][];
         };
         /**
          * MethodologyDerive
@@ -11256,75 +11258,6 @@ export interface components {
             completed_at: string | null;
         };
         /**
-         * WorkflowConfiguration
-         * @description Workflow engine configuration.
-         */
-        WorkflowConfiguration: {
-            /**
-             * Scope Id
-             * Format: uuid
-             */
-            scope_id: string;
-            /**
-             * Require Peer Review
-             * @description Require peer review for transitions
-             * @default true
-             */
-            require_peer_review: boolean;
-            /**
-             * Min Reviewers
-             * @description Minimum number of reviewers
-             * @default 1
-             */
-            min_reviewers: number;
-            /**
-             * Allow Self Review
-             * @description Allow self-review (violates 4-eyes)
-             * @default false
-             */
-            allow_self_review: boolean;
-            /**
-             * Auto Transition On Approval
-             * @description Auto-transition when all reviews approved
-             * @default true
-             */
-            auto_transition_on_approval: boolean;
-            /**
-             * Require All Reviews Complete
-             * @description Require all reviews before transition
-             * @default true
-             */
-            require_all_reviews_complete: boolean;
-            /**
-             * Review Timeout Hours
-             * @description Review timeout
-             */
-            review_timeout_hours?: number | null;
-            /**
-             * Stage Timeout Hours
-             * @description Stage timeout
-             */
-            stage_timeout_hours?: number | null;
-            /**
-             * Notify On Assignment
-             * @description Notify on review assignment
-             * @default true
-             */
-            notify_on_assignment: boolean;
-            /**
-             * Notify On Transition
-             * @description Notify on stage transition
-             * @default true
-             */
-            notify_on_transition: boolean;
-            /**
-             * Escalation Enabled
-             * @description Enable escalation for overdue items
-             * @default false
-             */
-            escalation_enabled: boolean;
-        };
-        /**
          * WorkflowDashboard
          * @description Comprehensive workflow dashboard data.
          */
@@ -14657,72 +14590,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BulkWorkflowTransitionResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_workflow_configuration_api_v1_workflow_configuration__scope_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                scope_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkflowConfiguration"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_workflow_configuration_api_v1_workflow_configuration__scope_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                scope_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WorkflowConfiguration"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WorkflowConfiguration"];
                 };
             };
             /** @description Validation Error */

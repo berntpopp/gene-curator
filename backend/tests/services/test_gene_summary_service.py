@@ -194,6 +194,16 @@ def test_full_summary_handles_missing_verdicts_and_scores(
     assert summary.scope_summaries[0].genetic_score == 0
     assert summary.scope_summaries[0].evidence_count == 0
 
+    # a custom point model's sections (genetic, experimental), not ClinGen names
+    curation.computed_scores = {"genetic_total": 2, "experimental_total": 6}
+    db_session.commit()
+    [scope] = (
+        GeneSummaryService(db_session)
+        .get_full_summary(test_gene.id, test_user_curator)
+        .scope_summaries
+    )
+    assert (scope.genetic_score, scope.experimental_score) == (2, 6)
+
 
 def test_get_public_summary_computes_missing_summary_and_filters_scopes(
     db_session: Session,

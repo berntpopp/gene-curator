@@ -105,7 +105,11 @@ def test_public_curation_exports_ids_pmids_and_methodology(
             "genetic_evidence": {"rows": [{"pmid": "12"}, {"pmid": "PMID: 3"}]},
             "experimental_evidence": [{"pmid": "12"}],
         },
-        computed_scores={"total_score": 12.5},
+        computed_scores={
+            "total_score": 12.5,
+            "genetic_evidence_total": 10.5,
+            "experimental_evidence_total": 2,
+        },
         computed_verdict="Definitive",
         approved_by=test_user_admin.id,
         approved_at=T0,
@@ -127,6 +131,7 @@ def test_public_curation_exports_ids_pmids_and_methodology(
     assert item["pmids"] == ["3", "12"]
     assert item["computed_verdict"] == "Definitive"
     assert item["total_score"] == 12.5
+    assert (item["genetic_score"], item["experimental_score"]) == (10.5, 2)
     assert item["methodology"]["schema_name"] == "ClinGen SOP v11"
     assert item["reviewer_name"] == "Admin User"
     assert item["status"] == "active"
@@ -149,9 +154,12 @@ def test_susceptibility_curation_exports_its_type_and_moi(
         T0,
         entity_key="MONDO:0011037|AD|SUSCEPTIBILITY",
         evidence_data={"mondo_id": "MONDO:0011037", "mode_of_inheritance": "AD"},
+        computed_scores={"genetic_total": 2, "experimental_total": 6},
     )
     [item] = client.get(URL, params={"scope_name": "public-scope"}).json()["items"]
     assert item["relationship_type"] == "susceptibility"
+    # a custom point model's section keys (genetic, experimental)
+    assert (item["genetic_score"], item["experimental_score"]) == (2, 6)
     assert item["moi_hpo_id"] == "HP:0000006"
 
 

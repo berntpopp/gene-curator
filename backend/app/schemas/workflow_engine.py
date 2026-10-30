@@ -315,41 +315,6 @@ class BulkWorkflowTransitionResult(BaseModel):
     warnings: list[str]
 
 
-# Workflow Configuration
-class WorkflowConfiguration(BaseModel):
-    """Workflow engine configuration."""
-
-    scope_id: UUID
-
-    # Stage requirements
-    require_peer_review: bool = Field(
-        True, description="Require peer review for transitions"
-    )
-    min_reviewers: int = Field(1, ge=1, le=5, description="Minimum number of reviewers")
-    allow_self_review: bool = Field(
-        False, description="Allow self-review (violates 4-eyes)"
-    )
-
-    # Auto-transition rules
-    auto_transition_on_approval: bool = Field(
-        True, description="Auto-transition when all reviews approved"
-    )
-    require_all_reviews_complete: bool = Field(
-        True, description="Require all reviews before transition"
-    )
-
-    # Time limits (in hours)
-    review_timeout_hours: int | None = Field(None, ge=1, description="Review timeout")
-    stage_timeout_hours: int | None = Field(None, ge=1, description="Stage timeout")
-
-    # Notification settings
-    notify_on_assignment: bool = Field(True, description="Notify on review assignment")
-    notify_on_transition: bool = Field(True, description="Notify on stage transition")
-    escalation_enabled: bool = Field(
-        False, description="Enable escalation for overdue items"
-    )
-
-
 # Workflow Analytics
 class WorkflowAnalytics(BaseModel):
     """Advanced workflow analytics."""

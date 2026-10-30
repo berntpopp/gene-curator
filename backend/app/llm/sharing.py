@@ -172,15 +172,50 @@ def field_specs(
         yield from field_specs(cfg.get("columns"), f"{here}.columns")
 
 
+def _flags(fields: Any) -> tuple[set[str], set[str]]:
+    specs = list(field_specs(fields))
+    flagged = {name for _, name, cfg in specs if cfg.get("llm_share") is True}
+    withheld = {name for _, name, cfg in specs if cfg.get("llm_share") is False}
+    return flagged, withheld
+
+
 def shared_keys(fields: Any) -> frozenset[str]:
     """The keys a run sends for a curation made with these field definitions.
 
     Explicit llm_share: false withholds even a seeded evidence key.
     """
-    specs = list(field_specs(fields))
-    flagged = {name for _, name, cfg in specs if cfg.get("llm_share") is True}
-    withheld = {name for _, name, cfg in specs if cfg.get("llm_share") is False}
+    flagged, withheld = _flags(fields)
     return (SHARED_EVIDENCE_KEYS | flagged) - withheld - JUDGEMENT_KEYS
+
+
+_DROP = object()
+
+
+def _view(
+    value: Any, keys: frozenset[str], blocked: frozenset[str], shared: bool
+) -> Any:
+    if isinstance(value, dict):
+        kept = {
+            k: r
+            for k, v in value.items()
+            if k not in blocked
+            and (r := _view(v, keys, blocked, k in keys)) is not _DROP
+        }
+        return kept if kept or shared else _DROP
+    if isinstance(value, list):
+        rows = [r for v in value if (r := _view(v, keys, blocked, shared)) is not _DROP]
+        return rows if rows or shared else _DROP
+    return value if shared else _DROP
+
+
+def shared_view(evidence: dict[str, Any], fields: Any) -> dict[str, Any]:
+    """`evidence` with only shared leaves, at any depth. An unshared container (a custom
+    section or table key) survives when a descendant is shared (#534); judgement and
+    llm_share: false keys are dropped with their whole subtree."""
+    _, withheld = _flags(fields)
+    blocked = frozenset(withheld) | JUDGEMENT_KEYS
+    result: dict[str, Any] = _view(evidence, shared_keys(fields), blocked, True)
+    return result
 
 
 def check_llm_share(fields: Any) -> list[tuple[str, str, str]]:

@@ -536,65 +536,6 @@ def test_audit_trail_of_a_precuration_is_empty(
     assert response.json()["entries"] == []
 
 
-# -----------------------------------------------------------------------------
-# Configuration
-# -----------------------------------------------------------------------------
-
-
-def test_configuration_visible_to_members_only(
-    client: TestClient,
-    db_session: Session,
-    curator: UserNew,
-    scope_with_admin: Scope,
-) -> None:
-    member = client.get(
-        f"{BASE}/configuration/{scope_with_admin.id}",
-        headers=auth_headers(curator),
-    )
-    stranger = client.get(
-        f"{BASE}/configuration/{scope_with_admin.id}",
-        headers=auth_headers(make_user(db_session)),
-    )
-
-    assert member.status_code == 200
-    assert member.json()["require_peer_review"] is True
-    assert stranger.status_code == 403
-
-
-def test_configuration_update_requires_application_admin(
-    client: TestClient,
-    app_admin: UserNew,
-    curator: UserNew,
-    scope_with_admin: Scope,
-) -> None:
-    payload = {
-        "scope_id": str(scope_with_admin.id),
-        "require_peer_review": True,
-        "min_reviewers": 2,
-        "allow_self_review": False,
-        "auto_transition_on_approval": True,
-        "require_all_reviews_complete": True,
-        "notify_on_assignment": True,
-        "notify_on_transition": True,
-        "escalation_enabled": False,
-    }
-
-    denied = client.put(
-        f"{BASE}/configuration/{scope_with_admin.id}",
-        json=payload,
-        headers=auth_headers(curator),
-    )
-    allowed = client.put(
-        f"{BASE}/configuration/{scope_with_admin.id}",
-        json=payload,
-        headers=auth_headers(app_admin),
-    )
-
-    assert denied.status_code == 403
-    assert allowed.status_code == 200
-    assert allowed.json()["min_reviewers"] == 2
-
-
 def test_activating_second_curation_archives_the_first(
     client: TestClient,
     db_session: Session,

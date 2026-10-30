@@ -259,6 +259,13 @@ def test_entry_does_not_invent_scores_when_persisted_scores_missing(
     assert entry.diseases == ["Test disease"]
     scope_view = entry.scope_curations[0]
     assert scope_view.genetic_score is None
+
+    curation = db_session.query(CurationNew).one()
+    curation.computed_scores = {"genetic_total": 2, "experimental_total": 6}
+    db_session.commit()
+    [entry] = catalogue.get_catalogue_entries(db_session, GeneCatalogueFilters())[0]
+    view = entry.scope_curations[0]
+    assert (view.genetic_score, view.experimental_score) == (2, 6)  # custom sections
     assert scope_view.classification is None
     assert scope_view.curator_name == "Curator User"
     assert scope_view.mondo_id == "MONDO:0000001"
@@ -521,3 +528,33 @@ def test_disease_filter_and_options_hide_private_scope(
         db_session, filters, test_user_curator.id
     )
     assert total == 1
+
+
+def test_classification_summary_follows_the_list_filters(
+    db_session: Session,
+    test_gene: Gene,
+    test_scope: Scope,
+    test_public_scope: Scope,
+    test_user_curator: UserNew,
+    test_workflow_pair: WorkflowPair,
+) -> None:
+    """The summary counts the filtered, visible rows of the list, not the platform."""
+    other = _gene(db_session, test_user_curator, "HGNC:778", "OTHR", "1")
+    for gene, scope, verdict in (
+        (test_gene, test_scope, "Definitive"),
+        (other, test_public_scope, "limited"),
+    ):
+        _curation(
+            db_session, gene, scope, test_user_curator, test_workflow_pair, verdict
+        )
+
+    def summary(**kw: Any) -> dict[str, int]:
+        filters = GeneCatalogueFilters(**kw)
+        return catalogue.get_gene_catalogue(
+            db_session, filters
+        ).summary.classification_summary
+
+    assert summary() == {"definitive": 1, "limited": 1}
+    assert summary(scope_id=test_scope.id) == {"definitive": 1}
+    assert summary(classification="Limited") == {"limited": 1}
+    assert summary(search="OTHR") == {"limited": 1}

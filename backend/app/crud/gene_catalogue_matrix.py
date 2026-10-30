@@ -9,17 +9,27 @@ from collections import defaultdict
 from typing import Any, Literal
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.search_text import escape_like
 from app.crud.curator_classification import class_key_sql
-from app.models import ActiveCuration, CurationNew, Gene, Scope, ScopeMembership
+from app.models import (
+    ActiveCuration,
+    CurationNew,
+    CurationSchema,
+    Gene,
+    Scope,
+    ScopeMembership,
+    WorkflowPair,
+)
 from app.models.models import CurationStatus
-from app.schemas.curation import class_key
+from app.schemas.curation import class_key, relationship_of_key
 from app.schemas.gene_catalogue_matrix import (
     Agreement,
     MatrixCell,
+    MatrixClassification,
     MatrixResponse,
     MatrixRow,
     MatrixScope,
@@ -172,9 +182,53 @@ def get_matrix(
     )
     genes = db.execute(query.order_by(*order).offset(skip).limit(limit)).scalars().all()
 
-    cells: dict[UUID, dict[UUID, MatrixCell]] = defaultdict(dict)
+    wanted = class_key(classification) if classification else None
+    cells, actives = _cells(db, [g.id for g in genes], visible, mine, wanted)
+
+    order_of = {s.id: n for n, s in enumerate(scopes)}
+
+    def cell_order(key: tuple[UUID, str]) -> tuple[int, str]:
+        return order_of[key[0]], key[1]  # mendelian before susceptibility
+
+    rows = []
+    for gene in genes:
+        row_cells = [cells[gene.id][k] for k in sorted(cells[gene.id], key=cell_order)]
+        rows.append(
+            MatrixRow(
+                gene_id=gene.id,
+                hgnc_id=gene.hgnc_id,
+                approved_symbol=gene.approved_symbol,
+                chromosome=gene.chromosome,
+                location=gene.location,
+                agreement=_agreement(actives[gene.id]),
+                cells=row_cells,
+            )
+        )
+    return MatrixResponse(
+        scopes=_with_vocabulary(db, scopes),
+        rows=rows,
+        total=total,
+        skip=skip,
+        limit=limit,
+        has_next=skip + limit < total,
+        has_prev=skip > 0,
+    )
+
+
+def _cells(
+    db: Session,
+    gene_ids: list[UUID],
+    visible: list[UUID],
+    mine: list[UUID],
+    wanted: str | None,
+) -> tuple[
+    dict[UUID, dict[tuple[UUID, str], MatrixCell]], dict[UUID, list[CurationNew]]
+]:
+    """Cells by gene and (scope, relationship type), and each gene's active curations."""
+    # one cell per scope and relationship type (#539), so a susceptibility curation
+    # never hides the mendelian one; the class filter shows only matching curations
+    cells: dict[UUID, dict[tuple[UUID, str], MatrixCell]] = defaultdict(dict)
     actives: dict[UUID, list[CurationNew]] = defaultdict(list)
-    gene_ids = [g.id for g in genes]
     if gene_ids and visible:
         in_progress = (
             db.execute(
@@ -188,11 +242,12 @@ def get_matrix(
             )
             .scalars()
             .all()
-            if mine
+            if mine and not wanted
             else []
         )
         for c in in_progress:  # oldest first, so the latest revision overwrites
-            cells[c.gene_id][c.scope_id] = _cell(c, in_progress=True)
+            cell = _cell(c, in_progress=True)
+            cells[c.gene_id][c.scope_id, cell.relationship_type] = cell
         active = db.execute(
             select(CurationNew)
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
@@ -208,37 +263,45 @@ def get_matrix(
             active, key=lambda c: (-verdict_rank(c.final_classification), str(c.id))
         ):
             actives[c.gene_id].append(c)
-            cells[c.gene_id][c.scope_id] = _cell(c, in_progress=False)
+            if wanted and class_key(c.final_classification or "") != wanted:
+                continue
+            cell = _cell(c, in_progress=False)
+            cells[c.gene_id][c.scope_id, cell.relationship_type] = cell
+    return cells, actives
 
-    order_of = {s.id: n for n, s in enumerate(scopes)}
-    rows = []
-    for gene in genes:
-        row_cells = sorted(cells[gene.id].values(), key=lambda c: order_of[c.scope_id])
-        rows.append(
-            MatrixRow(
-                gene_id=gene.id,
-                hgnc_id=gene.hgnc_id,
-                approved_symbol=gene.approved_symbol,
-                chromosome=gene.chromosome,
-                location=gene.location,
-                agreement=_agreement(actives[gene.id]),
-                cells=row_cells,
-            )
-        )
-    return MatrixResponse(
-        scopes=[MatrixScope.model_validate(s, from_attributes=True) for s in scopes],
-        rows=rows,
-        total=total,
-        skip=skip,
-        limit=limit,
-        has_next=skip + limit < total,
-        has_prev=skip > 0,
+
+def _with_vocabulary(db: Session, scopes: list[Scope]) -> list[MatrixScope]:
+    """Each scope with its declared classes, in one query.
+
+    ponytail: reads the live schema of the scope's default pair, not each curation's
+    pinned version; upgrade if one scope mixes vocabularies."""
+    configs: dict[UUID, dict[str, Any] | None] = dict(
+        db.execute(
+            select(Scope.id, CurationSchema.scoring_configuration)
+            .join(WorkflowPair, WorkflowPair.id == Scope.default_workflow_pair_id)
+            .join(CurationSchema, CurationSchema.id == WorkflowPair.curation_schema_id)
+            .where(Scope.id.in_([s.id for s in scopes]))
+        ).all()
     )
+    out = []
+    for s in scopes:
+        declared = (configs.get(s.id) or {}).get("classifications")
+        vocab = []
+        for c in declared if isinstance(declared, list) else []:
+            try:
+                vocab.append(MatrixClassification.model_validate(c))
+            except ValidationError:
+                continue  # a draft schema's malformed entry: skip, the rest still label
+        scope = MatrixScope.model_validate(s, from_attributes=True)
+        scope.classifications = vocab
+        out.append(scope)
+    return out
 
 
 def _cell(c: CurationNew, *, in_progress: bool) -> MatrixCell:
     return MatrixCell(
         scope_id=c.scope_id,
+        relationship_type=relationship_of_key(c.entity_key),
         curation_id=c.id,
         classification=c.final_classification,
         stage=c.workflow_stage.value,

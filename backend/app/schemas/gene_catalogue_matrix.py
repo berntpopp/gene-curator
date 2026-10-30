@@ -5,9 +5,20 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.curation import RelationshipType
+
 MAX_MATRIX_SCOPES = 50
 
 Agreement = Literal["agree", "disagree", "single", "none"]
+
+
+class MatrixClassification(BaseModel):
+    """A class the scope's schema declares (#539), so the catalogue labels custom keys."""
+
+    key: str
+    label: str
+    order: float
+    tone: str
 
 
 class MatrixScope(BaseModel):
@@ -15,12 +26,18 @@ class MatrixScope(BaseModel):
     name: str
     display_name: str
     is_public: bool
+    classifications: list[MatrixClassification] = Field(
+        default_factory=list,
+        description="Declared classes of the scope's default workflow schema",
+    )
 
 
 class MatrixCell(BaseModel):
-    """One gene in one scope: the active curation, else the member's in-progress one."""
+    """One gene in one scope and relationship type: the active curation, else the
+    member's in-progress one."""
 
     scope_id: UUID
+    relationship_type: RelationshipType = "mendelian"
     curation_id: UUID
     classification: str | None = None
     stage: str = Field(..., description="Workflow stage of the curation")

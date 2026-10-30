@@ -8,7 +8,7 @@ from sqlalchemy import and_, case, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.core.config import settings
-from app.crud.curation import get_disease_fields
+from app.crud.curation import get_disease_fields, section_total
 from app.crud.scope_visibility import member_scope_ids, visible_scope_ids
 from app.models import (
     ActiveCuration,
@@ -133,8 +133,8 @@ def _item(
         computed_verdict=c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,
-        genetic_score=scores.get("genetic_evidence_total"),
-        experimental_score=scores.get("experimental_evidence_total"),
+        genetic_score=section_total(scores, "genetic"),
+        experimental_score=section_total(scores, "experimental"),
         total_score=scores.get("total_score"),
         methodology=ExportMethodology(
             schema_name=schema_name,
