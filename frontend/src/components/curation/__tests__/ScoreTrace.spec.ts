@@ -61,6 +61,21 @@ describe('ScoreTrace', () => {
     expect(w.text()).toContain('Requires Replicated over time')
     expect(w.text()).toContain('Replicated evidence')
   })
+  it('says which band a section minimum skipped and lists each capped group', () => {
+    const w = render({
+      ...trace,
+      classification_rule: {
+        class: 'limited',
+        min: 0.1,
+        skipped: [{ class: 'moderate', section: 'genetic', min: 4, score: 2 }]
+      },
+      capped_groups: [{ path: 'genetic.probands', value: 'c.100A>G', raw: 6, capped: 2 }]
+    })
+    expect(w.text()).toContain('Skipped Moderate: needs Genetic ≥ 4 points, has 2.00')
+    expect(w.get('[data-testid="capped-groups"]').text()).toContain(
+      'Genetic › probands · c.100A>G: 6.00 → 2.00 points'
+    )
+  })
   it('displays the returned override condition without assigning a new verdict', () => {
     const w = render({
       ...trace,

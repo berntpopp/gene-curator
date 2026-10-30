@@ -141,7 +141,7 @@ def test_golden_with_the_citation_policy_on(case: dict) -> None:
     ],
 )
 def test_clingen_bands(total: float, flags: dict, expected: str) -> None:
-    assert classify(CLINGEN, total, flags)["class"] == expected
+    assert classify(CLINGEN, total, flags, {})["class"] == expected
 
 
 def test_row_field_override_passes_the_static_check() -> None:
@@ -640,5 +640,5 @@ def test_trace_records_exact_selected_classification_rule(evidence: dict) -> Non
         {"class": "custom", "min": 0, "description": "Custom classification"},
     ]
     result = score(model, evidence)
-    assert result["trace"]["classification_rule"] == classify(model, 0, evidence)
+    assert result["trace"]["classification_rule"] == classify(model, 0, evidence, {})
     assert result["total"] == 0

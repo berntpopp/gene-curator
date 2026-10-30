@@ -346,14 +346,38 @@ def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
         if "field" in override or "in" in override:  # one never works without the other
             out += _need(override, f"{path}.overrides[{i}]", {"field": str, "in": list})
     bands = _items(_as(list, model.get("bands")), f"{path}.bands", out)
+    section_keys = {s.get("key") for _, s in _dicts(sections)}
     for i, band in bands:
-        out += _need(band, f"{path}.bands[{i}]", {"class": str})
-        out += _optional(band, f"{path}.bands[{i}]", ("requires",))
+        out += _check_band(band, f"{path}.bands[{i}]", section_keys)
     lows: list[Any] = [band["min"] for _, band in bands if "min" in band]
     # first match wins, so thresholds must not increase down the list
     if not all(_is_number(low) for low in lows) or lows != sorted(lows, reverse=True):
         msg = "Band min must be numeric and must not increase (first match wins)"
         out.append(("error", f"{path}.bands", msg))
+    return out
+
+
+BAND_KEYS = {"class", "min", "requires", "description", "section_min"}
+
+
+def _check_band(
+    band: dict[str, Any], path: str, sections: set[Any]
+) -> list[Diagnostic]:
+    """`class` required; an unknown key (a typo) would be silently ignored, so it errors."""
+    out = _need(band, path, {"class": str})
+    out += _optional(band, path, ("requires",))
+    out += [
+        ("error", f"{path}.{key}", f"Unknown band key: {key}")
+        for key in band
+        if key not in BAND_KEYS
+    ]
+    lows = band.get("section_min", {})
+    if not isinstance(lows, dict):
+        return [*out, ("error", f"{path}.section_min", "section_min must be an object")]
+    for key, low in lows.items():
+        if key not in sections or not _is_number(low):
+            msg = "section_min maps an existing section key to a number"
+            out.append(("error", f"{path}.section_min.{key}", msg))
     return out
 
 
@@ -374,6 +398,10 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
         out.append(
             ("error", f"{path}.blank_at", "blank_at must be null or a finite number")
         )
+    if "group_by" in item or "group_cap" in item:  # one never works without the other
+        out += _need(item, path, {"group_by": str})
+        if not _is_number(item.get("group_cap")):
+            out.append(("error", f"{path}.group_cap", "group_cap must be a number"))
     if item.get("rule") == "case_row" and "blank_at" not in item:
         out.append(("error", f"{path}.blank_at", "case_row requires blank_at"))
     rng = item.get("range")

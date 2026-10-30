@@ -16,7 +16,7 @@ def engine() -> ClinGenEngine:
 
 
 def _classify(total: float, **evidence: object) -> str:
-    return str(classify(template("clingen_sop_v11"), total, evidence)["class"])
+    return str(classify(template("clingen_sop_v11"), total, evidence, {})["class"])
 
 
 class TestDefinitiveAndContradictory:
