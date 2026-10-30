@@ -15,6 +15,7 @@ from app.core.schema_rules import (
     check_schema_definition,
     resolve_conditions,
     resolve_named_rules,
+    valid_url,
 )
 from app.core.schema_validation_result import SchemaValidationResult
 from app.crud.precuration_required import visible_when as _when
@@ -70,17 +71,7 @@ class SchemaValidator:
         schema_definition: dict[str, Any],
         context: dict[str, Any] | None = None,
     ) -> SchemaValidationResult:
-        """
-        Validate evidence data against a schema definition.
-
-        Args:
-            evidence_data: The evidence data to validate
-            schema_definition: The schema definition containing field definitions and rules
-            context: Additional context (gene info, scope info, etc.)
-
-        Returns:
-            SchemaValidationResult with validation results
-        """
+        """Validate evidence data (context: gene info, scope info, etc.) against a schema."""
         result = SchemaValidationResult()
 
         field_definitions = resolve_conditions(
@@ -115,15 +106,7 @@ class SchemaValidator:
     def validate_schema_definition(
         self, schema_definition: dict[str, Any]
     ) -> SchemaValidationResult:
-        """
-        Validate a schema definition itself for correctness and completeness.
-
-        Args:
-            schema_definition: The schema definition to validate
-
-        Returns:
-            SchemaValidationResult with validation results
-        """
+        """Validate a schema definition itself for correctness and completeness."""
         result = SchemaValidationResult()
         for severity, path, message in check_schema_definition(schema_definition):
             add = result.add_error if severity == "error" else result.add_warning
@@ -184,6 +167,24 @@ class SchemaValidator:
                 result.add_warning(
                     field_name, f"Unknown field type: {field_type}", "configuration"
                 )
+            if field_type == "evidence_table" and isinstance(field_value, list):
+                self._validate_url_cells(field_name, field_value, field_config, result)
+
+    def _validate_url_cells(
+        self,
+        name: str,
+        rows: list[Any],
+        config: dict[str, Any],
+        result: SchemaValidationResult,
+    ) -> None:
+        """url columns of an evidence table; other cells are not checked here (#538)."""
+        cols = config.get("columns") or {}
+        if isinstance(cols, list):  # the seeds' [{"id": ..., "type": ...}] form
+            cols = {c.get("id"): c for c in cols}
+        for i, row in enumerate(rows):
+            for key in [k for k, c in cols.items() if c.get("type") == "url"]:
+                if isinstance(row, dict) and row.get(key) not in (None, ""):
+                    self._validate_url_field(f"{name}[{i}].{key}", row[key], {}, result)
 
     def _validate_text_field(
         self,
@@ -454,14 +455,9 @@ class SchemaValidator:
         config: dict[str, Any],
         result: SchemaValidationResult,
     ) -> None:
-        """Validate URL field."""
-        if not isinstance(value, str):
-            result.add_error(field_name, "URL must be a string", "type")
-            return
-
-        url_pattern = r"^https?://(?:[-\w.])+(?:[:\d]+)?(?:/(?:[\w/_.])*(?:\?(?:[\w&=%.])*)?(?:#(?:\w)*)?)?$"
-        if not re.match(url_pattern, value):
-            result.add_error(field_name, "Invalid URL format", "format")
+        """An http(s) URL with a host, or blank (#538: a regex rejected valid URLs)."""
+        if not valid_url(value):
+            result.add_error(field_name, "Enter an http(s) URL with a host", "format")
 
     def _validate_pmid_field(
         self,

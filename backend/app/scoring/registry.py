@@ -104,16 +104,23 @@ class ScoringEngineRegistry:
                 compatible_engines.append(engine_name)
         return compatible_engines
 
-    def get_engine_info(self, engine_name: str) -> dict[str, Any] | None:
-        """Get detailed information about a specific engine."""
+    def get_engine_info(
+        self, engine_name: str, schema_config: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """Engine details; verdicts from the schema's point model when given (#539)."""
         engine = self.get_engine(engine_name)
         if not engine:
             return None
 
+        verdicts = (
+            engine.get_supported_verdicts(schema_config)
+            if isinstance(engine, ClinGenEngine)  # only point-model engines read it
+            else engine.get_supported_verdicts()
+        )
         return {
             "name": engine.name,
             "version": engine.version,
-            "supported_verdicts": engine.get_supported_verdicts(),
+            "supported_verdicts": verdicts,
             "scoring_categories": engine.get_scoring_categories(),
             "description": (
                 f"{engine.__class__.__name__} - {engine.__doc__}"

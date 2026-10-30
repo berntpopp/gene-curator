@@ -34,7 +34,7 @@ def test_latest_version_labels_xld_with_hp_0001423(client: TestClient, w: W) -> 
         f"/api/v1/schemas/curation-schemas/{SCHEMA_ID}/versions", headers=_h(w.alice)
     )
     assert r.status_code == 200, r.text
-    latest, previous = r.json()[:2]
+    latest, previous = r.json()[1:3]  # 070 publishes on top of 069
     assert _moi(latest) == {
         "AD": "Autosomal Dominant (HP:0000006)",
         "AR": "Autosomal Recessive (HP:0000007)",

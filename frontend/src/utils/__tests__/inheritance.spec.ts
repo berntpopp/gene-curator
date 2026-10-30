@@ -6,6 +6,9 @@ describe('formatInheritance', () => {
     ['AD', 'Autosomal dominant'],
     ['xlr', 'X-linked recessive'],
     ['MT', 'Mitochondrial'],
+    ['XL', 'X-linked'],
+    ['SD', 'Semidominant'],
+    ['Undetermined', 'Undetermined'],
     ['Autosomal dominant', 'Autosomal dominant'],
     ['', 'Unknown'],
     [undefined, 'Unknown']

@@ -581,12 +581,20 @@ def get_scoring_engines(
 def get_scoring_engine_info(
     *,
     engine_name: str,
+    schema_id: UUID | None = Query(
+        None, description="List the verdicts this schema's scoring config emits"
+    ),
+    db: Session = Depends(get_db),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> dict[str, Any]:
     """
     Get detailed information about a specific scoring engine.
     """
-    engine_info = scoring_registry.get_engine_info(engine_name)
+    schema = schema_crud.get(db, id=schema_id) if schema_id else None
+    if schema_id and not schema:
+        raise HTTPException(status_code=404, detail="Schema not found")
+    config = schema.scoring_configuration if schema else None
+    engine_info = scoring_registry.get_engine_info(engine_name, config)
     if not engine_info:
         raise HTTPException(status_code=404, detail="Scoring engine not found")
 

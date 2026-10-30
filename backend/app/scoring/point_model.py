@@ -107,7 +107,8 @@ def _type_points(
                 }
             )
         case_row = type_def.get("rule") == "case_row"
-        if value > 0 and (why := uncited(row, case_row, by_status=case_row)):
+        case_level = case_row or type_def.get("require_variant") is True  # #535
+        if value > 0 and (why := uncited(row, case_level, by_status=case_row)):
             excluded.append({"path": f"{path}[{i}]", **why})
         elif not flagged:  # flagged rows count nothing (#278); the trace lists them
             points.append(value)

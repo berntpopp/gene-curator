@@ -287,6 +287,31 @@ class TestScoringEngines:
         assert response.status_code == 200
         assert response.json()["version"] == "11.0.0"
 
+    def test_engine_info_for_a_schema_lists_its_own_bands(
+        self, client: TestClient, db_session: Session, viewer_token: str
+    ):
+        bands = [{"class": "established_risk", "min": 7}, {"class": "uncertain_risk"}]
+        schema = insert_schema(
+            db_session, scoring_configuration={"point_model": {"bands": bands}}
+        )
+        url = f"{BASE}/scoring-engines/clingen_sop_v11"
+
+        own = client.get(
+            url, params={"schema_id": str(schema.id)}, headers=auth(viewer_token)
+        )
+        default = client.get(url, headers=auth(viewer_token))
+        missing = client.get(
+            url, params={"schema_id": str(uuid4())}, headers=auth(viewer_token)
+        )
+
+        assert own.status_code == 200
+        assert own.json()["supported_verdicts"] == [
+            "established_risk",
+            "uncertain_risk",
+        ]
+        assert "definitive" in default.json()["supported_verdicts"]
+        assert missing.status_code == 404
+
     def test_unknown_engine_info_is_404(self, client: TestClient, viewer_token: str):
         response = client.get(
             f"{BASE}/scoring-engines/nope", headers=auth(viewer_token)

@@ -65,7 +65,7 @@ describe('PrecurationFormView approval result', () => {
     const message = 'Precuration approved; no curation created: Open curation c9 covers'
     const wrapper = await approveWith({ curation_created: false, curation_id: 'c9', message })
     const notice = wrapper.find('[data-test="approval-notice"]')
-    expect(notice.text()).toContain(message)
+    expect(notice.text()).toContain(message.replace('c9', 'of this gene'))
     expect(notice.find('a').attributes('href')).toBe('/scopes/sc1/curations/c9')
     expect(push).not.toHaveBeenCalled()
     expect(wrapper.find('[data-testid="approve-precuration"]').exists()).toBe(false)
