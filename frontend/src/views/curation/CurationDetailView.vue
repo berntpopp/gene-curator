@@ -134,11 +134,11 @@
                         </v-chip>
                         <span v-else class="text-body-large mt-1">Not specified</span>
                         <v-chip
-                          v-if="curation.relationship_type === 'susceptibility'"
+                          v-if="relationshipLabel(curation.relationship_type)"
                           variant="outlined"
                           class="mt-1 ml-1"
                         >
-                          Susceptibility
+                          {{ relationshipLabel(curation.relationship_type) }}
                         </v-chip>
                       </div>
                       <div class="mb-4">
@@ -407,7 +407,7 @@
   import { curationsAPI, schemasAPI } from '@/api'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'

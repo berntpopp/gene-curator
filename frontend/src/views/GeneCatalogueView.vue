@@ -55,8 +55,8 @@
               {{ c.total_score.toFixed(1) }}
             </span>
           </template>
-          <span v-if="c.relationship_type === 'susceptibility'" class="text-medium-emphasis">
-            (susceptibility)
+          <span v-if="relationshipLabel(c.relationship_type)" class="text-medium-emphasis">
+            ({{ relationshipLabel(c.relationship_type) }})
           </span>
         </router-link>
         <span v-if="!cellsOf(item, s.id).length" class="text-medium-emphasis"
@@ -85,6 +85,7 @@
     registerClassifications
   } from '@/config/classification'
   import { curationStatusLabel } from '@/config/status'
+  import { relationshipLabel } from '@/utils/inheritance'
   import { useAuthStore } from '@/stores/auth'
   import { useCatalogueMatrixStore } from '@/stores/catalogueMatrix'
   import { useScopesStore } from '@/stores/scopes'
@@ -153,7 +154,8 @@
       ? curationStatusLabel(c.status)
       : getClassification(c.classification).label
     const score = !c.in_progress && c.total_score != null ? ` ${c.total_score.toFixed(1)}` : ''
-    const type = c.relationship_type === 'susceptibility' ? ' (susceptibility)' : ''
+    const rel = relationshipLabel(c.relationship_type)
+    const type = rel ? ` (${rel})` : ''
     return `${visible}${score}${type}, open ${symbol} curation in ${scope}`
   }
 

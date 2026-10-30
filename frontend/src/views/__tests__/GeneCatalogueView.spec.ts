@@ -153,9 +153,9 @@ describe('GeneCatalogueView', () => {
     const first = wrapper.findAll('tbody tr')[0]!
     expect(first.findAll('a.cell-link')).toHaveLength(2)
     expect(first.text()).toContain('Limited')
-    expect(first.text()).toMatch(/Strong.*\(susceptibility\)/)
+    expect(first.text()).toMatch(/Strong.*\(Susceptibility\)/)
     expect(first.find('a[href*="c-sus"]').attributes('aria-label')).toBe(
-      'Strong (susceptibility), open WT1 curation in Kidney genetics'
+      'Strong (Susceptibility), open WT1 curation in Kidney genetics'
     )
   })
 

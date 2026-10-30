@@ -54,9 +54,9 @@ describe('GeneAssertions', () => {
   })
 
   it('names a susceptibility relationship next to the MOI only', () => {
-    expect(mountIt([row()]).text()).not.toContain('susceptibility')
+    expect(mountIt([row()]).text()).not.toContain('Susceptibility')
     expect(mountIt([row({ relationship_type: 'susceptibility' })]).text()).toContain(
-      '(susceptibility)'
+      '(Susceptibility)'
     )
   })
 

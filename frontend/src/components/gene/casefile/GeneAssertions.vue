@@ -32,7 +32,9 @@
             </td>
             <td data-label="MOI">
               {{ s.mode_of_inheritance ? formatInheritance(s.mode_of_inheritance) : EMPTY }}
-              <span v-if="s.relationship_type === 'susceptibility'">(susceptibility)</span>
+              <span v-if="relationshipLabel(s.relationship_type)"
+                >({{ relationshipLabel(s.relationship_type) }})</span
+              >
             </td>
             <td data-label="Stage">
               {{ stageLabel(s.stage) }}
@@ -66,7 +68,7 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { curationStatusLabel } from '@/config/status'
   import { EMPTY, formatDate } from '@/utils/format'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import type { Schema } from '@/types/api'
 
   defineProps<{
