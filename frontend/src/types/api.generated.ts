@@ -750,6 +750,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/oauth/authorizations/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Oauth Authorization
+         * @description OAuth consent: the client and access an MCP client asks for.
+         */
+        get: operations["get_oauth_authorization_api_v1_oauth_authorizations__request_id__get"];
+        put?: never;
+        /**
+         * Decide Oauth Authorization
+         * @description OAuth consent: approve or deny an MCP client's access to your account.
+         */
+        post: operations["decide_oauth_authorization_api_v1_oauth_authorizations__request_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schemas/curation-schemas": {
         parameters: {
             query?: never;
@@ -7756,6 +7780,31 @@ export interface components {
          */
         NotificationType: "review_assigned" | "review_completed" | "revision_requested" | "curation_approved" | "curation_rejected" | "scope_membership_added";
         /**
+         * OAuthAuthorizationRequest
+         * @description A pending MCP client authorization, as the consent page shows it.
+         */
+        OAuthAuthorizationRequest: {
+            /** Client Name */
+            client_name: string;
+            /** Redirect Uri */
+            redirect_uri: string;
+            /** Scopes */
+            scopes: string[];
+        };
+        /** OAuthConsent */
+        OAuthConsent: {
+            /** Approve */
+            approve: boolean;
+        };
+        /**
+         * OAuthConsentRedirect
+         * @description Where the browser goes next: the client's redirect URI with code or error.
+         */
+        OAuthConsentRedirect: {
+            /** Redirect Url */
+            redirect_url: string;
+        };
+        /**
          * OMIMDiseaseResult
          * @description OMIM disease details from JAX Network API
          */
@@ -12440,6 +12489,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_oauth_authorization_api_v1_oauth_authorizations__request_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthAuthorizationRequest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_oauth_authorization_api_v1_oauth_authorizations__request_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthConsent"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthConsentRedirect"];
+                };
             };
             /** @description Validation Error */
             422: {
