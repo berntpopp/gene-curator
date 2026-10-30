@@ -57,6 +57,21 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.10.0
+
+Run `make db-migrate` (064–069, applied in order) before restarting the backend. The migration
+user must be a superuser or have BYPASSRLS, because 064 adds SECURITY DEFINER functions for
+OAuth. Run it while nobody is editing: the 067 backfill bumps `lock_version`, so open editors
+get 409 on their next save. Set `GENE_CURATOR_PUBLIC_URL` (https in production) and
+`GENE_CURATOR_FRONTEND_URL`; `docker-compose.prod.yml` refuses to start without them. Claude
+Code signs in over OAuth with `claude mcp add --transport http gene-curator https://<API host>/mcp`,
+then `/mcp` and Authenticate; personal access tokens keep working. Breaking: the four
+`/curations/{id}/evidence...` endpoints are removed; `make recompute-scores` now covers every
+engine, and out-of-range rows score 0. Details: [docs/releases/v0.10.0.md](docs/releases/v0.10.0.md).
+([#528](https://github.com/berntpopp/gene-curator/pull/528),
+[#537](https://github.com/berntpopp/gene-curator/pull/537),
+[#527](https://github.com/berntpopp/gene-curator/pull/527))
+
 ### Upgrading to v0.9.0
 
 Run `make db-migrate` (056–063) before restarting the backend. The database owner that runs
@@ -82,8 +97,8 @@ input. Details: [docs/releases/v0.9.0.md](docs/releases/v0.9.0.md).
 Run `make db-migrate` (050–055) before restarting the backend. Users outside a scope now see only
 active curations of active public scopes, and get 404 for drafts and other non-active work; scope
 members are unaffected. Saving a GenCC or qualitative curation now scores it with its schema's
-engine, so its stored verdict can change on the next save; `make recompute-scores` stays
-ClinGen-only. Writes in an inactive scope return 409. Production builds no longer contain the seeded dev logins. Details and known limits:
+engine, so its stored verdict can change on the next save; `make recompute-scores` was
+ClinGen-only until v0.10.0, which covers every engine. Writes in an inactive scope return 409. Production builds no longer contain the seeded dev logins. Details and known limits:
 [docs/releases/v0.8.0.md](docs/releases/v0.8.0.md).
 ([#474](https://github.com/berntpopp/gene-curator/pull/474),
 [#472](https://github.com/berntpopp/gene-curator/pull/472),
