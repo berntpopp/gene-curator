@@ -528,3 +528,33 @@ def test_disease_filter_and_options_hide_private_scope(
         db_session, filters, test_user_curator.id
     )
     assert total == 1
+
+
+def test_classification_summary_follows_the_list_filters(
+    db_session: Session,
+    test_gene: Gene,
+    test_scope: Scope,
+    test_public_scope: Scope,
+    test_user_curator: UserNew,
+    test_workflow_pair: WorkflowPair,
+) -> None:
+    """The summary counts the filtered, visible rows of the list, not the platform."""
+    other = _gene(db_session, test_user_curator, "HGNC:778", "OTHR", "1")
+    for gene, scope, verdict in (
+        (test_gene, test_scope, "Definitive"),
+        (other, test_public_scope, "limited"),
+    ):
+        _curation(
+            db_session, gene, scope, test_user_curator, test_workflow_pair, verdict
+        )
+
+    def summary(**kw: Any) -> dict[str, int]:
+        filters = GeneCatalogueFilters(**kw)
+        return catalogue.get_gene_catalogue(
+            db_session, filters
+        ).summary.classification_summary
+
+    assert summary() == {"definitive": 1, "limited": 1}
+    assert summary(scope_id=test_scope.id) == {"definitive": 1}
+    assert summary(classification="Limited") == {"limited": 1}
+    assert summary(search="OTHR") == {"limited": 1}

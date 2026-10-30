@@ -52,8 +52,34 @@ def _where_disease[*Ts](query: Select[*Ts], disease: str) -> Select[*Ts]:
     ).where(_disease_name().ilike(f"%{escape_like(disease)}%", escape="\\"))
 
 
+def _filtered[*Ts](query: Select[*Ts], filters: GeneCatalogueFilters) -> Select[*Ts]:
+    """The list filters; `query` joins Gene, ActiveCuration and CurationNew."""
+    if filters.search:
+        term = f"%{escape_like(filters.search)}%"
+        query = query.where(
+            (Gene.approved_symbol.ilike(term, escape="\\"))
+            | (Gene.hgnc_id.ilike(term, escape="\\"))
+            | (Gene.previous_symbols.cast(String).ilike(term, escape="\\"))
+            | (Gene.alias_symbols.cast(String).ilike(term, escape="\\"))
+        )
+    if filters.chromosome:
+        query = query.where(Gene.chromosome == filters.chromosome)
+    if filters.scope_id:
+        query = query.where(ActiveCuration.scope_id == filters.scope_id)
+    if filters.classification:
+        query = query.where(
+            class_key_sql(CurationNew.final_classification)
+            == class_key(filters.classification)
+        )
+    if filters.disease:
+        query = _where_disease(query, filters.disease)
+    return query
+
+
 def get_catalogue_summary_stats(
-    db: Session, user_id: UUID | None = None
+    db: Session,
+    user_id: UUID | None = None,
+    filters: GeneCatalogueFilters | None = None,
 ) -> GeneCatalogueSummaryStats:
     """Get overall catalogue statistics.
 
@@ -90,13 +116,17 @@ def get_catalogue_summary_stats(
         or 0
     )
 
-    # Classification distribution, by lower-cased final class (keys and labels mix)
+    # Classification distribution, by lower-cased final class (keys and labels mix),
+    # over the rows the list shows
     final = class_key_sql(CurationNew.final_classification)
-    classification_counts = db.execute(
+    counted = (
         select(final, func.count(CurationNew.id))
         .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
+        .join(Gene, Gene.id == ActiveCuration.gene_id)
         .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
-        .group_by(final)
+    )
+    classification_counts = db.execute(
+        _filtered(counted, filters or GeneCatalogueFilters()).group_by(final)
     ).all()
 
     classification_summary = {
@@ -144,41 +174,12 @@ def get_catalogue_entries(
     base_query = (
         select(Gene)
         .join(ActiveCuration, ActiveCuration.gene_id == Gene.id)
+        .join(CurationNew, ActiveCuration.curation_id == CurationNew.id)
         .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
         .distinct()
     )
 
-    # Apply filters
-    if filters.search:
-        term = f"%{escape_like(filters.search)}%"
-        base_query = base_query.where(
-            (Gene.approved_symbol.ilike(term, escape="\\"))
-            | (Gene.hgnc_id.ilike(term, escape="\\"))
-            | (Gene.previous_symbols.cast(String).ilike(term, escape="\\"))
-            | (Gene.alias_symbols.cast(String).ilike(term, escape="\\"))
-        )
-
-    if filters.chromosome:
-        base_query = base_query.where(Gene.chromosome == filters.chromosome)
-
-    if filters.scope_id:
-        base_query = base_query.where(ActiveCuration.scope_id == filters.scope_id)
-
-    if filters.classification:
-        base_query = base_query.join(
-            CurationNew, ActiveCuration.curation_id == CurationNew.id
-        ).where(
-            class_key_sql(CurationNew.final_classification)
-            == class_key(filters.classification)
-        )
-
-    if filters.disease:
-        # Need to join to curation to filter by evidence_data
-        if not filters.classification:
-            base_query = base_query.join(
-                CurationNew, ActiveCuration.curation_id == CurationNew.id
-            )
-        base_query = _where_disease(base_query, filters.disease)
+    base_query = _filtered(base_query, filters)
 
     # Count total before pagination
     count_query = select(func.count()).select_from(base_query.subquery())
@@ -344,7 +345,7 @@ def get_gene_catalogue(
     entries, total = get_catalogue_entries(db, filters, user_id)
 
     # Get summary statistics
-    summary = get_catalogue_summary_stats(db, user_id)
+    summary = get_catalogue_summary_stats(db, user_id, filters)
 
     # Calculate pagination flags
     has_next = (filters.skip + filters.limit) < total
