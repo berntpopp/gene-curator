@@ -16,7 +16,7 @@ The same visibility rule as the Gene Catalogue, enforced again by row-level secu
 
 | Caller | Rows |
 | --- | --- |
-| Anonymous | Active curations of active public scopes |
+| Anonymous | Active curations of active public scopes only (no archived or deleted rows) |
 | Signed in (JWT or personal access token) | Also active **and archived** curations of scopes where the caller has an accepted membership |
 
 Platform admins get no bypass. Anonymous callers get `methodology.version = null`
@@ -40,13 +40,35 @@ harmless).
 
 ## Row fields
 
-`curation_id`, `entity_key` (`MONDO|MOI`, `''` without a MONDO id), `url`, `status`
-(`active` or `archived`), `scope_name`, `hgnc_id`, `approved_symbol`, `disease_name`,
-`mondo_id`, `mode_of_inheritance` (as entered), `moi_hpo_id` (HPO CURIE of the canonical
-MOI), `computed_verdict`, `genetic_score`, `experimental_score`, `total_score`,
-`methodology {schema_name, version, version_id}`, `pmids` (every PMID under a `pmid` key
-in the evidence, deduplicated, numerically sorted), `curator_name`, `reviewer_name` (who
-approved), `approved_at`, `activated_at`, `archived_at`, `archive_reason`, `updated_at`.
+`curation_id`, `entity_key`, `url`, `status` (`active` or `archived`), `scope_name`,
+`hgnc_id`, `approved_symbol`, `disease_name`, `mondo_id`, `mode_of_inheritance` (as entered),
+`moi_hpo_id` (HPO CURIE of the canonical MOI), `relationship_type`, `computed_verdict`,
+`final_classification`, `curator_classification_rationale`, `genetic_score`,
+`experimental_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
+(every PMID under a `pmid` key in the evidence, deduplicated, numerically sorted),
+`curator_name`, `reviewer_name` (who approved), `approved_at`, `activated_at`, `archived_at`,
+`archive_reason`, `updated_at`.
+
+- **Entity:** `entity_key` is `MONDO|MOI`, plus `|SUSCEPTIBILITY` for susceptibility entities,
+  and `''` without a MONDO id. Treat it as an opaque match key; do not split it on `|`. Use
+  `mondo_id`, `moi_hpo_id` and `relationship_type` (`mendelian` or `susceptibility`, default
+  `mendelian`) for the parts.
+- **Classification:** `computed_verdict` is the class the scoring engine computed.
+  `final_classification` is the curator's classification when one was set and approved, else
+  `computed_verdict`; publish this one. `curator_classification_rationale` explains a curator
+  class that differs from the computed one. There is no separate `curator_classification`
+  field: `final_classification` differing from `computed_verdict` marks an override.
+- **Class keys:** compare classes by key: trimmed, lowercase, spaces and hyphens as
+  underscores (`No Known Disease Relationship` is `no_known`). A schema can declare its own
+  classification vocabulary, so expect classes beyond the ClinGen list and do not reject
+  unknown ones.
+- **Scores:** `genetic_score` and `experimental_score` are the ClinGen
+  `genetic_evidence_total` and `experimental_evidence_total`; for custom point models without
+  those keys, the model's `genetic_total` and `experimental_total`. `null` when the schema
+  has no such section.
+  <!-- TODO(release): custom-model totals ship with #563; drop this note if it merges without them. -->
+- **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
+  `"Curation deleted"`; `null` on active rows.
 
 ## Changes
 
@@ -62,6 +84,7 @@ approved), `approved_at`, `activated_at`, `archived_at`, `archive_reason`, `upda
 
 ## Versioning
 
-`export_version` is `"1"`. Fields may be added within v1 (a final classification is planned,
-#533); consumers must ignore unknown fields. Renaming, removing or changing the meaning of a
+`export_version` is `"1"`. Fields may be added within v1 (v0.11.0 added `relationship_type`,
+`final_classification` and `curator_classification_rationale`); consumers must ignore unknown
+fields. Renaming, removing or changing the meaning of a
 field publishes a new version at a new path.
