@@ -190,6 +190,15 @@ Details are in [AGENTS.md](AGENTS.md).
 Stack: Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2 · Vue 3.5, TypeScript 6, Vite 7, Pinia,
 Vuetify 4 · PostgreSQL 15.
 
+### Rate limiting
+
+Off by default (`features.enable_rate_limiting: false` in `backend/config/api.yaml`), so dev and
+tests run unthrottled; `docker-compose.prod.yml` turns it on. Enable it elsewhere with
+`GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING=true`; tiers (`default` per IP, `authenticated`,
+`admin`) are under `rate_limits`. Buckets live in each worker's memory, so N workers allow up to
+N times the configured rate and a restart resets them. Behind a reverse proxy set
+`FORWARDED_ALLOW_IPS` to the proxy's address, or every caller shares the proxy's bucket.
+
 ### LLM
 
 - Data sharing: a run sends only allowlisted curation fields and public IDs (HGNC, MONDO),
