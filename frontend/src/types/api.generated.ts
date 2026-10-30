@@ -1091,6 +1091,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schemas/methodologies/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Methodology
+         * @description Import a methodology bundle (schemas, workflow pairs, optional scope default).
+         *
+         *     Re-importing the same bundle changes nothing; a schema whose content changed is
+         *     overwritten and published as its next methodology version. Every schema runs the
+         *     publish gate; any error refuses the whole import (422 with the report).
+         */
+        post: operations["import_methodology_api_v1_schemas_methodologies_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/validation/validate-evidence": {
         parameters: {
             query?: never;
@@ -4512,6 +4536,41 @@ export interface components {
             /** Warnings */
             warnings: string[];
         };
+        /**
+         * BundleScopeDefault
+         * @description Make one of the bundle's workflow pairs a scope's default.
+         */
+        BundleScopeDefault: {
+            /** Scope Name */
+            scope_name: string;
+            /**
+             * Workflow Pair
+             * @description Name of a bundle workflow pair
+             */
+            workflow_pair: string;
+        };
+        /**
+         * BundleWorkflowPair
+         * @description A workflow pair whose schemas are named, not referenced by id.
+         */
+        BundleWorkflowPair: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Precuration Schema
+             * @description Name of a bundle schema
+             */
+            precuration_schema: string;
+            /**
+             * Curation Schema
+             * @description Name of a bundle schema
+             */
+            curation_schema: string;
+        };
         /** ClassificationChoice */
         ClassificationChoice: {
             /**
@@ -7359,6 +7418,36 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * ImportItem
+         * @description What the import did (or, on a dry run, would do) to one object.
+         */
+        ImportItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "schema" | "workflow_pair" | "scope_default";
+            /** Name */
+            name: string;
+            /** Version */
+            version?: string | null;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "create" | "unchanged" | "new_version" | "update";
+            /**
+             * Id
+             * @description Empty for objects a dry run would create
+             */
+            id?: string | null;
+            /**
+             * Methodology Version
+             * @description Latest published methodology version of a schema
+             */
+            methodology_version?: number | null;
+        };
+        /**
          * JSONSchemaResponse
          * @description Response containing generated JSON Schema.
          */
@@ -7749,6 +7838,17 @@ export interface components {
             classifications?: components["schemas"]["MatrixClassification"][];
         };
         /**
+         * MethodologyBundle
+         * @description One methodology file: schemas, the pairs linking them, an optional scope default.
+         */
+        MethodologyBundle: {
+            /** Schemas */
+            schemas: components["schemas"]["CurationSchemaCreate"][];
+            /** Workflow Pairs */
+            workflow_pairs?: components["schemas"]["BundleWorkflowPair"][];
+            scope_default?: components["schemas"]["BundleScopeDefault"] | null;
+        };
+        /**
          * MethodologyDerive
          * @description Name and version of the inactive schema derived from a methodology version.
          */
@@ -7757,6 +7857,18 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /**
+         * MethodologyImportResult
+         * @description The plan and the validation report; nothing is written when errors is not empty.
+         */
+        MethodologyImportResult: {
+            /** Dry Run */
+            dry_run: boolean;
+            /** Errors */
+            errors: string[];
+            /** Items */
+            items: components["schemas"]["ImportItem"][];
         };
         /**
          * MethodologyVersion
@@ -13559,6 +13671,42 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_methodology_api_v1_schemas_methodologies_import_post: {
+        parameters: {
+            query?: {
+                /** @description Return the plan and report; write nothing */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MethodologyBundle"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodologyImportResult"];
                 };
             };
             /** @description Validation Error */

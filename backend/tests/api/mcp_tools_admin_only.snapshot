@@ -19,6 +19,7 @@ get_logs_by_request
 get_recent_errors
 get_user_statistics
 get_users
+import_methodology
 list_llm_models
 list_llm_providers
 list_llm_runs
