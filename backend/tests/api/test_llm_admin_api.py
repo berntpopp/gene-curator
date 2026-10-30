@@ -218,11 +218,14 @@ def test_models_require_a_dated_pin_and_carry_the_o_series_flag(
     client: TestClient, h: dict[str, str]
 ) -> None:
     provider = _provider(client, h)
+    anthropic = _provider(
+        client, h, kind="anthropic", base_url="https://api.anthropic.com"
+    )
     bad = client.post(
         f"{BASE}/models",
         json={
-            "provider_id": provider["id"],
-            "model_id": "gpt-4o",
+            "provider_id": anthropic["id"],
+            "model_id": "claude-sonnet-latest",
             "input_price_per_mtok_cents": "1",
             "output_price_per_mtok_cents": "1",
             "max_tokens": 10,
@@ -599,3 +602,37 @@ def test_bare_body_key_is_not_echoed_in_422(
     r = client.put(f"{BASE}/providers/{provider['id']}/key", json=body, headers=h)
     assert r.status_code == 422
     assert SECRET not in r.text and "4242424242" not in r.text
+
+
+@pytest.mark.parametrize(
+    ("kind", "model_id", "code"),
+    [
+        ("anthropic", "claude-sonnet-5-5", 201),
+        ("anthropic", "claude-sonnet-latest", 422),
+        ("anthropic", "claude-x", 422),
+        ("anthropic", "anthropic/claude-sonnet-5.5", 422),
+        ("openai_compatible", "anthropic/claude-sonnet-5.5", 201),  # OpenRouter
+        ("openai_compatible", "bad id with spaces", 422),
+    ],
+)
+def test_only_anthropic_ids_need_a_pin(
+    client: TestClient, h: dict[str, str], kind: str, model_id: str, code: int
+) -> None:
+    base = {"anthropic": "https://api.anthropic.com"}.get(
+        kind, "https://openrouter.ai/api/v1"
+    )
+    provider = _provider(client, h, kind=kind, base_url=base)
+    r = client.post(
+        f"{BASE}/models",
+        json={
+            "provider_id": provider["id"],
+            "model_id": model_id,
+            "input_price_per_mtok_cents": "200",
+            "output_price_per_mtok_cents": "1000",
+            "max_tokens": 8192,
+        },
+        headers=h,
+    )
+    assert r.status_code == code, r.text
+    if code == 201:
+        assert r.json()["model_id"] == model_id

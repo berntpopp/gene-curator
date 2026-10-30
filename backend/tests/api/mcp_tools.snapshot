@@ -91,6 +91,7 @@ get_scope_genes read_only=True destructive=False
 get_scope_statistics read_only=True destructive=False
 get_scoring_engine_info read_only=True destructive=False
 get_scoring_engines read_only=True destructive=False
+get_second_view read_only=True destructive=False
 get_supported_business_rules read_only=True destructive=False
 get_supported_field_types read_only=True destructive=False
 get_user read_only=True destructive=False
@@ -129,6 +130,7 @@ ping_llm_provider read_only=False destructive=False
 preview_llm_request read_only=True destructive=False
 publish_methodology_version read_only=False destructive=True
 publish_prompt_version read_only=False destructive=True
+queue_second_view read_only=False destructive=False
 reactivate_gene_assignment read_only=False destructive=False
 read_curation_for_review read_only=True destructive=False
 read_my_work read_only=True destructive=False

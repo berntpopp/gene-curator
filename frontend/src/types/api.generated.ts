@@ -4009,6 +4009,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scopes/{scope_id}/curations/{curation_id}/llm-second-view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Second View
+         * @description Latest AI findings and the human vs advocate vs skeptic diff, for reviewers.
+         */
+        get: operations["get_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_get"];
+        put?: never;
+        /**
+         * Queue Second View
+         * @description Queue a blind run per configured strategy; the worker runs them in the background.
+         */
+        post: operations["queue_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/llm-findings/{finding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Decide Finding
+         * @description Accept or dismiss one AI finding; the decision is recorded, nothing else changes.
+         */
+        patch: operations["decide_finding_api_v1_llm_findings__finding_id__patch"];
+        trace?: never;
+    };
     "/api/v1/logs/": {
         parameters: {
             query?: never;
@@ -5464,6 +5508,19 @@ export interface components {
             /** After */
             after?: unknown;
         };
+        /** DiffRow */
+        DiffRow: {
+            /** Category */
+            category: string;
+            /** Human */
+            human: number | string | null;
+            /** Advocate */
+            advocate: number | string | null;
+            /** Skeptic */
+            skeptic: number | string | null;
+            /** Disagree */
+            disagree: boolean;
+        };
         /**
          * EvidenceWarning
          * @description A value a draft keeps but that needs fixing before submit.
@@ -5510,6 +5567,37 @@ export interface components {
             }[];
             /** Suggestions */
             suggestions: string[];
+        };
+        /** FindingDecision */
+        FindingDecision: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "accepted" | "dismissed";
+        };
+        /** FindingOut */
+        FindingOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /** Category */
+            category: string;
+            /** Message */
+            message: string;
+            /** Citations */
+            citations: string[];
+            /** Decision */
+            decision: ("accepted" | "dismissed") | null;
+            /** Decided At */
+            decided_at: string | null;
         };
         /**
          * Gene
@@ -10193,6 +10281,50 @@ export interface components {
             curations: components["schemas"]["CurationHit"][];
             /** Scopes */
             scopes: components["schemas"]["ScopeHit"][];
+        };
+        /**
+         * SecondViewOut
+         * @description AI second view of one curation: advisory only, never part of the curation.
+         */
+        SecondViewOut: {
+            /**
+             * Curation Id
+             * Format: uuid
+             */
+            curation_id: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Pending */
+            pending: boolean;
+            /** Runs */
+            runs: components["schemas"]["SecondViewRun"][];
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+            /** Diff */
+            diff: components["schemas"]["DiffRow"][];
+        };
+        /** SecondViewRun */
+        SecondViewRun: {
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /**
+             * Run Id
+             * Format: uuid
+             */
+            run_id: string;
+            /** Model Id */
+            model_id: string;
+            /** Prompt Version */
+            prompt_version: number | null;
+            /** Methodology Version */
+            methodology_version: number | null;
+            /** Proposed Verdict */
+            proposed_verdict: string | null;
+            /** Finished At */
+            finished_at: string | null;
         };
         /** TemplateCreate */
         TemplateCreate: {
@@ -17510,6 +17642,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TestRunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecondViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_second_view_api_v1_scopes__scope_id__curations__curation_id__llm_second_view_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecondViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_finding_api_v1_llm_findings__finding_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                finding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindingDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingOut"];
                 };
             };
             /** @description Validation Error */

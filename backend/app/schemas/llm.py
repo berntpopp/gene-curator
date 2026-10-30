@@ -16,8 +16,11 @@ from pydantic import (
 
 ProviderKind = Literal["openai_compatible", "anthropic", "mock"]
 Strategy = Literal["skeptic", "advocate"]
-# A pinned model id ends in its release date: claude-x-20250929, gpt-4o-2024-08-06.
-DATED_MODEL_ID = r"^[A-Za-z0-9][A-Za-z0-9._:/-]*(\d{8}|\d{4}-\d{2}-\d{2})$"
+# Anthropic model ids must be pinned: a release date (claude-x-20250929) or a versioned
+# Claude id, which Anthropic serves as a fixed snapshot (claude-sonnet-5-5); no aliases.
+# Other kinds take the gateway's own id, e.g. OpenRouter anthropic/claude-sonnet-5.5.
+MODEL_ID = r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
+DATED_MODEL_ID = r"^([A-Za-z0-9][A-Za-z0-9._:/-]*(\d{8}|\d{4}-\d{2}-\d{2})|claude-[a-z]+-\d+(-\d+)?)$"
 
 
 class _Out(BaseModel):
@@ -76,7 +79,7 @@ class ProviderOut(_Out):
 
 class ModelCreate(BaseModel):
     provider_id: UUID
-    model_id: str = Field(pattern=DATED_MODEL_ID, max_length=200)
+    model_id: str = Field(pattern=MODEL_ID, max_length=200)
     input_price_per_mtok_cents: Decimal = Field(ge=0, max_digits=12, decimal_places=4)
     output_price_per_mtok_cents: Decimal = Field(ge=0, max_digits=12, decimal_places=4)
     max_tokens: int = Field(gt=0, le=200_000)
@@ -241,3 +244,46 @@ class ScopePromptOption(BaseModel):
 class ScopeLLMOptions(BaseModel):
     models: list[ScopeModelOption]
     prompt_versions: list[ScopePromptOption]
+
+
+class SecondViewRun(BaseModel):
+    strategy: Strategy
+    run_id: UUID
+    model_id: str
+    prompt_version: int | None
+    methodology_version: int | None
+    proposed_verdict: str | None
+    finished_at: datetime | None
+
+
+class FindingOut(BaseModel):
+    id: UUID
+    strategy: Strategy
+    category: str
+    message: str
+    citations: list[str]
+    decision: Literal["accepted", "dismissed"] | None
+    decided_at: datetime | None
+
+
+class DiffRow(BaseModel):
+    category: str
+    human: float | str | None
+    advocate: float | str | None
+    skeptic: float | str | None
+    disagree: bool
+
+
+class SecondViewOut(BaseModel):
+    """AI second view of one curation: advisory only, never part of the curation."""
+
+    curation_id: UUID
+    enabled: bool
+    pending: bool
+    runs: list[SecondViewRun]
+    findings: list[FindingOut]
+    diff: list[DiffRow]
+
+
+class FindingDecision(BaseModel):
+    decision: Literal["accepted", "dismissed"]

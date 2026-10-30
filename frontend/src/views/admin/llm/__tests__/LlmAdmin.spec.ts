@@ -218,6 +218,20 @@ describe('LLM admin console', () => {
     expect(vm.pinging).toBeNull()
   })
 
+  it('requires a pinned id for Anthropic providers only', async () => {
+    const store = useLlmStore()
+    store.providers = [provider(), { ...provider(), id: 'p2', kind: 'openai_compatible' }]
+    const vm = vmOf(await mountPanel(LlmModelsPanel))
+    call(vm, 'openEdit', null)
+    const form = vm.form as { provider_id: string }
+    form.provider_id = 'p1'
+    expect(call(vm, 'dated', 'claude-sonnet-5-5')).toBe(true)
+    expect(call(vm, 'dated', 'anthropic/claude-sonnet-5.5')).toContain('pinned')
+    form.provider_id = 'p2'
+    expect(call(vm, 'dated', 'anthropic/claude-sonnet-5.5')).toBe(true)
+    expect(call(vm, 'dated', 'bad id')).toContain('only')
+  })
+
   it('adds a dated model with prices and edits it with its revision', async () => {
     const store = useLlmStore()
     store.providers = [provider()]

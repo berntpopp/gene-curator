@@ -169,6 +169,10 @@ Vuetify 4 · PostgreSQL 15.
 - Data sharing: a run sends only allowlisted curation fields and public IDs (HGNC, MONDO),
   never user names or emails; scope admins see the exact request in the preview
   (`GET /api/v1/scopes/{id}/curations/{id}/llm-preview`).
+- AI second view (#464, #465): the skeptic and advocate get the evidence facts only (PMIDs,
+  variants, phenotypes, descriptions), never the curator's points, score status, rationale,
+  summary or classification. Their output is advisory and cannot change a curation. Provider
+  API keys are encrypted at rest and stay on the server; no response or log carries them.
 - The database owner that runs the migrations must be a superuser (or have BYPASSRLS):
   SECURITY DEFINER functions read past FORCE ROW LEVEL SECURITY as that owner
   (`authenticate_personal_access_token` in 056, `llm_credential_ciphertext` in 057,

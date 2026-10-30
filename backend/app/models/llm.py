@@ -21,7 +21,11 @@ from sqlalchemy.orm import Mapped, deferred, mapped_column
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.core.db_types import compatible_jsonb, compatible_uuid
+from app.core.db_types import (
+    compatible_array_text,
+    compatible_jsonb,
+    compatible_uuid,
+)
 
 
 def _pk() -> Mapped[PyUUID]:
@@ -218,7 +222,38 @@ class LLMRun(Base):
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     error_code: Mapped[str | None] = mapped_column(Text)
     request_sha256: Mapped[str | None] = mapped_column(Text)
+    # engine output for the evidence the model proposed (065); advisory only
+    proposed_scores: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
+    proposed_verdict: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[PyUUID | None] = _user_fk()
     created_at: Mapped[dt] = _now()
     started_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
+
+
+class LLMFinding(Base):
+    """One cited finding of a run (065); reviewers record a decision, nothing else changes."""
+
+    __tablename__ = "llm_findings"
+
+    id: Mapped[PyUUID] = _pk()
+    run_id: Mapped[PyUUID] = mapped_column(
+        compatible_uuid(), ForeignKey("llm_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    curation_id: Mapped[PyUUID] = mapped_column(
+        compatible_uuid(),
+        ForeignKey("curations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    scope_id: Mapped[PyUUID] = mapped_column(
+        compatible_uuid(), ForeignKey("scopes.id", ondelete="CASCADE"), nullable=False
+    )
+    category: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    citations: Mapped[list[str]] = mapped_column(
+        compatible_array_text(), nullable=False
+    )
+    decision: Mapped[str | None] = mapped_column(Text)
+    decided_by: Mapped[PyUUID | None] = _user_fk()
+    decided_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt] = _now()
