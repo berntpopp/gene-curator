@@ -171,6 +171,21 @@ updates now require `lock_version`. Details: [docs/releases/v0.5.0.md](docs/rele
 3. Run `make recompute-scores` once to rescore curations under ClinGen SOP v11.
 4. Redis is gone; remove any Redis service or `REDIS_*` settings from your deployment.
 
+## Backup and restore
+
+`make db-backup` runs `scripts/backup.sh`: a `pg_dump` in custom format, checked with
+`pg_restore --list` before it is kept as `backups/backup_YYYYMMDD_HHMMSS.dump`. A failed or
+unreadable dump leaves no file behind. Only the newest `BACKUP_KEEP` dumps (default 14) are kept.
+For periodic backups, schedule the script (see its header for a cron line) and copy `backups/`
+off the host.
+
+To restore:
+
+1. Stop the backend so no writes land during the restore.
+2. Check the dump: `docker exec -i gene_curator_postgres pg_restore --list < backups/<file>.dump`.
+3. `make db-restore FILE=backups/<file>.dump` (drops and recreates the dumped objects).
+4. Run `make db-migrate` if the dump predates the current migrations, then start the backend.
+
 ## Development and verification
 
 Checks run locally first; GitHub Actions runs the same `make` targets and only confirms.
