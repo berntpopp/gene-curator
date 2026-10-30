@@ -256,6 +256,19 @@
           <v-row class="mb-6">
             <v-col cols="12">
               <CurationScoreBreakdown :scores="scores" :classification="classification" />
+              <v-alert
+                v-if="scoreWarnings.length"
+                data-testid="score-warnings"
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="mt-4"
+                title="Scoring warnings to check"
+              >
+                <ul class="pl-4">
+                  <li v-for="w in scoreWarnings" :key="w">{{ w }}</li>
+                </ul>
+              </v-alert>
             </v-col>
           </v-row>
 
@@ -497,6 +510,11 @@
       curation.value.created_by === (authStore.user as { id?: string } | null)?.id
   )
 
+  // Engine warnings saved with the score (review flags #559, lint) for the reviewer
+  const scoreWarnings = computed(() => {
+    const w = (curation.value?.computed_scores as { warnings?: unknown } | null)?.warnings
+    return Array.isArray(w) ? w.map(String) : []
+  })
   const { scores, classification, final, rationale } = useCurationClassification(
     () => curation.value
   )

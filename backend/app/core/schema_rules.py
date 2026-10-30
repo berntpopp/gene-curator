@@ -379,7 +379,9 @@ def _check_review_flags(flags: Any, path: str, sections: set[Any]) -> list[Diagn
         out += _check_hotspot(flags["hotspot"], f"{path}.hotspot")
     pair = flags.get("experimental_over_genetic", [])
     keys = [key for key in _as(list, pair) if isinstance(key, str) and key in sections]
-    if "experimental_over_genetic" in flags and not (pair == keys and len(keys) == 2):
+    if "experimental_over_genetic" in flags and not (
+        pair == keys and len(set(keys)) == 2
+    ):
         msg = "experimental_over_genetic must be [section key, section key]"
         out.append(("error", f"{path}.experimental_over_genetic", msg))
     return out
@@ -388,7 +390,11 @@ def _check_review_flags(flags: Any, path: str, sections: set[Any]) -> list[Diagn
 def _check_hotspot(hotspot: Any, path: str) -> list[Diagnostic]:
     if not isinstance(hotspot, dict):
         return [("error", path, "hotspot must be an object")]
-    out: list[Diagnostic] = []
+    out: list[Diagnostic] = [
+        ("error", f"{path}.{key}", f"Unknown hotspot key: {key}")
+        for key in hotspot
+        if key not in ("max_variants", "min_share")
+    ]
     n, share = hotspot.get("max_variants"), hotspot.get("min_share")
     if not (isinstance(n, int) and not isinstance(n, bool) and n >= 1):
         msg = "max_variants must be an integer >= 1"

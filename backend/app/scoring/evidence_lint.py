@@ -135,7 +135,7 @@ def review_flags(result: dict[str, Any]) -> list[str]:
     flags = (result.get("model") or {}).get("review_flags") or {}
     total, out = result["total"], []
     if (margin := flags.get("band_margin")) is not None:
-        edges = [b for b in result["model"]["bands"] if "min" in b]
+        edges = [b for b in result["model"]["bands"] if b.get("min", 0) > 0]
         near = min(edges, key=lambda b: abs(total - b["min"]), default=None)
         if near and abs(total - near["min"]) <= margin:
             out.append(
@@ -146,8 +146,9 @@ def review_flags(result: dict[str, Any]) -> list[str]:
     if hotspot := flags.get("hotspot"):
         points = result.get("variant_points", {})
         proband = sum(points.values())
-        n = hotspot["max_variants"]
-        top = sum(sorted((v for k, v in points.items() if k), reverse=True)[:n])
+        top_n = sorted((v for k, v in points.items() if k), reverse=True)
+        top_n = top_n[: hotspot["max_variants"]]
+        top, n = sum(top_n), len(top_n)
         if proband > 0 and top / proband >= hotspot["min_share"]:
             out.append(
                 f"review_flags.hotspot: {top:g} of {proband:g} proband points "

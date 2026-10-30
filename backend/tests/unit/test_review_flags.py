@@ -135,3 +135,29 @@ def test_engine_warnings_carry_the_schema_flags() -> None:
     config = {"engine": "clingen_sop_v11", "point_model": model}
     result = ClinGenEngine().calculate_scores(_evidence(["c.1A>G"], exp=2), config)
     assert any(w.startswith("review_flags.experimental") for w in result.warnings)
+
+
+def test_band_margin_ignores_edges_at_or_below_zero() -> None:
+    model = _model(band_margin=2)
+    model["bands"] = [{"class": "strong", "min": 12}, {"class": "no_known", "min": 0}]
+    model["bands"].append({"class": "disputed", "min": -1})
+    assert _flags(model, _evidence(_distinct(1))) == []
+
+
+def test_hotspot_names_the_variants_there_are() -> None:
+    model = _model(hotspot={"max_variants": 2, "min_share": 0.5})
+    assert _flags(model, _evidence(["c.1A>G"] * 3)) == [
+        "review_flags.hotspot: 3 of 3 proband points (100%) come from 1 variants; "
+        "check for a recurrent-variant hotspot"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("flags", "paths"),
+    [
+        ({"hotspot": {"max_variants": 2, "min_share": 0.5, "x": 1}}, [".hotspot.x"]),
+        ({"experimental_over_genetic": ["exp", "exp"]}, [".experimental_over_genetic"]),
+    ],
+)
+def test_more_invalid_review_flags(flags: Any, paths: list[str]) -> None:
+    assert _flag_errors(flags) == paths
