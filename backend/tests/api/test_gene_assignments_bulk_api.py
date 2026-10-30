@@ -171,3 +171,41 @@ def test_bulk_assign_is_forbidden_for_curators(
     assert response.status_code == 403
     db_session.refresh(row)
     assert row.assigned_curator_id is None
+
+
+def test_bulk_create_keeps_the_due_date(
+    client: TestClient,
+    db_session: Session,
+    admin_token: str,
+    test_gene: Gene,
+    test_scope: Scope,
+    test_user_curator: UserNew,
+) -> None:
+    """Monkey M4: bulk dropped due_date; new and newly assigned rows both get it."""
+    other = Gene(
+        hgnc_id="HGNC:9998",
+        approved_symbol="ZZZ2",
+        record_hash="y" * 64,
+        previous_symbols=[],
+        alias_symbols=[],
+    )
+    db_session.add(other)
+    db_session.commit()
+    existing = _assignment(db_session, other, test_scope)
+    response = client.post(
+        f"{BASE}/bulk",
+        json={
+            "gene_ids": [str(test_gene.id), str(other.id)],
+            "scope_id": str(test_scope.id),
+            "assigned_curator_id": str(test_user_curator.id),
+            "due_date": "2026-12-01",
+        },
+        headers=_auth(admin_token),
+    )
+    assert response.status_code == 200, response.text
+    assert [a["due_date"] for a in response.json()["created_assignments"]] == [
+        "2026-12-01",
+        "2026-12-01",
+    ]
+    db_session.refresh(existing)
+    assert str(existing.due_date) == "2026-12-01"

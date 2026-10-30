@@ -3,7 +3,7 @@ CRUD operations for gene-scope assignments.
 """
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -503,6 +503,7 @@ class CRUDGeneScopeAssignment(
         curator_id: UUID | None = None,
         priority_level: str = "medium",
         assignment_notes: str | None = None,
+        due_date: date | None = None,
         assigned_by: UUID,
     ) -> dict[str, Any]:
         """Bulk assign multiple genes to a scope.
@@ -550,6 +551,8 @@ class CRUDGeneScopeAssignment(
                     existing.priority = priority_level
                     if assignment_notes:
                         existing.assignment_notes = assignment_notes
+                    if due_date:
+                        existing.due_date = due_date
                     updated.append(existing)
                     continue
                 if existing and existing.is_active:
@@ -568,6 +571,7 @@ class CRUDGeneScopeAssignment(
                     assigned_curator_id=curator_id,
                     priority_level=priority_level,
                     assignment_notes=assignment_notes,
+                    due_date=due_date,
                 )
 
                 assignment = self.create_assignment(
