@@ -594,12 +594,16 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       const { wrapper, frame } = await mountFramed()
       expect(frame.canSubmit.value).toBe(false)
       expect(frame.submit()).toBe(false)
+      expect(frame.blockers.value).toEqual([
+        'Add case-level or segregation evidence before submitting'
+      ])
 
       wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', {
         genetic_evidence: { segregation: [{ pmid: '1', points: 1 }] }
       })
       await flushPromises()
       expect(frame.canSubmit.value).toBe(true)
+      expect(frame.blockers.value).toEqual([])
     })
 
     it('never submits while a save is in flight', async () => {

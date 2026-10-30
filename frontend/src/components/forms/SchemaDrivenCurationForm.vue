@@ -361,6 +361,16 @@
           : null
       )
   )
+  // Submit names what the ClinGen rule still misses, once there is evidence to check
+  watch(
+    () => needsGenetic.value && !hasGenetic.value && hasContent(evidenceData.value),
+    missing =>
+      frame?.setBlocker(
+        'curation-genetic',
+        missing ? 'Add case-level or segregation evidence before submitting' : null
+      ),
+    { immediate: true }
+  )
   // #453: a disease gap the read-only form cannot fix blocks Submit with the reason
   useDiseaseGap({
     curationId: () => (props.readonly ? undefined : (props.curationId ?? undefined)),

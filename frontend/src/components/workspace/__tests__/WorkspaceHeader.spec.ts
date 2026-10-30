@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { useValidationStore } from '@/stores/validation'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import WorkspaceHeader from '../WorkspaceHeader.vue'
 
@@ -30,6 +32,8 @@ const mountHeader = (props: Record<string, unknown> = {}) =>
   mount(WorkspaceHeader, { props: { ...base, ...props }, global: { plugins: [router] } })
 
 describe('WorkspaceHeader', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
   it('shows the breadcrumb with links for all but the current page', () => {
     const w = mountHeader()
     const nav = w.find('nav[aria-label="Breadcrumb"]')
@@ -54,6 +58,18 @@ describe('WorkspaceHeader', () => {
     expect(w.emitted('save')).toHaveLength(1)
     expect(w.emitted('submit')).toHaveLength(1)
     expect(w.emitted('retry')).toHaveLength(1)
+  })
+
+  it('names the invalid field when a click on a blocked Submit has no blocker text', async () => {
+    const w = mountHeader({ canSubmit: false })
+    await w.find('[data-testid="ws-submit"]').trigger('click')
+    expect(w.find('[data-testid="ws-blockers"]').text()).toContain('Complete the required evidence')
+    useValidationStore().validationResults = {
+      form: { is_valid: false, errors: [{ field: 'notes', message: 'Required' }] }
+    } as never
+    await w.vm.$nextTick()
+    expect(w.find('[data-testid="ws-blockers"]').text()).toContain('Required')
+    expect(w.find('[data-testid="ws-blockers"]').text()).not.toContain('Complete the required')
   })
 
   it('says next to Submit why it is blocked', () => {
