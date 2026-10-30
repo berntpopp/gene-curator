@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
+from app.crud.activation import same_entity
 from app.crud.base import CRUDBase
 from app.crud.optimistic_lock import update_if_version
 from app.crud.workflow_engine import workflow_engine
@@ -73,12 +74,13 @@ class EntityRequiredError(ValueError):
 def open_curation_id(
     db: Session, gene_id: UUID, scope_id: UUID, entity_key: str
 ) -> UUID | None:
-    """The entity's open (not active or archived) curation in the scope, if any."""
+    """The entity's open (not active or archived) curation in the scope, if any; as in
+    activation, '' (unlinked legacy or lumped) covers the whole gene."""
     return db.scalar(
         select(CurationNew.id).where(
             CurationNew.gene_id == gene_id,
             CurationNew.scope_id == scope_id,
-            CurationNew.entity_key == entity_key,
+            same_entity(CurationNew.entity_key, entity_key),
             CurationNew.status.notin_([CurationStatus.ACTIVE, CurationStatus.ARCHIVED]),
         )
     )

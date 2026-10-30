@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.models import ActiveCuration, CurationNew, CurationStatus, WorkflowStage
 
 
-def _same_entity(column: Any, key: str) -> Any:
+def same_entity(column: Any, key: str) -> Any:
     """The entity's own rows; '' (lumped or legacy) covers the whole gene, either way."""
     return or_(column == key, column == "") if key else true()
 
@@ -27,7 +27,7 @@ def activate_item(db: Session, item: Any, user_id: UUID) -> None:
         for old in db.query(CurationNew).filter(
             CurationNew.gene_id == item.gene_id,
             CurationNew.scope_id == item.scope_id,
-            _same_entity(CurationNew.entity_key, key),
+            same_entity(CurationNew.entity_key, key),
             CurationNew.status == CurationStatus.ACTIVE,
             CurationNew.id != item.id,
         ):
@@ -45,7 +45,7 @@ def activate_item(db: Session, item: Any, user_id: UUID) -> None:
         for existing_active in db.query(ActiveCuration).filter(
             ActiveCuration.gene_id == item.gene_id,
             ActiveCuration.scope_id == item.scope_id,
-            _same_entity(ActiveCuration.entity_key, key),
+            same_entity(ActiveCuration.entity_key, key),
             ActiveCuration.archived_at.is_(None),
         ):
             existing_active.archived_at = datetime.now(UTC)

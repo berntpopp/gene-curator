@@ -388,3 +388,25 @@ def test_a_racing_approval_is_409(db_session: Session, client: TestClient) -> No
     assert r.json()["detail"]["curation_id"] == str(a)
     db_session.refresh(pre)
     assert pre.status == CurationStatus.SUBMITTED  # nothing half-done
+
+
+def test_legacy_unkeyed_open_draft_blocks_a_second_recuration(
+    db_session: Session, client: TestClient
+) -> None:
+    """067 keys the linked active curation but not an unlinked re-curation draft ('');
+    '' covers the whole gene, so a new re-curation finds that draft (409 with its id)."""
+    world = World(db_session)
+    _, a = world.approve(A)
+    assert a
+    world.activate(a)
+    legacy = CurationNew(
+        gene_id=world.gene.id,
+        scope_id=world.scope.id,
+        workflow_pair_id=world.pair.id,
+        evidence_data={},
+        created_by=world.author.id,
+    )
+    db_session.add(legacy)
+    db_session.commit()
+    code, body = world.create(client)
+    assert code == 409 and body["detail"]["curation_id"] == str(legacy.id)
