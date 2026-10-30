@@ -268,8 +268,12 @@ class ClinGenEngine(ScoringEngine):
         assert model is not None  # shipped with the package
         return model
 
-    def get_supported_verdicts(self) -> list[str]:
-        return [band["class"] for band in self._template()["bands"]]
+    def get_supported_verdicts(
+        self, schema_config: dict[str, Any] | None = None
+    ) -> list[str]:
+        model = point_model(schema_config) or self._template()
+        rules = [*model["bands"], *model.get("overrides", [])]
+        return list(dict.fromkeys(rule["class"] for rule in rules))
 
     def get_scoring_categories(self) -> list[str]:
         return [section["key"] for section in self._template()["sections"]]

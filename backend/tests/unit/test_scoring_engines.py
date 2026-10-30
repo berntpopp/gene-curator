@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from app.scoring.base import ScoringEngine, ScoringResult
+from app.scoring.clingen import ClinGenEngine
 from app.scoring.gencc import GenCCEngine
 from app.scoring.qualitative import QualitativeEngine
 from app.scoring.registry import ScoringEngineRegistry, scoring_registry
@@ -445,6 +446,29 @@ class TestRegistry:
             "genetic_evidence",
             "experimental_evidence",
         ]
+
+    def test_clingen_verdicts_come_from_the_schema_point_model(self):
+        engine = ClinGenEngine()
+        model = {
+            "overrides": [{"when": "x", "class": "refuted"}],
+            "bands": [
+                {"class": "established_risk", "min": 7},
+                {"class": "uncertain_risk", "min": 0},
+                {"class": "refuted"},
+            ],
+        }
+
+        assert engine.get_supported_verdicts({"point_model": model}) == [
+            "established_risk",
+            "uncertain_risk",
+            "refuted",
+        ]
+        assert engine.get_supported_verdicts() == engine.get_supported_verdicts({})
+        assert "definitive" in engine.get_supported_verdicts()
+        config = {"point_model": model}
+        info = scoring_registry.get_engine_info("gencc_based", config)
+        assert info is not None
+        assert info["supported_verdicts"] == GenCCEngine().get_supported_verdicts()
 
     def test_engine_info_includes_docstring(self):
         info = scoring_registry.get_engine_info("clingen_sop_v11")

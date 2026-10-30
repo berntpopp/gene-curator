@@ -77,8 +77,10 @@ async def test_mondo_filters_suggestions_but_resolves_saved_ids(
     def handler(request: httpx.Request) -> httpx.Response:
         calls.append(request)
         if filter_human:
+            # Human diseases or disease susceptibility (#539), never animal diseases.
             assert request.url.params["directAncestor"] == (
-                "http://purl.obolibrary.org/obo/MONDO_0700096"
+                "http://purl.obolibrary.org/obo/MONDO_0700096,"
+                "http://purl.obolibrary.org/obo/MONDO_0042489"
             )
         else:
             assert "directAncestor" not in request.url.params
