@@ -22,7 +22,7 @@ from app.core.logging import get_logger
 from app.llm.output import InvalidLLMOutputError, parse_structured_output
 from app.llm.prompts import render_messages, wrap_untrusted
 from app.llm.providers import LLMProvider as Adapter, LLMProviderError, LLMRequest
-from app.llm.sharing import shared_keys
+from app.llm.sharing import shared_view
 from app.models import CurationNew, CurationSchema, Gene, UserNew
 from app.models.llm import (
     LLMModel,
@@ -49,15 +49,6 @@ GOLDEN_DIR = Path(__file__).parents[1] / "llm" / "golden"
 
 
 # --- data sharing ---------------------------------------------------------------
-
-
-def _shared(value: Any, keys: frozenset[str]) -> Any:
-    """`value` with only the shared keys, at any depth (app.llm.sharing)."""
-    if isinstance(value, dict):
-        return {k: _shared(v, keys) for k, v in value.items() if k in keys}
-    if isinstance(value, list):
-        return [_shared(v, keys) for v in value]
-    return value
 
 
 MONDO_ID = re.compile(r"MONDO:\d{7}")
@@ -105,8 +96,8 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
     evidence = curation.evidence_data or {}
     # Blind (#464): no scores, class or verdict rationale; the model judges the evidence.
     # the curation's own methodology version says which extra fields it shares (#534)
-    keys = shared_keys(methodology[2].get("field_definitions") if methodology else None)
-    content = {"evidence_data": _shared(evidence, keys)}
+    fields_def = methodology[2].get("field_definitions") if methodology else None
+    content = {"evidence_data": shared_view(evidence, fields_def)}
     precuration = curation.precuration
     fields = disease_fields(
         evidence, precuration.evidence_data if precuration else None
