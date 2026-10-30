@@ -148,6 +148,7 @@
   import ScoreSummary from './ScoreSummary.vue'
   import LumpingSplittingSection from './LumpingSplittingSection.vue'
   import CuratorClassificationField, { type CuratorCall } from './CuratorClassificationField.vue'
+  import { unexplainedOverride } from './curatorCall'
   import { useConfirm } from '@/composables/useConfirm'
   import { pmidsIn, usePmidLookup } from '@/composables/usePmidLookup'
   import { WORKSPACE_FRAME, type ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
@@ -292,12 +293,19 @@
   })
 
   // Submit eligibility: valid and something entered
+  const unexplained = computed(() =>
+    unexplainedOverride(
+      curatorCall.value,
+      score.value?.classification ?? curationsStore.currentCuration?.computed_verdict
+    )
+  )
   const canSubmit = computed(
     () =>
       isValid.value &&
       !props.readonly &&
       hasContent(evidenceData.value) &&
-      (!needsGenetic.value || hasGenetic.value)
+      (!needsGenetic.value || hasGenetic.value) &&
+      !unexplained.value
   )
 
   // === Persistence (save draft / submit) ===
@@ -370,6 +378,12 @@
         missing ? 'Add case-level or segregation evidence before submitting' : null
       ),
     { immediate: true }
+  )
+  watch(unexplained, missing =>
+    frame?.setBlocker(
+      'curation-rationale',
+      missing ? 'Add a rationale for the changed classification before submitting' : null
+    )
   )
   // #453: a disease gap the read-only form cannot fix blocks Submit with the reason
   useDiseaseGap({

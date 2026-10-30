@@ -604,6 +604,13 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       await flushPromises()
       expect(frame.canSubmit.value).toBe(true)
       expect(frame.blockers.value).toEqual([])
+      // W9 monkey: the server's rule, before the confirm: a changed class needs a rationale
+      const call = { curator_classification: 'strong', curator_classification_rationale: ' ' }
+      wrapper
+        .findComponent({ name: 'CuratorClassificationField' })
+        .vm.$emit('update:modelValue', call)
+      await flushPromises()
+      expect(frame.blockers.value).toEqual([expect.stringContaining('Add a rationale')])
     })
 
     it('never submits while a save is in flight', async () => {
