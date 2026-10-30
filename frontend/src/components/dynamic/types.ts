@@ -98,6 +98,7 @@ export interface ScoringConfiguration {
   engine?: string | null
   classification_thresholds?: Record<string, number>
   max_scores?: Record<string, number>
+  classifications?: unknown
 }
 
 /** Vuetify input variants accepted by the field wrappers */

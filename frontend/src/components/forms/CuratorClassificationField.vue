@@ -37,7 +37,7 @@
 <script setup lang="ts">
   /** The curator's call (#533): a classification other than the calculated one, with why. */
   import { computed } from 'vue'
-  import { CLASSIFICATIONS, getClassification } from '@/config/classification'
+  import { CLASSIFICATIONS, classKey, getClassification } from '@/config/classification'
 
   export interface CuratorCall {
     curator_classification: string | null
@@ -48,18 +48,25 @@
     modelValue: CuratorCall
     calculated?: string | null
     readonly?: boolean
+    /** The server's classes for this curation's schema; the ClinGen list until loaded. */
+    choices?: { key: string; label: string }[] | null
   }>()
   const emit = defineEmits<{ 'update:modelValue': [CuratorCall] }>()
 
-  // The API stores the class key; PR #554 moves this list to the schema's vocabulary
-  const items = CLASSIFICATIONS.map(c => ({ title: c.label, value: c.key }))
+  // The API stores the class key; a known class shows its vocabulary label, else the server's
+  const items = computed(() =>
+    (props.choices?.length ? props.choices : CLASSIFICATIONS).map(c => {
+      const info = getClassification(c.key)
+      return { title: info.key === 'unknown' ? c.label : info.label, value: c.key }
+    })
+  )
   const calculatedLabel = computed(() =>
     props.calculated ? getClassification(props.calculated).label : ''
   )
   // Same rule as the server: both compared as class keys
   const differs = computed(() => {
     const proposed = props.modelValue.curator_classification
-    return !!proposed && getClassification(proposed).key !== getClassification(props.calculated).key
+    return !!proposed && classKey(proposed) !== classKey(props.calculated)
   })
   const required = (v: string) => !!v?.trim() || 'A rationale is required'
 

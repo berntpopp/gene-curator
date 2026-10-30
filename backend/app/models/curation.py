@@ -78,10 +78,17 @@ _MOI_CASE = (
     )
     + f" ELSE {_MOI} END)"
 )
-# The gene-disease-MOI entity (#530): normalised MONDO id | MOI; '' without a MONDO id.
-# Portable SQL (PostgreSQL jsonb and SQLite JSON ->/->>); 067 holds the same expression.
+# Only non-Mendelian relationships are suffixed (#539), so Mendelian keys stay as 067 made them
+_RELATIONSHIP = (
+    f"CASE WHEN lower({_field('relationship_type')}) = 'susceptibility' "
+    "THEN '|SUSCEPTIBILITY' ELSE '' END"
+)
+# The gene-disease-MOI entity (#530): normalised MONDO id | MOI [| SUSCEPTIBILITY]; ''
+# without a MONDO id. Portable SQL (PostgreSQL jsonb and SQLite JSON ->/->>); 072 holds
+# the same expression.
 ENTITY_KEY_SQL = (
-    f"CASE WHEN {_MONDO} = '' THEN '' ELSE {_MONDO} || '|' || {_MOI_CASE} END"
+    f"CASE WHEN {_MONDO} = '' THEN '' "
+    f"ELSE {_MONDO} || '|' || {_MOI_CASE} || {_RELATIONSHIP} END"
 )
 
 

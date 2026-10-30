@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 
-const api = vi.hoisted(() => ({ getMatrix: vi.fn(), getScopes: vi.fn() }))
+const api = vi.hoisted(() => ({
+  getMatrix: vi.fn(),
+  getScopes: vi.fn(),
+  getClassifications: vi.fn()
+}))
 vi.mock('@/api/catalogueMatrix', () => ({ catalogueMatrixAPI: api }))
 
 import { useCatalogueMatrixStore } from '../catalogueMatrix'
@@ -98,6 +102,17 @@ describe('catalogueMatrix store', () => {
     const store = useCatalogueMatrixStore()
     await store.loadScopes()
     expect(store.error).toBe('down')
+  })
+
+  it('loads classification options and survives a failure without an error banner', async () => {
+    const store = useCatalogueMatrixStore()
+    api.getClassifications.mockResolvedValueOnce(['strong'])
+    await store.loadClassifications()
+    expect(store.classifications).toEqual(['strong'])
+    api.getClassifications.mockRejectedValueOnce(new Error('down'))
+    await store.loadClassifications()
+    expect(store.classifications).toEqual(['strong'])
+    expect(store.error).toBeNull()
   })
 
   it('merges public scopes with the member scopes, without duplicates', async () => {

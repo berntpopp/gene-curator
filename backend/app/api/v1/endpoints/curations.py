@@ -29,6 +29,7 @@ from app.crud.curation import (
     curation_crud,
     merge_patch,
 )
+from app.crud.curator_classification import classification_choices
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
@@ -47,6 +48,7 @@ from app.models import (
     UserNew,
 )
 from app.schemas.curation import (
+    ClassificationChoice,
     Curation,
     CurationConflictResponse,
     CurationCreate,
@@ -65,7 +67,7 @@ from app.schemas.curation import (
     lean_scores,
 )
 from app.schemas.scope import SCOPE_NAME
-from app.scoring.point_limits import enforce_clingen_point_ranges
+from app.scoring.point_limits import enforce_clingen_point_ranges, scoring_configuration
 from app.services.curation_access import (
     _can_user_delete_curation,
     _can_user_edit_curation,
@@ -266,6 +268,14 @@ def get_curation(
     # Compute user permissions for this curation based on scope-specific roles
     response.can_edit = _can_user_edit_curation(db, current_user, curation)
     response.can_review = _can_user_review_curation(db, current_user, curation)
+    response.classification_choices = [
+        ClassificationChoice(**c)
+        for c in classification_choices(
+            scoring_configuration(
+                db, curation.workflow_pair_id, curation.methodology_version_id
+            )
+        )
+    ]
     # The view hides Approve while this approval waits for others (#430)
     response.has_approved = _has_approved(db, current_user, curation)
     response.can_delete = _can_user_delete_curation(db, current_user, curation)

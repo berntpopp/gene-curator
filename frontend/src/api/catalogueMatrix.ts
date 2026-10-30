@@ -6,6 +6,7 @@ export interface MatrixQuery {
   scope_ids: string[]
   search?: string
   agreement?: 'agree' | 'disagree'
+  classification?: string
   skip?: number
   limit?: number
   sort_order?: 'asc' | 'desc'
@@ -18,6 +19,12 @@ export const catalogueMatrixAPI = {
       // scope_ids=a&scope_ids=b, not scope_ids[]=a (the endpoint expects repeated keys)
       paramsSerializer: { indexes: null }
     })
+    return response.data
+  },
+
+  /** Classes with an active curation the caller may see (lower case). */
+  async getClassifications(): Promise<string[]> {
+    const response = await apiClient.get<string[]>('/gene-catalogue/filters/classifications')
     return response.data
   },
 

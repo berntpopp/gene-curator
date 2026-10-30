@@ -9,7 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.crud.curator_classification import allowed_classifications
+from app.crud.curator_classification import (
+    allowed_classifications,
+    classification_choices,
+)
 from app.models.models import (
     ActiveCuration,
     CurationNew,
@@ -118,6 +121,46 @@ def test_allowed_classes_are_the_engine_verdicts_as_keys() -> None:
         == "strong_association"
     )
     assert "no_known" in allowed_classifications({"engine": "gencc_based"})
+
+
+def test_declared_vocabulary_comes_first_in_its_order_with_its_labels() -> None:
+    """#539: the schema's classes, then any engine verdict it lacks."""
+    config = {
+        "classifications": [
+            {
+                "key": "Uncertain_Risk",
+                "label": "Uncertain",
+                "order": 3,
+                "tone": "limited",
+            },
+            {
+                "key": "established_risk",
+                "label": "Established",
+                "order": 1,
+                "tone": "strong",
+            },
+            {"label": "no key"},
+        ],
+        "point_model": {"bands": [{"class": "established_risk"}, {"class": "other"}]},
+    }
+    assert classification_choices(config) == [
+        {"key": "established_risk", "label": "Established"},
+        {"key": "uncertain_risk", "label": "Uncertain"},
+        {"key": "other", "label": "other"},
+    ]
+    qualitative = classification_choices({"engine": "qualitative_assessment"})
+    assert qualitative[0] == {
+        "key": "strong_association",
+        "label": "Strong Association",
+    }
+
+
+def test_curation_detail_lists_the_choices(
+    client: TestClient, admin_token: str, test_curation: CurationNew
+) -> None:
+    choices = _detail(client, admin_token, test_curation.id)["classification_choices"]
+    keys = [c["key"] for c in choices]
+    assert keys[0] == "definitive" and "no_known" in keys
 
 
 def test_qualitative_curator_picks_the_agreeing_key_without_rationale(

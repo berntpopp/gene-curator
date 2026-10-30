@@ -50,6 +50,24 @@ def _agreement(active: list[CurationNew]) -> Agreement:
     return "single" if by_entity else "none"
 
 
+def _with_class(query: Any, visible: list[UUID], classification: str | None) -> Any:
+    """Only genes with a visible active curation of this class (any case), #539."""
+    if not classification:
+        return query
+    return query.where(
+        Gene.id.in_(
+            select(ActiveCuration.gene_id)
+            .join(CurationNew, CurationNew.id == ActiveCuration.curation_id)
+            .where(
+                ActiveCuration.archived_at.is_(None),
+                ActiveCuration.scope_id.in_(visible),
+                class_key_sql(CurationNew.final_classification)
+                == class_key(classification),
+            )
+        )
+    )
+
+
 def get_matrix(
     db: Session,
     scope_ids: list[UUID],
@@ -57,6 +75,7 @@ def get_matrix(
     *,
     search: str | None = None,
     agreement: Literal["agree", "disagree"] | None = None,
+    classification: str | None = None,
     skip: int = 0,
     limit: int = 20,
     descending: bool = False,
@@ -141,6 +160,8 @@ def get_matrix(
             else Gene.id.in_(entities(distinct == 1, func.count() > 1))
             & Gene.id.not_in(disagreeing)
         )
+
+    query = _with_class(query, visible, classification)
 
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar() or 0
     # Gene.id breaks symbol ties so pages never repeat or skip rows.

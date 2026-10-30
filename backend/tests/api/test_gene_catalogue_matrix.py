@@ -431,3 +431,21 @@ def test_a_curator_key_agrees_with_the_same_engine_label(
         URL, params=[*params, ("agreement", "agree")], headers=headers
     ).json()
     assert [r["approved_symbol"] for r in agree["rows"]] == ["PKD1"]
+
+
+def test_classification_filter_matches_any_visible_active_class(
+    client: TestClient, world: World
+) -> None:
+    """#539: a schema's own classes filter like ClinGen ones; hidden scopes never match."""
+    world.cur(world.pkd1, world.pub, "established_risk")
+    world.cur(world.hnf1b, world.pub, "Strong")
+    world.cur(world.uromod, world.priv, "Established_Risk")  # not visible anonymously
+    params = world.ids(world.pub, world.priv)
+
+    def genes(cls: str) -> set[str]:
+        body = client.get(URL, params=[*params, ("classification", cls)]).json()
+        return {r["approved_symbol"] for r in body["rows"]}
+
+    assert genes("Established_risk") == {"PKD1"}
+    assert genes("strong") == {"HNF1B"}
+    assert genes("refuted") == set()

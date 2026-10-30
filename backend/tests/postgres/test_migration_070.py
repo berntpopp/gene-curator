@@ -39,7 +39,7 @@ def test_latest_version_adds_xl_and_undetermined(client: TestClient, w: W) -> No
         f"/api/v1/schemas/curation-schemas/{SCHEMA_ID}/versions", headers=_h(w.alice)
     )
     assert r.status_code == 200, r.text
-    latest, previous = r.json()[:2]
+    latest, previous = r.json()[1:3]  # 072 publishes on top of 070
     moi = _moi(latest)
     assert list(moi) == [
         "AD",

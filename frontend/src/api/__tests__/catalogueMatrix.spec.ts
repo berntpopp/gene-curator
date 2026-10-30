@@ -22,4 +22,10 @@ describe('catalogueMatrixAPI', () => {
     expect(await catalogueMatrixAPI.getScopes()).toEqual([{ id: 's1' }])
     expect(get).toHaveBeenCalledWith('/gene-catalogue/filters/scopes')
   })
+
+  it('lists the classes the catalogue can filter by', async () => {
+    get.mockResolvedValue({ data: ['strong'] })
+    expect(await catalogueMatrixAPI.getClassifications()).toEqual(['strong'])
+    expect(get).toHaveBeenCalledWith('/gene-catalogue/filters/classifications')
+  })
 })

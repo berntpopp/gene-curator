@@ -18,7 +18,7 @@
 
   const props = defineProps<{ classification: string | null | undefined }>()
   const info = computed(() => getClassification(props.classification))
-  const hued = computed(() => info.value.key === 'disputed' || info.value.key === 'refuted')
+  const hued = computed(() => ['cls-disputed', 'cls-refuted'].includes(info.value.color))
 </script>
 
 <style scoped>

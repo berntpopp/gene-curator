@@ -268,7 +268,7 @@
 <script setup lang="ts">
   import { formatDate } from '@/utils/format'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
-  import { getClassification } from '@/config/classification'
+  import { compareClassifications, getClassification } from '@/config/classification'
   /**
    * CurationList Component
    *
@@ -348,7 +348,12 @@
     { title: 'Disease', key: 'disease_name', sortable: true },
     { title: 'Curator', key: 'curator_name', sortable: true },
     { title: 'Status', key: 'status', sortable: true },
-    { title: 'Classification', key: 'classification', sortable: true },
+    {
+      title: 'Classification',
+      key: 'classification',
+      sortable: true,
+      sort: compareClassifications
+    },
     { title: 'Score', key: 'score', sortable: true },
     { title: 'Updated', key: 'updated_at', sortable: true },
     { title: 'Actions', key: 'actions', sortable: false }

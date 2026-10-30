@@ -13,6 +13,7 @@ from app.crud.precuration_required import (
     required_when_holds,
 )
 from app.llm.sharing import check_llm_share
+from app.scoring.classifications import check_classifications
 
 
 def resolve_named_rules(schema_definition: dict[str, Any]) -> Any:
@@ -296,6 +297,8 @@ def _check_scoring(scoring: Any) -> list[Diagnostic]:
             out.append(("error", f"{path}.engine", msg))
     if isinstance(scoring.get("point_model"), dict):
         out += _check_point_model(scoring["point_model"], f"{path}.point_model")
+    if "classifications" in scoring:
+        out += check_classifications(scoring, path)
     return out
 
 

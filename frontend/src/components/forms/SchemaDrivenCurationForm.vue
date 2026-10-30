@@ -63,6 +63,7 @@
             v-if="version && curationId"
             v-model="curatorCall"
             :calculated="score?.classification ?? curationsStore.currentCuration?.computed_verdict"
+            :choices="curationsStore.currentCuration?.classification_choices"
             :readonly="readonly"
           />
         </v-card-text>

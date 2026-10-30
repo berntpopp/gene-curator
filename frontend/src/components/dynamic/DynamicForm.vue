@@ -178,6 +178,7 @@
   import { ref, computed, onBeforeUnmount, onMounted, provide, watch, nextTick } from 'vue'
   import { useLogger } from '@/composables/useLogger'
   import { useValidationStore } from '@/stores'
+  import { registerClassifications } from '@/config/classification'
   import DynamicField from './DynamicField.vue'
   import TabContent from './TabContent.vue'
   import ScoreDisplay from './ScoreDisplay.vue'
@@ -275,6 +276,9 @@
       ? normalizeDefinition(props.definition)
       : (validationStore.getJsonSchema(props.schemaId) ?? {})
   )
+  watch(() => jsonSchema.value.scoring_configuration?.classifications, registerClassifications, {
+    immediate: true
+  })
   // Flat layout: visible fields with `required_when` resolved against the form data
   const shownProperties = computed(() =>
     Object.fromEntries(

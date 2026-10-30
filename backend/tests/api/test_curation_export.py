@@ -123,6 +123,7 @@ def test_public_curation_exports_ids_pmids_and_methodology(
     assert (item["hgnc_id"], item["approved_symbol"]) == ("HGNC:1100", "BRCA1")
     assert (item["mondo_id"], item["moi_hpo_id"]) == ("MONDO:0000001", "HP:0000007")
     assert item["entity_key"] == "MONDO:0000001|AR"
+    assert item["relationship_type"] == "mendelian"
     assert item["pmids"] == ["3", "12"]
     assert item["computed_verdict"] == "Definitive"
     assert item["total_score"] == 12.5
@@ -130,6 +131,28 @@ def test_public_curation_exports_ids_pmids_and_methodology(
     assert item["reviewer_name"] == "Admin User"
     assert item["status"] == "active"
     assert item["archived_at"] is None
+
+
+def test_susceptibility_curation_exports_its_type_and_moi(
+    client: TestClient,
+    db_session: Session,
+    pair: WorkflowPair,
+    test_gene: Gene,
+    test_public_scope: Scope,
+) -> None:
+    """#539: the suffixed key decides, and the MOI still maps to its HPO id."""
+    _point(
+        db_session,
+        pair,
+        test_gene,
+        test_public_scope,
+        T0,
+        entity_key="MONDO:0011037|AD|SUSCEPTIBILITY",
+        evidence_data={"mondo_id": "MONDO:0011037", "mode_of_inheritance": "AD"},
+    )
+    [item] = client.get(URL, params={"scope_name": "public-scope"}).json()["items"]
+    assert item["relationship_type"] == "susceptibility"
+    assert item["moi_hpo_id"] == "HP:0000006"
 
 
 def test_private_scope_hidden_from_anonymous_and_archived_shown_to_members(

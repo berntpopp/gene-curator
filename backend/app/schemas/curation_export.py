@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.curation import RelationshipType
+
 
 class ExportMethodology(BaseModel):
     schema_name: str | None = Field(None, description="Curation schema name")
@@ -20,7 +22,9 @@ class ExportMethodology(BaseModel):
 class ExportCuration(BaseModel):
     curation_id: UUID
     entity_key: str = Field(
-        ..., description="MONDO|MOI, '' when the curation has no MONDO id"
+        ...,
+        description="MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility; '' when the "
+        "curation has no MONDO id",
     )
     url: str = Field(..., description="Link back to the curation in Gene Curator")
     status: str = Field(..., description="Curation status: active or archived")
@@ -31,6 +35,9 @@ class ExportCuration(BaseModel):
     mondo_id: str | None = None
     mode_of_inheritance: str | None = Field(None, description="As entered")
     moi_hpo_id: str | None = Field(None, description="HPO CURIE of the canonical MOI")
+    relationship_type: RelationshipType = Field(
+        "mendelian", description="mendelian or susceptibility (#539)"
+    )
     computed_verdict: str | None = None
     final_classification: str | None = Field(
         None, description="Curator classification confirmed at approval, else computed"

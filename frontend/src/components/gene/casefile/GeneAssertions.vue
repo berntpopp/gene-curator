@@ -32,6 +32,7 @@
             </td>
             <td data-label="MOI">
               {{ s.mode_of_inheritance ? formatInheritance(s.mode_of_inheritance) : EMPTY }}
+              <span v-if="s.relationship_type === 'susceptibility'">(susceptibility)</span>
             </td>
             <td data-label="Stage">
               {{ stageLabel(s.stage) }}

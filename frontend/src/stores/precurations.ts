@@ -28,6 +28,7 @@ function toSummary(p: PrecurationDetail): PrecurationRecord {
     mondo_id: null,
     disease_name: null,
     mode_of_inheritance: null,
+    relationship_type: p.relationship_type,
     is_draft: p.is_draft,
     created_at: p.created_at,
     updated_at: p.updated_at,

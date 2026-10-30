@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.curation import RelationshipType
+
 
 class ScopeCurationSummary(BaseModel):
     """Summary of an active curation within a single scope."""
@@ -26,12 +28,16 @@ class ScopeCurationSummary(BaseModel):
     mode_of_inheritance: str | None = Field(
         None, description="Mode of inheritance (AD, AR, XLD, etc.)"
     )
+    relationship_type: RelationshipType = Field(
+        "mendelian", description="mendelian or susceptibility (#539)"
+    )
 
     # Classification and scoring from computed fields
     classification: str | None = Field(
         None,
-        description="Final classification (curator's if set, else computed): definitive, "
-        "strong, moderate, limited, no_known, disputed, refuted",
+        description="Final classification (curator's if set, else computed): a key of "
+        "the schema's classes (ClinGen: definitive, strong, moderate, limited, no_known, "
+        "disputed, refuted)",
     )
     computed_verdict: str | None = Field(None, description="Calculated classification")
     genetic_score: float | None = Field(None, description="Genetic evidence score")

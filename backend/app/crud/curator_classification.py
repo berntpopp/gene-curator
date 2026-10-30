@@ -20,16 +20,38 @@ def class_key_sql(value: Any) -> ColumnElement[str]:
     return case((func.substr(key, 1, 8) == "no_known", "no_known"), else_=key)
 
 
-def allowed_classifications(config: dict[str, Any]) -> list[str]:
-    """Class keys a curator may choose (#533): the engine's verdicts, from the schema's point
-    model for ClinGen (same rule as the registry's engine info)."""
+def classification_choices(config: dict[str, Any]) -> list[dict[str, str]]:
+    """{key, label} a curator may choose: the schema's declared vocabulary in its order
+    (#539), then the engine's verdicts it lacks, from the point model for ClinGen (#533,
+    same rule as the registry's engine info)."""
     engine = engine_for(config)
     verdicts = (
         engine.get_supported_verdicts(config)
         if isinstance(engine, ClinGenEngine)
         else engine.get_supported_verdicts()
     )
-    return list(dict.fromkeys(class_key(v) for v in verdicts))
+    declared = config.get("classifications")
+    entries = [
+        c
+        for c in (declared if isinstance(declared, list) else [])
+        if isinstance(c, dict) and isinstance(c.get("key"), str)
+    ]
+    entries.sort(key=lambda c: c["order"] if _is_number(c.get("order")) else 0)
+    out: dict[str, str] = {}
+    for c in entries:
+        out.setdefault(class_key(c["key"]), str(c.get("label") or c["key"]))
+    for v in verdicts:
+        out.setdefault(class_key(v), v)
+    return [{"key": k, "label": label} for k, label in out.items()]
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def allowed_classifications(config: dict[str, Any]) -> list[str]:
+    """Class keys a curator may choose (classification_choices)."""
+    return [c["key"] for c in classification_choices(config)]
 
 
 def curator_call(

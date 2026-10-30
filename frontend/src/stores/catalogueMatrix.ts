@@ -27,6 +27,7 @@ export interface MatrixFetch {
   scopeIds: string[]
   search?: string
   agreement?: 'agree' | 'disagree'
+  classification?: string
   page: number
   size: number
   desc?: boolean
@@ -34,6 +35,7 @@ export interface MatrixFetch {
 
 export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
   const availableScopes = ref<Schema<'ScopeFilterOption'>[]>([])
+  const classifications = ref<string[]>([])
   /** Scopes the signed-in user belongs to; private or in-progress-only ones are not in the public list. */
   const memberScopes = ref<{ id: string; display_name: string }[]>([])
   const saved = ref<string[] | null>(readSaved())
@@ -70,6 +72,17 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
     }
   }
 
+  async function loadClassifications() {
+    try {
+      classifications.value = await catalogueMatrixAPI.getClassifications()
+    } catch (err) {
+      // The filter is optional: the catalogue works without its options.
+      logService.warn('Failed to load catalogue classifications', {
+        error: errorMessage(err, 'Could not load classifications')
+      })
+    }
+  }
+
   function saveDefault(ids: string[]) {
     saved.value = ids
     try {
@@ -96,6 +109,7 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
         scope_ids: q.scopeIds,
         search: q.search || undefined,
         agreement: q.agreement,
+        classification: q.classification || undefined,
         skip: (q.page - 1) * q.size,
         limit: q.size,
         sort_order: q.desc ? 'desc' : 'asc'
@@ -117,6 +131,8 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
 
   return {
     availableScopes,
+    classifications,
+    loadClassifications,
     allScopes,
     setMemberScopes,
     scopes,

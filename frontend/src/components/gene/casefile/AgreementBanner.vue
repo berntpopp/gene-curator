@@ -8,8 +8,8 @@
     <v-icon size="18" aria-hidden="true">{{ hasConflicts ? 'mdi-alert' : 'mdi-check' }}</v-icon>
     <span v-if="hasConflicts">
       Scopes disagree:
-      <span v-for="(count, key) in classifications" :key="key" class="agreement__item">
-        <ClassificationMark :classification="String(key)" />
+      <span v-for="[key, count] in ranked" :key="key" class="agreement__item">
+        <ClassificationMark :classification="key" />
         <span class="tabular">×{{ count }}</span>
       </span>
     </span>
@@ -22,14 +22,19 @@
 
 <script setup lang="ts">
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
-  import { getClassification } from '@/config/classification'
+  import { computed } from 'vue'
+  import { compareClassifications, getClassification } from '@/config/classification'
 
-  defineProps<{
+  const props = defineProps<{
     scopeCount: number
     hasConflicts: boolean
     consensus?: string | null
     classifications: Record<string, number>
   }>()
+  // Strongest first, in the schema's order when it declares one
+  const ranked = computed(() =>
+    Object.entries(props.classifications).sort(([a], [b]) => compareClassifications(a, b))
+  )
 </script>
 
 <style scoped>

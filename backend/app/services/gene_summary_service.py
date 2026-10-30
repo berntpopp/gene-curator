@@ -21,7 +21,7 @@ from app.models.models import (
     ScopeMembership,
     UserNew,
 )
-from app.schemas.curation import disease_fields
+from app.schemas.curation import disease_fields, relationship_of_key
 from app.schemas.gene_summary import GeneSummaryFull, GeneSummaryPublic, ScopeSummary
 
 logger = get_logger(__name__)
@@ -102,10 +102,8 @@ class GeneSummaryService:
         """One per-scope row: curation link, disease, stage and scores."""
         scores = curation.computed_scores or {}
         items = scores.get("evidence_items", [])
-        disease = disease_fields(
-            curation.evidence_data,
-            curation.precuration.evidence_data if curation.precuration else None,
-        )
+        pre = curation.precuration.evidence_data if curation.precuration else None
+        disease = disease_fields(curation.evidence_data, pre)
         return {
             "scope_id": str(curation.scope_id),
             "scope_name": scope.name,
@@ -115,6 +113,7 @@ class GeneSummaryService:
             "disease_name": disease["disease_name"],
             "mondo_id": disease["mondo_id"],
             "mode_of_inheritance": disease["mode_of_inheritance"],
+            "relationship_type": relationship_of_key(curation.entity_key),
             "stage": curation.workflow_stage.value,
             "in_progress": in_progress,
             "classification": curation.final_classification,

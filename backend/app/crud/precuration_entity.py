@@ -1,5 +1,5 @@
-"""Precuration disease entities (#530): the key, the author's open draft per entity, and
-saves the open-draft index refuses."""
+"""Precuration disease entities (#530): the key, the author's open draft per entity, saves
+the open-draft index refuses, and curation saves that would move the entity (#539)."""
 
 from typing import Any
 from uuid import UUID
@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.core.db_types import compatible_jsonb
 from app.crud.optimistic_lock import update_if_version
-from app.models import CurationStatus, PrecurationNew
+from app.models import CurationNew, CurationStatus, PrecurationNew
 from app.models.curation import ENTITY_KEY_SQL
+from app.schemas.curation import disease_fields, relationship_type
 
 
 def conflict(message: str, **ids: UUID) -> HTTPException:
@@ -28,6 +29,52 @@ def entity_key_of(db: Session, evidence: dict[str, Any]) -> str:
         literal(evidence, compatible_jsonb()).label("evidence_data")
     ).subquery()
     return db.scalar(select(literal_column(ENTITY_KEY_SQL)).select_from(row)) or ""
+
+
+def curation_entity_key(
+    db: Session, evidence: dict[str, Any], precuration: dict[str, Any] | None
+) -> str:
+    """The key a curation's evidence names, the precuration filling what it leaves out."""
+    fields = disease_fields(evidence, precuration)
+    fields["relationship_type"] = relationship_type(evidence, precuration)
+    return entity_key_of(db, fields)
+
+
+def refuse_entity_change(
+    db: Session, curation: CurationNew, evidence: dict[str, Any]
+) -> None:
+    """409 when a curation save names another disease entity than the curation's: its
+    entity_key is copied once at creation, so a changed MONDO id or MOI would drift from it
+    (#539). Saves that leave the named entity as it was (already drifted rows) pass, and
+    an unkeyed ('' = lumped or legacy) curation covers the whole gene as before."""
+    pre = curation.precuration.evidence_data if curation.precuration else None
+    refuse_other_entity(
+        db,
+        curation.entity_key,
+        evidence,
+        pre,
+        {"curation_id": curation.id},
+        allowed=curation_entity_key(db, curation.evidence_data or {}, pre),
+    )
+
+
+def refuse_other_entity(
+    db: Session,
+    entity_key: str,
+    evidence: dict[str, Any],
+    precuration: dict[str, Any] | None,
+    ids: dict[str, UUID],
+    allowed: str = "",
+) -> None:
+    """409 naming `ids` when the evidence names another entity than `entity_key` (or
+    `allowed`); '' on either side names none."""
+    new = curation_entity_key(db, evidence, precuration)
+    if entity_key and new and new not in (entity_key, allowed):
+        raise conflict(
+            "This curation is for another disease entity (MONDO id, inheritance and "
+            "relationship type); start a precuration to curate this one",
+            **ids,
+        )
 
 
 def open_draft(

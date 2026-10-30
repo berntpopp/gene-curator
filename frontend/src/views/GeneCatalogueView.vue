@@ -75,7 +75,7 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import ScopePicker from '@/components/catalogue/ScopePicker.vue'
   import { useTableUrlState } from '@/composables/useTableUrlState'
-  import { getClassification } from '@/config/classification'
+  import { compareClassifications, getClassification } from '@/config/classification'
   import { curationStatusLabel } from '@/config/status'
   import { useAuthStore } from '@/stores/auth'
   import { useCatalogueMatrixStore } from '@/stores/catalogueMatrix'
@@ -91,7 +91,8 @@
     single: 'One scope',
     none: '—'
   }
-  const filterDefs = [
+  const store = useCatalogueMatrixStore()
+  const filterDefs = computed(() => [
     {
       key: 'agreement',
       label: 'Agreement',
@@ -99,14 +100,20 @@
         { value: 'agree', title: 'Agree' },
         { value: 'disagree', title: 'Disagree' }
       ]
+    },
+    {
+      key: 'classification',
+      label: 'Classification',
+      options: [...store.classifications]
+        .sort(compareClassifications)
+        .map(value => ({ value, title: getClassification(value).label }))
     }
-  ]
+  ])
 
-  const store = useCatalogueMatrixStore()
   const scopesStore = useScopesStore()
   const auth = useAuthStore()
   const { search, page, itemsPerPage, sortBy, density, filters } = useTableUrlState({
-    filterKeys: ['agreement', 'scopes'],
+    filterKeys: ['agreement', 'classification', 'scopes'],
     multiKeys: ['scopes']
   })
 
@@ -145,10 +152,12 @@
   const ready = ref(false)
   function load() {
     const agreement = filters.value.agreement
+    const classification = filters.value.classification
     return store.fetch({
       scopeIds: shownIds.value,
       search: search.value,
       agreement: agreement === 'agree' || agreement === 'disagree' ? agreement : undefined,
+      classification: typeof classification === 'string' ? classification : undefined,
       page: page.value,
       size: itemsPerPage.value,
       desc: sortBy.value[0]?.order === 'desc'
@@ -162,6 +171,7 @@
       page.value,
       itemsPerPage.value,
       filters.value.agreement,
+      filters.value.classification,
       sortBy.value[0]?.order,
       ready.value
     ],
@@ -185,6 +195,7 @@
   )
 
   onMounted(async () => {
+    void store.loadClassifications()
     await store.loadScopes()
     ready.value = true
   })
