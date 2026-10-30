@@ -47,6 +47,12 @@ describe('ScoreTrace', () => {
     expect(rows).toContainEqual(['Total', '—', '6.00', '5.00', '5 · capped'])
     expect(w.text()).toContain('Classification rule details were not stored')
   })
+  it('reads a band floor below 1 as more than 0 points (W9 monkey)', () => {
+    const w = render({ ...trace, classification_rule: { class: 'limited', min: 0.1 } })
+    expect(w.text()).toContain('More than 0 points')
+    expect(w.text()).not.toContain('0.1')
+  })
+
   it('displays the selected replication band and its description', () => {
     const w = render({
       ...trace,
