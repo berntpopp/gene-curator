@@ -137,6 +137,21 @@ describe('CurationFormView entity choice', () => {
     expect(useCurationsStore().createCuration).not.toHaveBeenCalled()
   })
 
+  it('lists a legacy open curation without an entity link so it can be continued', async () => {
+    const legacy = { status: 'draft', precuration_id: null as never }
+    Object.assign(links, { l1: legacy, a1: { status: 'active', precuration_id: 'p2' } })
+    const entities = ['p1', 'p2'].map(approvedPrecuration)
+    const wrapper = await mountView([row('l1', 'draft'), row('a1', 'active')], {}, entities)
+    const items = () => wrapper.findAll('[data-testid="entity-choices"] .v-list-item')
+    expect(items()).toHaveLength(3)
+    expect(items()[2]!.text()).toContain('Disease l1 · MONDO:l1 · Autosomal dominant · draft')
+    await items()[2]!.trigger('click')
+    expect(routerReplace).toHaveBeenCalledWith({
+      name: 'curation-edit',
+      params: { scopeId: 'sc1', curationId: 'l1' }
+    })
+  })
+
   it('starts the curation of the precuration named in the route', async () => {
     await mountView([], { precuration_id: 'p2' }, [approvedPrecuration('p1')])
     expect(useCurationsStore().createCuration).toHaveBeenCalledWith(
