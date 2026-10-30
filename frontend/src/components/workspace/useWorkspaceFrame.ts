@@ -55,7 +55,7 @@ export function createWorkspaceFrame() {
   const savedAt = ref<number | null>(null)
   const score = ref<ScoreSnapshot | null>(null)
   const scorePending = ref(false)
-  const meta = ref<{ disease?: string; moi?: string }>({})
+  const meta = ref<{ disease?: string; moi?: string; relationship?: string }>({})
   // Things that must be fixed before saving, by source (e.g. an unknown PMID in a table)
   const blockerMap = ref<Record<string, string>>({})
   // Rows the submit would refuse (scorePreview REASONS) block it here, with the panel's reason
@@ -153,7 +153,7 @@ export function createWorkspaceFrame() {
     save,
     submit,
     setScore: (s: ScoreSnapshot | null) => (score.value = s),
-    setMeta: (m: { disease?: string; moi?: string }) => (meta.value = m)
+    setMeta: (m: { disease?: string; moi?: string; relationship?: string }) => (meta.value = m)
   }
 }
 

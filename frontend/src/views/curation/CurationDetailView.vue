@@ -134,11 +134,11 @@
                         </v-chip>
                         <span v-else class="text-body-large mt-1">Not specified</span>
                         <v-chip
-                          v-if="curation.relationship_type === 'susceptibility'"
+                          v-if="relationshipLabel(curation.relationship_type)"
                           variant="outlined"
                           class="mt-1 ml-1"
                         >
-                          Susceptibility
+                          {{ relationshipLabel(curation.relationship_type) }}
                         </v-chip>
                       </div>
                       <div class="mb-4">
@@ -378,6 +378,7 @@
       :classification="final"
       :calculated="classification"
       :rationale="rationale"
+      :replaces="replaces"
       :total="formatScore(scores.total)"
       :curator="curation?.curator_name"
       :blockers="blockers"
@@ -401,12 +402,12 @@
   import { formatDateTime } from '@/utils/format'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { registerClassifications } from '@/config/classification'
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, schemasAPI } from '@/api'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -421,12 +422,15 @@
   import { useReviewStore } from '@/stores/review'
   import { useScopesStore } from '@/stores/scopes'
   import { useCurationClassification, type ScoredCuration } from './useCurationClassification'
+  import { replacesActive } from './replacesActive'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useCurateGuard } from '@/components/workspace/useCurateGuard'
 
   interface CurationRecord extends ScoredCuration {
     status: string
     gene_id?: string
+    scope_id?: string
+    precuration_id?: string | null
     workflow_pair_id?: string
     methodology_version_id?: string | null
     evidence_data?: Record<string, unknown> | null
@@ -635,6 +639,10 @@
   }
 
   const review = useReviewTransitions(() => curationId.value, loadCuration)
+  const replaces = ref(false)
+  watch(review.showApprove, async open => {
+    if (open) replaces.value = await replacesActive(curation.value).catch(() => false)
+  })
 
   function exportCuration() {
     const exportData = {

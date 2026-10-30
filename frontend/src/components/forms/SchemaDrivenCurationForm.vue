@@ -58,9 +58,9 @@
             No schema assigned to this curation. Please contact an administrator.
           </v-alert>
 
-          <!-- Saved with an existing curation only: create takes evidence alone -->
+          <!-- A new curation sends the call with its create (a re-curation keeps the source's) -->
           <CuratorClassificationField
-            v-if="version && curationId"
+            v-if="version"
             v-model="curatorCall"
             :calculated="score?.classification ?? curationsStore.currentCuration?.computed_verdict"
             :choices="curationsStore.currentCuration?.classification_choices"
@@ -148,6 +148,7 @@
   import ScoreSummary from './ScoreSummary.vue'
   import LumpingSplittingSection from './LumpingSplittingSection.vue'
   import CuratorClassificationField, { type CuratorCall } from './CuratorClassificationField.vue'
+  import { unexplainedOverride } from './curatorCall'
   import { useConfirm } from '@/composables/useConfirm'
   import { pmidsIn, usePmidLookup } from '@/composables/usePmidLookup'
   import { WORKSPACE_FRAME, type ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
@@ -292,12 +293,19 @@
   })
 
   // Submit eligibility: valid and something entered
+  const unexplained = computed(() =>
+    unexplainedOverride(
+      curatorCall.value,
+      score.value?.classification ?? curationsStore.currentCuration?.computed_verdict
+    )
+  )
   const canSubmit = computed(
     () =>
       isValid.value &&
       !props.readonly &&
       hasContent(evidenceData.value) &&
-      (!needsGenetic.value || hasGenetic.value)
+      (!needsGenetic.value || hasGenetic.value) &&
+      !unexplained.value
   )
 
   // === Persistence (save draft / submit) ===
@@ -361,6 +369,22 @@
           : null
       )
   )
+  // Submit names what the ClinGen rule still misses, once there is evidence to check
+  watch(
+    () => needsGenetic.value && !hasGenetic.value && hasContent(evidenceData.value),
+    missing =>
+      frame?.setBlocker(
+        'curation-genetic',
+        missing ? 'Add case-level or segregation evidence before submitting' : null
+      ),
+    { immediate: true }
+  )
+  watch(unexplained, missing =>
+    frame?.setBlocker(
+      'curation-rationale',
+      missing ? 'Add a rationale for the changed classification before submitting' : null
+    )
+  )
   // #453: a disease gap the read-only form cannot fix blocks Submit with the reason
   useDiseaseGap({
     curationId: () => (props.readonly ? undefined : (props.curationId ?? undefined)),
@@ -374,7 +398,8 @@
     p =>
       frame?.setMeta({
         disease: p.disease_name ?? p.entity_definition?.disease_name ?? undefined,
-        moi: p.mode_of_inheritance ?? p.entity_definition?.mode_of_inheritance ?? undefined
+        moi: p.mode_of_inheritance ?? p.entity_definition?.mode_of_inheritance ?? undefined,
+        relationship: p.relationship_type ?? p.entity_definition?.relationship_type ?? undefined
       }),
     { immediate: true }
   )
@@ -613,6 +638,11 @@
       const source = await curationsStore.fetchCurationById(props.prefillFrom)
       // The disease lives in the evidence (or the precuration): copying the resolved fields duplicated it
       evidenceData.value = { ...(source.evidence_data ?? {}) }
+      // Approving an unchanged re-curation must publish the same call, not the calculated one
+      curatorCall.value = {
+        curator_classification: source.curator_classification ?? null,
+        curator_classification_rationale: source.curator_classification_rationale ?? null
+      }
       // A gene may hold several disease entities: re-curate this one (#530)
       precurationId.value = source.precuration_id ?? null
     } catch (error) {

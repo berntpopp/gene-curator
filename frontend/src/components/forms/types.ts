@@ -16,7 +16,8 @@ export interface MimPhenotype {
 
 export interface LumpingSplittingData {
   curation_type?: string | null
-  rationale?: string[] | null
+  /** Criteria keys, or free text (Standard_Precuration) */
+  rationale?: string[] | string | null
   evaluation_date?: string | null
   included_mim_phenotypes?: MimPhenotype[] | null
   excluded_mim_phenotypes?: MimPhenotype[] | null
@@ -31,6 +32,7 @@ export interface PrecurationData extends LumpingSplittingData {
   disease_name?: string | null
   mondo_id?: string | null
   mode_of_inheritance?: string | null
+  relationship_type?: string | null
   expert_panel?: string | null
   phenotypes?: string[] | null
   pmids?: string | null
@@ -39,6 +41,7 @@ export interface PrecurationData extends LumpingSplittingData {
     disease_name?: string | null
     mondo_id?: string | null
     mode_of_inheritance?: string | null
+    relationship_type?: string | null
     phenotypes?: string[] | null
   }
   lumping_splitting?: LumpingSplittingData

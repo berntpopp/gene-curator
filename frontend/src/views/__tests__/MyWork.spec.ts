@@ -22,6 +22,7 @@ const item = (over: Partial<Schema<'WorkItem'>>): Schema<'WorkItem'> => ({
   scope_name: 'Kidney genetics',
   link: '/assignments/i1',
   updated_at: '2026-10-20T10:00:00Z',
+  relationship_type: 'mendelian',
   ...over
 })
 
@@ -102,6 +103,17 @@ describe('MyWork view', () => {
     expect(full!.text()).toContain('Curation')
     expect(full!.text()).toContain('Moderate')
     expect(bare!.text()).not.toContain('Not classified')
+  })
+
+  it('labels a susceptibility entity, not a Mendelian one (W9 monkey)', async () => {
+    const w = mountView([
+      item({ disease_name: 'Diabetes', relationship_type: 'susceptibility' }),
+      item({ item_id: 'i2', disease_name: 'Diabetes', relationship_type: 'mendelian' })
+    ])
+    await settle()
+    const [sus, mendelian] = rows(w)
+    expect(sus!.text()).toContain('Susceptibility')
+    expect(mendelian!.text()).not.toContain('Susceptibility')
   })
 
   it('keeps rows of one next action together, in API order', async () => {

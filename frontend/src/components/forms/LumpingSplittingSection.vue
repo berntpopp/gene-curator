@@ -322,10 +322,12 @@
       null
   )
 
-  // ClinGen Rationale (multiple choice)
-  const rationaleChoices = computed(
-    () =>
-      props.precurationData?.rationale || props.precurationData?.lumping_splitting?.rationale || []
+  // ClinGen Rationale (multiple choice); a free-text rationale is shown as notes
+  const rawRationale = computed(
+    () => props.precurationData?.rationale || props.precurationData?.lumping_splitting?.rationale
+  )
+  const rationaleChoices = computed(() =>
+    Array.isArray(rawRationale.value) ? rawRationale.value : []
   )
 
   // Evaluation date
@@ -373,7 +375,7 @@
       props.precurationData?.rationale_notes ||
       props.precurationData?.lumping_splitting?.notes ||
       props.precurationData?.notes ||
-      null
+      (typeof rawRationale.value === 'string' ? rawRationale.value : null)
   )
 
   // Helper functions

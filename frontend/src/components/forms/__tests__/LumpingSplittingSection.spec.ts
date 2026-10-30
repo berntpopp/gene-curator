@@ -26,6 +26,14 @@ describe('LumpingSplittingSection', () => {
     expect(wrapper.text()).toContain('custom_reason')
   })
 
+  it('renders a free-text rationale as text, not one chip per character (W9 monkey)', () => {
+    const wrapper = mount(LumpingSplittingSection, {
+      props: { precurationData: { lumping_splitting: { rationale: 'Same mechanism' } } }
+    })
+    expect(wrapper.findAll('.v-chip')).toHaveLength(0)
+    expect(wrapper.text()).toContain('Same mechanism')
+  })
+
   it('splits comma-separated supporting PMIDs into links', () => {
     const wrapper = mount(LumpingSplittingSection, {
       props: { precurationData: { supporting_pmids: '111, 222' } }

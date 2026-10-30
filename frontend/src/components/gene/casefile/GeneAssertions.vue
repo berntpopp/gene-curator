@@ -22,9 +22,9 @@
                 v-if="linked"
                 :to="{ name: 'scope-dashboard', params: { scopeId: s.scope_id } }"
               >
-                {{ s.scope_name }}
+                {{ s.scope_display_name }}
               </router-link>
-              <template v-else>{{ s.scope_name }}</template>
+              <template v-else>{{ s.scope_display_name }}</template>
             </td>
             <td data-label="Disease" class="wide">
               {{ s.disease_name || EMPTY }}
@@ -32,7 +32,9 @@
             </td>
             <td data-label="MOI">
               {{ s.mode_of_inheritance ? formatInheritance(s.mode_of_inheritance) : EMPTY }}
-              <span v-if="s.relationship_type === 'susceptibility'">(susceptibility)</span>
+              <span v-if="relationshipLabel(s.relationship_type)"
+                >({{ relationshipLabel(s.relationship_type) }})</span
+              >
             </td>
             <td data-label="Stage">
               {{ stageLabel(s.stage) }}
@@ -50,7 +52,7 @@
                   name: 'curation-detail',
                   params: { scopeId: s.scope_id, curationId: s.curation_id }
                 }"
-                :aria-label="`Open curation in ${s.scope_name}`"
+                :aria-label="`Open curation in ${s.scope_display_name}`"
               >
                 Open
               </router-link>
@@ -66,7 +68,7 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { curationStatusLabel } from '@/config/status'
   import { EMPTY, formatDate } from '@/utils/format'
-  import { formatInheritance } from '@/utils/inheritance'
+  import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import type { Schema } from '@/types/api'
 
   defineProps<{

@@ -23,7 +23,7 @@ from app.models import (
     UserNew,
     WorkflowStage,
 )
-from app.schemas.curation import disease_fields
+from app.schemas.curation import disease_fields, relationship_of_key
 from app.schemas.my_work import WorkItem, WorkKind, WorkTab
 
 DONE_WINDOW = timedelta(days=7)
@@ -51,6 +51,7 @@ def _item(row: Any, kind: WorkKind, tab: WorkTab, verb: str, link: str) -> WorkI
         updated_at=getattr(obj, "updated_at", None) or obj.assigned_at,
         disease_name=disease["disease_name"],
         mode_of_inheritance=disease["mode_of_inheritance"],
+        relationship_type=relationship_of_key(getattr(obj, "entity_key", None)),
         stage=getattr(stage, "value", stage),
         classification=getattr(obj, "final_classification", None),
     )

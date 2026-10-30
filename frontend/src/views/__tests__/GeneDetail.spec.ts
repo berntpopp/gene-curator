@@ -39,7 +39,8 @@ const localGene = {
 
 const scope = (over = {}) => ({
   scope_id: 's1',
-  scope_name: 'Kidney genetics',
+  scope_name: 'kidney-genetics',
+  scope_display_name: 'Kidney genetics',
   is_public: true,
   classification: 'definitive',
   curation_id: 'c1',
@@ -256,7 +257,10 @@ describe('GeneDetail view', () => {
       useAuthStore().isAuthenticated = true
       vi.mocked(geneSummaryAPI.getFullSummary).mockResolvedValue(
         summaryOf(
-          [scope(), scope({ scope_id: 's2', scope_name: 'Cystic panel', curation_id: 'c2' })],
+          [
+            scope(),
+            scope({ scope_id: 's2', scope_display_name: 'Cystic panel', curation_id: 'c2' })
+          ],
           {
             total_scopes_curated: 3
           }

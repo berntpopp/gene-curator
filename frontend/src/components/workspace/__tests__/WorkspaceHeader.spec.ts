@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { useValidationStore } from '@/stores/validation'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import WorkspaceHeader from '../WorkspaceHeader.vue'
 
@@ -30,6 +32,8 @@ const mountHeader = (props: Record<string, unknown> = {}) =>
   mount(WorkspaceHeader, { props: { ...base, ...props }, global: { plugins: [router] } })
 
 describe('WorkspaceHeader', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
   it('shows the breadcrumb with links for all but the current page', () => {
     const w = mountHeader()
     const nav = w.find('nav[aria-label="Breadcrumb"]')
@@ -56,6 +60,18 @@ describe('WorkspaceHeader', () => {
     expect(w.emitted('retry')).toHaveLength(1)
   })
 
+  it('names the invalid field when a click on a blocked Submit has no blocker text', async () => {
+    const w = mountHeader({ canSubmit: false })
+    await w.find('[data-testid="ws-submit"]').trigger('click')
+    expect(w.find('[data-testid="ws-blockers"]').text()).toContain('Complete the required evidence')
+    useValidationStore().validationResults = {
+      form: { is_valid: false, errors: [{ field: 'notes', message: 'Required' }] }
+    } as never
+    await w.vm.$nextTick()
+    expect(w.find('[data-testid="ws-blockers"]').text()).toContain('Required')
+    expect(w.find('[data-testid="ws-blockers"]').text()).not.toContain('Complete the required')
+  })
+
   it('says next to Submit why it is blocked', () => {
     const reason = 'Fix 1 unknown PMID before submitting: PMID 999 not found in Europe PMC'
     expect(mountHeader().find('[data-testid="ws-blockers"]').exists()).toBe(false)
@@ -75,6 +91,11 @@ describe('WorkspaceHeader', () => {
     expect(mountHeader({ showSubmit: false }).find('[data-testid="ws-submit"]').exists()).toBe(
       false
     )
+  })
+
+  it('labels a susceptibility entity only (W9 monkey)', () => {
+    expect(mountHeader({ relationship: 'susceptibility' }).text()).toContain('Susceptibility')
+    expect(mountHeader({ relationship: 'mendelian' }).text()).not.toContain('Susceptibility')
   })
 
   it('shows the inheritance in plain words', () => {

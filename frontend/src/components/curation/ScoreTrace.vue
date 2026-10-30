@@ -67,7 +67,11 @@
         <p>
           {{ traceLabel(String(rule.class ?? trace.class))
           }}<template v-if="typeof rule.min === 'number'">
-            · Minimum {{ rule.min }} points</template
+            ·
+            <!-- A tiny band floor (0.1) reads as a real threshold; it means any points -->
+            {{
+              rule.min > 0 && rule.min < 1 ? 'More than 0 points' : `Minimum ${rule.min} points`
+            }}</template
           >
         </p>
         <p v-if="typeof rule.requires === 'string'">Requires {{ traceLabel(rule.requires) }}</p>
