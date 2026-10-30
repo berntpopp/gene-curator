@@ -227,6 +227,7 @@ export const scopeService = {
    * @param [invitationData.email] - Email of user to invite (for new users)
    * @param [invitationData.user_id] - User ID (for existing users)
    * @param invitationData.role - Scope role (admin, curator, reviewer, viewer)
+   * @param [direct=false] - Add as an accepted member at once (admins only), no invitation
    * @returns Invitation result
    *
    * @example
@@ -237,10 +238,11 @@ export const scopeService = {
    */
   async inviteMember(
     scopeId: string,
-    invitationData: Schema<'ScopeMembershipCreate'>
+    invitationData: Schema<'ScopeMembershipCreate'>,
+    direct = false
   ): Promise<Schema<'ScopeMembershipResponse'>> {
     const response = await apiClient.post<Schema<'ScopeMembershipResponse'>>(
-      `/scopes/${scopeId}/invitations`,
+      `/scopes/${scopeId}/${direct ? 'members' : 'invitations'}`,
       invitationData
     )
     return response.data

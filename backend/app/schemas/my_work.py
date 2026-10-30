@@ -24,6 +24,12 @@ class WorkItem(BaseModel):
     scope_name: str
     link: str = Field(..., description="Frontend route that opens the work")
     updated_at: datetime | None = None
+    disease_name: str | None = None
+    mode_of_inheritance: str | None = None
+    stage: str | None = Field(None, description="Workflow stage; null for assignments")
+    classification: str | None = Field(
+        None, description="Calculated classification (curations only)"
+    )
 
 
 class MyWorkResponse(BaseModel):

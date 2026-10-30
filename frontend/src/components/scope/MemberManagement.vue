@@ -174,6 +174,7 @@
     id?: string
     userName?: string | null
     userEmail?: string | null
+    direct?: boolean
   }
 
   // ============================================
@@ -214,7 +215,10 @@
    * Existing member IDs (for excluding from search)
    */
   const existingMemberIds = computed<string[]>(() => {
-    return members.value.map(m => m.user_id)
+    // Nobody invites or adds themselves (the API answers 403)
+    const ids = new Set(members.value.map(m => m.user_id))
+    if (currentUserId.value) ids.add(currentUserId.value)
+    return [...ids]
   })
 
   // ============================================
@@ -291,8 +295,9 @@
       membership_id: invitationResult.id
     })
 
+    const who = invitationResult.userName || invitationResult.userEmail
     showNotification(
-      `Invitation sent to ${invitationResult.userName || invitationResult.userEmail}`,
+      invitationResult.direct ? `${who} added to the scope` : `Invitation sent to ${who}`,
       'success'
     )
 

@@ -5870,6 +5870,8 @@ export interface components {
             symbol: string;
             /** Hgnc Id */
             hgnc_id: string;
+            /** Classification */
+            classification?: string | null;
         };
         /**
          * GeneListResponse
@@ -10620,6 +10622,20 @@ export interface components {
             link: string;
             /** Updated At */
             updated_at?: string | null;
+            /** Disease Name */
+            disease_name?: string | null;
+            /** Mode Of Inheritance */
+            mode_of_inheritance?: string | null;
+            /**
+             * Stage
+             * @description Workflow stage; null for assignments
+             */
+            stage?: string | null;
+            /**
+             * Classification
+             * @description Calculated classification (curations only)
+             */
+            classification?: string | null;
         };
         /**
          * WorkflowAnalytics
