@@ -77,3 +77,11 @@ def test_a_cleared_optional_url_is_no_error() -> None:
         {"home": ""}, {"field_definitions": fields}
     )
     assert [e["type"] for e in result.errors] == ["required"]
+
+
+def test_a_required_url_of_only_spaces_fails() -> None:
+    fields = {"home": {"type": "url", "required": True}}
+    result = SchemaValidator().validate_evidence_data(
+        {"home": "   "}, {"field_definitions": fields}
+    )
+    assert result.errors and not result.is_valid

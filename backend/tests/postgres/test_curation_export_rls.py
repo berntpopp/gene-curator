@@ -143,3 +143,46 @@ def test_member_sees_archived_and_private_curations(client: TestClient, w: W) ->
     assert rows["pub_old"]["archived_at"] is not None
     assert rows["pub_old"]["status"] == "archived"
     assert rows["pub_new"]["methodology"]["version"] >= 1
+
+
+def test_deleted_active_curation_archives_its_pointer(client: TestClient, w: W) -> None:
+    admin = uuid4()
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO users (id, email, hashed_password, name, role) "
+            "VALUES (%s, %s, %s, 'xadm', 'admin')",
+            (str(admin), f"xadm-{admin}@export.org", get_password_hash("pw")),
+        )
+    try:
+        token = create_access_token({"sub": str(admin)})
+        r = client.delete(
+            f"/api/v1/curations/{w.ids['pub_new']}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 204, r.text
+        assert _mine(client, w, None) == {}
+        gone = _mine(client, w, w.member)["pub_new"]
+        assert (gone["status"], gone["archive_reason"]) == (
+            "archived",
+            "Curation deleted",
+        )
+        assert gone["archived_at"] is not None
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT archived_at IS NOT NULL, archived_by FROM active_curations "
+                "WHERE curation_id = %s",
+                (str(w.ids["pub_new"]),),
+            )
+            assert cur.fetchone() == (True, str(admin))
+    finally:
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM audit_log WHERE user_id = %s", (str(admin),))
+            cur.execute(
+                "UPDATE active_curations SET archived_by = NULL WHERE archived_by = %s",
+                (str(admin),),
+            )
+            cur.execute(
+                "UPDATE curations SET updated_by = NULL WHERE updated_by = %s",
+                (str(admin),),
+            )
+            cur.execute("DELETE FROM users WHERE id = %s", (str(admin),))
