@@ -5,6 +5,7 @@ templates can only reference the names below; anything else fails.
 """
 
 import re
+import unicodedata
 from collections.abc import Mapping
 
 # Structured identifiers, substituted as-is.
@@ -28,7 +29,8 @@ UNTRUSTED_DATA_NOTICE = (
 )
 
 _PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
-_BLOCK_TAG = re.compile(r"<(?=\s*/?\s*untrusted_data)", re.IGNORECASE)
+# `<` opening any tag-like token (a letter after optional `/`): no look-alike block tag
+_TAG_OPEN = re.compile(r"<(?=\s*/?\s*[^\W\d_])")
 
 
 class PromptTemplateError(ValueError):
@@ -45,9 +47,12 @@ def template_placeholders(template: str) -> set[str]:
 
 
 def wrap_untrusted(name: str, value: str) -> str:
-    # Neutralize only block tags, so free text cannot close the block or open a fake one;
-    # other angle brackets (c.1000C>T, p<0.05) are data and stay verbatim.
-    escaped = _BLOCK_TAG.sub("&lt;", value)
+    # Free text cannot close the block or open a fake one: NFKC folds look-alike brackets
+    # (fullwidth, small form) to `<`, invisible format characters (Cf) are dropped, then
+    # every tag-like `<` is neutralized. Other brackets (c.1000C>T, p<0.05) stay verbatim.
+    folded = unicodedata.normalize("NFKC", value)
+    visible = "".join(c for c in folded if unicodedata.category(c) != "Cf")
+    escaped = _TAG_OPEN.sub("&lt;", visible)
     return f'<untrusted_data name="{name}">\n{escaped}\n</untrusted_data>'
 
 
