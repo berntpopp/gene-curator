@@ -139,7 +139,9 @@
       `claude mcp add --transport http gene-curator ${mcpUrl} --header "Authorization: Bearer ${plaintext.value}"`
   )
 
-  const isExpired = (t: PersonalAccessToken): boolean => new Date(t.expires_at) <= new Date()
+  // An OAuth connection refreshes its expired hourly token for 30 days: still revocable
+  const isExpired = (t: PersonalAccessToken): boolean =>
+    !t.name.startsWith('OAuth:') && new Date(t.expires_at) <= new Date()
 
   async function create(): Promise<void> {
     if (!name.value.trim()) return

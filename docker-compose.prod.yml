@@ -39,6 +39,9 @@ services:
       LLM_CREDENTIAL_KEYS: ${LLM_CREDENTIAL_KEYS:-}
       LLM_CREDENTIAL_ACTIVE_KID: ${LLM_CREDENTIAL_ACTIVE_KID:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
+      # MCP OAuth (#462): the HTTPS API origin clients reach and the web app origin
+      GENE_CURATOR_PUBLIC_URL: ${GENE_CURATOR_PUBLIC_URL:?Set GENE_CURATOR_PUBLIC_URL (https://api host)}
+      GENE_CURATOR_FRONTEND_URL: ${GENE_CURATOR_FRONTEND_URL:?Set GENE_CURATOR_FRONTEND_URL (https://web app host)}
       # Rate limiting is off in config/api.yaml (dev, tests) and on in production
       GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING: "true"
       # Passed through only when set. Set it to your reverse proxy's address only, and bind

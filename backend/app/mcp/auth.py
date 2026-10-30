@@ -1,19 +1,18 @@
-"""MCP authentication: personal access tokens only, resolved as their owner (#462).
+"""MCP authentication: personal access tokens, resolved as their owner (#462).
 
-No service token, no service principal, no anonymous mode: every tool call reaches
-the API with the caller's own token (see server._as_caller).
+OAuth access tokens are PAT rows too (mcp.oauth). No service token, no service
+principal, no anonymous mode: every tool call reaches the API with the caller's own
+token (see server._as_caller).
 """
 
 from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
-from typing import Any, cast
+from typing import cast
 from uuid import UUID
 
 from fastapi import FastAPI
-from fastmcp.server.auth import AccessToken, TokenVerifier
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
 
 from app.core.database import apply_rls_user, get_db
 from app.core.security import PAT_PREFIX, hash_personal_access_token
@@ -62,24 +61,3 @@ def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str, str] | Non
         )
         role = db.scalar(select(UserNew.role).where(UserNew.id == UUID(user_id)))
         return user_id, scopes, name or "", str(getattr(role, "value", role))
-
-
-class PersonalAccessTokenVerifier(TokenVerifier):
-    """Accepts a live gc_pat_ token; scopes come from the token and only narrow."""
-
-    def __init__(self, app: FastAPI) -> None:
-        super().__init__()
-        self._app = app
-
-    async def verify_token(self, token: str) -> AccessToken | None:
-        found: Any = await run_in_threadpool(pat_owner, self._app, token)
-        if found is None:
-            return None
-        user_id, scopes, name, role = found
-        # role only shapes tools/list (server.CallerToolFilter); the API re-checks it
-        return AccessToken(
-            token=token,
-            client_id=name,
-            scopes=scopes,
-            claims={"sub": user_id, "role": role},
-        )

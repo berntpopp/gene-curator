@@ -5,7 +5,9 @@ Enhanced with YAML-based configuration and constants module for better
 maintainability and deployment flexibility.
 """
 
-from pydantic import field_validator
+from urllib.parse import urlparse
+
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.constants import (
@@ -105,6 +107,23 @@ class Settings(BaseSettings):
     LLM_CREDENTIAL_ACTIVE_KID: str = ""
     # Background LLM run worker in the API lifespan; tests turn it off.
     LLM_WORKER_ENABLED: bool = True
+
+    # ========================================
+    # MCP OAUTH (#462): public origins MCP clients and browsers reach
+    # ========================================
+    # OAuth issuer and MCP resource base; HTTPS in production (loopback only for tests)
+    GENE_CURATOR_PUBLIC_URL: str = "http://localhost:8051"
+    # Web app origin serving /oauth/consent
+    GENE_CURATOR_FRONTEND_URL: str = "http://localhost:5193"
+
+    @model_validator(mode="after")
+    def public_url_is_https_in_production(self) -> "Settings":
+        """Fail closed: production never advertises a plain-HTTP OAuth issuer."""
+        url = urlparse(self.GENE_CURATOR_PUBLIC_URL)
+        loopback = url.hostname in {"localhost", "127.0.0.1", "::1"}
+        if self.ENVIRONMENT == "production" and url.scheme != "https" and not loopback:
+            raise ValueError("GENE_CURATOR_PUBLIC_URL must be https:// in production")
+        return self
 
     @field_validator("PORT", mode="before")
     @classmethod

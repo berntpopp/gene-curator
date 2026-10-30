@@ -195,8 +195,32 @@ claude mcp add --transport http gene-curator http://localhost:8051/mcp \
 
 `/mcp` serves the curation core (set up a scope, curate a gene, review a curation; research goes through a literature MCP such as GeneFoundry); `/mcp/full` serves
 every API operation with the same token. Writes are audited with channel `mcp` and the token
-name. Claude Desktop, revocation and the tool list are covered in [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md). OAuth 2.1 sign-in
-and dynamic client registration come in phase 2. Existing databases need `make db-migrate` (059).
+name. Claude Desktop, revocation and the tool list are covered in [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md). Existing databases need `make db-migrate` (064).
+
+### OAuth sign-in
+
+Clients that speak MCP OAuth 2.1 need no token: add the server without a header and sign in
+when the client opens the browser.
+
+```bash
+claude mcp add --transport http gene-curator https://<API host>/mcp
+```
+
+In Claude.ai add a custom connector with the same URL. The client registers itself (RFC 7591),
+finds the server through `/.well-known/oauth-protected-resource/mcp` and
+`/.well-known/oauth-authorization-server`, and sends you to the consent page, where you allow or
+deny it while signed in. Only the authorization code flow with PKCE S256 is served. The access
+token lasts an hour and is refreshed with a rotating refresh token (30 days, sliding). Each
+connection appears under **Access tokens** as `OAuth: <client name>`; revoking it there ends the
+connection, refresh included. OAuth calls get exactly the token treatment above: your identity,
+RLS, four-eyes and no account or token management. Only hashes of codes, tokens and client
+secrets are stored. Configure the public URLs; `docker-compose.prod.yml` refuses to start
+without them, and with `ENVIRONMENT=production` the API refuses a non-HTTPS issuer:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GENE_CURATOR_PUBLIC_URL` | `http://localhost:8051` | API origin MCP clients reach (OAuth issuer) |
+| `GENE_CURATOR_FRONTEND_URL` | `http://localhost:5193` | Web app origin that serves `/oauth/consent` |
 
 ## Documentation
 

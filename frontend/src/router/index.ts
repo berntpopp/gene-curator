@@ -43,6 +43,7 @@ const WorkflowManagement = () => import('@/views/WorkflowManagement.vue')
 const UserProfile = () => import('@/views/UserProfile.vue')
 const UserManagement = () => import('@/views/UserManagement.vue')
 const AccessTokens = () => import('@/views/AccessTokens.vue')
+const OAuthConsent = () => import('@/views/OAuthConsent.vue')
 const LlmAdmin = () => import('@/views/admin/llm/LlmAdmin.vue')
 const LlmSecondView = () => import('@/views/llm/LlmSecondView.vue')
 const About = () => import('@/views/About.vue')
@@ -355,6 +356,12 @@ const routes: RouteRecordRaw[] = [
       label: 'Access tokens',
       order: 3
     }
+  },
+  {
+    path: '/oauth/consent',
+    name: 'OAuthConsent',
+    component: OAuthConsent,
+    meta: { title: 'Connect an MCP client', requiresAuth: true }
   },
   {
     path: '/admin/users',

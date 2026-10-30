@@ -60,6 +60,20 @@ describe('AccessTokens view', () => {
     expect(rows[1]!.text()).toContain('Revoked')
     expect(rows[2]!.text()).toContain('Read-only')
     expect(rows[2]!.text()).toContain('Expired')
+    expect(rows[2]!.find('button').exists()).toBe(false)
+  })
+
+  it('keeps Revoke on an idle OAuth connection: its refresh token outlives the hour', async () => {
+    const expired = '2020-01-01T00:00:00Z'
+    api.list.mockResolvedValue([
+      token({ id: 'o1', name: 'OAuth: Claude Code', expires_at: expired }),
+      token({ id: 'o2', name: 'OAuth: gone', expires_at: expired, revoked_at: expired })
+    ])
+    const rows = (await mountView()).findAll('[data-test="token-row"]')
+    expect(rows[0]!.find('button').text()).toBe('Revoke')
+    expect(rows[0]!.text()).not.toContain('Expired')
+    expect(rows[1]!.text()).toContain('Revoked')
+    expect(rows[1]!.find('button').exists()).toBe(false)
   })
 
   it('creates a token, shows the plaintext once and forgets it on Done', async () => {

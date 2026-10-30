@@ -33,7 +33,7 @@ from app.mcp.audit import (
     correlation_id,
     mark_internal,
 )
-from app.mcp.auth import PersonalAccessTokenVerifier
+from app.mcp.oauth import McpOAuthProvider, mount_oauth_routes
 from app.mcp.results import MCP_ONLY_ARGS
 
 # Routes no MCP tool exposes, with the reason (the parity test imports this)
@@ -43,6 +43,11 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/auth/logout"): "session logout; revoke the token instead",
     ("POST", "/api/v1/auth/register"): "anonymous account creation",
     ("GET", "/api/v1/auth/"): "REST login URLs; the instructions cover MCP",
+    ("GET", "/api/v1/oauth/authorizations/{request_id}"): "OAuth consent, session only",
+    (
+        "POST",
+        "/api/v1/oauth/authorizations/{request_id}",
+    ): "OAuth consent, session only",
     **dict.fromkeys(PAT_BLOCKED_OPERATIONS, "blocked for personal access tokens"),
     ("PATCH", "/api/v1/llm-findings/{finding_id}"): (
         "accepting or dismissing an AI finding is a human reviewer decision"
@@ -463,6 +468,7 @@ def create_mcp(app: FastAPI, *, core: bool = False) -> FastMCP:
     )
     spec = app.openapi()
     names = tool_names(spec)
+    auth = McpOAuthProvider(app)
     mcp = FastMCP.from_openapi(
         spec,
         client=client,
@@ -472,9 +478,10 @@ def create_mcp(app: FastAPI, *, core: bool = False) -> FastMCP:
         mcp_component_fn=_annotate,
         mcp_names=names,
         validate_output=False,  # response_model already validates; keep 3.1 nullables
-        auth=PersonalAccessTokenVerifier(app),
+        auth=auth,
         mask_error_details=True,
     )
+    mount_oauth_routes(app, auth, "/mcp" if core else "/mcp/full")  # as in main.py
     mcp.add_middleware(CallerToolFilter(admin_only_tools(app, names)))
     # Only tools with a way to narrow are capped; a whole curation is always readable
     capped = frozenset(

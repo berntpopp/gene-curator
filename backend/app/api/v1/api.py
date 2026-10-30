@@ -24,6 +24,7 @@ from app.api.v1.endpoints import (
     logs,
     my_work,
     notifications,
+    oauth,
     ontology,
     personal_access_tokens,
     precurations,
@@ -58,6 +59,7 @@ api_router.include_router(my_work.router, tags=["my-work"])  # /me/work
 api_router.include_router(
     personal_access_tokens.router, prefix="/me/tokens", tags=["tokens"]
 )
+api_router.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     schema_validation.router, prefix="/validation", tags=["validation"]
