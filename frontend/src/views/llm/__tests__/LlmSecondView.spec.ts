@@ -38,6 +38,8 @@ const view = {
       prompt_version: 2,
       methodology_version: 1,
       proposed_verdict: 'limited',
+      status: 'succeeded',
+      error_code: null as string | null,
       finished_at: null
     }
   ],
@@ -68,6 +70,16 @@ describe('LlmSecondView', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     api.secondView.mockResolvedValue(structuredClone(view))
+  })
+
+  it('shows a failed run and its error code', async () => {
+    const failed = structuredClone(view)
+    failed.runs = failed.runs.map(r => ({ ...r, status: 'failed', error_code: 'invalid_output' }))
+    api.secondView.mockResolvedValue(failed)
+    const w = await mountView()
+    vmOf(w).open = ['ai']
+    await flushPromises()
+    expect(w.text()).toContain('skeptic failed: invalid_output')
   })
 
   it('labels the AI output and counts disagreements', async () => {

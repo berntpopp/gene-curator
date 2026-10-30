@@ -10372,6 +10372,10 @@ export interface components {
             methodology_version: number | null;
             /** Proposed Verdict */
             proposed_verdict: string | null;
+            /** Status */
+            status: string;
+            /** Error Code */
+            error_code: string | null;
             /** Finished At */
             finished_at: string | null;
         };

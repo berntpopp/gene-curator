@@ -190,6 +190,15 @@ async def test_unscorable_proposal_fails_the_run_and_keeps_nothing(
     assert (done.status, done.error_code) == ("failed", "invalid_output")
     assert done.proposed_verdict is None
     assert db_session.scalars(select(LLMFinding)).all() == []
+    # B3: the reviewer sees the failed run and why, not an empty view
+    curation = db_session.get(CurationNew, world.curation.id)
+    assert curation is not None
+    [shown] = second_view(db_session, curation)["runs"]
+    assert (shown["run_id"], shown["status"], shown["error_code"]) == (
+        run.id,
+        "failed",
+        "invalid_output",
+    )
 
 
 @pytest.mark.asyncio

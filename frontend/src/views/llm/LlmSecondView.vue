@@ -20,6 +20,9 @@
         <p v-for="run in view.runs" :key="run.run_id" class="text-body-small mb-1">
           {{ run.strategy }}: {{ run.model_id }}, prompt v{{ run.prompt_version ?? '?' }},
           methodology v{{ run.methodology_version ?? '?' }}
+          <span v-if="run.status === 'failed'" class="text-error">
+            ({{ run.strategy }} failed: {{ run.error_code ?? 'unknown error' }})
+          </span>
         </p>
         <div class="d-flex align-center ga-2 my-3">
           <v-btn

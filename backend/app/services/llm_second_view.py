@@ -90,8 +90,11 @@ def _latest_runs(db: Session, curation_id: UUID) -> dict[str, dict[str, Any]]:
         .outerjoin(
             MethodologyVersion, MethodologyVersion.id == LLMRun.methodology_version_id
         )
-        .where(LLMRun.curation_id == curation_id, LLMRun.status == "succeeded")
-        .order_by(LLMRun.finished_at.desc(), LLMRun.created_at.desc())
+        .where(
+            LLMRun.curation_id == curation_id,
+            LLMRun.status.in_(("succeeded", "failed")),
+        )
+        .order_by(LLMRun.created_at.desc())
     ).all()
     latest: dict[str, dict[str, Any]] = {}
     for run, prompt_version, methodology_version in rows:
@@ -177,6 +180,8 @@ def second_view(db: Session, curation: CurationNew) -> dict[str, Any]:
                 "prompt_version": v["prompt_version"],
                 "methodology_version": v["methodology_version"],
                 "proposed_verdict": v["run"].proposed_verdict,
+                "status": v["run"].status,
+                "error_code": v["run"].error_code,
                 "finished_at": v["run"].finished_at,
             }
             for s, v in sorted(latest.items())
