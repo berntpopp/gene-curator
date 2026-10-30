@@ -80,8 +80,8 @@ export interface SectionConfig {
   icon?: string
   help_text?: string
   collapsed?: boolean
-  /** Dot-notation field paths */
-  fields: string[]
+  /** Dot-notation field paths; absent on a component-only section */
+  fields?: string[]
   /** Component-only section, rendered through the form's `section` slot */
   component?: string
 }
