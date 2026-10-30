@@ -1,6 +1,6 @@
 <template>
   <div
-    v-if="scopeCount > 1"
+    v-if="scopeCount > 1 && (hasConflicts || consensus)"
     class="agreement"
     :class="hasConflicts ? 'agreement--conflict' : 'agreement--agree'"
     :role="hasConflicts ? 'alert' : 'status'"

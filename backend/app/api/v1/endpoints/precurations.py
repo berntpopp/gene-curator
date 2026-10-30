@@ -21,6 +21,7 @@ from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
+from app.crud.precuration_entity import entity_key_of
 from app.crud.precuration_required import MissingRequiredFieldsError, open_fields
 from app.crud.scope_visibility import scope_id_for
 from app.models import CurationStatus, PrecurationNew, Scope, UserNew
@@ -234,6 +235,7 @@ def create_precuration(
         gene_id=precuration_in.gene_id,
         scope_id=scope_id,
         user_id=current_user.id,
+        entity_key=entity_key_of(db, precuration_in.evidence_data),
     )
     if existing:
         response.status_code = status.HTTP_200_OK

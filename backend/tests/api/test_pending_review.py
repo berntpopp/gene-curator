@@ -48,10 +48,12 @@ def test_pending_review_filters_by_role_and_creator(
     test_user_viewer,
     test_precuration,
 ):
+    other = _in_review(test_scope, test_gene, test_workflow_pair, test_user_admin.id)
+    other.entity_key = "MONDO:0000002|AD"  # a second open curation is another entity
     db_session.add_all(
         [
             _in_review(test_scope, test_gene, test_workflow_pair, test_user_curator.id),
-            _in_review(test_scope, test_gene, test_workflow_pair, test_user_admin.id),
+            other,
         ]
     )
     test_precuration.status = "submitted"

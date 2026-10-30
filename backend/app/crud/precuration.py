@@ -14,8 +14,9 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.crud.curation import _patched, open_curation_id
-from app.crud.optimistic_lock import claim_version, update_if_version
+from app.crud.curation import OpenCurationExistsError, _patched, open_curation_id
+from app.crud.optimistic_lock import claim_version
+from app.crud.precuration_entity import conflict, entity_key_of, open_draft, write_draft
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -213,20 +214,16 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
     # ========================================
 
     def get_open_draft(
-        self, db: Session, *, gene_id: UUID, scope_id: UUID, user_id: UUID
+        self,
+        db: Session,
+        *,
+        gene_id: UUID,
+        scope_id: UUID,
+        user_id: UUID,
+        entity_key: str = "",
     ) -> PrecurationNew | None:
-        """The creator's non-archived draft for this gene and scope, if any."""
-        return db.scalars(
-            select(PrecurationNew)
-            .where(
-                PrecurationNew.gene_id == gene_id,
-                PrecurationNew.scope_id == scope_id,
-                PrecurationNew.created_by == user_id,
-                PrecurationNew.status == CurationStatus.DRAFT,
-            )
-            .order_by(PrecurationNew.created_at)
-            .limit(1)
-        ).first()
+        """The creator's draft for this gene, scope and disease entity ('' = none yet)."""
+        return open_draft(db, gene_id, scope_id, user_id, entity_key)
 
     def create_precuration(
         self,
@@ -266,14 +263,19 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             created_at=now,
             updated_at=now,
         )
+        key = entity_key_of(db, obj_in.evidence_data)  # before add: no autoflush
         db.add(db_obj)
         try:
             db.commit()
         except IntegrityError:
-            # A concurrent create won the partial unique index on open drafts.
+            # The author already has a draft for this entity (or a concurrent create won).
             db.rollback()
             existing = self.get_open_draft(
-                db, gene_id=obj_in.gene_id, scope_id=scope.id, user_id=user_id
+                db,
+                gene_id=obj_in.gene_id,
+                scope_id=scope.id,
+                user_id=user_id,
+                entity_key=key,
             )
             if existing is None:
                 raise
@@ -308,7 +310,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             evidence_data, warnings = _patched(db_obj, evidence_data, merge)
             warnings += check_ids(db, evidence_data)[0]
             values["evidence_data"] = evidence_data
-        if not update_if_version(db, PrecurationNew, db_obj.id, lock_version, values):
+        if not write_draft(db, db_obj, lock_version, values):
             return None
         db.refresh(db_obj)
         return db_obj, warnings
@@ -334,7 +336,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             "auto_saved_at": _utc_now(),
             "updated_by": user_id,
         }
-        if not update_if_version(db, PrecurationNew, db_obj.id, lock_version, values):
+        if not write_draft(db, db_obj, lock_version, values):
             return None
         db.refresh(db_obj)
         return db_obj, warnings
@@ -418,11 +420,14 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             )
 
         curation = None
-        # One open curation per gene and scope: an open one (e.g. a re-curation) stays the only one
+        key = db_obj.entity_key
+        # One open curation per entity: an open one (e.g. a re-curation) stays the only one
         workflow_pair = (
             self._get_workflow_pair_for_precuration(db, db_obj)
             if create_curation
-            and not open_curation_id(db, db_obj.gene_id, db_obj.scope_id)
+            and not open_curation_id(
+                db, db_obj.gene_id, db_obj.scope_id, db_obj.entity_key
+            )
             else None
         )
 
@@ -439,6 +444,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 scope_id=db_obj.scope_id,
                 workflow_pair_id=workflow_pair.id,
                 precuration_id=db_obj.id,  # Link to precuration
+                entity_key=db_obj.entity_key,
                 status=CurationStatus.DRAFT,
                 workflow_stage=WorkflowStage.CURATION,
                 is_draft=True,
@@ -456,7 +462,15 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             db.add(curation)
 
         db.add(db_obj)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # A concurrent curation of this entity won its open-curation index
+            db.rollback()
+            raced = open_curation_id(db, db_obj.gene_id, db_obj.scope_id, key)
+            if raced is None:
+                raise
+            raise conflict(OpenCurationExistsError.MESSAGE, curation_id=raced) from None
         if curation:
             db.refresh(curation)
         db.refresh(db_obj)

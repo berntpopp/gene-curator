@@ -1799,9 +1799,11 @@ export interface paths {
         put?: never;
         /**
          * Create Curation
-         * @description Create a curation (curator or admin of the scope). Needs an approved precuration
-         *     for the gene and scope unless one is active; the approval already opens a draft
-         *     curation (list_curations), and this fails while one is open.
+         * @description Create a curation (curator or admin of the scope) for one gene-disease-MOI entity.
+         *     Needs an approved precuration for the gene and scope unless one is active; the approval
+         *     already opens a draft curation (list_curations), and this fails (409) while the entity
+         *     has an open one. precuration_id picks the entity; without it a re-curation inherits
+         *     the active curation's entity, and a gene with several entities in the scope is a 422.
          */
         post: operations["create_curation_api_v1_curations__post"];
         delete?: never;

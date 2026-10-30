@@ -46,4 +46,14 @@ describe('AgreementBanner', () => {
       '<!--v-if-->'
     )
   })
+
+  it('stays hidden for split disease entities with no single consensus (#530)', () => {
+    const wrapper = mountIt({
+      scopeCount: 2,
+      hasConflicts: false,
+      consensus: null,
+      classifications: { definitive: 1, limited: 1 }
+    })
+    expect(wrapper.find('.agreement').exists()).toBe(false)
+  })
 })

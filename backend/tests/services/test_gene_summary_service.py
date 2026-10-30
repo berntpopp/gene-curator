@@ -256,9 +256,11 @@ def test_curator_count_counts_distinct_creators(
     test_user_admin: UserNew,
     test_workflow_pair: WorkflowPair,
 ) -> None:
-    _activate(
+    first = _activate(
         db_session, test_gene, test_scope, test_user_curator, test_workflow_pair, "x"
     )
+    first.entity_key = "MONDO:0000001|AD"  # one open curation per entity
+    db_session.commit()
     # Second author in the same scope, not the active link.
     _curation(
         db_session, test_gene, test_scope, test_user_admin, test_workflow_pair, "x"
@@ -267,3 +269,39 @@ def test_curator_count_counts_distinct_creators(
     service = GeneSummaryService(db_session)
     assert service._get_curator_count(test_gene.id, test_scope.id) == 2
     assert service._get_curator_count(uuid4(), test_scope.id) == 0
+
+
+def test_consensus_and_conflicts_are_per_disease_entity(
+    db_session: Session,
+    test_gene: Gene,
+    test_user_curator: UserNew,
+    test_workflow_pair: WorkflowPair,
+) -> None:
+    """#530: two entities with different verdicts are no conflict and no single consensus;
+    the same entity with different verdicts across scopes is a conflict."""
+    pub, other = _scope(db_session, "pub-a"), _scope(db_session, "pub-b")
+    for s in (pub, other):
+        s.is_public = True
+    db_session.commit()
+
+    def entity(scope: Scope, verdict: str, key: str) -> None:
+        c = _activate(
+            db_session, test_gene, scope, test_user_curator, test_workflow_pair, verdict
+        )
+        c.entity_key = key
+        db_session.query(ActiveCuration).filter_by(curation_id=c.id).update(
+            {"entity_key": key}
+        )
+        db_session.commit()
+
+    entity(pub, "definitive", "MONDO:1|AD")
+    entity(pub, "limited", "MONDO:2|AD")
+    summary = GeneSummaryService(db_session).get_public_summary(test_gene.id)
+    assert summary is not None
+    assert len(summary.scope_summaries) == 2
+    assert summary.has_conflicts is False
+    assert summary.consensus_classification is None
+
+    entity(other, "strong", "MONDO:1|AD")
+    summary = GeneSummaryService(db_session).get_public_summary(test_gene.id)
+    assert summary is not None and summary.has_conflicts is True

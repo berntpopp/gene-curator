@@ -72,14 +72,17 @@ the scope's default_workflow_pair_id. Members: search_users_for_invitation finds
 user, add_member adds them at once, update_member_role changes a role.
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
+The unit is the gene-disease-MOI entity (ClinGen lumping/splitting): a split gene gets
+one precuration per MONDO id + mode of inheritance, each curated on its own.
 1. Entry: add_genes_to_scope(symbols, scope_name) resolves HGNC symbols, creates
    missing genes and assigns them in one call.
 2. Precuration: create_precuration, save_draft_precurations, then
    submit_precuration(reviewer_email=...) submits and routes it to a reviewer. The
    reviewer finds it in read_my_work and calls approve_precuration or
    reject_precuration.
-3. Curation: the approval opens a draft curation (list_curations); create_curation
-   only works with an approved precuration and no open curation. Evidence that scores
+3. Curation: each approval opens a draft curation (list_curations); create_curation
+   only works with an approved precuration and no open curation of that entity; pass
+   precuration_id (required once the gene has several entities). Evidence that scores
    lives in evidence_data (save_draft_curations or update_curation with
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.
@@ -94,7 +97,7 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
    evidence right after submit), previous_submission the one before it: what
    changed since the last review round. Long text changes come as word_diff
    ([-removed-]{+added+}), not the whole before and after.
-6. Active: one active curation per gene and scope.
+6. Active: one active curation per entity; a re-curation replaces only its entity.
 
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
 to another reviewer of the scope.

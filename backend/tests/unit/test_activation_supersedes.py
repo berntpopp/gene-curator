@@ -43,19 +43,20 @@ def test_activation_archives_previous_and_stamps_approval(
     test_user_curator: UserNew,
     test_user_admin: UserNew,
 ) -> None:
-    first = _curation(
-        db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
-    )
-    second = _curation(
-        db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
-    )
-
-    for c in (first, second):
+    first = second = None
+    for _ in range(2):  # one open curation per entity: the second opens after the first
+        first, second = (
+            second,
+            _curation(
+                db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
+            ),
+        )
         workflow_engine._transition_to_active(
-            db_session, c, test_user_admin.id, None, None
+            db_session, second, test_user_admin.id, None, None
         )
         db_session.commit()
-        db_session.refresh(c)
+        db_session.refresh(second)
+    assert first and second
     db_session.refresh(first)
 
     assert first.status == CurationStatus.ARCHIVED
@@ -82,11 +83,11 @@ def test_second_active_curation_for_same_gene_scope_is_rejected(
     first = _curation(
         db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
     )
+    first.status = CurationStatus.ACTIVE
+    db_session.commit()
     second = _curation(
         db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
     )
-    first.status = CurationStatus.ACTIVE
-    db_session.commit()
     second.status = CurationStatus.ACTIVE
     with pytest.raises(IntegrityError):
         db_session.commit()

@@ -200,3 +200,36 @@ def test_gene_hit_carries_visible_active_classification(
 
     assert cls(member) == {"COL4A5": "definitive", "COL4A3": None}
     assert cls(make_user(db_session)) == {"COL4A5": None, "COL4A3": None}
+
+
+def test_gene_hit_shows_the_highest_verdict_of_split_entities(
+    client, db_session, test_scope: Scope, test_workflow_pair: WorkflowPair
+):
+    """#530: several active disease entities in a scope: the strongest verdict wins."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.models.models import ActiveCuration
+
+    gene = _gene(db_session, "HNF1B", 11)
+    owner = make_user(db_session)
+    now = datetime.now(UTC)
+    for verdict, key, at in (
+        ("Definitive", "MONDO:1|AD", now - timedelta(days=1)),
+        ("Limited", "MONDO:2|AD", now),  # newer, but weaker
+    ):
+        c = _curation(db_session, test_scope, gene, test_workflow_pair, owner)
+        c.computed_verdict, c.entity_key = verdict, key
+        db_session.add(
+            ActiveCuration(
+                gene_id=gene.id,
+                scope_id=test_scope.id,
+                curation_id=c.id,
+                activated_at=at,
+                entity_key=key,
+            )
+        )
+        db_session.commit()
+    member = make_user(db_session)
+    make_member(db_session, test_scope, member, "viewer")
+    hits = _search(client, member, "hnf1b").json()["genes"]
+    assert [g["classification"] for g in hits] == ["Definitive"]

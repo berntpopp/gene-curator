@@ -207,29 +207,29 @@ describe('CurationFormView', () => {
     expect(vm.precurationStatus).toBe('approved')
   })
 
-  it.each([{}, { from: 'c-active' }])(
-    'opens the open curation of the gene instead of starting another (query %o)',
-    async query => {
-      routeState.params = { scopeId: 'sc1', geneId: 'g1' }
-      routeState.query = query as Record<string, string>
-      const { curations, precurations } = await mountView(({ curations, precurations, genes }) => {
-        vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'PKD1' } as never)
-        vi.spyOn(curations, 'fetchCurations').mockResolvedValue({
-          curations: [
-            { id: 'c-active', status: 'active' },
-            { id: 'c-draft', status: 'draft' }
-          ]
-        } as never)
-        vi.spyOn(precurations, 'fetchCurationPrecuration')
-      })
-      expect(curations.fetchCurations).toHaveBeenCalledWith({ scope_id: 'sc1', gene_id: 'g1' })
-      expect(routerReplace).toHaveBeenCalledWith({
-        name: 'curation-edit',
-        params: { scopeId: 'sc1', curationId: 'c-draft' }
-      })
-      expect(precurations.fetchCurationPrecuration).not.toHaveBeenCalled()
-    }
-  )
+  it.each([
+    [{}, 'a2'],
+    [{ from: 'a1' }, 'a2'],
+    [{ from: 'b1' }, undefined]
+  ])('opens the open curation of the entity, not another (query %o)', async (query, opened) => {
+    Object.assign(routeState, { params: { scopeId: 'sc1', geneId: 'g1' }, query })
+    const row = (id: string, status: string) => ({ id, status }) // #530: a = AD, b = AR
+    const { precurations } = await mountView(({ curations, precurations, genes }) => {
+      vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+      vi.spyOn(curations, 'fetchCurations').mockResolvedValue({
+        curations: [row('a1', 'active'), row('a2', 'draft'), row('b1', 'active')]
+      } as never)
+      vi.spyOn(curations, 'fetchCurationById').mockImplementation(
+        async id =>
+          ({ id, mondo_id: 'MONDO:1', mode_of_inheritance: id[0] === 'a' ? 'AD' : 'AR' }) as never
+      )
+      const approved = { status: 'approved' } as never
+      vi.spyOn(precurations, 'fetchCurationPrecuration').mockResolvedValue(approved)
+    })
+    const edits = routerReplace.mock.calls.filter(([to]) => to.name === 'curation-edit')
+    expect(edits.map(([to]) => to.params.curationId)).toEqual(opened ? [opened] : [])
+    expect(precurations.fetchCurationPrecuration).toHaveBeenCalledTimes(opened ? 0 : 1)
+  })
 
   it('sends the user to the precuration form when none is approved', async () => {
     routeState.params = { scopeId: 'sc1', geneId: 'g1' }

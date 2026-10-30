@@ -184,8 +184,8 @@ def test_a_reviewer_cannot_decide_findings_on_their_own_curation(w: W) -> None: 
             )
         _exec(
             "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
-            "workflow_stage, created_by, evidence_data) "
-            "VALUES (%s, %s, %s, %s, 'draft', 'curation', %s, '{}')",
+            "workflow_stage, created_by, evidence_data, entity_key) "
+            "VALUES (%s, %s, %s, %s, 'draft', 'curation', %s, '{}', 'MONDO:2|AD')",
             str(mine),
             str(w.gene),
             str(w.scope),

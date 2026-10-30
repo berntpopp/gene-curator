@@ -85,6 +85,7 @@ def test_changes_requested_waiting_done(
         "active",
     )
     d.updated_at = datetime.now(UTC)
+    w.entity_key, d.entity_key = "MONDO:2|AD", "MONDO:3|AD"  # one open per entity
     db_session.add_all([c, w, d])
     db_session.flush()
     db_session.add(

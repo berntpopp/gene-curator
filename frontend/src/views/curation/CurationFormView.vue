@@ -436,12 +436,15 @@
 
       // Check precuration status for new curations (not edits)
       if (!curationId.value && geneId.value) {
-        // One open curation per gene and scope: open it (e.g. the draft approval created)
+        // One open curation per entity: open it (e.g. the draft approval created)
         const { curations } = await curationsStore.fetchCurations({
           scope_id: scopeId.value,
           gene_id: geneId.value
         })
-        const open = curations.find(c => !['active', 'archived'].includes(c.status))
+        const candidates = curations.filter(c => !['active', 'archived'].includes(c.status))
+        const open = prefillFrom.value
+          ? await sameEntity(prefillFrom.value, candidates)
+          : candidates[0]
         if (open) {
           router.replace({
             name: 'curation-edit',
@@ -488,6 +491,22 @@
     } finally {
       loading.value = false
     }
+  }
+
+  /** A re-curation only meets an open curation of its own disease entity (#530): the same
+   * precuration, or the same MONDO id and mode of inheritance (AD and AR are two entities). */
+  async function sameEntity<T extends { id: string }>(sourceId: string, candidates: T[]) {
+    if (!candidates.length) return undefined
+    const source = await curationsStore.fetchCurationById(sourceId)
+    for (const c of candidates) {
+      const other = await curationsStore.fetchCurationById(c.id)
+      const same =
+        (source.precuration_id && source.precuration_id === other.precuration_id) ||
+        (source.mondo_id === other.mondo_id &&
+          source.mode_of_inheritance === other.mode_of_inheritance)
+      if (same) return c
+    }
+    return undefined
   }
 
   async function loadScope() {
