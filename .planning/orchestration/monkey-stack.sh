@@ -28,8 +28,10 @@ up)
   until docker exec $C pg_isready -q -h 127.0.0.1 -U dev_user -d gene_curator_dev; do sleep 1; done
   (cd "$WT/backend" && uv sync --extra dev --frozen -q)
   O='["http://localhost:5190","http://127.0.0.1:5190"]'
+  K=$(cd "$WT/backend" && uv run python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')
   cd "$WT/backend"; DATABASE_URL=postgresql://app_user:app_password@localhost:5455/gene_curator_dev \
     ENVIRONMENT=development DEBUG=true SECRET_KEY=monkey_secret ALLOWED_ORIGINS=$O \
+    LLM_CREDENTIAL_KEYS="{\"k1\":\"$K\"}" LLM_CREDENTIAL_ACTIVE_KID=k1 \
     GENE_CURATOR_API__CORS__ALLOW_ORIGINS=$O \
     nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8052 >"$LOG/monkey-api.log" 2>&1 </dev/null 9>&- &
   cd "$WT/frontend"; VITE_API_BASE_URL=http://localhost:8052 VITE_ENABLE_DEV_LOGIN=true \
