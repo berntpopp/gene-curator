@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     auth,
+    curation_export,
     curations,
     external_validation,
     gene_assignments,
@@ -87,6 +88,8 @@ api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(
     gene_catalogue.router, prefix="/gene-catalogue", tags=["gene-catalogue"]
 )
+
+api_router.include_router(curation_export.router, prefix="/export", tags=["export"])
 
 # ClinGen SOP v11 endpoints
 api_router.include_router(
