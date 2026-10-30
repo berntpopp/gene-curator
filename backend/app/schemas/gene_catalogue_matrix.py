@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.curation import RelationshipType
+
 MAX_MATRIX_SCOPES = 50
 
 Agreement = Literal["agree", "disagree", "single", "none"]
@@ -18,9 +20,11 @@ class MatrixScope(BaseModel):
 
 
 class MatrixCell(BaseModel):
-    """One gene in one scope: the active curation, else the member's in-progress one."""
+    """One gene in one scope and relationship type: the active curation, else the
+    member's in-progress one."""
 
     scope_id: UUID
+    relationship_type: RelationshipType = "mendelian"
     curation_id: UUID
     classification: str | None = None
     stage: str = Field(..., description="Workflow stage of the curation")

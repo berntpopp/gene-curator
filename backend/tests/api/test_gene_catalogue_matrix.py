@@ -449,3 +449,30 @@ def test_classification_filter_matches_any_visible_active_class(
     assert genes("Established_risk") == {"PKD1"}
     assert genes("strong") == {"HNF1B"}
     assert genes("refuted") == set()
+
+
+def test_cells_per_relationship_type_and_the_filter_shows_the_match(
+    client: TestClient, world: World
+) -> None:
+    """WT1: a limited mendelian and a strong susceptibility curation in one scope; the
+    filter shows the matching one, and neither relationship type hides the other."""
+    for verdict, key in (
+        ("Limited", "MONDO:1|AD"),
+        ("Strong", "MONDO:1|AD|SUSCEPTIBILITY"),
+        ("Moderate", "MONDO:2|AD|SUSCEPTIBILITY"),
+    ):
+        c = world.cur(world.hnf1b, world.pub, verdict)
+        c.entity_key = key
+        world.db.query(ActiveCuration).filter_by(curation_id=c.id).update(
+            {"entity_key": key}
+        )
+        world.db.commit()
+    params = world.ids(world.pub)
+
+    def cells(*extra: tuple[str, str]) -> list[tuple[str, str]]:
+        [row] = client.get(URL, params=[*params, *extra]).json()["rows"]
+        return [(c["relationship_type"], c["classification"]) for c in row["cells"]]
+
+    assert cells() == [("mendelian", "Limited"), ("susceptibility", "Strong")]
+    assert cells(("classification", "limited")) == [("mendelian", "Limited")]
+    assert cells(("classification", "moderate")) == [("susceptibility", "Moderate")]

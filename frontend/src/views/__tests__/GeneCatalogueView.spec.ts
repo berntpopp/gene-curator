@@ -134,6 +134,31 @@ describe('GeneCatalogueView', () => {
     expect(wrapper.text()).not.toContain('Curated Genes')
   })
 
+  it('shows a susceptibility curation next to the mendelian one in a scope (#539)', async () => {
+    api.getMatrix.mockResolvedValue({
+      ...response,
+      rows: [
+        row('WT1', 'single', [
+          cell('s1', { classification: 'Limited', total_score: null }),
+          cell('s1', {
+            curation_id: 'c-sus',
+            relationship_type: 'susceptibility',
+            classification: 'Strong',
+            total_score: null
+          })
+        ])
+      ]
+    })
+    const { wrapper } = await mountView()
+    const first = wrapper.findAll('tbody tr')[0]!
+    expect(first.findAll('a.cell-link')).toHaveLength(2)
+    expect(first.text()).toContain('Limited')
+    expect(first.text()).toMatch(/Strong.*\(susceptibility\)/)
+    expect(first.find('a[href*="c-sus"]').attributes('aria-label')).toBe(
+      'Strong (susceptibility), open WT1 curation in Kidney genetics'
+    )
+  })
+
   it('names every cell link and marks disagreeing rows', async () => {
     const { wrapper } = await mountView()
     const link = wrapper.find('tbody tr a[href*="/scopes/s1/curations/c-s1"]')

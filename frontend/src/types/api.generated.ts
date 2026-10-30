@@ -7582,7 +7582,8 @@ export interface components {
         };
         /**
          * MatrixCell
-         * @description One gene in one scope: the active curation, else the member's in-progress one.
+         * @description One gene in one scope and relationship type: the active curation, else the
+         *     member's in-progress one.
          */
         MatrixCell: {
             /**
@@ -7590,6 +7591,12 @@ export interface components {
              * Format: uuid
              */
             scope_id: string;
+            /**
+             * Relationship Type
+             * @default mendelian
+             * @enum {string}
+             */
+            relationship_type: "mendelian" | "susceptibility";
             /**
              * Curation Id
              * Format: uuid

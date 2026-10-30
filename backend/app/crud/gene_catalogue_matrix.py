@@ -16,7 +16,7 @@ from app.core.search_text import escape_like
 from app.crud.curator_classification import class_key_sql
 from app.models import ActiveCuration, CurationNew, Gene, Scope, ScopeMembership
 from app.models.models import CurationStatus
-from app.schemas.curation import class_key
+from app.schemas.curation import class_key, relationship_of_key
 from app.schemas.gene_catalogue_matrix import (
     Agreement,
     MatrixCell,
@@ -172,48 +172,17 @@ def get_matrix(
     )
     genes = db.execute(query.order_by(*order).offset(skip).limit(limit)).scalars().all()
 
-    cells: dict[UUID, dict[UUID, MatrixCell]] = defaultdict(dict)
-    actives: dict[UUID, list[CurationNew]] = defaultdict(list)
-    gene_ids = [g.id for g in genes]
-    if gene_ids and visible:
-        in_progress = (
-            db.execute(
-                select(CurationNew)
-                .where(
-                    CurationNew.gene_id.in_(gene_ids),
-                    CurationNew.scope_id.in_(mine),
-                    CurationNew.status.not_in(_DONE),
-                )
-                .order_by(CurationNew.updated_at)
-            )
-            .scalars()
-            .all()
-            if mine
-            else []
-        )
-        for c in in_progress:  # oldest first, so the latest revision overwrites
-            cells[c.gene_id][c.scope_id] = _cell(c, in_progress=True)
-        active = db.execute(
-            select(CurationNew)
-            .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
-            .where(
-                ActiveCuration.gene_id.in_(gene_ids),
-                ActiveCuration.scope_id.in_(visible),
-                ActiveCuration.archived_at.is_(None),
-            )
-        ).scalars()
-        # An active curation outranks an in-progress revision; several active entities
-        # in one scope show the highest verdict (last write wins; stable on id).
-        for c in sorted(
-            active, key=lambda c: (-verdict_rank(c.final_classification), str(c.id))
-        ):
-            actives[c.gene_id].append(c)
-            cells[c.gene_id][c.scope_id] = _cell(c, in_progress=False)
+    wanted = class_key(classification) if classification else None
+    cells, actives = _cells(db, [g.id for g in genes], visible, mine, wanted)
 
     order_of = {s.id: n for n, s in enumerate(scopes)}
+
+    def cell_order(key: tuple[UUID, str]) -> tuple[int, str]:
+        return order_of[key[0]], key[1]  # mendelian before susceptibility
+
     rows = []
     for gene in genes:
-        row_cells = sorted(cells[gene.id].values(), key=lambda c: order_of[c.scope_id])
+        row_cells = [cells[gene.id][k] for k in sorted(cells[gene.id], key=cell_order)]
         rows.append(
             MatrixRow(
                 gene_id=gene.id,
@@ -236,9 +205,65 @@ def get_matrix(
     )
 
 
+def _cells(
+    db: Session,
+    gene_ids: list[UUID],
+    visible: list[UUID],
+    mine: list[UUID],
+    wanted: str | None,
+) -> tuple[
+    dict[UUID, dict[tuple[UUID, str], MatrixCell]], dict[UUID, list[CurationNew]]
+]:
+    """Cells by gene and (scope, relationship type), and each gene's active curations."""
+    # one cell per scope and relationship type (#539), so a susceptibility curation
+    # never hides the mendelian one; the class filter shows only matching curations
+    cells: dict[UUID, dict[tuple[UUID, str], MatrixCell]] = defaultdict(dict)
+    actives: dict[UUID, list[CurationNew]] = defaultdict(list)
+    if gene_ids and visible:
+        in_progress = (
+            db.execute(
+                select(CurationNew)
+                .where(
+                    CurationNew.gene_id.in_(gene_ids),
+                    CurationNew.scope_id.in_(mine),
+                    CurationNew.status.not_in(_DONE),
+                )
+                .order_by(CurationNew.updated_at)
+            )
+            .scalars()
+            .all()
+            if mine and not wanted
+            else []
+        )
+        for c in in_progress:  # oldest first, so the latest revision overwrites
+            cell = _cell(c, in_progress=True)
+            cells[c.gene_id][c.scope_id, cell.relationship_type] = cell
+        active = db.execute(
+            select(CurationNew)
+            .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
+            .where(
+                ActiveCuration.gene_id.in_(gene_ids),
+                ActiveCuration.scope_id.in_(visible),
+                ActiveCuration.archived_at.is_(None),
+            )
+        ).scalars()
+        # An active curation outranks an in-progress revision; several active entities
+        # in one scope show the highest verdict (last write wins; stable on id).
+        for c in sorted(
+            active, key=lambda c: (-verdict_rank(c.final_classification), str(c.id))
+        ):
+            actives[c.gene_id].append(c)
+            if wanted and class_key(c.final_classification or "") != wanted:
+                continue
+            cell = _cell(c, in_progress=False)
+            cells[c.gene_id][c.scope_id, cell.relationship_type] = cell
+    return cells, actives
+
+
 def _cell(c: CurationNew, *, in_progress: bool) -> MatrixCell:
     return MatrixCell(
         scope_id=c.scope_id,
+        relationship_type=relationship_of_key(c.entity_key),
         curation_id=c.id,
         classification=c.final_classification,
         stage=c.workflow_stage.value,
