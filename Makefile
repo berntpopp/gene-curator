@@ -106,9 +106,8 @@ llm-eval: ## Opt-in: real provider over backend/app/llm/golden (LLM_EVAL_KIND/BA
 db-shell: ## Open psql in the dev DB
 	docker exec -it $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
-db-backup: ## Dump the dev DB to backups/
-	@mkdir -p $(BACKUP_DIR)
-	docker exec $(POSTGRES_CONTAINER) pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) -F c > $(BACKUP_DIR)/backup_$$(date +%Y%m%d_%H%M%S).dump
+db-backup: ## Verified dump of the dev DB to backups/ (keeps newest BACKUP_KEEP, default 14)
+	POSTGRES_CONTAINER=$(POSTGRES_CONTAINER) scripts/backup.sh $(BACKUP_DIR)
 
 db-restore: ## Restore a dump: make db-restore FILE=backups/x.dump
 	@test -f "$(FILE)" || { echo "usage: make db-restore FILE=backups/<file>.dump"; exit 1; }

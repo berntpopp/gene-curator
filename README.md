@@ -171,6 +171,50 @@ updates now require `lock_version`. Details: [docs/releases/v0.5.0.md](docs/rele
 3. Run `make recompute-scores` once to rescore curations under ClinGen SOP v11.
 4. Redis is gone; remove any Redis service or `REDIS_*` settings from your deployment.
 
+## Adopting a ClinGen classification
+
+Genes that ClinGen has already curated can be curated here too. To take over a ClinGen
+classification instead of re-scoring it, add a marker and a link to the curation schema in the
+Schema Editor. Gene Curator does not fetch or check the ClinGen record; curators and agents look it
+up themselves (agents through GeneFoundry `clingen_get_gene_validity`).
+
+```json
+"classification_source": {
+  "type": "select",
+  "label": "Classification source",
+  "description": "Curation details were taken from ClinGen as available there, the individual point values must be re-scored manually.",
+  "options": [
+    {"value": "own", "label": "Own curation"},
+    {"value": "clingen", "label": "Adopted from ClinGen"}
+  ],
+  "required": true
+},
+"clingen_url": {
+  "type": "url",
+  "label": "ClinGen record (CGGV link)",
+  "show_when": {"classification_source": "clingen"},
+  "required": true
+}
+```
+
+Set the curator classification to the ClinGen class, with the link as the rationale; the reviewer
+confirms it by approving. The marker tells an adopted class apart from a curator override.
+
+## Backup and restore
+
+`make db-backup` runs `scripts/backup.sh`: a `pg_dump` in custom format, checked with
+`pg_restore --list` before it is kept as `backups/backup_YYYYMMDD_HHMMSS.dump`. A failed or
+unreadable dump leaves no file behind. Only the newest `BACKUP_KEEP` dumps (default 14) are kept.
+For periodic backups, schedule the script (see its header for a cron line) and copy `backups/`
+off the host.
+
+To restore:
+
+1. Stop the backend so no writes land during the restore.
+2. Check the dump: `docker exec -i gene_curator_postgres pg_restore --list < backups/<file>.dump`.
+3. `make db-restore FILE=backups/<file>.dump` (drops and recreates the dumped objects).
+4. Run `make db-migrate` if the dump predates the current migrations, then start the backend.
+
 ## Development and verification
 
 Checks run locally first; GitHub Actions runs the same `make` targets and only confirms.

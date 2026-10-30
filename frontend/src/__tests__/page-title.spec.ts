@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 // Phones show the route title in PhoneHeader; each view keeps its h1 for screen readers only.
 const VIEWS = [
   'MyWork',
+  'AccessTokens',
   'GeneAssignments',
   'FAQ',
   'NotFound',
