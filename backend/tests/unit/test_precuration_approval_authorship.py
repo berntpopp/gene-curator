@@ -70,7 +70,8 @@ def test_approval_keeps_an_open_curation_as_the_only_one(db_session: Session):
     _, _, result = _approve(db_session, open_curation=True)
     assert result.approved
     assert not result.curation_created
-    assert result.curation_id is None
+    # the result names the open curation that blocked a new one
+    assert result.curation_id == db_session.scalar(select(CurationNew.id))
     assert db_session.scalar(select(func.count()).select_from(CurationNew)) == 1
     pre = db_session.get(PrecurationNew, result.precuration_id)
     assert pre is not None

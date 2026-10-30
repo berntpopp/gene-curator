@@ -82,4 +82,14 @@ describe('CurationFormView entity choice', () => {
     expect(wrapper.find('[data-testid="entity-choices"]').exists()).toBe(false)
     expect(routerReplace).toHaveBeenCalledWith({ query: { from: 'a' } })
   })
+
+  it('opens the open curation a create was refused for (409)', async () => {
+    await mountView([], {})
+    useCurationsStore().error = { message: 'blocked', openCurationId: 'c9' }
+    await flushPromises()
+    expect(routerReplace).toHaveBeenCalledWith({
+      name: 'curation-edit',
+      params: { scopeId: 'sc1', curationId: 'c9' }
+    })
+  })
 })

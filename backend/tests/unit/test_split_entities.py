@@ -199,8 +199,8 @@ def test_two_mondo_ids_give_two_active_curations(db_session: Session) -> None:
 def test_same_entity_twice_is_refused(db_session: Session, client: TestClient) -> None:
     world = World(db_session)
     _, a = world.approve(A)
-    again, none = world.approve({**A, "mondo_id": "mondo:0000001"})
-    assert a and none is None  # the entity already has an open curation
+    again, blocking = world.approve({**A, "mondo_id": "mondo:0000001"})
+    assert a and blocking == a  # the entity already has an open curation: named
     code, body = world.create(client, precuration_id=str(again.id))
     assert code == 409 and body["detail"]["curation_id"] == str(a)
 
@@ -410,3 +410,51 @@ def test_legacy_unkeyed_open_draft_blocks_a_second_recuration(
     db_session.commit()
     code, body = world.create(client)
     assert code == 409 and body["detail"]["curation_id"] == str(legacy.id)
+
+
+def test_approval_names_an_unkeyed_open_curation_that_blocks_it(
+    db_session: Session,
+) -> None:
+    """W8 round 2: approving next to an open legacy draft ('' covers the whole gene)
+    creates nothing, says why and returns the blocking curation's id."""
+    world = World(db_session)
+    legacy = CurationNew(
+        gene_id=world.gene.id,
+        scope_id=world.scope.id,
+        workflow_pair_id=world.pair.id,
+        evidence_data={},
+        created_by=world.author.id,
+    )
+    db_session.add(legacy)
+    db_session.commit()
+    pre = PrecurationNew(
+        gene_id=world.gene.id,
+        scope_id=world.scope.id,
+        precuration_schema_id=world.schema_id,
+        status=CurationStatus.SUBMITTED,
+        workflow_stage=WorkflowStage.REVIEW,
+        evidence_data=A,
+        created_by=world.author.id,
+    )
+    db_session.add(pre)
+    db_session.commit()
+    result = precuration_crud.approve_and_create_curation(
+        db_session, db_obj=pre, approver_id=world.reviewer.id
+    )
+    assert (result.curation_created, result.curation_id) == (False, legacy.id)
+    assert "covers the whole gene" in result.message
+    assert str(legacy.id) in result.message
+
+
+def test_a_racing_approval_against_an_unkeyed_curation_says_whole_gene(
+    db_session: Session,
+) -> None:
+    from app.crud.precuration import open_conflict_message
+
+    world = World(db_session)
+    _, a = world.approve(A)
+    assert a
+    assert "covers the whole gene" not in open_conflict_message(db_session, a)
+    db_session.get(CurationNew, a).entity_key = ""  # type: ignore[union-attr]
+    db_session.commit()
+    assert "covers the whole gene" in open_conflict_message(db_session, a)

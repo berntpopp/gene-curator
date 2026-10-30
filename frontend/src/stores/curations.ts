@@ -57,6 +57,8 @@ export interface CurationError {
   currentVersion?: number
   yourVersion?: number
   currentState?: string
+  /** A create was refused (409) for this open curation of the same entity or gene */
+  openCurationId?: string
 }
 
 interface CurationsFilters {
@@ -196,7 +198,11 @@ export const useCurationsStore = defineStore('curations', {
         this.pagination.total += 1
         return newCuration
       } catch (error) {
-        this.error = { message: errorMessage(error, 'Request failed') }
+        const detail = toApiError(error).response?.data?.detail as
+          { message?: string; curation_id?: string } | undefined
+        this.error = detail?.curation_id
+          ? { message: detail.message, openCurationId: detail.curation_id }
+          : { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false

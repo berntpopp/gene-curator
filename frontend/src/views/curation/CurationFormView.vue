@@ -278,6 +278,17 @@
     () => formReady.value && !readonly.value
   )
   const scoreShown = ref(false)
+  // A create refused for an open curation (409, e.g. a legacy one covering the gene): open it
+  watch(
+    () => curationsStore.error?.openCurationId,
+    id => {
+      if (id && !curationId.value)
+        router.replace({
+          name: 'curation-edit',
+          params: { scopeId: scopeId.value, curationId: id }
+        })
+    }
+  )
   watch(
     frame.score,
     score => {

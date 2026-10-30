@@ -195,7 +195,7 @@ def test_split_entities_are_curated_and_activated_on_their_own(
     assert code == 201, body
     recuration = body["id"]
     dup = _submitted(w, {**A, "mondo_id": " mondo:0000001 "})
-    assert _approve(client, w, dup) is None
+    assert _approve(client, w, dup) == recuration  # creates nothing, names the open one
     code, body = _create(client, w, precuration_id=dup)
     assert code == 409 and body["detail"]["curation_id"] == recuration
 
