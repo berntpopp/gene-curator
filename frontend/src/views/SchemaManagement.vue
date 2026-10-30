@@ -9,6 +9,24 @@
         </p>
       </div>
       <v-spacer />
+      <input
+        ref="importInput"
+        type="file"
+        accept=".json,application/json"
+        class="d-none"
+        aria-label="Methodology file"
+        @change="onImportFile"
+      />
+      <v-btn
+        variant="outlined"
+        size="large"
+        class="mr-3"
+        prepend-icon="mdi-file-upload"
+        :loading="importing"
+        @click="importInput?.click()"
+      >
+        Import methodology
+      </v-btn>
       <v-btn color="primary" variant="flat" size="large" @click="createSchemaDialog = true">
         <v-icon start>mdi-plus</v-icon>
         New {{ TERMINOLOGY.TEMPLATE }}
@@ -165,6 +183,58 @@
         </v-btn>
       </template></BaseDialog
     >
+
+    <!-- Import plan (dry run) before anything is written -->
+    <BaseDialog v-model="importDialog" size="md">
+      <template #title>Import {{ importFileName }}</template>
+      <v-alert
+        v-if="importPlan?.errors.length"
+        type="error"
+        variant="tonal"
+        density="compact"
+        class="mb-3"
+        title="The file cannot be imported"
+      >
+        <ul class="ml-4">
+          <li v-for="e in importPlan.errors" :key="e">{{ e }}</li>
+        </ul>
+      </v-alert>
+      <p v-else class="text-body-medium mb-3">Nothing is written until you confirm.</p>
+      <v-table density="compact">
+        <thead>
+          <tr>
+            <th>Object</th>
+            <th>Name</th>
+            <th>Version</th>
+            <th>Plan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in importPlan?.items ?? []" :key="`${item.kind}:${item.name}`">
+            <td>{{ IMPORT_KINDS[item.kind] }}</td>
+            <td>{{ item.name }}</td>
+            <td>{{ item.version ?? '' }}</td>
+            <td>
+              <v-chip :color="IMPORT_ACTIONS[item.action].color" size="small" variant="tonal">
+                {{ IMPORT_ACTIONS[item.action].label }}
+              </v-chip>
+            </td>
+          </tr>
+        </tbody>
+      </v-table>
+      <template #actions>
+        <v-btn variant="text" @click="importDialog = false">Cancel</v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="importing"
+          :disabled="!importPlan || importPlan.errors.length > 0"
+          @click="confirmImport"
+        >
+          Import
+        </v-btn>
+      </template>
+    </BaseDialog>
   </v-container>
 </template>
 
@@ -181,6 +251,9 @@
   import { curationStatusColor } from '@/config/status'
   import { useConfirm } from '@/composables/useConfirm'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { storeToRefs } from 'pinia'
+  import type { Schema } from '@/types/api'
+  import { useMethodologyImportStore } from '@/stores/methodologyImport'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -301,6 +374,61 @@
         stack: err.stack
       })
       showError(errorMessage(error, 'Failed to derive schema'))
+    }
+  }
+
+  const IMPORT_KINDS = {
+    schema: TERMINOLOGY.TEMPLATE,
+    workflow_pair: 'Workflow pair',
+    scope_default: 'Scope default'
+  }
+  const IMPORT_ACTIONS = {
+    create: { label: 'Create', color: 'success' },
+    unchanged: { label: 'Unchanged', color: undefined },
+    new_version: { label: 'Publish new version', color: 'primary' },
+    update: { label: 'Update', color: 'warning' }
+  }
+
+  const importInput = ref<HTMLInputElement | null>(null)
+  const importDialog = ref(false)
+  const importFileName = ref('')
+  const methodologyImport = useMethodologyImportStore()
+  const { plan: importPlan, importing } = storeToRefs(methodologyImport)
+
+  /** Read the chosen file and show the dry-run plan; nothing is written yet. */
+  const onImportFile = async (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = '' // choosing the same file again fires change again
+    if (!file) return
+    try {
+      // the server validates the file (shape, list limits, publish gate)
+      const bundle = JSON.parse(await file.text()) as Schema<'MethodologyBundle'>
+      importFileName.value = file.name
+      await methodologyImport.dryRun(bundle)
+      importDialog.value = true
+    } catch (error) {
+      const message = error instanceof SyntaxError ? 'The file is not valid JSON' : null
+      logger.error('Methodology import dry run failed', { file: file.name, error: String(error) })
+      showError(message ?? errorMessage(error, 'Failed to read the methodology file'))
+    }
+  }
+
+  const confirmImport = async () => {
+    try {
+      const result = await methodologyImport.confirm()
+      const changed = result.items.filter(i => i.action !== 'unchanged').length
+      logger.info('Methodology imported', { file: importFileName.value, changed })
+      showSuccess(changed ? `Imported ${changed} change(s)` : 'Already up to date; nothing changed')
+      importDialog.value = false
+      await schemasStore.fetchSchemas({ active_only: false })
+    } catch (error) {
+      // a 422 report replaced the plan in the store; the dialog shows it
+      logger.error('Methodology import failed', {
+        file: importFileName.value,
+        error: String(error)
+      })
+      showError(errorMessage(error, 'Import failed'))
     }
   }
 
