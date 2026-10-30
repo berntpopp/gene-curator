@@ -401,3 +401,41 @@ def test_blank_status_warning_needs_counted_points() -> None:
         {"pmid": "1", "proband_counted_points": 0, "score_status": ""},
     ]
     assert not [w for w in case_row_warnings(_case(rows)) if "score_status" in w]
+
+
+def _count_model(**flag: object) -> dict:
+    types = [{"path": "probands", "default": 1, **flag}]
+    category = {"key": "proband", "cap": 10, "types": types}
+    return {
+        "sections": [{"key": "genetic", "categories": [category]}],
+        "bands": [{"class": "limited", "min": 1}, {"class": "no_known"}],
+    }
+
+
+ROWS = [
+    {"pmid": "1", "variant": "c.1A>T"},
+    {"pmid": "2"},
+    {"pmid": "3", "variant": "not given"},
+]
+
+
+def test_require_variant_excludes_count_rows_without_a_real_variant() -> None:
+    """#535: count-based rows opt into the variant check, without score_status."""
+    result = point_model.score(
+        _count_model(require_variant=True), {"genetic": {"probands": ROWS}}
+    )
+    assert result["total"] == 1
+    assert result["excluded"] == [
+        {"path": "genetic.probands[1]", "field": "variant", "reason": "no_variant"},
+        {
+            "path": "genetic.probands[2]",
+            "field": "variant",
+            "reason": "placeholder_variant",
+        },
+    ]
+
+
+def test_count_rows_without_require_variant_are_unchanged() -> None:
+    result = point_model.score(_count_model(), {"genetic": {"probands": ROWS}})
+    assert result["total"] == 3
+    assert result["excluded"] == []

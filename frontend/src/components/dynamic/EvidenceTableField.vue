@@ -56,6 +56,10 @@
               @keydown.escape="onEscape(row, index, col)"
               @blur="(e: Event) => col.pmid && onPmidBlur(row, index, e)"
             />
+            <component
+              :is="urlLink(row[col.key])"
+              v-if="!readonly && col.url && safeHref(row[col.key])"
+            />
             <template v-if="!readonly && col.pmid && row[col.key]">
               <PubmedLinkButton :pmid="row[col.key]" />
               <span
@@ -121,7 +125,14 @@
   import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import PubmedLinkButton from './PubmedLinkButton.vue'
   import ReadonlyValue from './ReadonlyValue.vue'
-  import { CELL_COMMIT_MS, cellFor, emptyValue } from './componentRegistry'
+  import {
+    CELL_COMMIT_MS,
+    cellFor,
+    emptyValue,
+    safeHref,
+    urlLink,
+    urlRule
+  } from './componentRegistry'
   import { rulesFor } from './composables/useValidationRules'
   import { humanize } from './fieldLabels'
   import type { CellDef } from './componentRegistry'
@@ -152,8 +163,9 @@
       schema,
       label: schema.title || humanize(key),
       cell: cellFor(schema),
-      rules: rulesFor(schema),
-      pmid: schema.format === 'pmid'
+      rules: schema.type === 'url' ? [...rulesFor(schema), urlRule] : rulesFor(schema),
+      pmid: schema.format === 'pmid',
+      url: schema.type === 'url'
     }))
   )
 

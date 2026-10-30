@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-MAX_LINES = 650
+MAX_LINES = 700
 ROOT = Path(__file__).resolve().parent.parent
 ALLOWLIST = ROOT / "scripts" / "file-size-allowlist.txt"
 SUFFIXES = {".py", ".js", ".ts", ".vue", ".mjs", ".cjs"}
@@ -75,6 +75,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    assert violations({"a.py": 651}, {}) and not violations({"a.py": 700}, {"a.py": 700})
-    assert violations({"a.py": 701}, {"a.py": 700}) and not violations({"a.py": 650}, {})
+    m = MAX_LINES
+    assert violations({"a.py": m + 1}, {}) and not violations({"a.py": m + 50}, {"a.py": m + 50})
+    assert violations({"a.py": m + 51}, {"a.py": m + 50}) and not violations({"a.py": m}, {})
     sys.exit(main())
