@@ -129,6 +129,8 @@ def test_non_members_see_no_private_scope_data(client: TestClient, db_session: S
     assert pub["classification_summary"] == {"refuted": 1}
     assert pub["has_conflicts"] is False
     assert pub["scope_summaries"][0]["curation_id"]
+    # signed-out visitors get the display name too, not only the slug (W9 monkey)
+    assert pub["scope_summaries"][0]["scope_display_name"] == public.display_name
 
 
 def test_member_of_both_sees_disagreement_in_stable_order(

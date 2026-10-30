@@ -10439,9 +10439,14 @@ export interface components {
             scope_id: string;
             /**
              * Scope Name
-             * @description Scope name (e.g., kidney-genetics)
+             * @description Scope slug (e.g., kidney-genetics), as tools take it
              */
             scope_name: string;
+            /**
+             * Scope Display Name
+             * @description Scope name to show people
+             */
+            scope_display_name: string;
             /**
              * Is Public
              * @description Whether scope is public

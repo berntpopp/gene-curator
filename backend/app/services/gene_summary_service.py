@@ -108,6 +108,7 @@ class GeneSummaryService:
         return {
             "scope_id": str(curation.scope_id),
             "scope_name": scope.name,
+            "scope_display_name": scope.display_name,
             "is_public": scope.is_public,
             "curation_id": str(curation.id),
             "entity_key": curation.entity_key,

@@ -12,7 +12,10 @@ class ScopeSummary(BaseModel):
     """Summary of curation for a single scope"""
 
     scope_id: UUID = Field(..., description="Scope UUID")
-    scope_name: str = Field(..., description="Scope name (e.g., kidney-genetics)")
+    scope_name: str = Field(
+        ..., description="Scope slug (e.g., kidney-genetics), as tools take it"
+    )
+    scope_display_name: str = Field(..., description="Scope name to show people")
     is_public: bool = Field(..., description="Whether scope is public")
     classification: str | None = Field(
         None,

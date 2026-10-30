@@ -1,7 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
-import { useScopesStore } from '@/stores/scopes'
 import GeneAssertions from '../GeneAssertions.vue'
 import type { Schema } from '@/types/api'
 
@@ -9,7 +7,8 @@ type ScopeSummary = Schema<'ScopeSummary'>
 
 const row = (over: Partial<ScopeSummary> = {}): ScopeSummary => ({
   scope_id: 's1',
-  scope_name: 'Kidney genetics',
+  scope_name: 'kidney-genetics',
+  scope_display_name: 'Kidney genetics',
   is_public: true,
   classification: 'definitive',
   curation_id: 'c1',
@@ -35,13 +34,10 @@ const mountIt = (scopes: ScopeSummary[], linked = true) =>
   })
 
 describe('GeneAssertions', () => {
-  beforeEach(() => setActivePinia(createPinia()))
-
-  it('shows the scope display name instead of its slug once scopes are loaded', () => {
-    useScopesStore().scopes = [
-      { id: 's1', name: 'kidney', display_name: 'Kidney Genetics' }
-    ] as never
-    expect(mountIt([row({ scope_name: 'kidney' })]).text()).toContain('Kidney Genetics')
+  it('shows the scope display name, not its slug', () => {
+    const w = mountIt([row({ scope_name: 'kidney-slug', scope_display_name: 'Kidney Genetics' })])
+    expect(w.text()).toContain('Kidney Genetics')
+    expect(w.text()).not.toContain('kidney-slug')
   })
 
   it('shows scope, disease, MOI, stage, classification, score and date per scope', () => {
