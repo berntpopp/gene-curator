@@ -4626,9 +4626,13 @@ export interface components {
         };
         /**
          * CurationCreate
-         * @description Schema for creating a new curation.
+         * @description Schema for creating a new curation; a re-curation carries the curator's call.
          */
         CurationCreate: {
+            /** Curator Classification */
+            curator_classification?: string | null;
+            /** Curator Classification Rationale */
+            curator_classification_rationale?: string | null;
             /**
              * Gene Id
              * Format: uuid

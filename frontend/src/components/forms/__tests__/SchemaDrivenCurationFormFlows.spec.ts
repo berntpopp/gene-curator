@@ -194,6 +194,8 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       disease_name: 'Alport syndrome',
       mondo_id: 'MONDO:0018965',
       mode_of_inheritance: 'XL',
+      curator_classification: 'strong', // kept, or approving unchanged publishes the calculated
+      curator_classification_rationale: 'Expert call',
       lock_version: 6,
       status: 'active'
     })
@@ -227,8 +229,12 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       scope_id: 'scope-1',
       workflow_pair_id: 'wp-1',
       precuration_id: 'pre-a',
-      evidence_data: evidence
+      evidence_data: evidence,
+      curator_classification: 'strong',
+      curator_classification_rationale: 'Expert call'
     })
+    // A new curation sets its classification before the first save
+    expect(wrapper.find('[data-testid="curator-classification"]').exists()).toBe(true)
   })
 
   it('creates a re-curation of an unlinked source without a link when none is approved', async () => {

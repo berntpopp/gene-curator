@@ -35,12 +35,6 @@ class CurationBase(BaseModel):
 # ========================================
 
 
-class CurationCreate(CurationBase):
-    """Schema for creating a new curation."""
-
-    pass
-
-
 MERGE_DESCRIPTION = (
     "false or omitted: evidence_data replaces the stored evidence_data entirely. true: "
     "evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects "
@@ -67,6 +61,10 @@ def class_key(value: str) -> str:
     crud.curator_classification.class_key_sql is the same rule in SQL: keep them equal."""
     key = value.strip().lower().replace(" ", "_").replace("-", "_")
     return "no_known" if key.startswith("no_known") else key
+
+
+class CurationCreate(CurationBase, CuratorClassificationIn):
+    """Schema for creating a new curation; a re-curation carries the curator's call."""
 
 
 CLASSIFICATION_KEYS = {

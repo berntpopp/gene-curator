@@ -58,9 +58,9 @@
             No schema assigned to this curation. Please contact an administrator.
           </v-alert>
 
-          <!-- Saved with an existing curation only: create takes evidence alone -->
+          <!-- A new curation sends the call with its create (a re-curation keeps the source's) -->
           <CuratorClassificationField
-            v-if="version && curationId"
+            v-if="version"
             v-model="curatorCall"
             :calculated="score?.classification ?? curationsStore.currentCuration?.computed_verdict"
             :choices="curationsStore.currentCuration?.classification_choices"
@@ -614,6 +614,11 @@
       const source = await curationsStore.fetchCurationById(props.prefillFrom)
       // The disease lives in the evidence (or the precuration): copying the resolved fields duplicated it
       evidenceData.value = { ...(source.evidence_data ?? {}) }
+      // Approving an unchanged re-curation must publish the same call, not the calculated one
+      curatorCall.value = {
+        curator_classification: source.curator_classification ?? null,
+        curator_classification_rationale: source.curator_classification_rationale ?? null
+      }
       // A gene may hold several disease entities: re-curate this one (#530)
       precurationId.value = source.precuration_id ?? null
     } catch (error) {

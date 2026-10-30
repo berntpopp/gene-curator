@@ -80,12 +80,14 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     const workflow_pair_id = workflowPairId()
     if (!gene_id || !workflow_pair_id) throw new Error('A gene and a workflow pair are required')
     const precuration_id = options.precurationId?.()
+    const call = options.curatorCall?.value
     return {
       gene_id,
       scope_id: scopeId(),
       workflow_pair_id,
       ...(precuration_id && { precuration_id }),
-      evidence_data: evidence
+      evidence_data: evidence,
+      ...((call?.curator_classification || call?.curator_classification_rationale) && call)
     }
   }
 

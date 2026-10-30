@@ -417,11 +417,6 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             pre.evidence_data if pre else None,
             {"precuration_id": pre.id} if pre else {},
         )
-        # One open curation per entity (approval already created a draft, #398)
-        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
-        if open_id:
-            raise OpenCurationExistsError(open_id, open_conflict_message(db, open_id))
-
         # Create curation
         now = _utc_now()
         db_obj = CurationNew(
@@ -440,6 +435,13 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             created_at=now,
             updated_at=now,
         )
+        # A re-curation keeps the source's call (422 for an unknown class)
+        for key, value in curator_call(db, db_obj, obj_in).items():
+            setattr(db_obj, key, value)
+        # One open curation per entity (approval already created a draft, #398)
+        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
+        if open_id:
+            raise OpenCurationExistsError(open_id, open_conflict_message(db, open_id))
         _update_computed_scores(db, db_obj)
         db.add(db_obj)
         try:

@@ -204,3 +204,32 @@ def test_open_curation_blocks_another(
         _create(client, test_user_admin, test_scope, test_gene, test_workflow_pair)
         == 201
     )
+
+
+def test_create_keeps_the_curator_classification(
+    client: TestClient,
+    test_user_admin: UserNew,
+    test_scope: Scope,
+    test_gene: Gene,
+    test_workflow_pair: WorkflowPair,
+    approved_precuration: PrecurationNew,
+) -> None:
+    """W9 monkey: a new curation (re-curation prefill) may carry the curator's call."""
+    body = {
+        "gene_id": str(test_gene.id),
+        "scope_id": str(test_scope.id),
+        "workflow_pair_id": str(test_workflow_pair.id),
+        "precuration_id": str(approved_precuration.id),
+        "evidence_data": {},
+        "curator_classification": "Strong",
+        "curator_classification_rationale": "Expert panel call",
+    }
+    headers = auth_headers(test_user_admin)
+    r = client.post("/api/v1/curations/", json=body, headers=headers)
+    assert r.status_code == 201, r.text
+    detail = client.get(f"/api/v1/curations/{r.json()['id']}", headers=headers).json()
+    assert detail["curator_classification"] == "strong"
+    assert detail["curator_classification_rationale"] == "Expert panel call"
+    body = {**body, "curator_classification": "nonsense"}
+    bad = client.post("/api/v1/curations/", json=body, headers=headers)
+    assert bad.status_code == 422, bad.text  # refused before the open-curation check
