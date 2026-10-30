@@ -6,13 +6,13 @@
       <template v-else-if="form">
         <p class="text-body-medium text-medium-emphasis mb-4">
           Opt this scope in to LLM-assisted review. Only models and published prompt versions a
-          platform admin enabled are offered. A cap of 0 means no limit.
+          platform admin enabled are offered. A cap of 0 allows no runs.
         </p>
         <v-switch v-model="form.enabled" label="Enabled for this scope" color="primary" inset />
         <v-switch
           v-model="form.auto_second_view_on_submit"
           label="Queue the second view when a curation is submitted"
-          hint="Runs on your behalf, within the caps below; a refusal never blocks the submit."
+          hint="Runs are attributed to the admin who last saved these settings and count against the caps below; a refusal never blocks the submit."
           persistent-hint
           color="primary"
           inset
