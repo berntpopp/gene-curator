@@ -173,20 +173,34 @@ def field_specs(
 
 
 def shared_keys(fields: Any) -> frozenset[str]:
-    """The keys a run sends for a curation made with these field definitions."""
-    flagged = {
-        name for _, name, cfg in field_specs(fields) if cfg.get("llm_share") is True
-    }
-    return (SHARED_EVIDENCE_KEYS | flagged) - JUDGEMENT_KEYS
+    """The keys a run sends for a curation made with these field definitions.
+
+    Explicit llm_share: false withholds even a seeded evidence key.
+    """
+    specs = list(field_specs(fields))
+    flagged = {name for _, name, cfg in specs if cfg.get("llm_share") is True}
+    withheld = {name for _, name, cfg in specs if cfg.get("llm_share") is False}
+    return (SHARED_EVIDENCE_KEYS | flagged) - withheld - JUDGEMENT_KEYS
 
 
 def check_llm_share(fields: Any) -> list[tuple[str, str, str]]:
-    """Schema diagnostics: llm_share on a judgement key is an error; fields a run would
-    drop (neither seeded evidence nor flagged) get one warning, so no drop is silent."""
+    """Schema diagnostics: llm_share on a judgement key is an error, and so is one key
+    name shared in one place and not another (sharing is by name at every depth); fields
+    a run would drop get one warning, so no drop is silent."""
     out: list[tuple[str, str, str]] = []
     dropped: list[str] = []
+    first: dict[str, bool] = {}  # key name -> shared where first defined
     for path, name, cfg in field_specs(fields):
         share = cfg.get("llm_share", False)
+        sent = share is True or (
+            "llm_share" not in cfg and name in SHARED_EVIDENCE_KEYS
+        )
+        if first.setdefault(name, sent) != sent and name not in JUDGEMENT_KEYS:
+            msg = (
+                f"'{name}' is shared with LLM runs in one place and not in another; "
+                f"sharing is by key name at every depth, so flag every '{name}' the same"
+            )
+            out.append(("error", f"{path}.llm_share", msg))
         if not isinstance(share, bool):
             out.append(
                 ("error", f"{path}.llm_share", "llm_share must be true or false")

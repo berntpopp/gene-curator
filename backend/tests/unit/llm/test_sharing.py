@@ -52,3 +52,33 @@ def test_judgement_flag_is_refused_and_unshared_fields_warned() -> None:
             "Not sent to LLM runs (set llm_share: true to send): binning",
         ),
     ]
+
+
+def test_llm_share_false_withholds_a_seeded_evidence_key() -> None:
+    keys = shared_keys({"description": {"type": "text", "llm_share": False}})
+    assert "description" not in keys and "pmid" in keys
+
+
+def test_one_key_name_shared_in_one_place_and_not_another_is_refused() -> None:
+    fields = {
+        "notes": {"type": "text", "llm_share": True},
+        "group": {"type": "object", "properties": {"notes": {"type": "text"}}},
+        "label": {"type": "text"},  # seeded: shared without a flag, here and below
+        "table": {"type": "object", "properties": {"label": {"type": "text"}}},
+    }
+    errors = [d for d in check_llm_share(fields) if d[0] == "error"]
+    assert errors == [
+        (
+            "error",
+            "field_definitions.group.properties.notes.llm_share",
+            "'notes' is shared with LLM runs in one place and not in another; sharing "
+            "is by key name at every depth, so flag every 'notes' the same",
+        )
+    ]
+    withheld = {
+        "description": {"llm_share": False},
+        "x": {"properties": {"description": {}}},
+    }
+    assert [d[1] for d in check_llm_share(withheld) if d[0] == "error"] == [
+        "field_definitions.x.properties.description.llm_share"
+    ]
