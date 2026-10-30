@@ -173,10 +173,7 @@ class TestAPIConfig:
         """Test that all rate limit tiers are present."""
         config = APIConfig()
 
-        assert "default" in config.rate_limits
-        assert "authenticated" in config.rate_limits
-        assert "curator" in config.rate_limits
-        assert "admin" in config.rate_limits
+        assert set(config.rate_limits) == {"default", "authenticated", "admin"}
 
         # Verify rates increase with privilege
         assert (

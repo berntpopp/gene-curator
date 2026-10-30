@@ -81,7 +81,7 @@ scope role, never an application role. Test users: `role="user"` on `UserNew`, s
 A membership with `accepted_at IS NULL` is a pending invitation and grants nothing.
 
 **Backend** (`backend/app`): routers in `api/v1/endpoints/` (registered in `api/v1/api.py`;
-`invitations`, `evidence` (deprecated, removed in Wave 8) and `gene_summaries` have no prefix), Pydantic schemas in `schemas/`,
+`invitations` and `gene_summaries` have no prefix), Pydantic schemas in `schemas/`,
 data access in `crud/` (generic `CRUDBase`), business logic in `services/`. Auth chain in
 `core/deps.py`: `get_db -> get_current_user -> get_current_active_user -> get_current_admin_user`,
 plus `RequireScopeMember/Reviewer/Curator/Admin`. `set_rls_context()` sets `app.current_user_id`

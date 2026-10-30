@@ -2,7 +2,7 @@
 - File ownership is exclusive. Edit only the files listed for your workstream, plus new test files next to them. If you need a change in a file you don't own, write it under "Follow-ups" in your report; do not make it. Exception: `frontend/src/router/index.ts` may receive add/remove edits of your own route entries; guards and `meta` belong to WS-B.
 - One PR per workstream. One commit per issue: `fix(<area>): <what> (#N)` + blank line + `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. PR body says `Closes #a, closes #b`, lists the gates run, and ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. Open PRs as DRAFTS (`gh pr create --draft --base master`).
 - TDD for bugs: write a failing test first. Changed lines need 90% coverage (`make diff-cover`). Never use skip, xit, `|| true` or weakened asserts.
-- Gates before reporting: targeted tests, then `make check` in the worktree. Run `make test-postgres` if you touched `database/sql` or RLS.
+- Gates before reporting: targeted tests, then `make check` in the worktree. Worktree backend gates need placeholder env: `SECRET_KEY=x DATABASE_URL=postgresql://u:p@localhost/x`. Run `make test-postgres` if you touched `database/sql` or RLS.
 - Migrations: use only the number named in your Notes (Wave 4 starts at 042, assigned in merge order). Idempotent, self-recording in `schema_migrations`, mirrored in `backend/app/models/`.
 - Any change to RLS, triggers, workflow transitions, saves or lock_version adds a `backend/tests/postgres/` test that runs the real API flow as app_user.
 - D1: nobody approves their own work, admins included; no platform-admin RLS bypass.

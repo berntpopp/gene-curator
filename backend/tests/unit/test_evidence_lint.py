@@ -108,23 +108,35 @@ def test_experimental_row_reusing_a_patient_warns() -> None:
 
 
 @pytest.mark.parametrize(
-    ("genetic", "replicated", "hint"),
-    [(12, None, True), (12, False, True), (12, True, False), (11.9, None, False)],
+    ("total", "genetic", "replicated", "hint"),
+    [
+        (12, 12, None, True),
+        (12, 12, False, True),  # 046 defaults it to false: still not answered yes
+        (
+            14.2,
+            8.2,
+            None,
+            True,
+        ),  # MCP R6/R7 T7-3: Strong on a total, not genetic, of 12
+        (12, 12, True, False),
+        (11.9, 11.9, None, False),
+    ],
 )
-def test_definitive_hint_once_genetic_evidence_reaches_twelve(
-    genetic: float, replicated: bool | None, hint: bool
+def test_definitive_hint_once_the_total_reaches_twelve(
+    total: float, genetic: float, replicated: bool | None, hint: bool
 ) -> None:
     evidence = _evidence() | (
         {} if replicated is None else {"replicated_over_time": replicated}
     )
-    warnings = evidence_warnings(evidence, _result(genetic, genetic))
-    assert (
-        any(
-            w.startswith("replicated_over_time: genetic evidence reaches 12")
-            for w in warnings
-        )
-        is hint
-    )
+    warnings = [
+        w
+        for w in evidence_warnings(evidence, _result(total, genetic))
+        if w.startswith("replicated_over_time:")
+    ]
+    assert len(warnings) == hint
+    if hint:
+        assert "over 3 years" in warnings[0]
+        assert "set replicated_over_time to true" in warnings[0]
 
 
 def test_engine_shows_the_definitive_hint() -> None:
