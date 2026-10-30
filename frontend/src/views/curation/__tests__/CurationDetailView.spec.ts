@@ -145,6 +145,16 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).not.toContain('No actions available')
   })
 
+  it('links a reviewer to the AI second view, nobody else (#530)', async () => {
+    const link = (w: Awaited<ReturnType<typeof load>>) =>
+      w.findAllComponents({ name: 'VBtn' }).find(b => b.text() === 'AI second view')
+    expect(link(await load({ can_review: true }))?.props('to')).toEqual({
+      name: 'llm-second-view',
+      params: { scopeId: 'sc1', curationId: 'c1' }
+    })
+    expect(link(await load({ can_review: false }))).toBeUndefined()
+  })
+
   it('puts Delete after a divider, below the review actions (#242)', async () => {
     const wrapper = await load({ can_review: true, can_delete: true })
     const html = wrapper.html()

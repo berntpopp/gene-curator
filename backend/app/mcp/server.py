@@ -80,9 +80,10 @@ one precuration per MONDO id + mode of inheritance, each curated on its own.
    submit_precuration(reviewer_email=...) submits and routes it to a reviewer. The
    reviewer finds it in read_my_work and calls approve_precuration or
    reject_precuration.
-3. Curation: each approval opens a draft curation (list_curations); create_curation
-   only works with an approved precuration and no open curation of that entity; pass
-   precuration_id (required once the gene has several entities). Evidence that scores
+3. Curation: approval opens a draft curation (list_curations); curation_created
+   false means curation_id is the open one blocking it. create_curation needs an
+   approved precuration and no open curation of that entity; pass precuration_id
+   for a split gene. Evidence that scores
    lives in evidence_data (save_draft_curations or update_curation with
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.
