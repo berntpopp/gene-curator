@@ -38,7 +38,6 @@ from app.schemas.workflow_engine import (
     PeerReviewSubmission,
     WorkflowAnalytics,
     WorkflowAuditTrail,
-    WorkflowConfiguration,
     WorkflowDashboard,
     WorkflowStateInfo,
     WorkflowStatistics,
@@ -556,63 +555,6 @@ def bulk_workflow_transition(
         total_failed=len(failed_transitions),
         warnings=warnings,
     )
-
-
-# ========================================
-# WORKFLOW CONFIGURATION ENDPOINTS
-# ========================================
-
-
-@router.get("/configuration/{scope_id}", response_model=WorkflowConfiguration)
-def get_workflow_configuration(
-    *,
-    db: Session = Depends(get_db),
-    scope_id: UUID,
-    current_user: UserNew = Depends(get_current_active_user),
-) -> WorkflowConfiguration:
-    """
-    Get workflow configuration for a scope.
-    """
-    # All authenticated users can view workflow configuration for their scopes
-    # Check scope access
-    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
-        raise HTTPException(
-            status_code=403, detail="Not authorized to access this scope"
-        )
-
-    # Return default configuration (would be stored in database in real implementation)
-    return WorkflowConfiguration(
-        scope_id=scope_id,
-        require_peer_review=True,
-        min_reviewers=1,
-        allow_self_review=False,
-        auto_transition_on_approval=True,
-        require_all_reviews_complete=True,
-        review_timeout_hours=None,
-        stage_timeout_hours=None,
-        notify_on_assignment=True,
-        notify_on_transition=True,
-        escalation_enabled=False,
-    )
-
-
-@router.put("/configuration/{scope_id}", response_model=WorkflowConfiguration)
-def update_workflow_configuration(
-    *,
-    db: Session = Depends(get_db),
-    scope_id: UUID,
-    config_update: WorkflowConfiguration,
-    current_user: UserNew = Depends(get_current_active_user),
-) -> WorkflowConfiguration:
-    """
-    Update workflow configuration for a scope. Requires admin privileges.
-    """
-    if current_user.role not in ["admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    # In real implementation, this would update the configuration in database
-    config_update.scope_id = scope_id
-    return config_update
 
 
 # ========================================

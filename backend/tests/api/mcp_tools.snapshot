@@ -101,7 +101,6 @@ get_user_statistics read_only=True destructive=False
 get_users read_only=True destructive=False
 get_workflow_analytics read_only=True destructive=False
 get_workflow_audit_trail read_only=True destructive=False
-get_workflow_configuration read_only=True destructive=False
 get_workflow_dashboard read_only=True destructive=False
 get_workflow_pair read_only=True destructive=False
 get_workflow_pairs read_only=True destructive=False
@@ -170,7 +169,6 @@ update_precuration read_only=False destructive=True
 update_prompt_version read_only=False destructive=True
 update_review_comment read_only=False destructive=True
 update_scope read_only=False destructive=True
-update_workflow_configuration read_only=False destructive=True
 update_workflow_pair read_only=False destructive=True
 validate_batch read_only=False destructive=False
 validate_curation_schema read_only=False destructive=False
