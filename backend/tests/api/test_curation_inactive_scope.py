@@ -3,7 +3,6 @@ instead of the 500 the RLS-blocked UPDATE caused, and no Edit/Delete offered."""
 
 from collections.abc import Iterator
 from unittest.mock import patch
-from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -97,31 +96,6 @@ def test_create_in_inactive_scope_is_409(
     }
     r = client.post("/api/v1/curations/", headers=headers, json=body)
     assert r.status_code == 409, r.text
-
-
-EVIDENCE = {"evidence_category": "case_level", "evidence_type": "genetic"}
-
-
-@pytest.mark.parametrize(
-    ("method", "item", "body"),
-    [
-        ("post", False, {**EVIDENCE, "evidence_data": {}}),
-        ("put", True, {"evidence_data": {}}),
-        ("delete", True, None),
-    ],
-)
-def test_evidence_writes_in_inactive_scope_are_409(
-    client: TestClient,
-    setup: tuple[CurationNew, dict[str, str]],
-    method: str,
-    item: bool,
-    body: dict[str, object] | None,
-) -> None:
-    curation, headers = setup
-    path = f"/api/v1/curations/{curation.id}/evidence" + (f"/{uuid4()}" if item else "")
-    r = client.request(method, path, headers=headers, json=body)
-    assert r.status_code == 409, r.text
-    assert "inactive" in r.json()["detail"]
 
 
 def test_workflow_writes_in_inactive_scope_are_409(

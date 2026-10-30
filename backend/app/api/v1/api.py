@@ -7,7 +7,6 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth,
     curations,
-    evidence,
     external_validation,
     gene_assignments,
     gene_catalogue,
@@ -93,7 +92,6 @@ api_router.include_router(
     prefix="/gene-catalogue",
     tags=["gene-catalogue"],
 )
-api_router.include_router(evidence.router, tags=["evidence"])
 api_router.include_router(gene_summaries.router, tags=["gene-summaries"])
 api_router.include_router(
     external_validation.router,
