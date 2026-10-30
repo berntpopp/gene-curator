@@ -558,3 +558,13 @@ def test_classification_summary_follows_the_list_filters(
     assert summary(scope_id=test_scope.id) == {"definitive": 1}
     assert summary(classification="Limited") == {"limited": 1}
     assert summary(search="OTHR") == {"limited": 1}
+
+    def totals(**kw: Any) -> tuple[int, int, int]:
+        stats = catalogue.get_gene_catalogue(
+            db_session, GeneCatalogueFilters(**kw)
+        ).summary
+        return stats.total_genes_curated, stats.total_curations, stats.total_scopes
+
+    assert totals() == (2, 2, 2)
+    assert totals(scope_id=test_scope.id) == (1, 1, 1)
+    assert totals(classification="limited") == (1, 1, 1)
