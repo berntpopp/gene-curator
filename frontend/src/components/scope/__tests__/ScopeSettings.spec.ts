@@ -38,7 +38,7 @@ interface SettingsInternals {
   isDirty: boolean
   typedName: string
   showDeleteDialog: boolean
-  editableScope: { display_name: string }
+  editableScope: { display_name: string; approvals_require_session: boolean }
   selectedWorkflowPairId: string | null
   canEditSettings: boolean
   canDeleteScope: boolean
@@ -173,6 +173,7 @@ describe('ScopeSettings', () => {
     const { wrapper, vm } = await mountSettings({ role: 'admin' })
 
     vm.editableScope.display_name = 'Kidney genetics'
+    vm.editableScope.approvals_require_session = true
     vm.handleWorkflowPairChange()
     expect(vm.isDirty).toBe(true)
     vm.selectedWorkflowPairId = 'wp-1'
@@ -184,6 +185,7 @@ describe('ScopeSettings', () => {
       description: 'Renal',
       institution: 'Charité',
       is_public: false,
+      approvals_require_session: true,
       default_workflow_pair_id: 'wp-1'
     })
     expect(vm.isDirty).toBe(false)

@@ -1627,7 +1627,7 @@ export interface paths {
         /**
          * Submit Peer Review
          * @description Submit a peer review decision. decision=approve by an assigned reviewer, never
-         *     the author, moves the curation to active.
+         *     the author, moves the curation to active (approvals_require_session: signed-in only).
          */
         post: operations["submit_peer_review_api_v1_workflow_reviews__review_id__submit_post"];
         delete?: never;
@@ -9438,6 +9438,11 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /**
+             * Approvals Require Session
+             * @default false
+             */
+            approvals_require_session: boolean;
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
             /**
@@ -10458,6 +10463,8 @@ export interface components {
              * @description Public scope visibility
              */
             is_public?: boolean | null;
+            /** Approvals Require Session */
+            approvals_require_session?: boolean | null;
             /**
              * Scope Config
              * @description Scope-specific configuration
@@ -10521,6 +10528,11 @@ export interface components {
             id: string;
             /** Is Active */
             is_active: boolean;
+            /**
+             * Approvals Require Session
+             * @default false
+             */
+            approvals_require_session: boolean;
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
             /**

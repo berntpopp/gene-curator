@@ -74,6 +74,14 @@
         :disabled="saving || !canEditSettings"
         @update:model-value="markDirty"
       />
+      <v-switch
+        v-model="editableScope.approvals_require_session"
+        label="Approvals need a signed-in person"
+        hint="Agent tokens and MCP can comment and request changes, but not approve"
+        persistent-hint
+        :disabled="saving || !canEditSettings"
+        @update:model-value="markDirty"
+      />
 
       <div v-if="canEditSettings" class="d-flex align-center justify-end ga-3 mt-4">
         <span v-if="!isDirty" class="text-body-small text-medium-emphasis">No changes to save</span>
@@ -168,6 +176,7 @@
     description?: string | null
     institution?: string | null
     is_public?: boolean | null
+    approvals_require_session?: boolean | null
     created_by?: string | null
     default_workflow_pair_id?: string | null
   }
@@ -208,7 +217,8 @@
     display_name: '',
     description: '',
     institution: '',
-    is_public: false
+    is_public: false,
+    approvals_require_session: false
   })
 
   const {
@@ -259,6 +269,7 @@
         description: editableScope.value.description,
         institution: editableScope.value.institution,
         is_public: editableScope.value.is_public,
+        approvals_require_session: editableScope.value.approvals_require_session,
         default_workflow_pair_id: selectedWorkflowPairId.value
       }
 
@@ -317,7 +328,8 @@
       display_name: props.scope.display_name || '',
       description: props.scope.description || '',
       institution: props.scope.institution || '',
-      is_public: props.scope.is_public || false
+      is_public: props.scope.is_public || false,
+      approvals_require_session: props.scope.approvals_require_session || false
     }
     selectedWorkflowPairId.value = props.scope.default_workflow_pair_id || null
     isDirty.value = false

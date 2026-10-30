@@ -6,7 +6,7 @@ Follows patterns from curations.py.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
@@ -18,7 +18,11 @@ from app.core.constants import (
     PRECURATIONS_MAX_LIMIT,
 )
 from app.core.database import get_db, raise_if_rls_denied
-from app.core.deps import get_current_active_user, set_rls_context
+from app.core.deps import (
+    get_current_active_user,
+    require_signed_in_approver,
+    set_rls_context,
+)
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_entity import entity_key_of
@@ -521,6 +525,7 @@ def complete_precuration(
 @api_endpoint()
 def approve_precuration(
     precuration_id: UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PrecurationApprovalResult:
@@ -548,6 +553,7 @@ def approve_precuration(
 
     # Verify scope access with reviewer role
     require(db, current_user, precuration.scope_id, REVIEW)
+    require_signed_in_approver(request, precuration.scope)
 
     try:
         result = precuration_crud.approve_and_create_curation(

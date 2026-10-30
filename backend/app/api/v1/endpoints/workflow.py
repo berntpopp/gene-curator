@@ -8,13 +8,13 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import VIEW, require
 from app.core.database import get_db
-from app.core.deps import get_current_active_user
+from app.core.deps import get_current_active_user, require_signed_in_approver
 from app.crud.review_round import in_current_round
 from app.crud.scope_visibility import scope_id_for
 from app.crud.workflow_engine import workflow_engine
@@ -160,6 +160,27 @@ def validate_workflow_transition(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+# Transitions that approve work (#560)
+_APPROVALS = {
+    ("curation", WorkflowStage.ACTIVE),
+    ("precuration", WorkflowStage.ACTIVE),
+    ("precuration", WorkflowStage.CURATION),
+}
+
+
+def _require_signed_in_approval(
+    db: Session, request: Request, item_type: str, item_id: UUID, target: WorkflowStage
+) -> None:
+    if (item_type, target) not in _APPROVALS:
+        return
+    item: CurationNew | PrecurationNew | None = (
+        db.get(CurationNew, item_id)
+        if item_type == "curation"
+        else db.get(PrecurationNew, item_id)
+    )
+    require_signed_in_approver(request, item.scope if item else None)
+
+
 @router.post("/{item_type}/{item_id}/transition", response_model=WorkflowTransition)
 def execute_workflow_transition(
     *,
@@ -167,11 +188,15 @@ def execute_workflow_transition(
     item_type: str,
     item_id: UUID,
     transition_request: WorkflowTransitionRequest,
+    request: Request,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowTransition:
     """Execute a workflow state transition. Approve a curation: target_stage=active,
     by a reviewer or admin of the scope who is not its author (4-eyes)."""
     # RLS policies + workflow engine handle scope-based access
+    _require_signed_in_approval(
+        db, request, item_type, item_id, transition_request.target_stage
+    )
     try:
         transition = workflow_engine.execute_transition(
             db,
@@ -232,10 +257,14 @@ def submit_peer_review(
     db: Session = Depends(get_db),
     review_id: UUID,
     review_submission: PeerReviewSubmission,
+    request: Request,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PeerReviewResult:
     """Submit a peer review decision. decision=approve by an assigned reviewer, never
-    the author, moves the curation to active."""
+    the author, moves the curation to active (approvals_require_session: signed-in only)."""
+    if review_submission.decision == "approve":
+        review = db.get(Review, review_id)
+        require_signed_in_approver(request, review.curation.scope if review else None)
     # All authenticated users can submit reviews they're assigned to
     # Workflow engine validates reviewer assignment
 
@@ -462,6 +491,7 @@ def bulk_workflow_transition(
     *,
     db: Session = Depends(get_db),
     bulk_request: BulkWorkflowTransitionRequest,
+    request: Request,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> BulkWorkflowTransitionResult:
     """
@@ -500,6 +530,9 @@ def bulk_workflow_transition(
         try:
             if item_id in rejected:
                 raise ValueError(rejected[item_id])
+            _require_signed_in_approval(
+                db, request, bulk_request.item_type, item_id, bulk_request.target_stage
+            )
             workflow_engine.execute_transition(
                 db,
                 item_id,
