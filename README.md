@@ -64,7 +64,7 @@ migrations must be a superuser or have BYPASSRLS, because SECURITY DEFINER funct
 FORCE RLS as that owner; without it, personal access tokens and MCP get 401, curators cannot
 assign reviewers, and the LLM worker claims nothing. Set `LLM_CREDENTIAL_KEYS` and `LLM_CREDENTIAL_ACTIVE_KID` (see `.env.example`).
 Rate limiting is on in `docker-compose.prod.yml`; behind a reverse proxy set
-`FORWARDED_ALLOW_IPS` to the proxy's address. Breaking: curation writes, scope lists and schema
+`FORWARDED_ALLOW_IPS` to the proxy's address. Buckets are per worker, so N workers allow up to N times the configured rate. Breaking: curation writes, scope lists and schema
 lists answer concisely unless `detail=true`; `CurationDetail.calculated_score` is gone; the
 evidence-item endpoints are deprecated; only cited evidence scores (no or unknown PMID, no or a
 placeholder variant, or a blank `score_status` scores 0 and submit refuses it); `gene_summaries`
