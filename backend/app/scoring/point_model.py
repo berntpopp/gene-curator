@@ -3,7 +3,9 @@
 A point model (``scoring_configuration.point_model``, else the template file named after
 ``scoring_configuration.engine``) is ``{total_cap, sections: [{key, cap, categories:
 [{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?, group_by?, group_cap?}]}]}],
-overrides: [{when, field?, in?, class}], bands: [{class, min?, requires?, section_min?}]}``. ``path`` is dotted and relative to the section's evidence.
+overrides: [{when, field?, in?, class}], bands: [{class, min?, requires?, section_min?}],
+review_flags?: {band_margin?, hotspot?: {max_variants, min_share}, experimental_over_genetic?:
+[section, section]}}``. ``path`` is dotted and relative to the section's evidence.
 """
 
 import json
@@ -81,16 +83,19 @@ def _type_points(
     flags: list[Any],
     excluded: list[Any],
     capped: list[Any],
+    variants: dict[str, float],
 ) -> list[float]:
     """Entered rows' points; rows outside the type's range or non-finite are flagged and
     count nothing (#278), never clamped. Rows with points but no citation count nothing and are listed in ``excluded``.
-    With ``group_by``, rows sharing a non-blank value score at most ``group_cap`` together (#557)."""
+    With ``group_by``, rows sharing a non-blank value score at most ``group_cap`` together (#557).
+    Counted case-row points add up in ``variants`` by normalised variant (the #559 hotspot flag)."""
     limits = type_def.get("range")
     group_by = type_def.get("group_by")
     groups: dict[
         str, tuple[str, list[int]]
     ] = {}  # normalised -> (typed, point indexes)
     points: list[float] = []
+    keys: list[str] = []  # each counted point's variant, for ``variants``
     for i, row in indexed(_at(data, type_def["path"])):
         value = rule(type_def, row)
         if value is None:
@@ -117,13 +122,32 @@ def _type_points(
         if value > 0 and (why := uncited(row, case_level, by_status=case_row)):
             excluded.append({"path": f"{path}[{i}]", **why})
         elif not flagged:  # flagged rows count nothing (#278); the trace lists them
-            if group_by and (group := str(row.get(group_by) or "").strip().casefold()):
+            if group_by and (group := _norm(row.get(group_by))):
                 typed = str(row[group_by])  # shown as the curator typed it
                 groups.setdefault(group, (typed, []))[1].append(len(points))
             points.append(value)
+            keys.append(
+                _norm(row.get("variant_1" if "variant_1" in row else "variant"))
+            )
     if groups:
         _cap_groups(path, type_def["group_cap"], groups, points, capped)
+    _count_variants(type_def, keys, points, variants)
     return points
+
+
+def _count_variants(
+    type_def: dict[str, Any],
+    keys: list[str],
+    points: list[float],
+    variants: dict[str, float],
+) -> None:
+    if type_def.get("rule") == "case_row":
+        for key, value in zip(keys, points, strict=True):
+            variants[key] = variants.get(key, 0.0) + value
+
+
+def _norm(value: Any) -> str:
+    return str(value or "").strip().casefold()
 
 
 def _cap_groups(
@@ -152,6 +176,7 @@ def _section_points(
     flags: list[Any],
     excluded: list[Any],
     capped: list[Any],
+    variants: dict[str, float],
 ) -> dict[str, dict[str, list[float]]]:
     """{category key: {type path: [item points]}} for one section's evidence."""
     if isinstance(data, list) and legacy is not None:
@@ -167,7 +192,7 @@ def _section_points(
             rule = rules.get(type_def.get("rule", ""), default_points)
             path = f"{section['key']}.{type_def['path']}"
             out[category["key"]][type_def["path"]] = _type_points(
-                path, type_def, data, rule, flags, excluded, capped
+                path, type_def, data, rule, flags, excluded, capped, variants
             )
     return out
 
@@ -216,15 +241,17 @@ def score(
     rules: dict[str, ItemRule] | None = None,
     legacy: LegacyRule | None = None,
 ) -> dict[str, Any]:
-    """Interpret ``model`` over ``evidence``: {total, class, sections, trace, excluded}."""
+    """Interpret ``model`` over ``evidence``: {total, class, sections, trace, excluded,
+    model, variant_points}."""
     sections = []
     flags: list[Any] = []
     excluded: list[Any] = []
     capped: list[Any] = []
+    variants: dict[str, float] = {}
     for section in model["sections"]:
         data = evidence.get(section["key"])
         points = _section_points(
-            section, data, rules or {}, legacy, flags, excluded, capped
+            section, data, rules or {}, legacy, flags, excluded, capped, variants
         )
         categories = [_category(c, points[c["key"]]) for c in section["categories"]]
         raw = sum(c["score"] for c in categories)
@@ -261,4 +288,6 @@ def score(
         "sections": {s["key"]: s["score"] for s in sections},
         "trace": trace,
         "excluded": excluded,
+        "model": model,  # evidence_warnings reads its review_flags and bands (#559)
+        "variant_points": variants,
     }

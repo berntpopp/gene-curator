@@ -2,7 +2,8 @@
 text, a summary claiming another total than the computed one, and an experimental row that
 reuses a case row's PMID and variant or mentions a proband, patient, individual or family
 (a patient filed as experimental evidence; patient_cells rows excepted); and the hint
-that Definitive needs replicated_over_time once the total reaches 12 points."""
+that Definitive needs replicated_over_time once the total reaches 12 points; plus the point
+model's configured reviewer flags (#559)."""
 
 import re
 from collections.abc import Iterator
@@ -101,7 +102,7 @@ def _misfiled_patients(evidence: dict[str, Any]) -> list[str]:
 
 def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[str]:
     """Case-row lint plus the reviewer checks above, each naming its path; ``result`` is the
-    point model's (total, sections)."""
+    point model's (total, sections, model, variant_points)."""
     total = result["total"]
     warnings = case_row_warnings(evidence)
     if total >= 12 and evidence.get("replicated_over_time") is not True:
@@ -125,4 +126,40 @@ def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[
             f"evidence_summary: claims a total of {claimed:g} points; the computed total "
             f"is {total:g}"
         )
-    return warnings + _misfiled_patients(evidence)
+    return warnings + _misfiled_patients(evidence) + review_flags(result)
+
+
+def review_flags(result: dict[str, Any]) -> list[str]:
+    """The point model's optional ``review_flags`` (#559) that hold for ``result``: warnings
+    for the reviewer, never a block."""
+    flags = (result.get("model") or {}).get("review_flags") or {}
+    total, out = result["total"], []
+    if (margin := flags.get("band_margin")) is not None:
+        edges = [b for b in result["model"]["bands"] if b.get("min", 0) > 0]
+        near = min(edges, key=lambda b: abs(total - b["min"]), default=None)
+        if near and abs(total - near["min"]) <= margin:
+            out.append(
+                f"review_flags.band_margin: the total of {total:g} points is within "
+                f"{margin:g} points of the {near['class']} band edge at {near['min']:g}; "
+                "check the evidence near the boundary"
+            )
+    if hotspot := flags.get("hotspot"):
+        points = result.get("variant_points", {})
+        proband = sum(points.values())
+        top_n = sorted((v for k, v in points.items() if k), reverse=True)
+        top_n = top_n[: hotspot["max_variants"]]
+        top, n = sum(top_n), len(top_n)
+        if proband > 0 and top / proband >= hotspot["min_share"]:
+            out.append(
+                f"review_flags.hotspot: {top:g} of {proband:g} proband points "
+                f"({top / proband:.0%}) come from {n} variants; check for a "
+                "recurrent-variant hotspot"
+            )
+    if pair := flags.get("experimental_over_genetic"):
+        high, low = (result["sections"].get(key, 0) for key in pair)
+        if high > low:
+            out.append(
+                f"review_flags.experimental_over_genetic: {pair[0]} scores {high:g} "
+                f"points, more than {pair[1]} ({low:g}); check the experimental evidence"
+            )
+    return out
