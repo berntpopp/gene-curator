@@ -357,6 +357,51 @@ def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
     if not all(_is_number(low) for low in lows) or lows != sorted(lows, reverse=True):
         msg = "Band min must be numeric and must not increase (first match wins)"
         out.append(("error", f"{path}.bands", msg))
+    flags_path = f"{path}.review_flags"
+    out += _check_review_flags(model.get("review_flags", {}), flags_path, section_keys)
+    return out
+
+
+def _check_review_flags(flags: Any, path: str, sections: set[Any]) -> list[Diagnostic]:
+    """#559: each flag's settings, as ``review_flags`` in evidence_lint indexes them."""
+    if not isinstance(flags, dict):
+        return [("error", path, "review_flags must be an object")]
+    out: list[Diagnostic] = [
+        ("error", f"{path}.{key}", f"Unknown review flag: {key}")
+        for key in flags
+        if key not in ("band_margin", "hotspot", "experimental_over_genetic")
+    ]
+    margin = flags.get("band_margin", 0)
+    if not (_is_number(margin) and margin >= 0):
+        msg = "band_margin must be a number >= 0"
+        out.append(("error", f"{path}.band_margin", msg))
+    if "hotspot" in flags:
+        out += _check_hotspot(flags["hotspot"], f"{path}.hotspot")
+    pair = flags.get("experimental_over_genetic", [])
+    keys = [key for key in _as(list, pair) if isinstance(key, str) and key in sections]
+    if "experimental_over_genetic" in flags and not (
+        pair == keys and len(set(keys)) == 2
+    ):
+        msg = "experimental_over_genetic must be [section key, section key]"
+        out.append(("error", f"{path}.experimental_over_genetic", msg))
+    return out
+
+
+def _check_hotspot(hotspot: Any, path: str) -> list[Diagnostic]:
+    if not isinstance(hotspot, dict):
+        return [("error", path, "hotspot must be an object")]
+    out: list[Diagnostic] = [
+        ("error", f"{path}.{key}", f"Unknown hotspot key: {key}")
+        for key in hotspot
+        if key not in ("max_variants", "min_share")
+    ]
+    n, share = hotspot.get("max_variants"), hotspot.get("min_share")
+    if not (isinstance(n, int) and not isinstance(n, bool) and n >= 1):
+        msg = "max_variants must be an integer >= 1"
+        out.append(("error", f"{path}.max_variants", msg))
+    if not (_is_number(share) and isinstance(share, int | float) and 0 < share <= 1):
+        msg = "min_share must be a number in (0, 1]"
+        out.append(("error", f"{path}.min_share", msg))
     return out
 
 
