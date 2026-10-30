@@ -16,12 +16,15 @@ vi.mock('@/api', () => ({
     getVersions: vi.fn(),
     getMethodologyVersion: vi.fn(),
     deriveSchema: vi.fn(),
+    publishVersion: vi.fn(),
     getWorkflowPairs: vi.fn(),
     createWorkflowPair: vi.fn(),
     updateWorkflowPair: vi.fn(),
     deleteWorkflowPair: vi.fn()
   }
 }))
+
+vi.mock('@/services/scopeService', () => ({ scopeService: { fetchScopes: vi.fn() } }))
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -377,5 +380,42 @@ describe('useSchemasStore', () => {
       store.clearError()
       expect(store.error).toBeNull()
     })
+  })
+})
+
+describe('schemas store: publishing (#219)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.clearAllMocks()
+  })
+
+  it('publishes a version and drops the cached JSON schema', async () => {
+    const store = useSchemasStore()
+    useValidationStore().jsonSchemas.s1 = {} as never
+    api.publishVersion.mockResolvedValue({ id: 'v2', version: 2 } as never)
+    expect(await store.publishVersion('s1')).toEqual({ id: 'v2', version: 2 })
+    expect(api.publishVersion).toHaveBeenCalledWith('s1')
+    expect(useValidationStore().jsonSchemas.s1).toBeUndefined()
+  })
+
+  it('lists the pairs using the schema, the scopes defaulting to them and the latest version', async () => {
+    const { scopeService } = await import('@/services/scopeService')
+    api.getWorkflowPairs.mockResolvedValue([
+      { id: 'p1', precuration_schema_id: 's1', curation_schema_id: 'c' },
+      { id: 'p2', precuration_schema_id: 'x', curation_schema_id: 's1' },
+      { id: 'p3', precuration_schema_id: 'x', curation_schema_id: 'y' }
+    ] as never)
+    vi.mocked(scopeService.fetchScopes).mockResolvedValue([
+      { id: 'a', default_workflow_pair_id: 'p2' },
+      { id: 'b', default_workflow_pair_id: 'p3' },
+      { id: 'c', default_workflow_pair_id: null }
+    ] as never)
+    api.getVersions.mockResolvedValue([{ id: 'v3', version: 3 }] as never)
+    const impact = await useSchemasStore().fetchPublishImpact('s1')
+    expect(impact.pairs.map(p => p.id)).toEqual(['p1', 'p2'])
+    expect(impact.scopes.map(s => s.id)).toEqual(['a'])
+    expect(impact.latest).toEqual({ id: 'v3', version: 3 })
+    api.getVersions.mockResolvedValue([])
+    expect((await useSchemasStore().fetchPublishImpact('s1')).latest).toBeNull()
   })
 })
