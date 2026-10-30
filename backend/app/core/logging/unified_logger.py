@@ -13,6 +13,7 @@ providing rich context information.
 
 import asyncio
 import logging
+import threading
 
 # Type hint for database logger (avoid circular import)
 from typing import TYPE_CHECKING, Any
@@ -22,6 +23,9 @@ from .rate_limiter import RateLimiter
 
 if TYPE_CHECKING:
     from .database_logger import DatabaseLogger
+
+# The server loop (main thread) owns the async engine's connections; set on first log there.
+_main_loop: asyncio.AbstractEventLoop | None = None
 
 
 class UnifiedLogger:
@@ -239,19 +243,30 @@ class UnifiedLogger:
         self._log_to_console(level, message, extra_data)
 
         # Log to database asynchronously (auto-detect context)
+        global _main_loop
         try:
-            # Try to get running loop
             loop = asyncio.get_running_loop()
-            # In async context - schedule as task
+        except RuntimeError:
+            # Not in async context - can't write to database
+            # This is expected in sync contexts (startup, tests, etc.)
+            return
+        if threading.current_thread() is threading.main_thread():
+            _main_loop = loop
+        if loop is _main_loop:
             task = loop.create_task(
                 self._log_to_database_async(level, message, error, extra_data)
             )
             # Add done callback to handle exceptions properly
             task.add_done_callback(self._handle_db_log_exception)
-        except RuntimeError:
-            # Not in async context - can't write to database
-            # This is expected in sync contexts (startup, tests, etc.)
-            pass
+        elif _main_loop is not None and _main_loop.is_running():
+            # A temporary loop (asyncio.run in a worker thread) must not touch the
+            # engine's connections: hand the write to the main loop (context is copied).
+            coro = self._log_to_database_async(level, message, error, extra_data)
+            try:
+                asyncio.run_coroutine_threadsafe(coro, _main_loop)
+            except RuntimeError:  # main loop closed during shutdown; console only
+                coro.close()
+        # else: no live main loop known; console only
 
     def debug(self, message: str, **kwargs):
         """Log a debug message."""
