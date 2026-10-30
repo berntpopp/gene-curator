@@ -367,4 +367,20 @@ describe('DynamicForm from raw config', () => {
       vi.useRealTimers()
     }
   })
+
+  it('renders the fields of a one-section schema', async () => {
+    const wrapper = mountForm({
+      field_definitions: {
+        sections: [
+          {
+            id: 'only',
+            label: 'Only',
+            fields: [{ id: 'kidney_relevance', type: 'text', label: 'Kidney relevance' }]
+          }
+        ]
+      }
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Kidney relevance')
+  })
 })

@@ -62,6 +62,16 @@ export const schemasAPI = {
   },
 
   /**
+   * Publish the schema's saved content as a new immutable methodology version (platform admin)
+   */
+  async publishVersion(id: string): Promise<Schema<'MethodologyVersion'>> {
+    const response = await apiClient.post<Schema<'MethodologyVersion'>>(
+      `/schemas/curation-schemas/${id}/versions`
+    )
+    return response.data
+  },
+
+  /**
    * One published methodology version (the snapshot a record is pinned to)
    */
   async getMethodologyVersion(id: string): Promise<Schema<'MethodologyVersion'>> {

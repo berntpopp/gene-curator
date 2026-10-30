@@ -145,6 +145,7 @@ export function normalizeDefinition(definition: Record<string, unknown>): JsonSc
     properties,
     scoring_configuration: (definition.scoring_configuration ?? undefined) as
       ScoringConfiguration | undefined,
-    ui_configuration: tabs ? { layout: { type: 'tabs', tabs } } : undefined
+    // One step is no tab layout (DynamicForm's tab view needs two): it renders flat
+    ui_configuration: tabs && tabs.length > 1 ? { layout: { type: 'tabs', tabs } } : undefined
   }
 }

@@ -165,4 +165,24 @@ describe('conditions', () => {
     expect(Object.keys(doc.properties!.rows!.columns!)).toEqual(['label', 'pmid', 'note'])
     expect(doc.properties!.rows!.columns!.pmid!.format).toBe('pmid')
   })
+
+  it('renders one section or one layout tab flat: a single step is no tab layout', () => {
+    const one = normalizeDefinition({
+      field_definitions: {
+        sections: [{ id: 's', label: 'S', fields: [{ id: 'a', type: 'text' }] }]
+      }
+    })
+    expect(one.ui_configuration).toBeUndefined()
+    expect(Object.keys(one.properties!)).toEqual(['a'])
+    const oneTab = normalizeDefinition({
+      field_definitions: { a: { type: 'text' } },
+      ui_configuration: {
+        layout: {
+          type: 'tabs',
+          tabs: [{ id: 't', name: 'T', sections: [{ name: 'x', fields: ['a'] }] }]
+        }
+      }
+    })
+    expect(oneTab.ui_configuration).toBeUndefined()
+  })
 })
