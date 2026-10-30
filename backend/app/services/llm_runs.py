@@ -14,7 +14,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import RootModel
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.llm.output import InvalidLLMOutputError, parse_structured_output
@@ -379,7 +379,7 @@ def enqueue_run(
 ) -> LLMRun:
     """Check opt-in, model, prompt and caps and insert a queued run, atomically.
 
-    The scope's settings row is locked first, so two enqueues for one scope serialize and
+    A per-scope advisory lock is taken first, so two enqueues for one scope serialize and
     the second counts the first run. `exclusive` also refuses while the curation has a
     pending run. Any refusal raises LLMCapError (fail closed).
     """
@@ -387,11 +387,12 @@ def enqueue_run(
     if curation is None:
         raise LLMCapError("curation_not_found")
     try:
-        db.execute(
-            select(ScopeLLMSettings.scope_id)
-            .where(ScopeLLMSettings.scope_id == curation.scope_id)
-            .with_for_update()
-        )
+        if db.get_bind().dialect.name == "postgresql":
+            # not FOR UPDATE on the settings row: RLS hides it from reviewers' locks
+            db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"),
+                {"k": f"llm_enqueue:{curation.scope_id}"},
+            )
         if exclusive and db.scalar(
             select(LLMRun.id)
             .where(LLMRun.curation_id == curation.id, LLMRun.status.in_(PENDING))
