@@ -398,6 +398,10 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
         out.append(
             ("error", f"{path}.blank_at", "blank_at must be null or a finite number")
         )
+    if "group_by" in item or "group_cap" in item:  # one never works without the other
+        out += _need(item, path, {"group_by": str})
+        if not _is_number(item.get("group_cap")):
+            out.append(("error", f"{path}.group_cap", "group_cap must be a number"))
     if item.get("rule") == "case_row" and "blank_at" not in item:
         out.append(("error", f"{path}.blank_at", "case_row requires blank_at"))
     rng = item.get("range")
