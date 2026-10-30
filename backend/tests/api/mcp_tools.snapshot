@@ -27,7 +27,6 @@ create_scope read_only=False destructive=False
 create_workflow_pair read_only=False destructive=False
 curation_diff read_only=True destructive=False
 deactivate_gene_assignment read_only=False destructive=True
-decide_finding read_only=False destructive=True
 decline_invitation read_only=False destructive=False
 delete_curation read_only=False destructive=True
 delete_curation_schema read_only=False destructive=True

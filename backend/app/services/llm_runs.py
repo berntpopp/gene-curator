@@ -46,8 +46,10 @@ GOLDEN_DIR = Path(__file__).parents[1] / "llm" / "golden"
 # --- data sharing ---------------------------------------------------------------
 
 
-# The only evidence_data keys (at any depth) sent to a provider: every curation content
-# field of the seeded schemas (tests/postgres/test_llm_shared_fields.py keeps it complete).
+# The only evidence_data keys (at any depth) sent to a provider: the evidence facts of the
+# seeded schemas. Curator judgement (points, score status, rationale, impact, replication,
+# summaries) is left out so the second view stays blind (#464); the postgres test
+# tests/postgres/test_llm_shared_fields.py lists those keys as excluded.
 # Anything else, e.g. a curator_name a custom schema adds, is dropped. ponytail: custom
 # schema fields need adding here; upgrade to a per-field share flag in the schema.
 SHARED_EVIDENCE_KEYS = frozenset(
@@ -78,7 +80,6 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "controls_with_variant",
         "controls_with_variants",
         "de_novo",
-        "decision",
         "description",
         "disease_mechanism_relevance",
         "disease_name",
@@ -86,12 +87,9 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "disease_tissue_relevance",
         "entity_definition",
         "ethnicity",
-        "evidence_quality",
-        "evidence_summary",
         "evidence_type",
         "experimental_category",
         "experimental_evidence",
-        "explanation",
         "expression",
         "expression_method",
         "family_label",
@@ -103,8 +101,6 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "genetic_evidence",
         "human",
         "human_phenotype_match",
-        "impact",
-        "inheritance_consistency",
         "inheritance_pattern_match",
         "initial_assessment",
         "interacting_protein",
@@ -132,35 +128,25 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "patient_cells",
         "pedigree_description",
         "phase_confirmed",
-        "phenotype_match",
         "phenotype_observed",
         "phenotype_rescued",
         "phenotypes",
         "pmid",
-        "points",
         "predicted_or_proven_null",
         "previous_testing",
-        "proband_counted_points",
         "proband_label",
-        "proband_not_counted_points",
         "proband_with_variant",
         "protein_interaction",
-        "rationale",
-        "replicated_over_time",
         "rescue",
         "rescue_extent",
         "rescue_method",
-        "score_status",
         "sections",
         "segregation",
         "segregation_data",
         "segregations",
-        "segregations_counted",
-        "segregations_not_counted",
         "sex",
         "single_variant_analysis",
         "statistical_test",
-        "study_design_strength",
         "study_label",
         "tissue_organ",
         "variant",

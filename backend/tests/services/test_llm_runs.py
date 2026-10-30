@@ -164,11 +164,9 @@ async def test_golden_cases_report_ok_unexpected_invalid_and_errors() -> None:
             _answer(case, [], expert), advocate, case, 100, "advocate"
         )
     )["ok"]  # flags are the skeptic's job
-    curated = json.loads(case["values"]["curation_data"])["evidence_data"]
-    wrong = await run_golden_case(_answer(case, flags, curated), version, case, 100)
-    assert (
-        wrong["error_code"] == "unexpected_output"
-    )  # moderate, the expert says limited
+    strong = load_golden()[1]["expert_evidence"]
+    wrong = await run_golden_case(_answer(case, flags, strong), version, case, 100)
+    assert wrong["error_code"] == "unexpected_output"  # strong; the expert says limited
     bad = await run_golden_case(_answer(case, flags, "not json"), version, case, 100)
     assert bad["error_code"] == "invalid_output"
     missing = MockProvider(response_text='{"findings": []}')

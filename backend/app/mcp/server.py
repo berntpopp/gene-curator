@@ -44,6 +44,9 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/auth/register"): "anonymous account creation",
     ("GET", "/api/v1/auth/"): "REST login URLs; the instructions cover MCP",
     **dict.fromkeys(PAT_BLOCKED_OPERATIONS, "blocked for personal access tokens"),
+    ("PATCH", "/api/v1/llm-findings/{finding_id}"): (
+        "accepting or dismissing an AI finding is a human reviewer decision"
+    ),
 }
 
 INSTRUCTIONS = """\

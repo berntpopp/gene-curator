@@ -318,3 +318,24 @@ async def test_keys_prompts_and_outputs_never_logged(
     assert "LLM provider retry" in caplog.text  # the capture works
     for marker in (API_KEY, PROMPT_MARKER, OUTPUT_MARKER):
         assert marker not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_openrouter_model_id_and_base_path_pass_through_unchanged() -> None:
+    seen: list[httpx.Request] = []
+    model = "anthropic/claude-sonnet-5.5"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=openai_body(model))
+
+    provider = OpenAICompatibleProvider(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=API_KEY,
+        model=model,
+        transport=httpx.MockTransport(handler),
+    )
+    result = await provider.complete(REQ)
+    assert result.model == model
+    assert str(seen[0].url) == "https://openrouter.ai/api/v1/chat/completions"
+    assert json.loads(seen[0].content)["model"] == model

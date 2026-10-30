@@ -5,6 +5,7 @@ No endpoint returns or logs a key: responses carry only has_key and the fingerpr
 """
 
 import asyncio
+import re
 import time
 import uuid
 from collections.abc import Sequence
@@ -24,6 +25,7 @@ from app.llm.ssrf import UnsafeURLError
 from app.models import UserNew
 from app.models.llm import LLMModel, LLMProvider, LLMRun
 from app.schemas.llm import (
+    DATED_MODEL_ID,
     ModelCreate,
     ModelOut,
     ModelUpdate,
@@ -193,7 +195,12 @@ def list_models(
 def create_model(
     body: ModelCreate, db: Session = Depends(get_db), user: UserNew = Admin
 ) -> LLMModel:
-    _get(db, LLMProvider, body.provider_id)
+    provider: LLMProvider = _get(db, LLMProvider, body.provider_id)
+    if provider.kind == "anthropic" and not re.fullmatch(DATED_MODEL_ID, body.model_id):
+        raise HTTPException(
+            status_code=422,
+            detail="Anthropic model ids must be pinned, e.g. claude-sonnet-5-5",
+        )
     model = LLMModel(id=uuid.uuid4(), created_by=user.id, **body.model_dump())
     audit(db, user, "llm_models", model.id, "CREATE", body.model_dump())
     db.add(model)

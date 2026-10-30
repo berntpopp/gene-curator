@@ -95,7 +95,7 @@ def test_admin_test_run_over_the_golden_set(
     by_case = {c["case"]: c for c in out["cases"]}
     assert by_case["double_counted_proband"]["ok"] is True  # limited, flagged
     assert by_case["missing_replication"]["error_code"] == "unexpected_output"
-    assert out["passed"] == 3  # the three limited cases
+    assert out["passed"] == 2  # the two limited cases
 
     assert client.post(url, json=body, headers=_h(world)).status_code == 403
     missing = {"model_id": str(uuid4())}

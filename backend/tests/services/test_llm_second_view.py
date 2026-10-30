@@ -94,6 +94,46 @@ def test_the_model_never_sees_the_curators_conclusion(
     assert "segregates" in sent  # the evidence itself is still sent
 
 
+def test_no_curator_judgement_reaches_the_provider(
+    db_session: Session, world: World
+) -> None:
+    world.curation.evidence_data = {
+        "genetic_evidence": {
+            "case_level": {
+                "autosomal_dominant_or_x_linked": {
+                    "predicted_or_proven_null": [
+                        {
+                            "proband_label": "P1",
+                            "variant": "c.100C>T",
+                            "pmid": "31000001",
+                            "proband_counted_points": 2.75,
+                            "score_status": "score",
+                            "explanation": "upgraded for de novo",
+                        }
+                    ]
+                }
+            }
+        },
+        "evidence_summary": "Classified as DEFINITIVE by the curator",
+        "contradictory_evidence": [{"pmid": "34000001", "impact": "disputed"}],
+        "replicated_over_time": True,
+    }
+    db_session.commit()
+    sent = curation_values(db_session, world.curation)["curation_data"]
+    for judgement in (
+        "proband_counted_points",
+        "2.75",
+        "score_status",
+        "upgraded",
+        "DEFINITIVE",
+        "impact",
+        "replicated_over_time",
+    ):
+        assert judgement not in sent
+    for fact in ("P1", "c.100C>T", "31000001", "34000001"):
+        assert fact in sent
+
+
 def _snapshot(curation: CurationNew) -> tuple[Any, ...]:
     return (
         json.dumps(curation.evidence_data, sort_keys=True),

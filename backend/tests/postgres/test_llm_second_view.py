@@ -162,6 +162,69 @@ async def test_reviewer_flow_as_app_user(w: W, monkeypatch: pytest.MonkeyPatch) 
         _exec("DELETE FROM users WHERE id = %s", str(reviewer))
 
 
+def test_a_reviewer_cannot_decide_findings_on_their_own_curation(w: W) -> None:  # noqa: F811
+    """The 065 NOT EXISTS rule alone: same scope role, only authorship differs."""
+    own, other, mine, run, finding = uuid4(), uuid4(), uuid4(), uuid4(), uuid4()
+    tag = str(w.scope)[:8]
+    try:
+        for uid, name in ((own, "own"), (other, "oth")):
+            _exec(
+                "INSERT INTO users (id, email, hashed_password, name, role) "
+                "VALUES (%s, %s, 'x', %s, 'user')",
+                str(uid),
+                f"{name}-{tag}@run.org",
+                name,
+            )
+            _exec(
+                "INSERT INTO scope_memberships (scope_id, user_id, role, invited_by, "
+                "accepted_at) VALUES (%s, %s, 'reviewer', %s, now())",
+                str(w.scope),
+                str(uid),
+                str(w.scope_admin),
+            )
+        _exec(
+            "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
+            "workflow_stage, created_by, evidence_data) "
+            "VALUES (%s, %s, %s, %s, 'draft', 'curation', %s, '{}')",
+            str(mine),
+            str(w.gene),
+            str(w.scope),
+            str(w.pair),
+            str(own),
+        )
+        _exec(
+            "INSERT INTO llm_runs (id, curation_id, scope_id, strategy, model_id, "
+            "created_by, status) VALUES (%s, %s, %s, 'skeptic', 'm', %s, 'succeeded')",
+            str(run),
+            str(mine),
+            str(w.scope),
+            str(other),
+        )
+        _exec(
+            "INSERT INTO llm_findings (id, run_id, curation_id, scope_id, category, "
+            "message, citations) VALUES (%s, %s, %s, %s, 'c', 'm', ARRAY['PMID:1'])",
+            str(finding),
+            str(run),
+            str(mine),
+            str(w.scope),
+        )
+        decide = text(
+            "UPDATE llm_findings SET decision = 'accepted', decided_by = :u, "
+            "decided_at = now() WHERE id = :f"
+        )
+        for uid, rows in ((own, 0), (other, 1)):
+            with _as(uid) as db:
+                result = db.execute(decide, {"u": str(uid), "f": str(finding)})
+                assert result.rowcount == rows  # type: ignore[attr-defined]
+                db.commit()
+    finally:
+        _exec("DELETE FROM llm_runs WHERE id = %s", str(run))  # cascades the finding
+        _exec("DELETE FROM curations WHERE id = %s", str(mine))
+        users = (str(own), str(other))
+        _exec("DELETE FROM scope_memberships WHERE user_id IN %s", users)
+        _exec("DELETE FROM users WHERE id IN %s", users)
+
+
 def test_migration_065_is_recorded() -> None:
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(

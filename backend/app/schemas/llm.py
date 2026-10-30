@@ -16,8 +16,10 @@ from pydantic import (
 
 ProviderKind = Literal["openai_compatible", "anthropic", "mock"]
 Strategy = Literal["skeptic", "advocate"]
-# A pinned model id ends in its release date (gpt-4o-2024-08-06), or is a versioned
+# Anthropic model ids must be pinned: a release date (claude-x-20250929) or a versioned
 # Claude id, which Anthropic serves as a fixed snapshot (claude-sonnet-5-5); no aliases.
+# Other kinds take the gateway's own id, e.g. OpenRouter anthropic/claude-sonnet-5.5.
+MODEL_ID = r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$"
 DATED_MODEL_ID = r"^([A-Za-z0-9][A-Za-z0-9._:/-]*(\d{8}|\d{4}-\d{2}-\d{2})|claude-[a-z]+-\d+(-\d+)?)$"
 
 
@@ -77,7 +79,7 @@ class ProviderOut(_Out):
 
 class ModelCreate(BaseModel):
     provider_id: UUID
-    model_id: str = Field(pattern=DATED_MODEL_ID, max_length=200)
+    model_id: str = Field(pattern=MODEL_ID, max_length=200)
     input_price_per_mtok_cents: Decimal = Field(ge=0, max_digits=12, decimal_places=4)
     output_price_per_mtok_cents: Decimal = Field(ge=0, max_digits=12, decimal_places=4)
     max_tokens: int = Field(gt=0, le=200_000)

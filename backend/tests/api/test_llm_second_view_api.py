@@ -72,6 +72,9 @@ def test_reviewer_requests_reads_and_decides(
     assert r.json()["enabled"] is True and r.json()["pending"] is True
     run = db_session.query(LLMRun).one()  # only the skeptic has a prompt configured
     assert (run.strategy, run.status) == ("skeptic", "queued")
+    again = client.post(_url(world), headers=h)
+    assert again.status_code == 409 and "already running" in again.json()["detail"]
+    assert db_session.query(LLMRun).count() == 1
 
     run.status = "succeeded"
     run.proposed_verdict = "limited"

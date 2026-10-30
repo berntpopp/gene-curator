@@ -218,11 +218,14 @@ def test_models_require_a_dated_pin_and_carry_the_o_series_flag(
     client: TestClient, h: dict[str, str]
 ) -> None:
     provider = _provider(client, h)
+    anthropic = _provider(
+        client, h, kind="anthropic", base_url="https://api.anthropic.com"
+    )
     bad = client.post(
         f"{BASE}/models",
         json={
-            "provider_id": provider["id"],
-            "model_id": "gpt-4o",
+            "provider_id": anthropic["id"],
+            "model_id": "claude-sonnet-latest",
             "input_price_per_mtok_cents": "1",
             "output_price_per_mtok_cents": "1",
             "max_tokens": 10,
@@ -602,13 +605,23 @@ def test_bare_body_key_is_not_echoed_in_422(
 
 
 @pytest.mark.parametrize(
-    ("model_id", "code"),
-    [("claude-sonnet-5-5", 201), ("claude-sonnet-latest", 422), ("claude-x", 422)],
+    ("kind", "model_id", "code"),
+    [
+        ("anthropic", "claude-sonnet-5-5", 201),
+        ("anthropic", "claude-sonnet-latest", 422),
+        ("anthropic", "claude-x", 422),
+        ("anthropic", "anthropic/claude-sonnet-5.5", 422),
+        ("openai_compatible", "anthropic/claude-sonnet-5.5", 201),  # OpenRouter
+        ("openai_compatible", "bad id with spaces", 422),
+    ],
 )
-def test_versioned_claude_ids_are_pinned_but_aliases_are_not(
-    client: TestClient, h: dict[str, str], model_id: str, code: int
+def test_only_anthropic_ids_need_a_pin(
+    client: TestClient, h: dict[str, str], kind: str, model_id: str, code: int
 ) -> None:
-    provider = _provider(client, h)
+    base = {"anthropic": "https://api.anthropic.com"}.get(
+        kind, "https://openrouter.ai/api/v1"
+    )
+    provider = _provider(client, h, kind=kind, base_url=base)
     r = client.post(
         f"{BASE}/models",
         json={
@@ -621,3 +634,5 @@ def test_versioned_claude_ids_are_pinned_but_aliases_are_not(
         headers=h,
     )
     assert r.status_code == code, r.text
+    if code == 201:
+        assert r.json()["model_id"] == model_id
