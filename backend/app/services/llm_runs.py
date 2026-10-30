@@ -179,6 +179,7 @@ MOI_CODES = frozenset(
         "XLR",
         "MT",
         "SD",
+        "Undetermined",
         "Other",
         "autosomal_dominant",
         "autosomal_recessive",

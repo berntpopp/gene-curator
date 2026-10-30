@@ -3,9 +3,11 @@ import { humanize } from '@/components/dynamic/fieldLabels'
 const MOI_LABELS: Record<string, string> = {
   AD: 'Autosomal dominant',
   AR: 'Autosomal recessive',
+  XL: 'X-linked',
   XLD: 'X-linked dominant',
   XLR: 'X-linked recessive',
-  MT: 'Mitochondrial'
+  MT: 'Mitochondrial',
+  SD: 'Semidominant'
 }
 
 /** `AD` -> `Autosomal dominant`; free text is humanized; empty -> `Unknown`. */
