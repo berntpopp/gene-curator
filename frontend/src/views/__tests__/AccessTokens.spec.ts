@@ -89,6 +89,19 @@ describe('AccessTokens view', () => {
     expect(labels[0]).toContain(name)
   })
 
+  it('tells same-name tokens created in the same minute apart by their prefix', async () => {
+    const at = '2026-10-01T08:00:00Z'
+    api.list.mockResolvedValue([
+      token({ id: 'a', token_prefix: 'gc_pat_aaaaa', created_at: at }),
+      token({ id: 'b', token_prefix: 'gc_pat_bbbbb', created_at: at })
+    ])
+    const labels = (await mountView())
+      .findAll('[data-test="token-row"] button')
+      .map(b => b.attributes('aria-label'))
+    expect(labels[0]).toContain('gc_pat_aaaaa')
+    expect(new Set(labels).size).toBe(2)
+  })
+
   it('creates a token, shows the plaintext once and forgets it on Done', async () => {
     api.create.mockResolvedValue({ ...token({ id: 'new', name: 'cli' }), token: SECRET })
     const w = await mountView()
