@@ -3,7 +3,7 @@
 A point model (``scoring_configuration.point_model``, else the template file named after
 ``scoring_configuration.engine``) is ``{total_cap, sections: [{key, cap, categories:
 [{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?}]}]}],
-overrides: [{when, field?, in?, class}], bands}``. ``path`` is dotted and relative to the section's evidence.
+overrides: [{when, field?, in?, class}], bands: [{class, min?, requires?, section_min?}]}``. ``path`` is dotted and relative to the section's evidence.
 """
 
 import json
@@ -143,9 +143,16 @@ def _section_points(
 
 
 def classify(
-    model: dict[str, Any], total: float, evidence: dict[str, Any]
+    model: dict[str, Any],
+    total: float,
+    evidence: dict[str, Any],
+    sections: dict[str, float] | None = None,
 ) -> dict[str, Any]:
-    """First matching override (curator-asserted evidence), else first matching band."""
+    """First matching override (curator-asserted evidence), else first matching band.
+
+    ``sections`` are the capped section scores a band's ``section_min`` is checked against.
+    """
+    sections = sections or {}
     for override in model.get("overrides", []):
         value = evidence.get(override["when"])
         if "field" in override:  # only rows whose field holds one of the "in" values
@@ -155,8 +162,13 @@ def classify(
         if has_content(value):
             return dict(override)
     for band in model["bands"]:
-        if total >= band.get("min", float("-inf")) and (
-            "requires" not in band or evidence.get(band["requires"]) is True
+        if (
+            total >= band.get("min", float("-inf"))
+            and ("requires" not in band or evidence.get(band["requires"]) is True)
+            and all(
+                sections.get(key, 0) >= low
+                for key, low in band.get("section_min", {}).items()
+            )
         ):
             return dict(band)
     return {"class": "no_known"}  # ponytail: only reached when no band lacks a min
@@ -191,7 +203,7 @@ def score(
     raw_total = sum(s["score"] for s in sections)
     total_cap = model.get("total_cap")
     total = raw_total if total_cap is None else min(raw_total, total_cap)
-    band = classify(model, total, evidence)
+    band = classify(model, total, evidence, {s["key"]: s["score"] for s in sections})
     trace = {
         "raw_total": raw_total,
         "total_cap": total_cap,
