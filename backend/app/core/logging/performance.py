@@ -29,6 +29,16 @@ def _get_logger() -> Any:
     return _logger
 
 
+def _log_failure(context: dict[str, Any], e: Exception) -> None:
+    """A refused request (4xx HTTPException) is a warning; anything else an error."""
+    context["error"] = str(e)
+    status = getattr(e, "status_code", None)
+    if isinstance(status, int) and status < 500:
+        _get_logger().warning("Operation refused", status_code=status, **context)
+    else:
+        _get_logger().error("Operation failed", **context)
+
+
 def timed_operation(
     operation_name: str | None = None,
     warning_threshold_ms: float = 1000,
@@ -86,8 +96,7 @@ def timed_operation(
                     # Log the error with timing
                     duration_ms = (time.perf_counter() - start_time) * 1000
                     context["duration_ms"] = round(duration_ms, 2)
-                    context["error"] = str(e)
-                    _get_logger().error("Operation failed", **context)
+                    _log_failure(context, e)
                     raise
 
             return cast(Callable[P, R], async_wrapper)
@@ -129,8 +138,7 @@ def timed_operation(
                     # Log the error with timing
                     duration_ms = (time.perf_counter() - start_time) * 1000
                     context["duration_ms"] = round(duration_ms, 2)
-                    context["error"] = str(e)
-                    _get_logger().error("Operation failed", **context)
+                    _log_failure(context, e)
                     raise
 
             return cast(Callable[P, R], sync_wrapper)
