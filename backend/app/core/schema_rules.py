@@ -12,6 +12,7 @@ from app.crud.precuration_required import (
     missing_required_fields,
     required_when_holds,
 )
+from app.llm.sharing import check_llm_share
 
 
 def resolve_named_rules(schema_definition: dict[str, Any]) -> Any:
@@ -152,6 +153,7 @@ def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
             names.add(name)
             out += _check_field(path, name, cfg)
     out += check_default_mappings(fields)
+    out += check_llm_share(fields)  # #534
     out += _check_workflow(schema.get("workflow_states"))
     ui = schema.get("ui_configuration")
     if ui is not None and not isinstance(ui, dict):
