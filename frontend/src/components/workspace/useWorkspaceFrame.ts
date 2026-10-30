@@ -54,17 +54,21 @@ export function createWorkspaceFrame() {
   ])
 
   const snapshot = () => JSON.stringify(form.value?.evidence.value ?? null)
-  const dirty = computed(() => baseline.value !== null && snapshot() !== baseline.value)
+  // What the form showed when it loaded: the leave guard asks only about the user's own edits
+  const loaded = ref<string | null>(null)
+  const unsaved = computed(() => baseline.value !== null && snapshot() !== baseline.value)
+  const dirty = computed(() => unsaved.value && snapshot() !== loaded.value)
   const state = computed<SaveState>(() => {
     if (form.value?.saving.value) return 'saving'
     if (form.value?.conflict?.value) return 'conflict'
     if (failed.value) return 'failed'
-    return dirty.value ? 'unsaved' : 'saved'
+    return unsaved.value ? 'unsaved' : 'saved'
   })
 
   /** Call once the form has loaded: what is on screen (or `saved`, the server state) counts as saved. */
   function markClean(saved?: unknown) {
-    baseline.value = saved === undefined ? snapshot() : JSON.stringify(saved)
+    loaded.value = snapshot()
+    baseline.value = saved === undefined ? loaded.value : JSON.stringify(saved)
   }
 
   function markSaved() {

@@ -206,3 +206,23 @@ describe('workspace frame save state', () => {
     expect(frame.state.value).toBe('unsaved')
   })
 })
+
+describe('workspace frame leave guard', () => {
+  // #530: an untouched new or re-curation form has nothing of the user's to lose
+  it('is not dirty for an untouched prefilled new form, only after the user edits', async () => {
+    const frame = createWorkspaceFrame()
+    const evidence = ref<Record<string, unknown>>({ prefilled: 1 })
+    frame.attachForm({
+      evidence,
+      saving: ref(false),
+      savedAt: ref<number | null>(null),
+      save: vi.fn()
+    })
+    frame.markClean({}) // nothing on the server yet
+    expect(frame.state.value).toBe('unsaved')
+    expect(frame.dirty.value).toBe(false)
+    evidence.value = { prefilled: 2 }
+    await nextTick()
+    expect(frame.dirty.value).toBe(true)
+  })
+})
