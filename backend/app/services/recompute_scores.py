@@ -5,9 +5,10 @@ Run once after deploying 046 (Models & Rescue as one category capped at 4):
 total or class changes is logged with its gene and old -> new total and class. Rows are
 scored with their pinned point model, custom categories included (reported); rows holding
 evidence keys that model does not score are skipped and reported with those keys. Active
-and archived curations whose rows now lack a PMID or a real variant keep their result until
-edited and resubmitted; they are logged as kept_uncited. GenCC and qualitative curations
-are scored by their own engine (engine_for), as saves do; they have no point model.
+and archived curations whose rows now lack a PMID or a real variant, or hold out-of-range
+points, keep their result until edited and resubmitted; they are logged as kept_uncited.
+GenCC and qualitative curations are scored by their own engine (engine_for), as saves do;
+they have no point model.
 """
 
 from typing import Any, cast
@@ -100,10 +101,11 @@ def _save(
 
 def _keeps_result(status: Any, breakdown: dict[str, Any]) -> bool:
     """Active and archived curations keep their result (history is not rescored) until
-    resubmitted when rows now lack a citation."""
+    resubmitted when rows now lack a citation or are out of range (#278)."""
     excluded = breakdown.get("excluded", [])
     kept = status in ("active", "archived")
-    return kept and any(e.get("reason") in UNCITED for e in excluded)
+    flagged = bool(breakdown.get("trace", {}).get("out_of_range"))
+    return kept and (flagged or any(e.get("reason") in UNCITED for e in excluded))
 
 
 def _raise_if_failed(failed: int, total: int) -> None:

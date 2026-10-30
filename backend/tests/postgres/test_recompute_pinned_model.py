@@ -98,7 +98,7 @@ def test_recompute_scores_api_saved_custom_evidence(
         ),
         (
             {"experimental_evidence": [{"evidence_category": "rescue", "points": -3}]},
-            -3,
+            0,
             "experimental_evidence[0].points",
         ),
         (

@@ -46,8 +46,31 @@ def _golden() -> list[dict]:
 @pytest.mark.usefixtures("uncited_off")
 @pytest.mark.parametrize("case", _golden(), ids=lambda c: c["verdict"])
 def test_golden_parity_with_pre_interpreter_engine(case: dict) -> None:
-    """Captured from the hard-coded ClinGenEngine before it became an interpreter."""
+    """Captured from the hard-coded ClinGenEngine before it became an interpreter. Cases
+    with out-of-range rows score exactly as without those rows (#278), and every category
+    without a flagged row keeps its golden score."""
     result = ClinGenEngine().calculate_scores(case["evidence"], {})
+    trace = result.evidence_breakdown["trace"]
+    if flags := trace.get("out_of_range"):
+        trimmed = copy.deepcopy(case["evidence"])
+        for flag in flags:
+            container, key = _slot(trimmed, flag["path"].rsplit(".", 1)[0])
+            container[key] = None  # type: ignore[index]
+        again = ClinGenEngine().calculate_scores(trimmed, {})
+        assert result.scores == pytest.approx(again.scores)
+        assert result.verdict == again.verdict
+        # a legacy flat-list flag ("section[i]") names its section, not a category
+        tables = {flag["path"].rsplit("[", 1)[0] for flag in flags}
+        clean = {
+            f"{c['key']}_score": c["score"]
+            for s in trace["sections"]
+            for c in s["categories"]
+            if s["key"] not in tables
+            and not tables & {f"{s['key']}.{t['path']}" for t in c["types"]}
+        }
+        assert clean  # most cases flag one table: parity still covers the rest
+        assert clean == pytest.approx({k: case["categories"][k] for k in clean})
+        return
     assert result.verdict == case["verdict"]
     assert result.scores == pytest.approx(case["scores"])
     categories = {f"{k}_score": v for k, v in _categories(result).items()}
@@ -176,10 +199,13 @@ CATEGORIES = [
 def test_each_category_cap_boundary(section: str, category: dict) -> None:
     type_def = category["types"][0]
     cap = category["cap"]
+    high = type_def["range"][1]  # rows above their range count nothing (#278)
+    below = [_row(type_def, high)] * int((cap - 0.5) // high)
+    below.append(_row(type_def, cap - 0.5 - high * len(below)))
     for rows, expected in (
-        ([_row(type_def, cap - 0.5)], cap - 0.5),
-        ([_row(type_def, cap - 0.5), _row(type_def, 0.5)], cap),
-        ([_row(type_def, cap - 0.5), _row(type_def, 1.0)], cap),
+        (below, cap - 0.5),
+        ([*below, _row(type_def, 0.5)], cap),
+        ([*below, _row(type_def, 1.0)], cap),
     ):
         evidence: dict = {}
         _put(evidence, type_def["path"], rows)
