@@ -9,6 +9,7 @@ import asyncio
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.async_bridge import run_blocking
 from app.core.logging import get_logger
 from app.schemas.gene import GeneCreate, GeneUpdate
 from app.services.validators import HGNCValidator
@@ -58,10 +59,10 @@ def verify_genes(db: Session, rows: list[GeneCreate]) -> dict[str, GeneCreate | 
 
     Ids missing from the result timed out.
 
-    Called from sync endpoints (worker threads without a running loop).
+    Called from sync endpoints.
     """
     db.rollback()  # no DB connection held while awaiting HGNC; RLS user re-applied on next begin
-    return asyncio.run(_fetch(sorted({r.hgnc_id for r in rows})))
+    return run_blocking(_fetch(sorted({r.hgnc_id for r in rows})))
 
 
 def verify_rows(
