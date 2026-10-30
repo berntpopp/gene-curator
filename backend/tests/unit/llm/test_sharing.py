@@ -82,3 +82,31 @@ def test_one_key_name_shared_in_one_place_and_not_another_is_refused() -> None:
     assert [d[1] for d in check_llm_share(withheld) if d[0] == "error"] == [
         "field_definitions.x.properties.description.llm_share"
     ]
+
+
+def test_containers_with_a_shared_descendant_are_not_warned_as_dropped() -> None:
+    """Such containers are sent (#534); only fields really dropped are listed."""
+    fields = {
+        "genetic": {
+            "type": "object",
+            "properties": {
+                "probands": {
+                    "type": "array",
+                    "items": {
+                        "properties": {
+                            "pmid": {"type": "text", "llm_share": True},
+                            "note": {"type": "text"},
+                        }
+                    },
+                }
+            },
+        },
+        "binning": {"type": "object", "properties": {"bin": {"type": "text"}}},
+    }
+    assert check_llm_share(fields) == [
+        (
+            "warning",
+            "field_definitions",
+            "Not sent to LLM runs (set llm_share: true to send): bin, binning, note",
+        )
+    ]

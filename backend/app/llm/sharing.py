@@ -218,6 +218,12 @@ def shared_view(evidence: dict[str, Any], fields: Any) -> dict[str, Any]:
     return result
 
 
+def _sent(name: str, cfg: dict[str, Any]) -> bool:
+    if "llm_share" in cfg:
+        return cfg["llm_share"] is True
+    return name in SHARED_EVIDENCE_KEYS
+
+
 def check_llm_share(fields: Any) -> list[tuple[str, str, str]]:
     """Schema diagnostics: llm_share on a judgement key is an error, and so is one key
     name shared in one place and not another (sharing is by name at every depth); fields
@@ -227,9 +233,7 @@ def check_llm_share(fields: Any) -> list[tuple[str, str, str]]:
     first: dict[str, bool] = {}  # key name -> shared where first defined
     for path, name, cfg in field_specs(fields):
         share = cfg.get("llm_share", False)
-        sent = share is True or (
-            "llm_share" not in cfg and name in SHARED_EVIDENCE_KEYS
-        )
+        sent = _sent(name, cfg)
         if first.setdefault(name, sent) != sent and name not in JUDGEMENT_KEYS:
             msg = (
                 f"'{name}' is shared with LLM runs in one place and not in another; "
@@ -244,7 +248,10 @@ def check_llm_share(fields: Any) -> list[tuple[str, str, str]]:
             msg = f"'{name}' is curator judgement and is never shared with LLM runs"
             out.append(("error", f"{path}.llm_share", msg))
         elif not share and name not in SHARED_EVIDENCE_KEYS | JUDGEMENT_KEYS:
-            dropped.append(name)
+            # a container is sent when a descendant is (shared_view, #534)
+            below = list(field_specs({name: cfg}))[1:]
+            if not any(_sent(n, c) for _, n, c in below):
+                dropped.append(name)
     if dropped:
         msg = "Not sent to LLM runs (set llm_share: true to send): " + ", ".join(
             sorted(set(dropped))
