@@ -26,6 +26,19 @@
         {{ counts.resolved }} resolved, {{ counts.ambiguous }} ambiguous, {{ counts.not_found }} not
         found{{ dupCount ? `, ${dupCount} repeated` : '' }}. {{ picks.length }} selected.
       </p>
+      <v-select
+        v-model="curatorId"
+        :items="curators"
+        item-value="user_id"
+        item-title="displayName"
+        label="Assign to curator (optional)"
+        clearable
+        density="compact"
+        variant="outlined"
+        class="mb-3"
+        hide-details
+        data-testid="curator-picker"
+      />
       <v-table density="compact" class="intake-table">
         <thead>
           <tr>
@@ -107,10 +120,16 @@
 </template>
 
 <script setup lang="ts">
-  /** Paste a list of genes, review how each entry resolved, then add them to the scope. */
+  /**
+   * Paste a list of genes, review how each entry resolved, then add them to the scope and
+   * optionally assign them to a curator in the same step.
+   */
   import { computed, nextTick, ref, watch } from 'vue'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useGeneIntakeStore } from '@/stores/geneIntake'
+  import { useScopesStore } from '@/stores/scopes'
+  import { toCuratorOption } from '@/components/gene/curatorDisplay'
+  import type { CuratorOption } from '@/components/gene/types'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
   import { pluralize } from '@/utils/pluralize'
@@ -122,6 +141,7 @@
   const emit = defineEmits<{ 'update:modelValue': [boolean]; added: [] }>()
 
   const store = useGeneIntakeStore()
+  const scopes = useScopesStore()
   const notifications = useNotificationsStore()
   const logger = useLogger()
 
@@ -129,6 +149,8 @@
   const text = ref('')
   const rows = ref<IntakeRow[] | null>(null)
   const busy = ref(false)
+  const curatorId = ref<string | null>(null)
+  const curators = ref<CuratorOption[]>([])
   const summaryEl = ref<HTMLElement | null>(null)
 
   const symbols = computed(() => parseSymbols(text.value))
@@ -186,12 +208,14 @@
   async function add() {
     busy.value = true
     try {
-      const r = await store.addToScope(props.scopeId, picks.value)
+      const r = await store.addToScope(props.scopeId, picks.value, curatorId.value)
       const total = !r.added && !r.alreadyInScope && r.failed
       const parts = [`${pluralize(r.added, 'gene')} added`]
       if (r.alreadyInScope) parts.push(`${r.alreadyInScope} already in scope`)
       if (r.failed) parts.push(`${r.failed} failed`)
-      notifications.addToast(parts.join(', '), total ? 'error' : r.failed ? 'warning' : 'success')
+      if (r.notAssigned) parts.push(`${r.notAssigned} not assigned to the curator`)
+      const warn = r.failed || r.notAssigned
+      notifications.addToast(parts.join(', '), total ? 'error' : warn ? 'warning' : 'success')
       if (!total) {
         emit('added')
         close()
@@ -204,13 +228,31 @@
     }
   }
 
-  // A reopened dialog starts empty
-  watch(open, v => {
-    if (v) {
-      text.value = ''
-      rows.value = null
+  async function loadCurators() {
+    try {
+      const members = await scopes.fetchMembers(props.scopeId)
+      curators.value = members
+        .filter(m => ['curator', 'admin'].includes(m.role))
+        .map(toCuratorOption)
+    } catch (e) {
+      // The picker stays empty; genes can still be added unassigned
+      logger.error('Loading curators failed', { error: (e as Error).message })
     }
-  })
+  }
+
+  // A reopened dialog starts empty
+  watch(
+    open,
+    v => {
+      if (v) {
+        text.value = ''
+        rows.value = null
+        curatorId.value = null
+        loadCurators()
+      }
+    },
+    { immediate: true }
+  )
 </script>
 
 <style scoped>

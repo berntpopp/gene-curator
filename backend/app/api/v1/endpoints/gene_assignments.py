@@ -18,7 +18,7 @@ from app.core.constants import (
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.crud.gene_assignment import gene_assignment_crud
-from app.models import UserNew
+from app.models import GeneScopeAssignment as AssignmentRow, UserNew
 from app.schemas.gene_assignment import (
     AvailableGene,
     BulkGeneScopeAssignmentCreate,
@@ -39,6 +39,29 @@ from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 _ADMINS = ["admin"]
+
+
+def _summary(db: Session, assignment: AssignmentRow) -> GeneScopeAssignmentSummary:
+    """List row from an assignment with eager-loaded gene, scope and curator."""
+    return GeneScopeAssignmentSummary(
+        id=assignment.id,
+        gene_id=assignment.gene_id,
+        gene_symbol=assignment.gene.approved_symbol if assignment.gene else "",
+        gene_hgnc_id=assignment.gene.hgnc_id if assignment.gene else "",
+        scope_id=assignment.scope_id,
+        scope_name=assignment.scope.name if assignment.scope else "",
+        assigned_curator_id=assignment.assigned_curator_id,
+        curator_name=(
+            assignment.assigned_curator.name if assignment.assigned_curator else ""
+        ),
+        priority_level=assignment.priority,
+        is_active=assignment.is_active,
+        assigned_at=assignment.assigned_at,
+        due_date=assignment.due_date,
+        has_active_work=gene_assignment_crud.has_active_work(
+            db, assignment_id=assignment.id
+        ),
+    )
 
 
 # ========================================
@@ -92,34 +115,7 @@ def get_gene_assignments(
         is_active=is_active,
     )
 
-    # Convert to summary format with related data from eager loading
-    assignment_summaries = []
-    for assignment in assignments:
-        # Extract related entity data from eager-loaded relationships
-        gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
-        gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
-        scope_name = assignment.scope.name if assignment.scope else ""
-        curator_name = (
-            assignment.assigned_curator.name if assignment.assigned_curator else ""
-        )
-
-        summary = GeneScopeAssignmentSummary(
-            id=assignment.id,
-            gene_id=assignment.gene_id,
-            gene_symbol=gene_symbol,
-            gene_hgnc_id=gene_hgnc_id,
-            scope_id=assignment.scope_id,
-            scope_name=scope_name,
-            assigned_curator_id=assignment.assigned_curator_id,
-            curator_name=curator_name,
-            priority_level=assignment.priority,
-            is_active=assignment.is_active,
-            assigned_at=assignment.assigned_at,
-            has_active_work=gene_assignment_crud.has_active_work(
-                db, assignment_id=assignment.id
-            ),
-        )
-        assignment_summaries.append(summary)
+    assignment_summaries = [_summary(db, a) for a in assignments]
 
     total = len(assignments)
 
@@ -518,35 +514,7 @@ def get_curator_assignments(
         db, curator_id=curator_id, skip=skip, limit=limit, scope_id=scope_id
     )
 
-    # Convert to summary format with related data from eager loading
-    summaries: list[GeneScopeAssignmentSummary] = []
-    for assignment in assignments:
-        gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
-        gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
-        scope_name = assignment.scope.name if assignment.scope else ""
-        curator_name = (
-            assignment.assigned_curator.name if assignment.assigned_curator else ""
-        )
-
-        summary = GeneScopeAssignmentSummary(
-            id=assignment.id,
-            gene_id=assignment.gene_id,
-            gene_symbol=gene_symbol,
-            gene_hgnc_id=gene_hgnc_id,
-            scope_id=assignment.scope_id,
-            scope_name=scope_name,
-            assigned_curator_id=assignment.assigned_curator_id,
-            curator_name=curator_name,
-            priority_level=assignment.priority,
-            is_active=assignment.is_active,
-            assigned_at=assignment.assigned_at,
-            has_active_work=gene_assignment_crud.has_active_work(
-                db, assignment_id=assignment.id
-            ),
-        )
-        summaries.append(summary)
-
-    return summaries
+    return [_summary(db, a) for a in assignments]
 
 
 # ========================================
@@ -578,35 +546,7 @@ def get_scope_assignments(
         db, scope_id=scope_id, skip=skip, limit=limit, include_inactive=include_inactive
     )
 
-    # Convert to summary format with related data from eager loading
-    summaries: list[GeneScopeAssignmentSummary] = []
-    for assignment in assignments:
-        gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
-        gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
-        scope_name = assignment.scope.name if assignment.scope else ""
-        curator_name = (
-            assignment.assigned_curator.name if assignment.assigned_curator else ""
-        )
-
-        summary = GeneScopeAssignmentSummary(
-            id=assignment.id,
-            gene_id=assignment.gene_id,
-            gene_symbol=gene_symbol,
-            gene_hgnc_id=gene_hgnc_id,
-            scope_id=assignment.scope_id,
-            scope_name=scope_name,
-            assigned_curator_id=assignment.assigned_curator_id,
-            curator_name=curator_name,
-            priority_level=assignment.priority,
-            is_active=assignment.is_active,
-            assigned_at=assignment.assigned_at,
-            has_active_work=gene_assignment_crud.has_active_work(
-                db, assignment_id=assignment.id
-            ),
-        )
-        summaries.append(summary)
-
-    return summaries
+    return [_summary(db, a) for a in assignments]
 
 
 @router.get("/scope/{scope_id}/available-genes", response_model=list[AvailableGene])

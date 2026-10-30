@@ -323,9 +323,10 @@ class ScopeMembershipCRUD(
                 UserNew.orcid_id,
             )
             .join(UserNew, ScopeMembership.user_id == UserNew.id)
-            .where(ScopeMembership.scope_id == scope_id)
+            .where(ScopeMembership.scope_id == scope_id, ScopeMembership.is_active)
         )
 
+        # Removed (inactive) memberships grant nothing and are never listed
         # Filter by acceptance status
         if not include_pending:
             stmt = stmt.where(ScopeMembership.accepted_at.isnot(None))

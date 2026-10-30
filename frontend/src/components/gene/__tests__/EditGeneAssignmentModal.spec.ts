@@ -110,6 +110,15 @@ describe('EditGeneAssignmentModal', () => {
     expect(updateAssignment).toHaveBeenCalledWith('a-1', { priority_level: 'low' })
   })
 
+  it('sends the picked due date as the plain day, whatever the time zone', async () => {
+    updateAssignment.mockResolvedValue({} as never)
+    const wrapper = await mountModal()
+    internals(wrapper).formData.due_date = '2026-12-01'
+    await flushPromises()
+    await internals(wrapper).handleSubmit()
+    expect(updateAssignment).toHaveBeenCalledWith('a-1', { due_date: '2026-12-01' })
+  })
+
   it('clears the due date when it is removed', async () => {
     updateAssignment.mockResolvedValue({} as never)
     const wrapper = await mountModal()

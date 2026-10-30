@@ -311,7 +311,7 @@
         updateData.assignment_notes = form.assignment_notes || null
       }
       if (form.due_date !== original.due_date) {
-        updateData.due_date = form.due_date ? new Date(form.due_date).toISOString() : null
+        updateData.due_date = form.due_date || null
       }
 
       await assignmentsAPI.updateAssignment(props.gene.assignment_id, updateData)

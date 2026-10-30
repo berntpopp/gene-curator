@@ -62,7 +62,6 @@ interface GeneListVm {
   confirmRemoveGene(gene: unknown): void
   cancelRemoveGene(): void
   removeGeneFromScope(): Promise<void>
-  handleGenesAdded(): void
   handleGenesAssigned(): void
   handleGeneReassigned(): void
   handleGeneEdited(): void
@@ -82,6 +81,7 @@ const assignments = [
     assigned_curator_id: 'u-1',
     curator_name: 'Ada Lovelace',
     priority: 'high',
+    due_date: '2026-12-01',
     has_active_work: true
   },
   {
@@ -100,12 +100,11 @@ const stubs = {
   DataTable: {
     props: ['items', 'headers', 'filterDefs', 'itemsLength'],
     template:
-      '<div><slot name="toolbar-actions" /><div v-for="item in items" :key="item.assignment_id" class="row"><slot name="item.select" :item="item" /><slot name="item.gene_symbol" :item="item" /><slot name="item.curator_name" :item="item" /><slot name="item.stage" :item="item" /><slot name="item.priority" :item="item" /><slot name="item.updated_at" :item="item" /><slot name="item.actions" :item="item" /></div><slot v-if="!items.length" name="no-data" /></div>'
+      '<div><slot name="toolbar-actions" /><div v-for="item in items" :key="item.assignment_id" class="row"><slot name="item.select" :item="item" /><slot name="item.gene_symbol" :item="item" /><slot name="item.curator_name" :item="item" /><slot name="item.stage" :item="item" /><slot name="item.priority" :item="item" /><slot name="item.due_date" :item="item" /><slot name="item.updated_at" :item="item" /><slot name="item.actions" :item="item" /></div><slot v-if="!items.length" name="no-data" /></div>'
   },
   GeneBulkBar: true,
   PasteGenesDialog: true,
   VDialog: { template: '<div><slot /></div>' },
-  AddGeneModal: true,
   AssignCuratorModal: true,
   GeneDetailModal: true,
   ReassignGeneModal: true,
@@ -148,6 +147,8 @@ describe('GeneList', () => {
       expect(wrapper.text()).toContain('Unassigned')
       expect(wrapper.text()).toContain('HGNC:1100')
       expect(wrapper.text()).toContain('TP53')
+      expect(wrapper.find('[data-testid=due-g-1]').text()).toBe('2026-12-01')
+      expect(wrapper.find('[data-testid=due-g-2]').text()).toBe('—')
       expect(logger.debug).toHaveBeenCalledWith('Genes loaded', { count: 2, scope_id: 'scope-1' })
     })
 
@@ -365,6 +366,13 @@ describe('GeneList', () => {
   })
 
   describe('actions', () => {
+    it('adds genes through the one paste dialog (#281)', async () => {
+      const wrapper = await mountList()
+      expect(wrapper.find('[data-testid=paste-genes]').exists()).toBe(false)
+      await wrapper.find('[data-testid=add-genes]').trigger('click')
+      expect(wrapper.findComponent({ name: 'PasteGenesDialog' }).props('modelValue')).toBe(true)
+    })
+
     it('opens the add-gene and assign modals', async () => {
       const wrapper = await mountList()
       const vm = internals(wrapper)
@@ -543,22 +551,17 @@ describe('GeneList', () => {
       expect(vm.selectedGeneForRemoval).toBeNull()
     })
 
-    it('refreshes after add, assign, reassign and edit events from the modals', async () => {
+    it('refreshes after assign, reassign and edit events from the modals', async () => {
       const wrapper = await mountList()
       const vm = internals(wrapper)
       getAssignments.mockClear()
 
-      vm.handleGenesAdded()
-      expect(addToast).toHaveBeenCalledWith(
-        'Genes added to this scope. You can now assign them to curators.',
-        'success'
-      )
       vm.handleGenesAssigned()
       expect(addToast).toHaveBeenCalledWith('Genes assigned successfully', 'success')
       vm.handleGeneReassigned()
       vm.handleGeneEdited()
 
-      expect(getAssignments).toHaveBeenCalledTimes(4)
+      expect(getAssignments).toHaveBeenCalledTimes(3)
     })
 
     it('wires the row action menu to the list handlers', async () => {

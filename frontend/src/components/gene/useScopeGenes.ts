@@ -38,6 +38,7 @@ export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatu
         curator_id: a.assigned_curator_id,
         curator_name: a.curator_name ?? '',
         priority: a.priority,
+        due_date: a.due_date,
         assignment_notes: '',
         stage: stageOf(!!a.assigned_curator_id, pre, cur),
         updated_at: updated.sort().at(-1) ?? '',

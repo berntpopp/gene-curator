@@ -35,6 +35,39 @@
         />
       </v-list>
     </v-menu>
+    <v-menu :close-on-content-click="false">
+      <template #activator="{ props: menu }">
+        <v-btn
+          v-bind="menu"
+          size="small"
+          variant="outlined"
+          data-testid="bulk-due"
+          :disabled="busy"
+        >
+          Set due date
+        </v-btn>
+      </template>
+      <v-card class="pa-3 d-flex ga-2 align-center">
+        <v-text-field
+          v-model="dueDate"
+          type="date"
+          label="Due date"
+          density="compact"
+          variant="outlined"
+          hide-details
+          data-testid="bulk-due-input"
+        />
+        <v-btn
+          color="primary"
+          variant="flat"
+          :disabled="busy || !dueDate"
+          data-testid="bulk-due-apply"
+          @click="apply({ due_date: dueDate }, `Due date set to ${dueDate}`)"
+        >
+          Set
+        </v-btn>
+      </v-card>
+    </v-menu>
     <v-spacer />
     <v-btn
       size="small"
@@ -50,8 +83,8 @@
 <script setup lang="ts">
   /**
    * Actions for the selected genes. Assigning a curator opens the assign dialog (one
-   * POST /gene-assignments/bulk); priority has no bulk endpoint, so selected assignments are
-   * updated in batches of five. Due date is not offered: the list carries no due date to show.
+   * POST /gene-assignments/bulk); priority and due date have no bulk endpoint, so selected
+   * assignments are updated in batches of five.
    */
   import { computed, ref } from 'vue'
   import { useAssignmentsStore } from '@/stores/assignments'
@@ -69,6 +102,7 @@
   const notifications = useNotificationsStore()
   const logger = useLogger()
   const busy = ref(false)
+  const dueDate = ref('')
   const BATCH = 5
 
   const assignable = computed(() => props.selected.filter(g => !g.curator_id).length)
