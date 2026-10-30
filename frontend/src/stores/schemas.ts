@@ -165,6 +165,11 @@ export const useSchemasStore = defineStore('schemas', {
       }
     },
 
+    /** Published methodology versions of a schema, newest first. */
+    async fetchVersions(id: string) {
+      return await schemasAPI.getVersions(id)
+    },
+
     /** Publish the saved schema as a new methodology version; new curations pin it. */
     async publishVersion(id: string) {
       const version = await schemasAPI.publishVersion(id)

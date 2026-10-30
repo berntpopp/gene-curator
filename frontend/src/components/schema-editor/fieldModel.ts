@@ -2,8 +2,10 @@
  * The field editor's view of `field_definitions`. Two stored shapes exist: `sections[].fields[]`
  * (each field carries its `id`) and a flat `{ key: field }` map (the key is the id; `order`
  * restores the order jsonb drops). The editor always works on sections; a flat map is one
- * section and is written back flat, so existing schemas keep their shape and render unchanged.
+ * section, or grouped by the `ui_configuration.layout.tabs` sections that place its fields, and
+ * is written back flat, so existing schemas keep their shape and render unchanged.
  */
+import { layoutSections, topId, type LayoutRef } from './layoutRefs'
 
 /** The five JSON blocks of a schema, all editable in the Advanced tab */
 export type BlockKey =
@@ -20,11 +22,13 @@ export interface EditorSection {
   label?: string
   description?: string
   fields: FieldDef[]
+  /** Flat map grouped by its layout: the tab section that shows these fields */
+  layout?: LayoutRef
   [key: string]: unknown
 }
 
 export interface Layout {
-  /** false: a flat map shown as one section; sections cannot be added */
+  /** false: a flat map (one section or its layout groups); sections cannot be added */
   sectioned: boolean
   sections: EditorSection[]
 }
@@ -56,7 +60,10 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 
 export const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
-export function readLayout(definitions: Record<string, unknown> | null | undefined): Layout {
+export function readLayout(
+  definitions: Record<string, unknown> | null | undefined,
+  ui?: unknown
+): Layout {
   const defs = definitions ?? {}
   if (Array.isArray(defs.sections) || !Object.keys(defs).length) {
     return { sectioned: true, sections: clone((defs.sections ?? []) as EditorSection[]) }
@@ -65,7 +72,24 @@ export function readLayout(definitions: Record<string, unknown> | null | undefin
     .filter(([, def]) => isRecord(def))
     .map(([id, def]): FieldDef => ({ ...clone(def as Record<string, unknown>), id }))
     .sort((a, b) => Number(a.order ?? Infinity) - Number(b.order ?? Infinity))
-  return { sectioned: false, sections: [{ id: 'fields', label: 'Fields', fields }] }
+  const groups = layoutSections(ui)
+  if (!groups.length) {
+    return { sectioned: false, sections: [{ id: 'fields', label: 'Fields', fields }] }
+  }
+  // Each field under the first layout section that shows it; the rest under "Not in the layout"
+  const home = new Map<string, number>()
+  groups.forEach((g, i) => g.paths.forEach(p => home.has(topId(p)) || home.set(topId(p), i)))
+  const sections: EditorSection[] = groups.map((g, i) => ({
+    id: `layout_${i}`,
+    label: g.label,
+    layout: g.ref,
+    fields: fields.filter(f => home.get(f.id) === i)
+  }))
+  const unplaced = fields.filter(f => !home.has(f.id))
+  if (unplaced.length) {
+    sections.push({ id: 'unplaced', label: 'Not in the layout', fields: unplaced })
+  }
+  return { sectioned: false, sections }
 }
 
 /** `original` keeps any keys the editor does not show (e.g. a non-field entry of a flat map) */
@@ -75,7 +99,7 @@ export function writeLayout(
 ): Record<string, unknown> {
   if (layout.sectioned) return { ...(original ?? {}), sections: layout.sections }
   const kept = Object.entries(original ?? {}).filter(([, def]) => !isRecord(def))
-  const fields = (layout.sections[0]?.fields ?? []).map(({ id, ...def }) => [id, def])
+  const fields = layout.sections.flatMap(s => s.fields).map(({ id, ...def }) => [id, def])
   return Object.fromEntries([...kept, ...fields])
 }
 
@@ -92,7 +116,7 @@ export function move<T>(list: T[], index: number, step: number): void {
 
 /** Flat maps keep their order in `order`: renumber after a move (sections keep array order) */
 export function renumber(layout: Layout): void {
-  if (!layout.sectioned) layout.sections[0]?.fields.forEach((f, i) => (f.order = i + 1))
+  if (!layout.sectioned) layout.sections.flatMap(s => s.fields).forEach((f, i) => (f.order = i + 1))
 }
 
 /** "a, true, 3" -> scalars as JSON reads them, else text; one value stays scalar */

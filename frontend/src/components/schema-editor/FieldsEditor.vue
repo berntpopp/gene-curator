@@ -7,8 +7,9 @@
       density="compact"
       class="mb-4"
     >
-      This schema stores its fields as one list; its layout lives in the UI configuration (Advanced
-      JSON). Nested groups are edited there too.
+      This schema stores its fields as one list. Sections below follow its form layout (UI
+      configuration); new fields are added to that layout. Nested groups are edited in Advanced
+      JSON.
     </v-alert>
     <v-alert v-if="!layout.sections.length" type="info" variant="tonal" class="mb-4">
       No fields yet. {{ readonly ? 'Edit the schema to add one.' : 'Add a section to start.' }}
@@ -125,6 +126,14 @@
   import FieldDialog from './FieldDialog.vue'
   import { useConfirm } from '@/composables/useConfirm'
   import {
+    dropField,
+    orderLayout,
+    placeField,
+    referencedIn,
+    renameConditions,
+    renameInLayout
+  } from './layoutRefs'
+  import {
     FIELD_TYPES,
     clone,
     fieldIds,
@@ -136,25 +145,38 @@
     type Layout
   } from './fieldModel'
 
-  // Sections and fields of `field_definitions`, edited without JSON (#219)
+  // Sections and fields of `field_definitions`, edited without JSON (#219). A flat map follows
+  // its `ui_configuration` layout, which is kept in step on add, remove, move and rename.
   const props = defineProps<{
     modelValue: Record<string, unknown> | null | undefined
+    uiConfiguration?: unknown
+    /** Blocks checked for references to a renamed field (scoring_configuration, validation_rules) */
+    references?: Record<string, unknown>
+    /** The schema has a published version: saved records may hold values under a field id */
+    published?: boolean
     readonly?: boolean
   }>()
-  const emit = defineEmits<{ 'update:modelValue': [value: Record<string, unknown>] }>()
+  const emit = defineEmits<{
+    'update:modelValue': [value: Record<string, unknown>]
+    'update:uiConfiguration': [value: unknown]
+  }>()
   const { confirm } = useConfirm()
 
-  const layout = computed(() => readLayout(props.modelValue))
+  const layout = computed(() => readLayout(props.modelValue, props.uiConfiguration))
   const editing = ref<{ si: number; fi: number; field: FieldDef } | null>(null)
 
   const typeTitle = (type: unknown) =>
     FIELD_TYPES.find(t => t.value === type)?.title ?? String(type ?? 'no type')
 
-  /** Change a copy of the layout and emit it in the stored shape */
-  const edit = (change: (l: Layout) => void) => {
+  /** Change copies of the layout and UI configuration; emit them in the stored shape */
+  const edit = (change: (l: Layout, ui: unknown) => void) => {
     const next = clone(layout.value)
-    change(next)
+    const ui = clone(props.uiConfiguration ?? null)
+    change(next, ui)
     emit('update:modelValue', writeLayout(next, props.modelValue))
+    if (!next.sectioned && JSON.stringify(ui) !== JSON.stringify(props.uiConfiguration ?? null)) {
+      emit('update:uiConfiguration', ui)
+    }
   }
 
   const otherIds = computed(() => {
@@ -169,14 +191,40 @@
     editing.value = { si, fi, field }
   }
 
-  const saveField = (field: FieldDef) => {
+  /** A rename that may break something outside the editor's reach asks first */
+  const confirmRename = async (from: string, to: string) => {
+    const places = referencedIn(props.references ?? {}, from)
+    if (!places.length && !props.published) return true
+    const lines = [
+      places.length &&
+        `"${from}" is still used in ${places.join(' and ')}; update those references in Advanced JSON.`,
+      props.published &&
+        `This schema has a published version: values saved under "${from}" in existing records are no longer shown.`
+    ].filter(Boolean)
+    return confirm({
+      title: `Rename field "${from}" to "${to}"?`,
+      text: lines.join(' '),
+      confirmText: 'Rename',
+      destructive: true
+    })
+  }
+
+  const saveField = async (field: FieldDef) => {
     const target = editing.value
     if (!target) return
-    edit(l => {
-      const fields = l.sections[target.si]!.fields
-      if (target.fi < 0) fields.push(field)
-      else fields[target.fi] = field
-      if (target.fi < 0) renumber(l)
+    const from = target.fi < 0 ? null : layout.value.sections[target.si]!.fields[target.fi]!.id
+    if (from && from !== field.id && !(await confirmRename(from, field.id))) return
+    edit((l, ui) => {
+      const section = l.sections[target.si]!
+      if (target.fi < 0) {
+        section.fields.push(field)
+        renumber(l)
+        if (!l.sectioned) placeField(ui, field.id, section.layout)
+      } else section.fields[target.fi] = field
+      if (from && from !== field.id) {
+        l.sections.forEach(s => renameConditions(s.fields, from, field.id))
+        renameInLayout(ui, from, field.id)
+      }
     })
     editing.value = null
   }
@@ -189,16 +237,28 @@
       confirmText: 'Remove',
       destructive: true
     })
-    if (ok) edit(l => l.sections[si]!.fields.splice(fi, 1))
+    if (ok) {
+      edit((l, ui) => {
+        l.sections[si]!.fields.splice(fi, 1)
+        dropField(ui, field.id)
+      })
+    }
   }
 
   const fieldActions = (si: number, fi: number) => {
     const count = layout.value.sections[si]!.fields.length
     const name = layout.value.sections[si]!.fields[fi]!.id
     const shift = (step: number) => () =>
-      edit(l => {
-        move(l.sections[si]!.fields, fi, step)
+      edit((l, ui) => {
+        const section = l.sections[si]!
+        move(section.fields, fi, step)
         renumber(l)
+        if (section.layout)
+          orderLayout(
+            ui,
+            section.layout,
+            section.fields.map(f => f.id)
+          )
       })
     return [
       { icon: 'mdi-pencil', label: `Edit ${name}`, disabled: false, run: () => openField(si, fi) },

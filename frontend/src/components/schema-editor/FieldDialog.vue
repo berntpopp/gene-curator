@@ -9,7 +9,7 @@
               <v-text-field
                 v-model="draft.id"
                 label="Field id"
-                hint="Key in the evidence data; renaming it orphans saved values"
+                hint="Key in the evidence data. Renaming updates conditions and the form layout"
                 persistent-hint
                 variant="outlined"
                 :rules="[idRule]"

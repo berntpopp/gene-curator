@@ -135,8 +135,15 @@
                 <v-window-item value="fields">
                   <FieldsEditor
                     :model-value="draft.field_definitions"
+                    :ui-configuration="draft.ui_configuration"
+                    :references="{
+                      scoring_configuration: draft.scoring_configuration,
+                      validation_rules: draft.validation_rules
+                    }"
+                    :published="published"
                     :readonly="!isEditing"
                     @update:model-value="v => (draft.field_definitions = v)"
+                    @update:ui-configuration="v => (draft.ui_configuration = v)"
                   />
                 </v-window-item>
                 <v-window-item value="preview">
@@ -204,7 +211,7 @@
                   @click="validateSchema"
                 >
                   <v-icon start>mdi-check-decagram</v-icon>
-                  Validate schema
+                  Validate saved schema
                 </v-btn>
 
                 <v-btn
@@ -212,12 +219,19 @@
                   variant="flat"
                   block
                   :disabled="isEditing"
-                  :title="isEditing ? 'Save or cancel your edits first' : undefined"
+                  aria-describedby="publish-caption"
                   @click="publishOpen = true"
                 >
                   <v-icon start>mdi-send</v-icon>
                   Publish version
                 </v-btn>
+                <div
+                  v-if="isEditing"
+                  id="publish-caption"
+                  class="text-body-small text-medium-emphasis"
+                >
+                  Save or cancel your edits to publish.
+                </div>
 
                 <v-btn variant="outlined" block @click="exportSchema">
                   <v-icon start>mdi-download</v-icon>
@@ -309,6 +323,7 @@
   const jsonErrors = ref<Record<string, string>>({})
   const tab = ref('fields')
   const publishOpen = ref(false)
+  const published = ref(false)
   const validation = ref<ValidationResult | null>(null)
   const basicForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
@@ -437,6 +452,11 @@
       const schemaData = await schemasStore.fetchSchemaById(schemaId.value)
       schema.value = schemaData
       resetEditor(schemaData)
+      // Renames warn harder once records may hold values under the old id
+      schemasStore
+        .fetchVersions(schemaId.value)
+        .then(versions => (published.value = versions.length > 0))
+        .catch(() => (published.value = false))
     } catch (err) {
       const apiErr = err as ApiError
       error.value = apiErr.message || 'Failed to load schema'

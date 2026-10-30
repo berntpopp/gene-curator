@@ -8,6 +8,8 @@ import SchemaEditor from '@/views/SchemaEditor.vue'
 import FieldDialog from '@/components/schema-editor/FieldDialog.vue'
 import DynamicForm from '@/components/dynamic/DynamicForm.vue'
 import { useSchemasStore } from '@/stores/schemas'
+import clingen from '@/components/forms/__tests__/clingenV1Snapshot.json'
+import { precurationSeed } from '@/components/dynamic/__tests__/precurationSeed'
 
 vi.mock('vue-router', async importOriginal => ({
   ...(await importOriginal<typeof import('vue-router')>()),
@@ -109,5 +111,49 @@ describe('SchemaEditor field builder', () => {
     vm.isEditing = true
     await nextTick()
     expect(publish().attributes('disabled')).toBeDefined()
+  })
+
+  it('says why Publish is disabled while editing and that Validate checks the saved schema', async () => {
+    const { wrapper, vm } = await mountView()
+    expect(wrapper.text()).toContain('Validate saved schema')
+    expect(wrapper.text()).not.toContain('Save or cancel your edits to publish.')
+    vm.isEditing = true
+    await nextTick()
+    expect(wrapper.text()).toContain('Save or cancel your edits to publish.')
+  })
+
+  it.each([
+    ['ClinGen SOP v11 curation', clingen],
+    ['ClinGen precuration', precurationSeed]
+  ])('saves the seeded %s definition unchanged when nothing is edited', async (_name, seed) => {
+    const source = {
+      ...curationSchema,
+      validation_rules: {},
+      workflow_states: { states: ['draft', 'submitted'] },
+      ...JSON.parse(JSON.stringify(seed))
+    }
+    const schemas = useSchemasStore()
+    vi.spyOn(schemas, 'fetchSchemaById').mockResolvedValue(JSON.parse(JSON.stringify(source)))
+    const update = vi.spyOn(schemas, 'updateSchema').mockResolvedValue(source as never)
+    const wrapper = mount(SchemaEditor, opts())
+    await flushPromises()
+    const vm = vmOf(wrapper)
+    vm.isEditing = true
+    await flushPromises()
+    vm.tab = 'preview'
+    await flushPromises()
+    vm.tab = 'advanced'
+    await flushPromises()
+    await call(vm, 'saveSchema')
+    const body = update.mock.calls[0]![1] as Record<string, unknown>
+    for (const key of [
+      'field_definitions',
+      'ui_configuration',
+      'validation_rules',
+      'scoring_configuration',
+      'workflow_states'
+    ]) {
+      expect(body[key]).toEqual(source[key])
+    }
   })
 })
