@@ -11,6 +11,8 @@ import WorkflowManagement from '@/views/WorkflowManagement.vue'
 import SchemaManagement from '@/views/SchemaManagement.vue'
 import SchemaEditor from '@/views/SchemaEditor.vue'
 import { useSchemasStore } from '@/stores/schemas'
+import AdvancedJson from '@/components/schema-editor/AdvancedJson.vue'
+import PointModelBuilder from '@/components/schema-editor/scoring/PointModelBuilder.vue'
 import { useWorkflowStore } from '@/stores/workflow'
 
 const confirmMock = vi.hoisted(() => vi.fn())
@@ -506,7 +508,7 @@ describe('SchemaEditor', () => {
     const update = vi.spyOn(schemas, 'updateSchema').mockResolvedValue(undefined as never)
     vm.isEditing = true
     await nextTick()
-    const ui = wrapper.findAll('textarea')[3]! // description, scoring tab, Advanced: fields, ui
+    const ui = wrapper.findComponent(AdvancedJson).findAll('textarea')[1]! // fields, ui, ...
     await ui.setValue('{nope')
     expect(vm.hasJsonErrors).toBe(true)
     expect(wrapper.text()).toContain('JSON')
@@ -534,9 +536,9 @@ describe('SchemaEditor', () => {
     const update = vi.spyOn(schemas, 'updateSchema').mockResolvedValue(undefined as never)
     vm.isEditing = true
     await nextTick()
-    const scoring = wrapper.findAll('textarea')[1]! // after the description
+    const scoring = wrapper.findComponent(AdvancedJson).findAll('textarea')[3]!
     await scoring.setValue('{bad')
-    const message = (vm.jsonErrors as Record<string, string>).scoring_tab
+    const message = (vm.jsonErrors as Record<string, string>).scoring_configuration
     expect(message).not.toBe('')
     expect(wrapper.text()).toContain(String(message))
     await call(vm, 'saveSchema')
@@ -554,9 +556,20 @@ describe('SchemaEditor', () => {
     } as never)
     const wrapper = mount(SchemaEditor, opts())
     await flushPromises()
+    expect(wrapper.text()).toContain('Scoring configuration (JSON)') // read-only outside edit mode
     vmOf(wrapper).isEditing = true
     await nextTick()
-    expect(wrapper.text()).toContain('Scoring configuration')
+    // edit mode mounts the point-model builder (W10I) on the Scoring tab
+    expect(wrapper.findComponent(PointModelBuilder).props('fieldDefinitions')).toEqual(
+      curationSchema.field_definitions
+    )
+    expect(wrapper.text()).toContain('Scoring engine')
+    wrapper
+      .findComponent(PointModelBuilder)
+      .vm.$emit('update:modelValue', { engine: 'point_model' })
+    expect((vmOf(wrapper).draft as Record<string, unknown>).scoring_configuration).toEqual({
+      engine: 'point_model'
+    })
   })
 
   it('goes back to the schema list, not browser history', async () => {

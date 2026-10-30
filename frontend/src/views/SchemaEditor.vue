@@ -157,14 +157,19 @@
                   />
                 </v-window-item>
                 <v-window-item value="scoring" eager>
+                  <PointModelBuilder
+                    v-if="isEditing"
+                    :model-value="scoringConfig"
+                    :field-definitions="draft.field_definitions"
+                    @update:model-value="v => setBlock('scoring_configuration', v)"
+                  />
                   <JsonBlockEditor
+                    v-else
                     :model-value="draft.scoring_configuration"
                     label="Scoring configuration (JSON)"
-                    hint="Engine, point model and classifications; empty for no scoring"
+                    hint="Edit the schema to change scoring"
                     nullable
-                    :readonly="!isEditing"
-                    @update:model-value="v => (draft.scoring_configuration = v)"
-                    @error="m => (jsonErrors.scoring_tab = m)"
+                    readonly
                   />
                 </v-window-item>
                 <v-window-item value="advanced" eager>
@@ -287,6 +292,8 @@
   import AdvancedJson from '@/components/schema-editor/AdvancedJson.vue'
   import JsonBlockEditor from '@/components/schema-editor/JsonBlockEditor.vue'
   import PublishDialog from '@/components/schema-editor/PublishDialog.vue'
+  import PointModelBuilder from '@/components/schema-editor/scoring/PointModelBuilder.vue'
+  import type { ScoringConfig } from '@/components/schema-editor/scoring/pointModel'
   import { clone, fieldIds, readLayout, type BlockKey } from '@/components/schema-editor/fieldModel'
 
   interface ApiError {
@@ -328,6 +335,7 @@
   const basicForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   const schemaId = computed(() => String(route.params.id))
+  const scoringConfig = computed(() => draft.value.scoring_configuration as ScoringConfig | null)
   const hasJsonErrors = computed(() => Object.values(jsonErrors.value).some(Boolean))
 
   const statusOptions = [
