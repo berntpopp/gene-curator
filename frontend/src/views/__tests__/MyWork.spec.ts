@@ -85,6 +85,25 @@ describe('MyWork view', () => {
     expect(rows(w)[0]!.text()).toContain('2d ago')
   })
 
+  it('shows disease, inheritance, stage and classification on each row (#277)', async () => {
+    const w = mountView([
+      item({
+        disease_name: 'Nephrotic syndrome',
+        mode_of_inheritance: 'AR',
+        stage: 'curation',
+        classification: 'moderate'
+      }),
+      item({ item_id: 'i2' })
+    ])
+    await settle()
+    const [full, bare] = rows(w)
+    expect(full!.text()).toContain('Nephrotic syndrome')
+    expect(full!.text()).toContain('Autosomal recessive')
+    expect(full!.text()).toContain('Curation')
+    expect(full!.text()).toContain('Moderate')
+    expect(bare!.text()).not.toContain('Not classified')
+  })
+
   it('keeps rows of one next action together, in API order', async () => {
     const w = mountView([
       item({}),
