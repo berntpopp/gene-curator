@@ -278,7 +278,7 @@ def test_every_tool_named_in_a_hint_description_or_instructions_exists(
     every = set(_tools(client, pat(db_session, test_user_admin), "/mcp/full"))
     verbs = {name.split("_")[0] for name in every}  # get, list, add, curation, ...
     arguments = set().union(*(_keys(t["inputSchema"]) for t in tools.values()))
-    arguments |= {"curation_schema_id"}  # a response field ("curation" is a verb here)
+    arguments |= {"curation_schema_id", "curation_created"}  # response fields
 
     def named(text: str) -> set[str]:
         words = set(re.findall(r"\b[a-z]+(?:_[a-z0-9]+)+\b", text))
@@ -317,6 +317,9 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
     # Round 4: roles come from list_scopes; evidence-item tools are not on /mcp
     assert "user_role on each list_scopes row" in INSTRUCTIONS
     assert "read_users_me" not in INSTRUCTIONS and "evidence-item" not in INSTRUCTIONS
+    # #530: an approval blocked by an open curation returns that one, not a new draft
+    assert "each approval opens" not in INSTRUCTIONS
+    assert "false means curation_id is the open one blocking it" in INSTRUCTIONS
     # Round 5: literature from a literature MCP, which ClinGen pair, diff baselines
     assert "a literature MCP such as GeneFoundry;" in INSTRUCTIONS
     assert '"ClinGen\nGene-Disease Validity" is_default' in INSTRUCTIONS
