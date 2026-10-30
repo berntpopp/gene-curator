@@ -203,6 +203,9 @@ def test_same_entity_twice_is_refused(db_session: Session, client: TestClient) -
     assert a and blocking == a  # the entity already has an open curation: named
     code, body = world.create(client, precuration_id=str(again.id))
     assert code == 409 and body["detail"]["curation_id"] == str(a)
+    assert body["detail"]["message"] == (
+        "This disease entity already has an open curation in this scope"
+    )
 
 
 def test_recurating_a_archives_only_a(db_session: Session, client: TestClient) -> None:
@@ -410,6 +413,7 @@ def test_legacy_unkeyed_open_draft_blocks_a_second_recuration(
     db_session.commit()
     code, body = world.create(client)
     assert code == 409 and body["detail"]["curation_id"] == str(legacy.id)
+    assert "covers the whole gene" in body["detail"]["message"]
 
 
 def test_approval_names_an_unkeyed_open_curation_that_blocks_it(
@@ -449,7 +453,7 @@ def test_approval_names_an_unkeyed_open_curation_that_blocks_it(
 def test_a_racing_approval_against_an_unkeyed_curation_says_whole_gene(
     db_session: Session,
 ) -> None:
-    from app.crud.precuration import open_conflict_message
+    from app.crud.curation import open_conflict_message
 
     world = World(db_session)
     _, a = world.approve(A)

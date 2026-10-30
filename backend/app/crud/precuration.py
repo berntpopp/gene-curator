@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.crud.curation import OpenCurationExistsError, _patched, open_curation_id
+from app.crud.curation import _patched, open_conflict_message, open_curation_id
 from app.crud.optimistic_lock import claim_version
 from app.crud.precuration_entity import conflict, entity_key_of, open_draft, write_draft
 from app.crud.workflow_engine import workflow_engine
@@ -42,22 +42,6 @@ from app.services.review_assignment import submit_reviewer
 from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
-
-
-WHOLE_GENE = (
-    "Open curation {id} has no disease entity, so it covers the whole gene in this "
-    "scope; finish or archive it before curating another entity"
-)
-
-
-def open_conflict_message(db: Session, curation_id: UUID) -> str:
-    """Why an open curation blocks this entity; an unkeyed (legacy) one blocks them all."""
-    key = db.scalar(select(CurationNew.entity_key).where(CurationNew.id == curation_id))
-    return (
-        WHOLE_GENE.format(id=curation_id)
-        if not key
-        else OpenCurationExistsError.MESSAGE
-    )
 
 
 def _utc_now() -> datetime:

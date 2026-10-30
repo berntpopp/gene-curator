@@ -55,10 +55,21 @@ class OpenCurationExistsError(ValueError):
     """The gene already has an open (not active or archived) curation in the scope."""
 
     MESSAGE = "This disease entity already has an open curation in this scope"
+    WHOLE_GENE = (
+        "Open curation {id} has no disease entity, so it covers the whole gene in this "
+        "scope; finish or archive it before curating another entity"
+    )
 
-    def __init__(self, curation_id: UUID) -> None:
-        super().__init__(self.MESSAGE)
+    def __init__(self, curation_id: UUID, message: str = MESSAGE) -> None:
+        super().__init__(message)
         self.curation_id = curation_id
+
+
+def open_conflict_message(db: Session, curation_id: UUID) -> str:
+    """Why an open curation blocks this entity; an unkeyed (legacy) one blocks them all."""
+    if db.scalar(select(CurationNew.entity_key).where(CurationNew.id == curation_id)):
+        return OpenCurationExistsError.MESSAGE
+    return OpenCurationExistsError.WHOLE_GENE.format(id=curation_id)
 
 
 class EntityRequiredError(ValueError):
@@ -389,7 +400,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         # One open curation per entity (approval already created a draft, #398)
         open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
         if open_id:
-            raise OpenCurationExistsError(open_id)
+            raise OpenCurationExistsError(open_id, open_conflict_message(db, open_id))
 
         # Create curation
         now = _utc_now()
@@ -419,7 +430,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             raced = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
             if raced is None:
                 raise
-            raise OpenCurationExistsError(raced) from None
+            raise OpenCurationExistsError(
+                raced, open_conflict_message(db, raced)
+            ) from None
         db.refresh(db_obj)
 
         logger.info(
