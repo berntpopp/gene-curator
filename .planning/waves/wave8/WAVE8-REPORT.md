@@ -7,6 +7,7 @@
 - MCP OAuth 2.1/DCR: Claude Code + Claude.ai; PATs kept alongside.
 - Rate limiting: per-worker buckets documented as a known limit; drop the unused curator tier.
 - Evidence-item endpoints: remove now. PAT self-list/revoke: keep.
+- The real eval ran through OpenRouter (`openai_compatible`, `anthropic/claude-sonnet-5.5`) because the owner supplied an OpenRouter key; no Anthropic key was used.
 
 ## Releases
 
@@ -84,6 +85,7 @@ advocate 2/4 agreement. A real second view on VHL took 12.6-13.4 s. Total spend 
 - GeneFoundry public `/mcp` returns 403 (ops).
 - Fleet release-control ledger expires about 2027-01-26: commit a fresh control-audit artifact to genefoundry-router and re-pin the fleet before then.
 - Regenerate `.planning/codebase` with `/gsd-map-codebase`.
+- Claude.ai custom connector over MCP OAuth not tested (needs a public HTTPS URL; owner deferred, no tunnel).
 
 ## Wave 9 prompt
 
@@ -116,9 +118,20 @@ Record the answers at the top of WAVE9-REPORT.md. Do not ask anything else; pick
 | W9D async | remove `asyncio.run` from sync services (`publication_service.py`, `ontology_service.py`, `gene_verification.py`, `scopes.py`): async endpoints or sync clients, one approach throughout | those services and their callers | none | full Opus |
 | W9E small | legacy open curations without entity link in the chooser; export: required url of only spaces fails, soft-deleted rows excluded, anonymous `methodology.version`; rate limiting default decision documented | chooser UI, `core/schema_rules.py`, `crud/curation_export.py` | none | quick delta |
 
-Rules for agents: as in WAVE8-PROMPT.md (setup.sh worktrees, placeholder `SECRET_KEY`/`DATABASE_URL`, failing test
-first, Postgres tests for RLS/triggers/saves/lock_version, `make ci` + `make diff-cover` before push, DRAFT PRs,
-never `|| true`/`.skip`/Prettier on `api.generated.ts`, secrets never reach browser or logs, stay in owned files).
+Rules for agents (put them in every brief via setup.sh):
+- One worktree each: `.planning/orchestration/setup.sh WS BRANCH "OWNS" "ISSUES" "NOTE"`, run setups one after another;
+  no backticks inside double-quoted notes. First command: `cd backend && uv sync --extra dev --frozen`. Backend gates
+  need `SECRET_KEY=x DATABASE_URL=postgresql://u:p@localhost/x`.
+- Fix bugs with a failing test first. Any change to RLS, triggers, auth/OAuth, saves, workflow transitions or
+  lock_version adds a `backend/tests/postgres/` test of the real API flow as app_user.
+- Before pushing: `make ci` (includes `make test-postgres`) and `make diff-cover` (changed lines >= 90%); check
+  `pgrep -c -f '^make (ci|test-postgres)'` first and wait while it reports 2 or more. Report exactly which gates ran.
+- Open DRAFT PRs; mark ready only when local CI is green. Never `continue-on-error`, `|| true`, `.skip`; never
+  Prettier `api.generated.ts`; regenerate types with `make api-types`.
+- Secrets (PATs, OAuth tokens and client secrets, LLM keys) never reach the browser or logs; a test asserts it.
+- Stay in your owned files. If you must touch another stream's file, stop and report instead.
+- Every PR gets a `ponytail:ponytail-review` before merge; merges run serially with
+  `set -o pipefail; .planning/orchestration/merge.sh N | tail` in one loop ending `echo ALL-DONE`, never red.
 
 ## Step 2: machine safety
 At most 5 implementers, at most 2 heavy gates at once (`pgrep -c -f '^make (ci|test-postgres)'`). Poll at 60 s.
@@ -132,7 +145,8 @@ rounds. Serial merge loop with `.planning/orchestration/merge.sh N`, ending `ech
 Fresh-stack monkey test (`.planning/orchestration/monkey-stack.sh up origin/master`, ports 5455/8052/5190) early, after
 W9D merges, and again before the release: every role, final classification with review, a susceptibility entity,
 export as anonymous and as member, LLM second view (MockProvider and one real run), D1 on every route. Then a Chrome
-pass on the real UI. One fix PR per round.
+pass on the real UI. Claude.ai custom connector over MCP OAuth against a public HTTPS URL (tunnel or staging host;
+ask the owner for it). One fix PR per round.
 
 ## Step 5: release v0.11.0 and report
 `release/v0.11.0`: release notes (every claim cites a merged PR, fact-checked with `gh pr view`), README upgrade
