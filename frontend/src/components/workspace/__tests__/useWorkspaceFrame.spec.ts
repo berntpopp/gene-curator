@@ -226,3 +226,16 @@ describe('workspace frame leave guard', () => {
     expect(frame.dirty.value).toBe(true)
   })
 })
+
+describe('workspace frame leave guard after a save', () => {
+  it('guards a revert to the loaded state once a different state was saved', async () => {
+    const { frame, evidence } = setup()
+    evidence.value = { a: 2 }
+    await nextTick()
+    expect(await frame.save()).toBe(true)
+    evidence.value = { a: 1 } // back to what loaded, no longer what the server has
+    await nextTick()
+    expect(frame.state.value).toBe('unsaved')
+    expect(frame.dirty.value).toBe(true)
+  })
+})

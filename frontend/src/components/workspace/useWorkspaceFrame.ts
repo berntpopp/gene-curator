@@ -73,6 +73,7 @@ export function createWorkspaceFrame() {
 
   function markSaved() {
     baseline.value = inflight ?? snapshot()
+    loaded.value = null // after a save, any difference from the server is the user's work
   }
 
   function attachForm(binding: FormBinding) {
