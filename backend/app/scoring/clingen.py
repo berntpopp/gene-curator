@@ -224,11 +224,12 @@ def legacy_points(
             )
             limits = explicit.get("range") if explicit else None
             finite = math.isfinite(value)
-            if (
+            flagged = (
                 not finite
                 or value < 0
                 or (limits and not limits[0] <= value <= limits[1])
-            ):
+            )
+            if flagged:
                 key = "computed_score" if category == "case_control" else "points"
                 if category == "segregation" and not explicit:
                     key = (
@@ -245,7 +246,7 @@ def legacy_points(
                 )
             if value > 0 and (why := uncited(item, category == "case_level")):
                 excluded.append({"path": f"{section_key}[{index}]", **why})
-            elif finite:
+            elif not flagged:  # flagged rows count nothing (#278)
                 out.setdefault(category, []).append(value)
     return out
 

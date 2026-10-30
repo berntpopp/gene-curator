@@ -1,12 +1,14 @@
-"""One-off, idempotent backfill: recompute persisted ClinGen scores for every curation.
+"""One-off, idempotent backfill: recompute persisted scores for every curation.
 
 Run once after deploying 046 (Models & Rescue as one category capped at 4):
 ``cd backend && uv run python -m app.services.recompute_scores``. Every curation whose
 total or class changes is logged with its gene and old -> new total and class. Rows are
 scored with their pinned point model, custom categories included (reported); rows holding
 evidence keys that model does not score are skipped and reported with those keys. Active
-and archived curations whose rows now lack a PMID or a real variant keep their result until
-edited and resubmitted; they are logged as kept_uncited.
+and archived curations whose rows now lack a PMID or a real variant, or hold out-of-range
+points, keep their result until edited and resubmitted; they are logged as kept_uncited.
+GenCC and qualitative curations are scored by their own engine (engine_for), as saves do;
+they have no point model.
 """
 
 from typing import Any, cast
@@ -17,10 +19,11 @@ from sqlalchemy.orm import Session
 from app.core.deps import set_rls_context
 from app.core.logging import get_logger
 from app.models.models import CurationNew, Gene, UserNew, UserRoleNew
-from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
+from app.scoring.clingen import ClinGenEngine
 from app.scoring.evidence_items import UNCITED, has_content
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.point_model import point_model
+from app.scoring.registry import engine_for
 from app.services.evidence_ids import score_scorable
 from app.services.publication_service import evidence_pmids, lookup_pmids
 
@@ -98,10 +101,15 @@ def _save(
 
 def _keeps_result(status: Any, breakdown: dict[str, Any]) -> bool:
     """Active and archived curations keep their result (history is not rescored) until
-    resubmitted when rows now lack a citation."""
+    resubmitted when rows now lack a citation or are out of range (#278)."""
     excluded = breakdown.get("excluded", [])
     kept = status in ("active", "archived")
-    return kept and any(e.get("reason") in UNCITED for e in excluded)
+    flagged = bool(breakdown.get("trace", {}).get("out_of_range"))
+    return kept and (flagged or any(e.get("reason") in UNCITED for e in excluded))
+
+
+def _scored(scores: dict[str, Any] | None) -> dict[str, Any]:
+    return {k: v for k, v in (scores or {}).items() if k != "warnings"}
 
 
 def _raise_if_failed(failed: int, total: int) -> None:
@@ -118,7 +126,6 @@ def recompute_all_scores(db: Session) -> int:
         raise RuntimeError("No active application admin found for the RLS context")
     if db.get_bind().dialect.name == "postgresql":
         set_rls_context(db, admin)
-    engine = ClinGenEngine()
     cols = (CurationNew.id, CurationNew.evidence_data, CurationNew.computed_scores)
     pin = (CurationNew.workflow_pair_id, CurationNew.methodology_version_id)
     curations = db.execute(
@@ -152,20 +159,19 @@ def recompute_all_scores(db: Session) -> int:
     ) in curations:
         try:
             config = scoring_configuration(db, pair_id, version_id)
-            if config.get("engine", ENGINE_NAME) != ENGINE_NAME:
-                skipped.append(
-                    str(curation_id)
-                )  # GenCC/qualitative: not ClinGen points
-                continue
-            model = point_model(config) or engine._template()
-            if keys := _unscored_keys(evidence, model):
-                # never overwrite with an unjustified verdict
-                skipped.append(str(curation_id))
-                unscored[str(curation_id)] = keys
-                continue
-            # keys the template would not score but the pinned model does
-            custom.update(_unscored_keys(evidence, engine._template()))
-            result = score_scorable(engine, config, evidence or {}, unknown)
+            scorer = engine_for(config)  # as saves score
+            if isinstance(
+                scorer, ClinGenEngine
+            ):  # GenCC/qualitative have no point model
+                model = point_model(config) or scorer._template()
+                if keys := _unscored_keys(evidence, model):
+                    # never overwrite with an unjustified verdict
+                    skipped.append(str(curation_id))
+                    unscored[str(curation_id)] = keys
+                    continue
+                # keys the template would not score but the pinned model does
+                custom.update(_unscored_keys(evidence, scorer._template()))
+            result = score_scorable(scorer, config, evidence or {}, unknown)
         except Exception:  # one bad legacy row must not abort the backfill
             failed += 1
             logger.error(
@@ -174,14 +180,17 @@ def recompute_all_scores(db: Session) -> int:
             continue
         flagged[str(curation_id)] = [
             flag["path"]
-            for flag in result.evidence_breakdown["trace"].get("out_of_range", [])
+            for flag in result.evidence_breakdown.get("trace", {}).get(
+                "out_of_range", []
+            )
         ]
         scores = {
             **result.scores,
             **result.evidence_breakdown,
             "warnings": result.warnings,
         }
-        if (old_scores, old_verdict) == (scores, result.verdict):
+        # warning text alone is no score change: a write bumps lock_version (008)
+        if (_scored(old_scores), old_verdict) == (_scored(scores), result.verdict):
             unchanged += 1
             continue
         if _keeps_result(status, scores):  # its new score differs: reported, not saved

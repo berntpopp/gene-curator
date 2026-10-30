@@ -29,7 +29,7 @@ def test_legacy_invalid_points_are_flagged_and_json_safe(
 ) -> None:
     evidence = {section: [{"evidence_category": category, key: value, "pmid": "1"}]}
     result = ClinGenEngine().calculate_scores(evidence, {})
-    assert result.total_score == (-3 if value == -3 else 0)
+    assert result.total_score == 0  # flagged rows count nothing (#278)
     (flag,) = result.evidence_breakdown["trace"]["out_of_range"]
     assert flag["path"] == f"{section}[0].{key}"
     assert flag["value"] == (-3 if value == -3 else str(float(str(value))))

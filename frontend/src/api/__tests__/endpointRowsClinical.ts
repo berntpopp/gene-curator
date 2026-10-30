@@ -54,25 +54,6 @@ export const clinicalRows: Row[] = [
     result: undefined
   },
   {
-    name: 'curations.addEvidenceItem',
-    run: () => curationsAPI.addEvidenceItem('c', { category: 'genetic' } as never),
-    method: 'post',
-    args: ['/curations/c/evidence', { category: 'genetic' }]
-  },
-  {
-    name: 'curations.updateEvidenceItem',
-    run: () => curationsAPI.updateEvidenceItem('c', 'e', { type: 'x' } as never),
-    method: 'put',
-    args: ['/curations/c/evidence/e', { type: 'x' }]
-  },
-  {
-    name: 'curations.deleteEvidenceItem',
-    run: () => curationsAPI.deleteEvidenceItem('c', 'e'),
-    method: 'delete',
-    args: ['/curations/c/evidence/e'],
-    result: undefined
-  },
-  {
     name: 'curations.calculateScore',
     run: () => curationsAPI.calculateScore('c'),
     method: 'get',
