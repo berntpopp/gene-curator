@@ -46,7 +46,7 @@ harmless).
 MOI), `computed_verdict`, `genetic_score`, `experimental_score`, `total_score`,
 `methodology {schema_name, version, version_id}`, `pmids` (every PMID under a `pmid` key
 in the evidence, deduplicated, numerically sorted), `curator_name`, `reviewer_name` (who
-approved), `approved_at`, `activated_at`, `archived_at`, `updated_at`.
+approved), `approved_at`, `activated_at`, `archived_at`, `archive_reason`, `updated_at`.
 
 ## Changes
 
@@ -56,9 +56,9 @@ approved), `approved_at`, `activated_at`, `archived_at`, `updated_at`.
 - **Retraction:** retracted curations are hard deletes and never appear. To catch them, and
   archivals an anonymous caller cannot see, run a full sync (no `updated_since`) periodically
   and drop rows that are no longer returned.
-- **Soft delete:** members see a soft-deleted curation as `status: archived` with
-  `archived_at: null` (pre-existing, tracked separately). Treat `status`, not `archived_at`,
-  as the source of truth.
+- **Deletion:** a deleted curation stays in the feed as `status: archived` with
+  `archived_at` set and `archive_reason: "Curation deleted"` (members only); the delete
+  counts as a change, so `updated_since` returns it. Retract rows that get `archived_at`.
 
 ## Versioning
 

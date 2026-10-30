@@ -28,6 +28,15 @@ def active_curation(
     return test_curation
 
 
+def test_deleted_active_curation_leaves_the_catalogue(
+    client: TestClient, active_curation: CurationNew, admin_token: str
+) -> None:
+    admin = {"Authorization": f"Bearer {admin_token}"}
+    url = f"/api/v1/curations/{active_curation.id}"
+    assert client.delete(url, headers=admin).status_code == 204
+    assert client.get("/api/v1/gene-catalogue/").json()["entries"] == []
+
+
 @pytest.mark.parametrize("query", ["NAA10", "ARD1", "TE2"])
 def test_search_matches_symbol_alias_and_previous_symbol(
     client: TestClient,

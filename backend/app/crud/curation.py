@@ -19,6 +19,7 @@ from app.crud.curator_classification import curator_call
 from app.crud.optimistic_lock import update_if_version
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
+    ActiveCuration,
     CurationNew,
     CurationStatus,
     Gene,
@@ -50,6 +51,7 @@ from app.services.review_assignment import submit_reviewer
 from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
+DELETED_REASON = "Curation deleted"  # pointer archive_reason of a soft delete
 
 
 class OpenCurationExistsError(ValueError):
@@ -636,6 +638,14 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db_obj.workflow_stage = WorkflowStage.ARCHIVED
         db_obj.updated_by = user_id
         db_obj.updated_at = _utc_now()
+        # A deleted active curation must leave catalogue, views and export like a replaced one
+        for pointer in db.query(ActiveCuration).filter(
+            ActiveCuration.curation_id == db_obj.id,
+            ActiveCuration.archived_at.is_(None),
+        ):
+            pointer.archived_at = _utc_now()
+            pointer.archived_by = user_id
+            pointer.archive_reason = DELETED_REASON
 
         db.add(db_obj)
         db.commit()

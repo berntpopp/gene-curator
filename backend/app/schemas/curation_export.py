@@ -48,6 +48,11 @@ class ExportCuration(BaseModel):
     approved_at: datetime | None = None
     activated_at: datetime
     archived_at: datetime | None = None
+    archive_reason: str | None = Field(
+        None,
+        description="Why it was archived: 'Curation deleted' (retract it) or "
+        "'Replaced by new active curation'",
+    )
     updated_at: datetime = Field(..., description="Last change; the paging key")
 
 

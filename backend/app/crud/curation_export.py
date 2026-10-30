@@ -31,7 +31,7 @@ from app.services.publication_service import evidence_pmids
 
 _MOI_HPO = {abbr.upper(): hpo.upper() for abbr, (_, hpo) in _MOI_SYNONYMS.items()}
 
-# Re-curation and archiving touch the pointer; a soft delete touches only the curation
+# The pointer or the curation, whichever changed last (re-curation, archive, delete)
 _changed_at = case(
     (CurationNew.updated_at > ActiveCuration.updated_at, CurationNew.updated_at),
     else_=ActiveCuration.updated_at,
@@ -145,5 +145,6 @@ def _item(
         approved_at=c.approved_at,
         activated_at=ac.activated_at,
         archived_at=ac.archived_at,
+        archive_reason=ac.archive_reason,
         updated_at=updated_at,
     )
