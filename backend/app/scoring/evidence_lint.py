@@ -146,10 +146,11 @@ def review_flags(result: dict[str, Any]) -> list[str]:
     if hotspot := flags.get("hotspot"):
         points = result.get("variant_points", {})
         proband = sum(points.values())
-        top_n = sorted((v for k, v in points.items() if k), reverse=True)
-        top_n = top_n[: hotspot["max_variants"]]
+        scoring = sorted((v for k, v in points.items() if k and v > 0), reverse=True)
+        top_n = scoring[: hotspot["max_variants"]]
         top, n = sum(top_n), len(top_n)
-        if proband > 0 and top / proband >= hotspot["min_share"]:
+        # only more variants than max_variants can concentrate (monkey M3)
+        if proband > 0 and len(scoring) > n and top / proband >= hotspot["min_share"]:
             out.append(
                 f"review_flags.hotspot: {top:g} of {proband:g} proband points "
                 f"({top / proband:.0%}) come from {n} variants; check for a "

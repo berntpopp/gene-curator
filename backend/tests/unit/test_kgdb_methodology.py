@@ -96,11 +96,21 @@ def test_readme_freezes_the_bundle_field_ids() -> None:
 
 
 def test_hotspot_pilot_case_raises_the_hotspot_flag() -> None:
-    """Embedded tests assert total and class only; the reviewer flag is checked here."""
+    """Embedded tests assert total and class only; the reviewer flag is checked here.
+    One variant alone is not a hotspot (monkey M3): it needs more than max_variants."""
     config = SCHEMAS["KGDB Mendelian Curation"]["scoring_configuration"]
     test = next(t for t in config["tests"] if t["name"].startswith("Hotspot"))
-    warnings = _score(test["evidence_data"], config).warnings
-    assert any(w.startswith("review_flags.hotspot") for w in warnings), warnings
+    evidence = json.loads(json.dumps(test["evidence_data"]))
+
+    def hot() -> bool:
+        warnings = _score(evidence, config).warnings
+        return any(w.startswith("review_flags.hotspot") for w in warnings)
+
+    assert not hot()
+    probands = evidence["genetic"]["probands"]
+    for i, variant in enumerate(("p.(Gly1Ser)", "p.(Gly2Ser)")):
+        probands.append({**probands[0], "pmid": f"3200000{i}", "variant": variant})
+    assert hot()
 
 
 @pytest.mark.parametrize(

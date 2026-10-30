@@ -79,6 +79,13 @@ def test_hotspot_fires_when_few_variants_carry_the_points() -> None:
     assert spread == []
 
 
+def test_hotspot_needs_more_variants_than_max_variants() -> None:
+    """Monkey M3: one or two scoring variants are 100% of the points, not a hotspot."""
+    model = _model(hotspot={"max_variants": 2, "min_share": 0.5})
+    for variants in (["c.1A>G"] * 3, ["c.1A>G", "c.1A>G", "c.9A>G"]):
+        assert _flags(model, _evidence(variants)) == []
+
+
 def test_experimental_over_genetic_fires_only_when_greater() -> None:
     model = _model(experimental_over_genetic=["exp", "gen"])
     assert _flags(model, _evidence(["c.1A>G"], exp=2)) == [
@@ -89,7 +96,8 @@ def test_experimental_over_genetic_fires_only_when_greater() -> None:
 
 
 def test_all_flags_together() -> None:
-    evidence = _evidence(["c.1A>G"] * 2, exp=6)  # 8 points: none near 12 or 0.1
+    # 9 points: none near 12 or 0.1; three variants, two carry 3 of 4 genetic points
+    evidence = _evidence(["c.1A>G"] * 2 + _distinct(2), exp=5)
     assert [w.split(":")[0] for w in _flags(_model(**ALL), evidence)] == [
         "review_flags.hotspot",
         "review_flags.experimental_over_genetic",
@@ -146,8 +154,8 @@ def test_band_margin_ignores_edges_at_or_below_zero() -> None:
 
 def test_hotspot_names_the_variants_there_are() -> None:
     model = _model(hotspot={"max_variants": 2, "min_share": 0.5})
-    assert _flags(model, _evidence(["c.1A>G"] * 3)) == [
-        "review_flags.hotspot: 3 of 3 proband points (100%) come from 1 variants; "
+    assert _flags(model, _evidence(["c.1A>G"] * 6 + _distinct(2))) == [
+        "review_flags.hotspot: 7 of 8 proband points (88%) come from 2 variants; "
         "check for a recurrent-variant hotspot"
     ]
 
