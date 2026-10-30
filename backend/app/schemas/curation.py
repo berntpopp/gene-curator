@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import CurationStatus, WorkflowStage
 from app.schemas.review_comment import CurationDiff
@@ -50,7 +50,32 @@ MERGE_DESCRIPTION = (
 )
 
 
-class CurationUpdate(BaseModel):
+class CuratorClassificationIn(BaseModel):
+    """The curator's proposed classification (#533); omitted keeps it, null clears it."""
+
+    curator_classification: str | None = Field(None, max_length=100)
+    curator_classification_rationale: str | None = Field(None, max_length=5000)
+
+    @field_validator("curator_classification", "curator_classification_rationale")
+    @classmethod
+    def _blank_is_none(cls, v: str | None) -> str | None:
+        return (v or "").strip() or None
+
+
+def class_key(value: str) -> str:
+    """'Strong', ' strong ' or 'No Known Disease Relationship' as a class key (#533).
+    crud.curator_classification.class_key_sql is the same rule in SQL: keep them equal."""
+    key = value.strip().lower().replace(" ", "_").replace("-", "_")
+    return "no_known" if key.startswith("no_known") else key
+
+
+CLASSIFICATION_KEYS = {
+    "curator_classification",
+    "curator_classification_rationale",
+}
+
+
+class CurationUpdate(CuratorClassificationIn):
     """Schema for updating an existing curation."""
 
     evidence_data: dict[str, Any] | None = Field(
@@ -62,7 +87,7 @@ class CurationUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class CurationDraftSave(BaseModel):
+class CurationDraftSave(CuratorClassificationIn):
     """Schema for saving a curation as draft."""
 
     evidence_data: dict[str, Any] = Field(..., description="Draft evidence data")
@@ -103,6 +128,11 @@ class CurationInDBBase(CurationBase):
     computed_scores: dict[str, Any]
     computed_verdict: str | None
     computed_summary: str | None
+    curator_classification: str | None = None
+    curator_classification_rationale: str | None = None
+    final_classification: str | None = Field(
+        None, description="curator_classification if set, else computed_verdict"
+    )
 
     # Optimistic locking
     lock_version: int
@@ -259,6 +289,9 @@ class CurationDetail(CurationInDBBase):
             "computed_scores": curation.computed_scores or {},
             "computed_verdict": curation.computed_verdict,
             "computed_summary": curation.computed_summary,
+            "curator_classification": curation.curator_classification,
+            "curator_classification_rationale": curation.curator_classification_rationale,
+            "final_classification": curation.final_classification,
             "lock_version": curation.lock_version,
             "methodology_version_id": curation.methodology_version_id,
             "created_at": curation.created_at,
@@ -314,6 +347,7 @@ class CurationSummary(BaseModel):
     status: CurationStatus
     workflow_stage: WorkflowStage
     computed_verdict: str | None
+    final_classification: str | None = None
     computed_scores: dict[str, Any] | None = None
     disease_name: str | None = None
     is_draft: bool

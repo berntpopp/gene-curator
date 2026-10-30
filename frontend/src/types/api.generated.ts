@@ -4564,6 +4564,15 @@ export interface components {
             computed_verdict: string | null;
             /** Computed Summary */
             computed_summary: string | null;
+            /** Curator Classification */
+            curator_classification?: string | null;
+            /** Curator Classification Rationale */
+            curator_classification_rationale?: string | null;
+            /**
+             * Final Classification
+             * @description curator_classification if set, else computed_verdict
+             */
+            final_classification?: string | null;
             /** Lock Version */
             lock_version: number;
             /** Methodology Version Id */
@@ -4717,6 +4726,15 @@ export interface components {
             computed_verdict: string | null;
             /** Computed Summary */
             computed_summary: string | null;
+            /** Curator Classification */
+            curator_classification?: string | null;
+            /** Curator Classification Rationale */
+            curator_classification_rationale?: string | null;
+            /**
+             * Final Classification
+             * @description curator_classification if set, else computed_verdict
+             */
+            final_classification?: string | null;
             /** Lock Version */
             lock_version: number;
             /** Methodology Version Id */
@@ -4859,6 +4877,15 @@ export interface components {
             computed_verdict: string | null;
             /** Computed Summary */
             computed_summary: string | null;
+            /** Curator Classification */
+            curator_classification?: string | null;
+            /** Curator Classification Rationale */
+            curator_classification_rationale?: string | null;
+            /**
+             * Final Classification
+             * @description curator_classification if set, else computed_verdict
+             */
+            final_classification?: string | null;
             /** Lock Version */
             lock_version: number;
             /** Methodology Version Id */
@@ -4903,6 +4930,10 @@ export interface components {
          * @description Schema for saving a curation as draft.
          */
         CurationDraftSave: {
+            /** Curator Classification */
+            curator_classification?: string | null;
+            /** Curator Classification Rationale */
+            curator_classification_rationale?: string | null;
             /**
              * Evidence Data
              * @description Draft evidence data
@@ -5395,6 +5426,8 @@ export interface components {
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Computed Verdict */
             computed_verdict: string | null;
+            /** Final Classification */
+            final_classification?: string | null;
             /** Computed Scores */
             computed_scores?: {
                 [key: string]: unknown;
@@ -5428,6 +5461,10 @@ export interface components {
          * @description Schema for updating an existing curation.
          */
         CurationUpdate: {
+            /** Curator Classification */
+            curator_classification?: string | null;
+            /** Curator Classification Rationale */
+            curator_classification_rationale?: string | null;
             /**
              * Evidence Data
              * @description Updated evidence data
@@ -5649,6 +5686,16 @@ export interface components {
             moi_hpo_id?: string | null;
             /** Computed Verdict */
             computed_verdict?: string | null;
+            /**
+             * Final Classification
+             * @description Curator classification confirmed at approval, else computed
+             */
+            final_classification?: string | null;
+            /**
+             * Curator Classification Rationale
+             * @description Why the curator's class differs from the computed one
+             */
+            curator_classification_rationale?: string | null;
             /** Genetic Score */
             genetic_score?: number | null;
             /** Experimental Score */
@@ -9560,9 +9607,14 @@ export interface components {
             mode_of_inheritance?: string | null;
             /**
              * Classification
-             * @description Classification verdict: definitive, strong, moderate, limited, no_known, disputed, refuted
+             * @description Final classification (curator's if set, else computed): definitive, strong, moderate, limited, no_known, disputed, refuted
              */
             classification?: string | null;
+            /**
+             * Computed Verdict
+             * @description Calculated classification
+             */
+            computed_verdict?: string | null;
             /**
              * Genetic Score
              * @description Genetic evidence score

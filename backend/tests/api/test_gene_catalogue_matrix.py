@@ -413,3 +413,21 @@ def test_agreement_is_per_disease_entity(client: TestClient, world: World) -> No
 
     assert filtered("agree") == {"HNF1B"}
     assert filtered("disagree") == {"PKD1"}
+
+
+def test_a_curator_key_agrees_with_the_same_engine_label(
+    client: TestClient, world: World
+) -> None:
+    """#533: GenCC's 'No Known Disease Relationship' and a curator's 'no_known' agree."""
+    world.cur(world.pkd1, world.pub, "No Known Disease Relationship")
+    world.cur(world.pkd1, world.other, "Limited").curator_classification = "no_known"
+    world.db.commit()
+    alice, headers = _user(world.db, "alice")
+    _member(world.db, world.other, alice)
+    params = world.ids(world.pub, world.other)
+    [row] = client.get(URL, params=params, headers=headers).json()["rows"]
+    assert row["agreement"] == "agree"
+    agree = client.get(
+        URL, params=[*params, ("agreement", "agree")], headers=headers
+    ).json()
+    assert [r["approved_symbol"] for r in agree["rows"]] == ["PKD1"]

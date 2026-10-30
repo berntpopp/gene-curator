@@ -117,7 +117,7 @@ class GeneSummaryService:
             "mode_of_inheritance": disease["mode_of_inheritance"],
             "stage": curation.workflow_stage.value,
             "in_progress": in_progress,
-            "classification": curation.computed_verdict,
+            "classification": curation.final_classification,
             "genetic_score": scores.get("genetic_evidence_total", 0),
             "experimental_score": scores.get("experimental_evidence_total", 0),
             "total_score": scores.get("total_score", 0),

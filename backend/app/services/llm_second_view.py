@@ -142,7 +142,7 @@ def diff_rows(curation: CurationNew, runs: dict[str, LLMRun]) -> list[dict[str, 
     rows.append(
         {
             "category": "classification",
-            "human": curation.computed_verdict,
+            "human": curation.final_classification,
             **{s: runs[s].proposed_verdict if s in runs else None for s in STRATEGIES},
         }
     )

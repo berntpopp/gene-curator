@@ -516,6 +516,8 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       expect(await frame.save()).toBe(true)
       expect(curationsStore.saveDraft).toHaveBeenCalledWith('cur-1', {
         evidence_data: { a: 1 },
+        curator_classification: null,
+        curator_classification_rationale: null,
         lock_version: 2
       })
       expect(frame.state.value).toBe('saved')
@@ -611,6 +613,37 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       expect(curationsStore.submitCuration).not.toHaveBeenCalled()
     })
 
+    it('loads and saves the curator classification, and its edits count as unsaved', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: {},
+        lock_version: 2,
+        curator_classification: 'strong',
+        curator_classification_rationale: null
+      })
+      curationsStore.saveDraft.mockResolvedValue({ lock_version: 3 })
+      const { wrapper, frame } = await mountFramed()
+      const field = wrapper.findComponent({ name: 'CuratorClassificationField' })
+      expect(field.props('modelValue')).toEqual({
+        curator_classification: 'strong',
+        curator_classification_rationale: null
+      })
+      expect(frame.state.value).toBe('saved')
+
+      field.vm.$emit('update:modelValue', {
+        curator_classification: 'strong',
+        curator_classification_rationale: 'Replicated'
+      })
+      await flushPromises()
+      expect(frame.state.value).toBe('unsaved')
+      expect(await frame.save()).toBe(true)
+      expect(curationsStore.saveDraft).toHaveBeenCalledWith('cur-1', {
+        evidence_data: {},
+        curator_classification: 'strong',
+        curator_classification_rationale: 'Replicated',
+        lock_version: 2
+      })
+    })
+
     it('submits through the frame after confirming, saving the evidence first', async () => {
       curationsStore.updateCuration.mockResolvedValue({ lock_version: 3 })
       precurationsStore.fetchPrecurationById.mockResolvedValue({
@@ -633,6 +666,8 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       expect(confirmMock).toHaveBeenCalled()
       expect(curationsStore.updateCuration).toHaveBeenCalledWith('cur-1', {
         evidence_data: { a: 1 },
+        curator_classification: null,
+        curator_classification_rationale: null,
         lock_version: 2
       })
       expect(curationsStore.submitCuration).toHaveBeenCalledWith('cur-1', { lock_version: 3 })

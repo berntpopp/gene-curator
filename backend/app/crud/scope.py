@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
+from app.crud.curator_classification import class_key_sql
 from app.crud.review_round import in_current_round
 from app.crud.scope_counts import get_counts_for_scopes
 from app.models import (
@@ -349,14 +350,15 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         )
 
         # Verdict distribution
+        final = class_key_sql(CurationNew.final_classification)
         verdict_counts = db.execute(
-            select(CurationNew.computed_verdict, func.count(CurationNew.id))
+            select(final, func.count(CurationNew.id))
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
             .where(
                 ActiveCuration.scope_id == scope_id,
                 ActiveCuration.archived_at.is_(None),
             )
-            .group_by(CurationNew.computed_verdict)
+            .group_by(final)
         ).all()
 
         verdict_dict = {verdict: count for verdict, count in verdict_counts if verdict}

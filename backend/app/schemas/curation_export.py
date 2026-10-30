@@ -32,6 +32,12 @@ class ExportCuration(BaseModel):
     mode_of_inheritance: str | None = Field(None, description="As entered")
     moi_hpo_id: str | None = Field(None, description="HPO CURIE of the canonical MOI")
     computed_verdict: str | None = None
+    final_classification: str | None = Field(
+        None, description="Curator classification confirmed at approval, else computed"
+    )
+    curator_classification_rationale: str | None = Field(
+        None, description="Why the curator's class differs from the computed one"
+    )
     genetic_score: float | None = None
     experimental_score: float | None = None
     total_score: float | None = None

@@ -30,8 +30,10 @@ class ScopeCurationSummary(BaseModel):
     # Classification and scoring from computed fields
     classification: str | None = Field(
         None,
-        description="Classification verdict: definitive, strong, moderate, limited, no_known, disputed, refuted",
+        description="Final classification (curator's if set, else computed): definitive, "
+        "strong, moderate, limited, no_known, disputed, refuted",
     )
+    computed_verdict: str | None = Field(None, description="Calculated classification")
     genetic_score: float | None = Field(None, description="Genetic evidence score")
     experimental_score: float | None = Field(
         None, description="Experimental evidence score"
