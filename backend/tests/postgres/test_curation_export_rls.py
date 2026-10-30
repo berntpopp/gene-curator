@@ -161,7 +161,12 @@ def test_deleted_active_curation_archives_its_pointer(client: TestClient, w: W) 
         )
         assert r.status_code == 204, r.text
         assert _mine(client, w, None) == {}
-        assert set(_mine(client, w, w.member)) == {"pub_old", "priv"}
+        gone = _mine(client, w, w.member)["pub_new"]
+        assert (gone["status"], gone["archive_reason"]) == (
+            "archived",
+            "Curation deleted",
+        )
+        assert gone["archived_at"] is not None
         with _owner() as conn, conn.cursor() as cur:
             cur.execute(
                 "SELECT archived_at IS NOT NULL, archived_by FROM active_curations "

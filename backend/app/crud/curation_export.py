@@ -8,7 +8,7 @@ from sqlalchemy import and_, case, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.core.config import settings
-from app.crud.curation import DELETED_REASON, get_disease_fields
+from app.crud.curation import get_disease_fields
 from app.crud.scope_visibility import member_scope_ids, visible_scope_ids
 from app.models import (
     ActiveCuration,
@@ -79,7 +79,6 @@ def export_curations(
                 CurationNew.status == CurationStatus.ACTIVE,
                 ActiveCuration.scope_id.in_(member_scope_ids(user_id)),
             ),
-            ActiveCuration.archive_reason.is_distinct_from(DELETED_REASON),
         )
         .order_by(_changed_at, ActiveCuration.id)
         .limit(limit + 1)
@@ -144,5 +143,6 @@ def _item(
         approved_at=c.approved_at,
         activated_at=ac.activated_at,
         archived_at=ac.archived_at,
+        archive_reason=ac.archive_reason,
         updated_at=updated_at,
     )

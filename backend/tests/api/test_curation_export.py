@@ -152,7 +152,7 @@ def test_private_scope_hidden_from_anonymous_and_archived_shown_to_members(
     assert r.json()["items"][0]["status"] == "archived"
 
 
-def test_soft_deleted_curation_is_not_exported(
+def test_deleted_curation_is_exported_as_archived_to_incremental_sync(
     client: TestClient,
     db_session: Session,
     pair: WorkflowPair,
@@ -164,8 +164,16 @@ def test_soft_deleted_curation_is_not_exported(
     c = _point(db_session, pair, test_gene, test_scope, T0)
     admin = {"Authorization": f"Bearer {admin_token}"}
     assert client.delete(f"/api/v1/curations/{c.id}", headers=admin).status_code == 204
-    r = client.get(URL, headers={"Authorization": f"Bearer {viewer_token}"})
-    assert _ids(r) == []
+    since = (T0 + timedelta(hours=1)).isoformat()  # after the export, before the delete
+    r = client.get(
+        URL,
+        params={"updated_since": since},
+        headers={"Authorization": f"Bearer {viewer_token}"},
+    )
+    [item] = r.json()["items"]
+    assert (item["curation_id"], item["status"]) == (str(c.id), "archived")
+    assert item["archived_at"] is not None
+    assert item["archive_reason"] == "Curation deleted"
 
 
 def test_archived_curation_of_public_scope_hidden_from_anonymous(

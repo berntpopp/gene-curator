@@ -5678,6 +5678,11 @@ export interface components {
             /** Archived At */
             archived_at?: string | null;
             /**
+             * Archive Reason
+             * @description Why it was archived: 'Curation deleted' (retract it) or 'Replaced by new active curation'
+             */
+            archive_reason?: string | null;
+            /**
              * Updated At
              * Format: date-time
              * @description Last change; the paging key
