@@ -117,6 +117,7 @@ def test_get_curation_through_mcp_carries_the_evidence_once(
         "get_curation",
         "/mcp",
         curation_id=str(test_curation.id),
+        fields=["evidence_data", "computed_scores"],  # /mcp omits evidence by default
     )
     (block,) = result["content"]
     assert json.dumps(result).count("ONCE-ONLY") == 1
