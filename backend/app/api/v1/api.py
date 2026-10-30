@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     auth,
     curation_export,
     curations,
+    disease_correction,
     external_validation,
     gene_assignments,
     gene_catalogue,
@@ -70,6 +71,9 @@ api_router.include_router(
 )
 api_router.include_router(workflow.router, prefix="/workflow", tags=["workflow"])
 api_router.include_router(curations.router, prefix="/curations", tags=["curations"])
+api_router.include_router(
+    disease_correction.router, prefix="/curations", tags=["curations"]
+)
 api_router.include_router(
     review_comments.router, prefix="/curations", tags=["review-comments"]
 )

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.capabilities import REVIEW, ROLE_CAPABILITIES
 from app.core.enums import ScopeRole
 from app.models import (
+    AuditLogNew,
     CurationNew,
     CurationStatus,
     Review,
@@ -46,6 +47,27 @@ in_current_round: Any = and_(
 )
 
 
+CORRECTED_OWN = (
+    "4-eyes principle violation: you corrected this curation's disease entity"
+)
+
+
+def correctors(curation_id: Any) -> Any:
+    """Who made a disease correction (#453) of the curation: their work too (D1)."""
+    return select(AuditLogNew.user_id).where(
+        AuditLogNew.entity_id == curation_id,
+        AuditLogNew.change_type == "disease_correction",
+        AuditLogNew.user_id.isnot(None),
+    )
+
+
+def corrected_by(db: Session, curation_id: UUID, user_id: UUID) -> bool:
+    return (
+        db.scalar(correctors(curation_id).where(AuditLogNew.user_id == user_id))
+        is not None
+    )
+
+
 def check_review_open(db: Session, review: Review) -> None:
     """Raise ValueError unless the review is in the open round and its reviewer may review."""
     curation = db.get(CurationNew, review.curation_id)
@@ -55,6 +77,8 @@ def check_review_open(db: Session, review: Review) -> None:
         raise ValueError("User is not allowed to review in this scope")
     if curation.submitted_at is not None and review.assigned_at < curation.submitted_at:
         raise ValueError("Review belongs to a previous review round")
+    if corrected_by(db, curation.id, review.reviewer_id):
+        raise ValueError(CORRECTED_OWN)
 
 
 def all_reviews_approved(db: Session, curation_id: UUID) -> bool:
@@ -78,7 +102,8 @@ def all_reviews_approved(db: Session, curation_id: UUID) -> bool:
 
 
 def approving_reviewers(db: Session, curation: CurationNew) -> int:
-    """Distinct reviewers who approved in the open round; the author never counts (D1)."""
+    """Distinct reviewers who approved in the open round; the author and a disease
+    corrector never count (D1)."""
     return (
         db.scalar(
             select(func.count(func.distinct(Review.reviewer_id))).where(
@@ -90,6 +115,7 @@ def approving_reviewers(db: Session, curation: CurationNew) -> int:
                 Review.status == ReviewStatus.APPROVED,
                 Review.recommendation == "approve",
                 Review.reviewer_id != curation.created_by,
+                Review.reviewer_id.notin_(correctors(curation.id)),
             )
         )
         or 0
@@ -118,6 +144,7 @@ def reassign_earlier_reviewers(
             Review.curation_id == curation.id,
             Review.assigned_at < curation.submitted_at,
             Review.reviewer_id != curation.created_by,
+            Review.reviewer_id.notin_(correctors(curation.id)),
             # same condition as holds_review_capability: still a reviewer here
             Review.reviewer_id.in_(
                 select(ScopeMembership.user_id).where(

@@ -1906,6 +1906,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/curations/{curation_id}/disease-correction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Correct Curation Disease
+         * @description Set the curation's own disease entity (name, MONDO id, inheritance, optionally the
+         *     relationship type) with a reason; written to the audit log with old and new values.
+         *     Scope admins only, on a draft or sent-back curation; 409 on a stale lock_version or
+         *     when another open curation already has that entity.
+         */
+        post: operations["correct_curation_disease_api_v1_curations__curation_id__disease_correction_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/curations/{curation_id}/review-comments": {
         parameters: {
             query?: never;
@@ -2014,7 +2037,8 @@ export interface paths {
         post?: never;
         /**
          * Delete Precuration
-         * @description Archive a precuration. Linked curations prevent deletion with HTTP 409.
+         * @description Archive a precuration (its creator or a scope admin). Linked curations prevent
+         *     deletion with HTTP 409.
          */
         delete: operations["delete_precuration_api_v1_precurations__precuration_id__delete"];
         options?: never;
@@ -5635,6 +5659,24 @@ export interface components {
             skeptic: number | string | null;
             /** Disagree */
             disagree: boolean;
+        };
+        /**
+         * DiseaseCorrection
+         * @description The disease entity the record should name, and why it is corrected.
+         */
+        DiseaseCorrection: {
+            /** Disease Name */
+            disease_name: string;
+            /** Mondo Id */
+            mondo_id: string;
+            /** Mode Of Inheritance */
+            mode_of_inheritance: string;
+            /** Relationship Type */
+            relationship_type?: ("mendelian" | "susceptibility") | null;
+            /** Reason */
+            reason: string;
+            /** Lock Version */
+            lock_version: number;
         };
         /**
          * EvidenceWarning
@@ -15025,6 +15067,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurationScoreResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    correct_curation_disease_api_v1_curations__curation_id__disease_correction_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiseaseCorrection"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Curation"];
                 };
             };
             /** @description Validation Error */

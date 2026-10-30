@@ -36,8 +36,14 @@ describe('useDiseaseGap', () => {
       .mockResolvedValueOnce({ missing_fields: [] } as never)
     const savedAt = ref<number | null>(null)
     const report = vi.fn()
-    useDiseaseGap({ curationId: () => 'c1', linked: () => false, checkAt: savedAt, report })
+    const gap = useDiseaseGap({
+      curationId: () => 'c1',
+      linked: () => false,
+      checkAt: savedAt,
+      report
+    })
     await flushPromises()
+    expect(gap.value).toContain('Disease name') // shown to the scope admin's correction
     expect(validate).toHaveBeenCalledWith('curation', 'c1', 'review')
     expect(report).toHaveBeenLastCalledWith(expect.stringContaining('Disease name'))
     savedAt.value = 1

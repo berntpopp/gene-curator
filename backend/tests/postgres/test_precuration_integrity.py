@@ -1,6 +1,8 @@
 """Precuration integrity through the API as app_user: one open precuration per disease
-entity (#567), who may archive one (#284)."""
+entity (#567), who may archive one (#284), and the scope admin's audited disease
+correction of a legacy curation (#453)."""
 
+import json
 from collections.abc import Callable, Generator
 from uuid import UUID, uuid4
 
@@ -20,6 +22,8 @@ from tests.postgres.test_split_entities import (
 )
 
 pytestmark = pytest.mark.postgres
+# A legacy record: its disease entity started but empty, no linked precuration
+LEGACY = {"summary": "ok", "entity_definition": {"lumping_splitting_rationale": "one"}}
 __all__ = ["client", "w"]  # fixtures
 
 
@@ -121,3 +125,114 @@ def test_only_the_creator_or_a_scope_admin_archives_a_precuration(
         r = client.delete(f"/api/v1/precurations/{pid}", headers=_h(user))
         assert r.status_code == 204, r.text
         assert status(pid) == "archived"
+
+
+def test_a_scope_admin_corrects_a_legacy_disease_gap(
+    client: TestClient, w: W, member: Callable[[str], UUID]
+) -> None:
+    """No own disease answers, no linked precuration: submit is refused and changes
+    nothing; a curator may not correct it, a scope admin may (audited), then it submits."""
+    cid = str(uuid4())
+    with _owner() as conn, conn.cursor() as cur:
+        # the seeded ClinGen SOP v11 curation form, which requires the disease entity
+        cur.execute(
+            "SELECT id FROM workflow_pairs WHERE name = 'ClinGen_Complete_Workflow'"
+        )
+        pair = str(cur.fetchone()[0])
+        cur.execute(
+            "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
+            "workflow_stage, is_draft, created_by, evidence_data) VALUES "
+            "(%s, %s, %s, %s, 'draft', 'curation', true, %s, %s)",
+            (
+                cid,
+                str(w.gene),
+                str(w.scope),
+                pair,
+                str(w.alice),
+                json.dumps(LEGACY),
+            ),
+        )
+    state = "SELECT evidence_data, status::text, workflow_stage::text, lock_version, entity_key FROM curations WHERE id = %s"
+    before = _rows(state, cid)
+    check = client.post(
+        f"/api/v1/workflow/curation/{cid}/validate-transition",
+        json={"target_stage": "review"},
+        headers=_h(w.alice),
+    )
+    assert set(check.json()["missing_fields"]) == {
+        "entity_definition.disease_name",
+        "entity_definition.mondo_id",
+        "entity_definition.mode_of_inheritance",
+    }, check.text
+    submit = client.post(
+        f"/api/v1/curations/{cid}/submit",
+        json={"lock_version": before[0][3]},
+        headers=_h(w.alice),
+    )
+    assert submit.status_code == 400, submit.text
+    assert _rows(state, cid) == before
+
+    fix = {
+        "disease_name": "a",
+        "mondo_id": "MONDO:0000001",
+        "mode_of_inheritance": "AD",
+        "reason": "legacy import lost the disease",
+        "lock_version": before[0][3],
+    }
+    url = f"/api/v1/curations/{cid}/disease-correction"
+    carol, dana = member("curator"), member("admin")
+    assert client.post(url, json=fix, headers=_h(carol)).status_code == 403
+    assert _rows(state, cid) == before
+    r = client.post(url, json=fix, headers=_h(dana))
+    assert r.status_code == 200, r.text
+    assert _rows(state, cid)[0][4] == "MONDO:0000001|AD"
+    audit = _rows(
+        "SELECT user_id::text, changes->>'reason', old_values->>'entity_key', "
+        "new_values->>'mondo_id' FROM audit_log WHERE entity_id = %s "
+        "AND change_type = 'disease_correction'",
+        cid,
+    )
+    assert audit == [(str(dana), fix["reason"], "", "MONDO:0000001")]
+
+    lock = r.json()["lock_version"]
+    submit = client.post(
+        f"/api/v1/curations/{cid}/submit",
+        json={"lock_version": lock},
+        headers=_h(w.alice),
+    )
+    assert submit.status_code == 200, submit.text
+
+    # D1: the scope admin who corrected it cannot approve it; nothing moves
+    under_review = _rows(state, cid)
+    r = client.post(
+        f"/api/v1/workflow/curation/{cid}/transition",
+        json={"target_stage": "active", "notes": "ok"},
+        headers=_h(dana),
+    )
+    assert r.status_code >= 400 and "your own work" in r.text, r.text
+    assert _rows(state, cid) == under_review
+
+    # ...nor be assigned, nor submit a peer review (an assignment from before is refused)
+    r = client.post(
+        f"/api/v1/workflow/curation/{cid}/assign-reviewer",
+        json={"reviewer_id": str(dana)},
+        headers=_h(w.alice),
+    )
+    assert r.status_code == 400 and "4-eyes" in r.text, r.text
+    rid = str(uuid4())
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO reviews (id, curation_id, reviewer_id, assigned_by, status) "
+            "VALUES (%s, %s, %s, %s, 'pending')",
+            (rid, cid, str(dana), str(w.alice)),
+        )
+    r = client.post(
+        f"/api/v1/workflow/reviews/{rid}/submit",
+        json={"decision": "approve"},
+        headers=_h(dana),
+    )
+    assert r.status_code == 400 and "corrected" in r.text, r.text
+    assert _rows("SELECT status::text FROM reviews WHERE id = %s", rid) == [
+        ("pending",)
+    ]
+    assert _rows(state, cid) == under_review

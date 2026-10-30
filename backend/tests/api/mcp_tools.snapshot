@@ -11,6 +11,7 @@ calculate_score read_only=True destructive=False
 calculate_scores_with_engine read_only=False destructive=False
 cleanup_old_logs read_only=False destructive=True
 complete_precuration read_only=False destructive=False
+correct_curation_disease read_only=False destructive=False
 count_search_genes read_only=True destructive=False
 create_curation read_only=False destructive=False
 create_curation_schema read_only=False destructive=False

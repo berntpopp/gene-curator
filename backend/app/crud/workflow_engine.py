@@ -20,6 +20,7 @@ from app.crud.review_round import (
     all_reviews_approved,
     approving_reviewers,
     check_review_open,
+    corrected_by,
     eligible_peer_reviewers,
     holds_review_capability,
     pending_reviews as pending_reviews_of,
@@ -136,9 +137,7 @@ class WorkflowEngine:
         errors: list[str] = []
         if not item:
             return errors
-
-        # Check if user is reviewing their own work
-        if item.created_by == user_id:
+        if item.created_by == user_id or corrected_by(db, item.id, user_id):  # D1, #453
             errors.append("4-eyes principle violation: Cannot review your own work")
 
         if not self._has_review_permissions(db, user, item):

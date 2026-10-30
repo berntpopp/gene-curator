@@ -76,6 +76,15 @@ export const curationsAPI = {
     return response.data
   },
 
+  /** A scope admin's audited correction of a legacy curation's disease entity (#453). */
+  async correctDisease(id: string, data: Schema<'DiseaseCorrection'>): Promise<Schema<'Curation'>> {
+    const response = await apiClient.post<Schema<'Curation'>>(
+      `/curations/${id}/disease-correction`,
+      data
+    )
+    return response.data
+  },
+
   /**
    * Delete curation (soft delete)
    * @param id - Curation UUID
