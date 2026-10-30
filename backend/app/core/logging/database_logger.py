@@ -254,6 +254,7 @@ def initialize_database_logger(
     Args:
         session_factory: Factory function that returns AsyncSession
     """
-    global _db_logger
-    _db_logger = DatabaseLogger(session_factory)
-    return _db_logger
+    # configure the shared instance: loggers created at import time already hold it
+    db_logger = get_database_logger()
+    db_logger.session_factory = session_factory
+    return db_logger
