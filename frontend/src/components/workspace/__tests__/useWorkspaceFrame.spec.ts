@@ -239,3 +239,36 @@ describe('workspace frame leave guard after a save', () => {
     expect(frame.dirty.value).toBe(true)
   })
 })
+
+describe('workspace frame empty values', () => {
+  function loaded(saved: Record<string, unknown>) {
+    const frame = createWorkspaceFrame()
+    const evidence = ref<Record<string, unknown>>(structuredClone(saved))
+    frame.attachForm({
+      evidence,
+      saving: ref(false),
+      savedAt: ref<number | null>(null),
+      save: vi.fn()
+    })
+    frame.markClean()
+    return { frame, evidence }
+  }
+
+  it('is clean after adding then deleting a row in a table the saved draft never had', async () => {
+    const { frame, evidence } = loaded({ a: 1 })
+    evidence.value = { ...evidence.value, table: [], note: ' ', extra: {} }
+    await nextTick()
+    expect(frame.state.value).toBe('saved')
+    expect(frame.dirty.value).toBe(false)
+  })
+
+  it('stays dirty when a saved non-empty value is cleared', async () => {
+    const { frame, evidence } = loaded({ a: 1, table: [{ pmid: '1' }], note: 'x' })
+    evidence.value = { a: 1, table: [], note: 'x' }
+    await nextTick()
+    expect(frame.dirty.value).toBe(true)
+    evidence.value = { a: 1, table: [{ pmid: '1' }], note: '' }
+    await nextTick()
+    expect(frame.dirty.value).toBe(true)
+  })
+})

@@ -32,6 +32,19 @@ export interface SubmitBinding {
   run: () => void
 }
 
+const isEmpty = (v: unknown) =>
+  typeof v === 'string'
+    ? !v.trim()
+    : Array.isArray(v)
+      ? !v.length
+      : !!v && typeof v === 'object' && !Object.keys(v).length
+
+// An empty list, object or blank string is the same answer as a key never set (add then delete a row)
+const canonical = (v: unknown) =>
+  JSON.stringify(v ?? null, function (this: unknown, key, val: unknown) {
+    return key && !Array.isArray(this) && isEmpty(val) ? undefined : val
+  })
+
 export function createWorkspaceFrame() {
   const form = shallowRef<FormBinding | null>(null)
   const submitBinding = shallowRef<SubmitBinding | null>(null)
@@ -53,7 +66,7 @@ export function createWorkspaceFrame() {
       : [])
   ])
 
-  const snapshot = () => JSON.stringify(form.value?.evidence.value ?? null)
+  const snapshot = () => canonical(form.value?.evidence.value)
   // What the form showed when it loaded: the leave guard asks only about the user's own edits
   const loaded = ref<string | null>(null)
   const unsaved = computed(() => baseline.value !== null && snapshot() !== baseline.value)
@@ -68,7 +81,7 @@ export function createWorkspaceFrame() {
   /** Call once the form has loaded: what is on screen (or `saved`, the server state) counts as saved. */
   function markClean(saved?: unknown) {
     loaded.value = snapshot()
-    baseline.value = saved === undefined ? loaded.value : JSON.stringify(saved)
+    baseline.value = saved === undefined ? loaded.value : canonical(saved)
   }
 
   function markSaved() {
