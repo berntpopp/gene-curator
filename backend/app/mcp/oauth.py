@@ -9,7 +9,6 @@ and client secrets are stored as sha256 hashes only and never logged.
 
 import base64
 import hmac
-import os
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -23,6 +22,7 @@ from mcp.server.auth.middleware.client_auth import ClientAuthenticator
 from mcp.server.auth.provider import (
     AuthorizationCode,
     AuthorizationParams,
+    AuthorizeError,
     RefreshToken,
     RegistrationError,
     TokenError,
@@ -37,6 +37,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.routing import Route
 
+from app.core.config import settings
 from app.core.database import RLS_USER_KEY, apply_rls_user
 from app.core.logging import get_logger
 from app.core.security import (
@@ -49,9 +50,6 @@ from app.models.oauth import OAuthClient, OAuthGrant
 
 logger = get_logger(__name__)
 
-# ponytail: read here because core/config.py belongs to another stream; move it there
-PUBLIC_URL = os.getenv("GENE_CURATOR_PUBLIC_URL", "http://localhost:8051")
-FRONTEND_URL = os.getenv("GENE_CURATOR_FRONTEND_URL", "http://localhost:5193")
 
 SCOPES = ["read", "write"]
 CONSENT_TTL = timedelta(minutes=10)
@@ -60,6 +58,12 @@ ACCESS_TOKEN_TTL = timedelta(hours=1)
 REFRESH_TOKEN_TTL = timedelta(days=30)
 REFRESH_PREFIX = "gc_ort_"  # never a bearer credential: the API accepts only gc_pat_
 _LOOPBACK = {"localhost", "127.0.0.1", "::1"}
+# Registration and /authorize are anonymous: bound what a caller can make us store
+MAX_CLIENT_NAME = 100  # the PAT name it becomes is 100 characters
+MAX_REDIRECT_URIS = 10
+MAX_URI = 2000
+MAX_CLIENT_METADATA = 8192  # bytes of JSON, every other metadata field included
+MAX_STATE = 512
 
 
 def _now() -> datetime:
@@ -182,7 +186,7 @@ class McpOAuthProvider(OAuthProvider):
 
     def __init__(self, app: FastAPI) -> None:
         super().__init__(
-            base_url=PUBLIC_URL,
+            base_url=settings.GENE_CURATOR_PUBLIC_URL,
             client_registration_options=ClientRegistrationOptions(
                 enabled=True, valid_scopes=SCOPES, default_scopes=SCOPES
             ),
@@ -234,7 +238,20 @@ class McpOAuthProvider(OAuthProvider):
             )
 
     async def register_client(self, client_info: OAuthClientInformationFull) -> None:
-        for uri in client_info.redirect_uris or []:
+        uris = client_info.redirect_uris or []
+        if (
+            len(client_info.client_name or "") > MAX_CLIENT_NAME
+            or len(uris) > MAX_REDIRECT_URIS
+            or any(len(str(uri)) > MAX_URI for uri in uris)
+            or len(client_info.model_dump_json()) > MAX_CLIENT_METADATA
+        ):
+            raise RegistrationError(
+                "invalid_client_metadata",
+                f"client_name at most {MAX_CLIENT_NAME} characters, at most "
+                f"{MAX_REDIRECT_URIS} redirect URIs of {MAX_URI} characters, metadata "
+                f"at most {MAX_CLIENT_METADATA} bytes",
+            )
+        for uri in uris:
             parsed = urlparse(str(uri))
             if parsed.scheme != "https" and not (
                 parsed.scheme == "http" and parsed.hostname in _LOOPBACK
@@ -263,12 +280,26 @@ class McpOAuthProvider(OAuthProvider):
     async def authorize(
         self, client: OAuthClientInformationFull, params: AuthorizationParams
     ) -> str:
+        # RFC 7636: an S256 challenge is 43 characters; the redirect URI was matched
+        if (
+            len(params.code_challenge) != 43
+            or len(params.state or "") > MAX_STATE
+            or len(params.resource or "") > MAX_URI
+        ):
+            raise AuthorizeError(
+                "invalid_request",
+                f"code_challenge must be 43 characters (S256), state at most "
+                f"{MAX_STATE} and resource at most {MAX_URI}",
+            )
         return await run_in_threadpool(self._authorize, client, params)
 
     def _authorize(
         self, client: OAuthClientInformationFull, params: AuthorizationParams
     ) -> str:
         """Store the request and send the user to the consent page."""
+        # ponytail: expired pending requests are never deleted; add a periodic cleanup
+        # (DELETE FROM oauth_grants WHERE user_id IS NULL AND expires_at < NOW()) if
+        # anonymous /authorize calls ever pile up
         request_id = uuid4()
         scopes = params.scopes or (client.scope or " ".join(SCOPES)).split()
         with _session(self._app) as db:
@@ -281,7 +312,9 @@ class McpOAuthProvider(OAuthProvider):
                 )
             )
             db.commit()
-        return f"{FRONTEND_URL}/oauth/consent?request={request_id}"
+        return (
+            f"{settings.GENE_CURATOR_FRONTEND_URL}/oauth/consent?request={request_id}"
+        )
 
     async def load_authorization_code(
         self, client: OAuthClientInformationFull, authorization_code: str

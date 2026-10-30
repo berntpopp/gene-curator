@@ -10,8 +10,10 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings
 from app.core.security import hash_personal_access_token
 from app.crud import personal_access_token as pat_crud
 from app.models import PersonalAccessToken, UserNew
@@ -300,3 +302,63 @@ def test_client_secret_is_stored_hashed_and_checked(
         headers={"Authorization": f"Basic {basic}"},
     )
     assert r.status_code == 401  # registered for client_secret_post, not basic
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"client_name": "x" * 101},
+        {"redirect_uris": [f"http://localhost:{1000 + i}/cb" for i in range(11)]},
+        {"redirect_uris": ["https://claude.ai/" + "a" * 2000]},
+        {"software_id": "s" * 9000},
+    ],
+)
+def test_registration_metadata_is_bounded(
+    client: TestClient, extra: dict[str, Any]
+) -> None:
+    body = {"redirect_uris": [REDIRECT], "token_endpoint_auth_method": "none", **extra}
+    r = client.post("/register", json=body)
+    assert r.status_code == 400, r.text
+    assert r.json()["error"] == "invalid_client_metadata"
+    register(client, client_name="x" * 100)  # the limit itself is accepted
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [{"code_challenge": "short"}, {"state": "s" * 513}, {"resource": "r" * 2001}],
+)
+def test_authorize_parameters_are_bounded(
+    client: TestClient, db_session: Session, extra: dict[str, str]
+) -> None:
+    client_id = register(client)["client_id"]
+    params = {
+        "response_type": "code",
+        "client_id": client_id,
+        "redirect_uri": REDIRECT,
+        "code_challenge": pkce()[1],
+        "code_challenge_method": "S256",
+        **extra,
+    }
+    r = client.get("/authorize", params=params, follow_redirects=False)
+    # the redirect URI is registered, so the error goes back to the client (RFC 6749 4.1.2.1)
+    assert r.status_code == 302
+    location = urlparse(r.headers["location"])
+    assert location.netloc == "localhost:33418"
+    assert parse_qs(location.query)["error"] == ["invalid_request"]
+    assert db_session.query(OAuthGrant).count() == 0
+
+
+def test_production_refuses_a_plain_http_issuer() -> None:
+    base = {"DATABASE_URL": "postgresql://u:p@h/x", "SECRET_KEY": "x"}
+    with pytest.raises(ValidationError, match="must be https"):
+        Settings(
+            **base, ENVIRONMENT="production", GENE_CURATOR_PUBLIC_URL="http://api.org"
+        )
+    ok = Settings(
+        **base, ENVIRONMENT="production", GENE_CURATOR_PUBLIC_URL="https://api.org"
+    )
+    assert ok.GENE_CURATOR_PUBLIC_URL == "https://api.org"
+    dev = Settings(
+        **base, ENVIRONMENT="development", GENE_CURATOR_PUBLIC_URL="http://gc.lan:8051"
+    )
+    assert dev.GENE_CURATOR_PUBLIC_URL.startswith("http://")

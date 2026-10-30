@@ -210,7 +210,8 @@ token lasts an hour and is refreshed with a rotating refresh token (30 days, sli
 connection appears under **Access tokens** as `OAuth: <client name>`; revoking it there ends the
 connection, refresh included. OAuth calls get exactly the token treatment above: your identity,
 RLS, four-eyes and no account or token management. Only hashes of codes, tokens and client
-secrets are stored. Configure the public URLs (the issuer must be HTTPS outside localhost):
+secrets are stored. Configure the public URLs; `docker-compose.prod.yml` refuses to start
+without them, and with `ENVIRONMENT=production` the API refuses a non-HTTPS issuer:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
