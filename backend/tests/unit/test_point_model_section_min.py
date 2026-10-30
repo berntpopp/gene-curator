@@ -39,6 +39,9 @@ def test_thin_genetics_falls_to_the_next_band() -> None:
     model = _model(section_min={"genetic": 4})
     result = score(model, _evidence(2, 6))
     assert (result["total"], result["class"]) == (8, "limited")
+    assert result["trace"]["classification_rule"]["skipped"] == [
+        {"class": "moderate", "section": "genetic", "min": 4, "score": 2}
+    ]
     assert score(_model(), _evidence(2, 6))["class"] == "moderate"  # unchanged without
 
 
@@ -51,6 +54,13 @@ def test_band_matches_when_every_section_reaches_its_minimum() -> None:
 def test_minimum_uses_the_capped_section_score() -> None:
     model = _model(section_min={"experimental": 7})  # experimental is capped at 6
     assert score(model, _evidence(1, 10))["class"] == "limited"
+
+
+def test_skipped_bands_ride_along_when_no_band_matches() -> None:
+    model = {**_model(), "bands": [{"class": "m", "section_min": {"genetic": 4}}]}
+    rule = score(model, _evidence(1, 1))["trace"]["classification_rule"]
+    assert rule["class"] == "no_known"
+    assert [s["section"] for s in rule["skipped"]] == ["genetic"]
 
 
 def _errors(bands: list[Any]) -> list[str]:

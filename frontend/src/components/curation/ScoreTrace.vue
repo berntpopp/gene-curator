@@ -79,10 +79,21 @@
           >
         </p>
         <p v-if="typeof rule.description === 'string'">{{ rule.description }}</p>
+        <p v-for="(s, i) in skipped" :key="i">
+          Skipped {{ traceLabel(String(s.class)) }}: needs {{ traceLabel(String(s.section)) }} ≥
+          {{ s.min }} points, has {{ formatScore(Number(s.score)) }}
+        </p>
       </div>
       <p v-else class="text-body-small mt-3">
         Classification rule details were not stored with this score.
       </p>
+      <div v-if="trace.capped_groups.length" class="mt-3" data-testid="capped-groups">
+        <h3 class="text-body-large">Capped groups</h3>
+        <p v-for="(g, i) in trace.capped_groups" :key="i">
+          {{ traceLabel(String(g.path)) }} · {{ g.value }}: {{ formatScore(Number(g.raw)) }} →
+          {{ formatScore(Number(g.capped)) }} points
+        </p>
+      </div>
     </template>
     <p v-else class="text-body-small mt-2">Score breakdown unavailable for this record.</p>
   </div>
@@ -98,6 +109,9 @@
   )
   const trace = computed(() => props.scores.trace)
   const rule = computed(() => trace.value?.classification_rule)
+  const skipped = computed(() =>
+    Array.isArray(rule.value?.skipped) ? (rule.value.skipped as Record<string, unknown>[]) : []
+  )
   const capText = (raw: number | null, cap: number | null) =>
     cap == null ? '—' : `${cap}${raw != null && raw > cap ? ' · capped' : ''}`
 </script>

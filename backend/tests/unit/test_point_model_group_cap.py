@@ -31,7 +31,7 @@ def test_one_recurrent_variant_scores_at_most_the_group_cap() -> None:
     result = score(model, _rows(*["c.100A>G"] * 6))
     assert result["total"] == 2
     assert result["trace"]["capped_groups"] == [
-        {"path": "g.probands", "value": "c.100a>g", "raw": 6, "capped": 2}
+        {"path": "g.probands", "value": "c.100A>G", "raw": 6, "capped": 2}
     ]
     assert score(_model(), _rows(*["c.100A>G"] * 6))["total"] == 6  # unchanged without
 
@@ -48,7 +48,26 @@ def test_group_values_are_normalised() -> None:
     result = score(model, _rows(" c.1A>G", "C.1a>g ", "c.2A>G", points=1.5))
     assert result["total"] == 3.5
     (group,) = result["trace"]["capped_groups"]
-    assert (group["raw"], group["capped"]) == (3, 2)
+    assert (group["value"], group["raw"], group["capped"]) == (" c.1A>G", 3, 2)
+
+
+def test_uncited_row_in_a_group_counts_nothing() -> None:
+    model = _model(group_by="variant", group_cap=2)
+    evidence = _rows("c.1A>G", points=1.5)
+    evidence["g"]["probands"].append({"variant": "c.1A>G", "points": 1.5})  # no pmid
+    result = score(model, evidence)
+    assert result["total"] == 1.5
+    assert [e["path"] for e in result["excluded"]] == ["g.probands[1]"]
+    assert "capped_groups" not in result["trace"]
+
+
+def test_group_cap_then_category_cap() -> None:
+    model = _model(group_by="variant", group_cap=2)
+    model["sections"][0]["categories"][0]["cap"] = 3
+    result = score(model, _rows("a", "a", "a", "b", "b"))  # groups 2 + 2, category 3
+    category = result["trace"]["sections"][0]["categories"][0]
+    assert (category["raw"], category["score"], result["total"]) == (4, 3, 3)
+    assert [g["value"] for g in result["trace"]["capped_groups"]] == ["a"]
 
 
 def _type_errors(**type_keys: Any) -> list[str]:

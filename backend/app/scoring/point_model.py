@@ -87,7 +87,9 @@ def _type_points(
     With ``group_by``, rows sharing a non-blank value score at most ``group_cap`` together (#557)."""
     limits = type_def.get("range")
     group_by = type_def.get("group_by")
-    groups: dict[str, list[int]] = {}  # normalised value -> indexes into points
+    groups: dict[
+        str, tuple[str, list[int]]
+    ] = {}  # normalised -> (typed, point indexes)
     points: list[float] = []
     for i, row in indexed(_at(data, type_def["path"])):
         value = rule(type_def, row)
@@ -116,7 +118,8 @@ def _type_points(
             excluded.append({"path": f"{path}[{i}]", **why})
         elif not flagged:  # flagged rows count nothing (#278); the trace lists them
             if group_by and (group := str(row.get(group_by) or "").strip().casefold()):
-                groups.setdefault(group, []).append(len(points))
+                typed = str(row[group_by])  # shown as the curator typed it
+                groups.setdefault(group, (typed, []))[1].append(len(points))
             points.append(value)
     if groups:
         _cap_groups(path, type_def["group_cap"], groups, points, capped)
@@ -126,16 +129,16 @@ def _type_points(
 def _cap_groups(
     path: str,
     cap: float,
-    groups: dict[str, list[int]],
+    groups: dict[str, tuple[str, list[int]]],
     points: list[float],
     capped: list[Any],
 ) -> None:
     """Cap each group's summed points in place; the group's first row carries the cap,
     so the trace's item count still counts rows."""
-    for group, at in groups.items():
+    for typed, at in groups.values():
         raw = sum(points[i] for i in at)
         if raw > cap:
-            capped.append({"path": path, "value": group, "raw": raw, "capped": cap})
+            capped.append({"path": path, "value": typed, "raw": raw, "capped": cap})
             for i in at:
                 points[i] = 0.0
             points[at[0]] = cap
@@ -173,13 +176,14 @@ def classify(
     model: dict[str, Any],
     total: float,
     evidence: dict[str, Any],
-    sections: dict[str, float] | None = None,
+    sections: dict[str, float],
 ) -> dict[str, Any]:
     """First matching override (curator-asserted evidence), else first matching band.
 
-    ``sections`` are the capped section scores a band's ``section_min`` is checked against.
+    ``sections`` are the capped section scores a band's ``section_min`` is checked against;
+    bands passed over only for a section minimum are listed in the rule's ``skipped``.
     """
-    sections = sections or {}
+    skipped: list[dict[str, Any]] = []
     for override in model.get("overrides", []):
         value = evidence.get(override["when"])
         if "field" in override:  # only rows whose field holds one of the "in" values
@@ -189,16 +193,21 @@ def classify(
         if has_content(value):
             return dict(override)
     for band in model["bands"]:
-        if (
-            total >= band.get("min", float("-inf"))
-            and ("requires" not in band or evidence.get(band["requires"]) is True)
-            and all(
-                sections.get(key, 0) >= low
-                for key, low in band.get("section_min", {}).items()
-            )
+        if total >= band.get("min", float("-inf")) and (
+            "requires" not in band or evidence.get(band["requires"]) is True
         ):
-            return dict(band)
-    return {"class": "no_known"}  # ponytail: only reached when no band lacks a min
+            short = [
+                {"class": band["class"], "section": key, "min": low, "score": got}
+                for key, low in band.get("section_min", {}).items()
+                if (got := sections.get(key, 0)) < low
+            ]
+            if not short:
+                return {**band, "skipped": skipped} if skipped else dict(band)
+            skipped += short
+    # ponytail: only reached when no band lacks a min
+    return (
+        {"class": "no_known", "skipped": skipped} if skipped else {"class": "no_known"}
+    )
 
 
 def score(
