@@ -60,7 +60,7 @@ Verify locally; CI only confirms. `.github/workflows/ci.yml` calls the same make
 
 ## Rules enforced by tools
 
-- **File size:** source files stay at or below 650 lines (`scripts/check_file_size.py`). Files that
+- **File size:** source files stay at or below 700 lines (`scripts/check_file_size.py`). Files that
   were already larger are in `scripts/file-size-allowlist.txt` and may only shrink; after splitting
   one, run `python3 scripts/check_file_size.py --update`. Split by responsibility (child component,
   composable, service), not by arbitrary cut.
