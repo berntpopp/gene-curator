@@ -9,9 +9,11 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
+from app.crud.activation import same_entity
 from app.crud.base import CRUDBase
 from app.crud.optimistic_lock import update_if_version
 from app.crud.workflow_engine import workflow_engine
@@ -52,20 +54,51 @@ logger = get_logger(__name__)
 class OpenCurationExistsError(ValueError):
     """The gene already has an open (not active or archived) curation in the scope."""
 
+    MESSAGE = "This disease entity already has an open curation in this scope"
+
     def __init__(self, curation_id: UUID) -> None:
-        super().__init__("This gene already has an open curation in this scope")
+        super().__init__(self.MESSAGE)
         self.curation_id = curation_id
 
 
-def open_curation_id(db: Session, gene_id: UUID, scope_id: UUID) -> UUID | None:
-    """The gene's open (not active or archived) curation in the scope, if any."""
+class EntityRequiredError(ValueError):
+    """The gene has several disease entities in the scope: say which (precuration_id)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "This gene has several disease entities in this scope; send the "
+            "precuration_id of the one to curate"
+        )
+
+
+def open_curation_id(
+    db: Session, gene_id: UUID, scope_id: UUID, entity_key: str
+) -> UUID | None:
+    """The entity's open (not active or archived) curation in the scope, if any; as in
+    activation, '' (unlinked legacy or lumped) covers the whole gene."""
     return db.scalar(
         select(CurationNew.id).where(
             CurationNew.gene_id == gene_id,
             CurationNew.scope_id == scope_id,
+            same_entity(CurationNew.entity_key, entity_key),
             CurationNew.status.notin_([CurationStatus.ACTIVE, CurationStatus.ARCHIVED]),
         )
     )
+
+
+def entity_keys(db: Session, gene_id: UUID, scope_id: UUID) -> set[str]:
+    """Disease entities of the gene in the scope: approved precurations, live curations."""
+    pre = select(PrecurationNew.entity_key).where(
+        PrecurationNew.gene_id == gene_id,
+        PrecurationNew.scope_id == scope_id,
+        PrecurationNew.status == CurationStatus.APPROVED,
+    )
+    cur = select(CurationNew.entity_key).where(
+        CurationNew.gene_id == gene_id,
+        CurationNew.scope_id == scope_id,
+        CurationNew.status != CurationStatus.ARCHIVED,
+    )
+    return {k for k in [*db.scalars(pre), *db.scalars(cur)] if k}
 
 
 def _utc_now() -> datetime:
@@ -348,32 +381,15 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                 f"WorkflowPair with id {obj_in.workflow_pair_id} not found"
             )
 
-        # One open curation per gene and scope (approval already created a draft, #398)
-        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id)
-        if open_id:
-            raise OpenCurationExistsError(open_id)
-
-        # 4-eyes: curation needs an approved precuration, unless it re-curates an active one
-        approved = select(PrecurationNew.id).where(
-            PrecurationNew.gene_id == obj_in.gene_id,
-            PrecurationNew.scope_id == obj_in.scope_id,
-            PrecurationNew.status == CurationStatus.APPROVED,
-        )
-        if obj_in.precuration_id:
-            allowed = db.scalar(
-                approved.where(PrecurationNew.id == obj_in.precuration_id)
-            )
-        else:
-            active = select(CurationNew.id).where(
-                CurationNew.gene_id == obj_in.gene_id,
-                CurationNew.scope_id == obj_in.scope_id,
-                CurationNew.status == CurationStatus.ACTIVE,
-            )
-            allowed = db.scalar(approved.limit(1)) or db.scalar(active.limit(1))
+        precuration_id, entity_key, allowed = self._entity(db, obj_in)
         if not allowed:
             raise ValueError(
                 "An approved precuration for this gene and scope is required"
             )
+        # One open curation per entity (approval already created a draft, #398)
+        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
+        if open_id:
+            raise OpenCurationExistsError(open_id)
 
         # Create curation
         now = _utc_now()
@@ -381,7 +397,8 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             gene_id=obj_in.gene_id,
             scope_id=obj_in.scope_id,
             workflow_pair_id=obj_in.workflow_pair_id,
-            precuration_id=obj_in.precuration_id,
+            precuration_id=precuration_id,
+            entity_key=entity_key,
             evidence_data=obj_in.evidence_data,
             status=CurationStatus.DRAFT,
             workflow_stage=WorkflowStage.CURATION,
@@ -394,7 +411,15 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         )
         _update_computed_scores(db, db_obj)
         db.add(db_obj)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # A concurrent create won the entity's open-curation index
+            db.rollback()
+            raced = open_curation_id(db, obj_in.gene_id, obj_in.scope_id, entity_key)
+            if raced is None:
+                raise
+            raise OpenCurationExistsError(raced) from None
         db.refresh(db_obj)
 
         logger.info(
@@ -406,6 +431,47 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         )
 
         return db_obj
+
+    def _entity(
+        self, db: Session, obj_in: CurationCreate
+    ) -> tuple[UUID | None, str, bool]:
+        """(precuration_id, entity_key, allowed) for a new curation. 4-eyes: it needs an
+        approved precuration, unless it re-curates an active one, whose entity it inherits."""
+        same = (
+            CurationNew.gene_id == obj_in.gene_id,
+            CurationNew.scope_id == obj_in.scope_id,
+        )
+        active = select(CurationNew).where(
+            *same, CurationNew.status == CurationStatus.ACTIVE
+        )
+        if obj_in.precuration_id:
+            pre = db.get(PrecurationNew, obj_in.precuration_id)
+            if pre is None or (pre.gene_id, pre.scope_id) != (
+                obj_in.gene_id,
+                obj_in.scope_id,
+            ):
+                return None, "", False
+            relinks_active = db.scalar(
+                active.where(CurationNew.precuration_id == pre.id).limit(1)
+            )
+            ok = pre.status == CurationStatus.APPROVED or relinks_active is not None
+            return pre.id, pre.entity_key, ok
+        if len(entity_keys(db, obj_in.gene_id, obj_in.scope_id)) > 1:
+            raise EntityRequiredError()
+        source = db.scalars(active.limit(1)).first()
+        if source:
+            return source.precuration_id, source.entity_key, True
+        approved = db.scalars(
+            select(PrecurationNew)
+            .where(
+                PrecurationNew.gene_id == obj_in.gene_id,
+                PrecurationNew.scope_id == obj_in.scope_id,
+                PrecurationNew.status == CurationStatus.APPROVED,
+            )
+            .limit(1)
+        ).first()
+        # Unlinked as before: the detail view shows the approved one (no write on read)
+        return (None, approved.entity_key, True) if approved else (None, "", False)
 
     def update_with_lock(
         self,

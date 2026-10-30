@@ -12,6 +12,7 @@ from uuid import UUID as PyUUID  # noqa: N811
 
 from sqlalchemy import (
     Boolean,
+    Computed,
     Date,
     DateTime,
     Enum,
@@ -38,6 +39,48 @@ if TYPE_CHECKING:
     from app.models.genes import Gene
     from app.models.identity import Scope, UserNew
     from app.models.schemas import CurationSchema, WorkflowPair
+
+
+def _field(key: str) -> str:
+    """A disease field, flat or under entity_definition (as schemas.curation.disease_fields)."""
+    return (
+        f"trim(COALESCE(NULLIF(trim(evidence_data ->> '{key}'), ''), "
+        f"evidence_data -> 'entity_definition' ->> '{key}', ''))"
+    )
+
+
+_MONDO = f"upper(replace({_field('mondo_id')}, '_', ':'))"
+# Squashed: no case, spaces, '_' or '-', and no "inheritance" (HPO labels)
+_MOI = (
+    "replace(replace(replace(replace(lower("
+    f"{_field('mode_of_inheritance')}"
+    "), ' ', ''), '_', ''), '-', ''), 'inheritance', '')"
+)
+# HPO label, HPO id and code map to one canonical MOI (codes pass through as-is)
+_MOI_SYNONYMS = {
+    "ad": ("autosomaldominant", "hp:0000006"),
+    "ar": ("autosomalrecessive", "hp:0000007"),
+    "xl": ("xlinked", "hp:0001417"),
+    "xld": ("xlinkeddominant", "hp:0001423"),
+    "xlr": ("xlinkedrecessive", "hp:0001419"),
+    "yl": ("ylinked", "hp:0001450"),
+    "sd": ("semidominant", "hp:0032113"),
+    "mt": ("mitochondrial", "hp:0001427"),
+}
+_MOI_CASE = (
+    f"upper(CASE {_MOI} "
+    + " ".join(
+        f"WHEN '{s}' THEN '{abbr}'"
+        for abbr, syns in _MOI_SYNONYMS.items()
+        for s in syns
+    )
+    + f" ELSE {_MOI} END)"
+)
+# The gene-disease-MOI entity (#530): normalised MONDO id | MOI; '' without a MONDO id.
+# Portable SQL (PostgreSQL jsonb and SQLite JSON ->/->>); 067 holds the same expression.
+ENTITY_KEY_SQL = (
+    f"CASE WHEN {_MONDO} = '' THEN '' ELSE {_MONDO} || '|' || {_MOI_CASE} END"
+)
 
 
 class PrecurationNew(Base):
@@ -105,6 +148,11 @@ class PrecurationNew(Base):
         compatible_jsonb(), default={}
     )
 
+    # Disease entity of the draft, derived from evidence_data (migration 067)
+    entity_key: Mapped[str] = mapped_column(
+        Text, Computed(ENTITY_KEY_SQL, persisted=True)
+    )
+
     # Auto-save functionality (nullable)
     auto_saved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
 
@@ -149,6 +197,7 @@ class PrecurationNew(Base):
             "gene_id",
             "scope_id",
             "created_by",
+            "entity_key",
             unique=True,
             postgresql_where=text("status = 'draft'"),
             sqlite_where=text("status = 'draft'"),
@@ -186,6 +235,10 @@ class CurationNew(Base):
     # Nullable fields
     precuration_id: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(), ForeignKey("precurations.id", ondelete="SET NULL")
+    )
+    # Copied once from the precuration at creation (067); '' = lumped/legacy, one per gene
+    entity_key: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
     )
     # Pinned at creation by a DB trigger (042); NOT NULL and immutable in PostgreSQL
     methodology_version_id: Mapped[PyUUID | None] = mapped_column(
@@ -297,14 +350,24 @@ class CurationNew(Base):
         Index("idx_curations_evidence_gin", "evidence_data", postgresql_using="gin"),
         Index("idx_curations_scores_gin", "computed_scores", postgresql_using="gin"),
         Index("idx_curations_lock_version", "id", "lock_version"),
-        # Mirrors database/sql/034: one active curation per gene+scope
+        # Mirrors database/sql/067: one active and one open curation per disease entity
         Index(
             "uq_curations_one_active",
             "gene_id",
             "scope_id",
+            "entity_key",
             unique=True,
             postgresql_where=text("status = 'active'"),
             sqlite_where=text("status = 'active'"),
+        ),
+        Index(
+            "uq_curations_one_open",
+            "gene_id",
+            "scope_id",
+            "entity_key",
+            unique=True,
+            postgresql_where=text("status NOT IN ('active', 'archived')"),
+            sqlite_where=text("status NOT IN ('active', 'archived')"),
         ),
     )
 
@@ -407,6 +470,9 @@ class ActiveCuration(Base):
         nullable=False,
         index=True,
     )
+    entity_key: Mapped[str] = mapped_column(
+        Text, nullable=False, default="", server_default=""
+    )
 
     # Activation details
     activated_at: Mapped[dt] = mapped_column(
@@ -458,11 +524,12 @@ class ActiveCuration(Base):
     )
 
     __table_args__ = (
-        # Only one non-archived row per gene-scope; archived history may repeat
+        # Only one non-archived row per disease entity; archived history may repeat
         Index(
             "uq_active_curation_gene_scope_current",
             "gene_id",
             "scope_id",
+            "entity_key",
             unique=True,
             postgresql_where="archived_at IS NULL",
             sqlite_where=text("archived_at IS NULL"),

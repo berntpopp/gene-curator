@@ -491,7 +491,14 @@
         return
       }
 
-      // Case 2: New curation - find approved precuration for gene+scope
+      // Case 2a: Re-curation - the source's own disease entity (#530), set by loadPrefill
+      if (precurationId.value) {
+        const linked = await precurationsStore.fetchPrecurationById(precurationId.value)
+        precurationData.value = { ...(linked?.evidence_data ?? {}), id: precurationId.value }
+        return
+      }
+
+      // Case 2b: New curation - find approved precuration for gene+scope
       if (props.geneId && props.scopeId) {
         const approvedPrecuration = await precurationsStore.fetchCurationPrecuration(
           props.geneId,
@@ -582,6 +589,8 @@
       const source = await curationsStore.fetchCurationById(props.prefillFrom)
       // The disease lives in the evidence (or the precuration): copying the resolved fields duplicated it
       evidenceData.value = { ...(source.evidence_data ?? {}) }
+      // A gene may hold several disease entities: re-curate this one (#530)
+      precurationId.value = source.precuration_id ?? null
     } catch (error) {
       logger.error('Failed to load re-curation source', {
         error: (error as ApiErrorLike).message

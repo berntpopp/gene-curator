@@ -32,27 +32,32 @@ def _entry_order(entry: dict[str, Any]) -> tuple[str, bool, str]:
 
 
 def _aggregate(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    """Consensus over active rows only (in-progress work is not a classification yet)."""
+    """Consensus over active rows only (in-progress work is not a classification yet).
+
+    Agreement is per gene-disease-MOI entity (#530): two entities with different verdicts
+    are no conflict, and a gene with several entities has no single consensus.
+    """
     counts: dict[str, int] = {}
+    verdicts: dict[str, set[str]] = {}
     for e in entries:
         if not e["in_progress"]:
             key = e["classification"] or "unknown"
             counts[key] = counts.get(key, 0) + 1
-    consensus = max(sorted(counts), key=lambda k: counts[k]) if counts else None
+            entity = verdicts.setdefault(e["entity_key"], set())
+            if e["classification"]:
+                entity.add(e["classification"])
+    consensus = (
+        max(sorted(counts), key=lambda k: counts[k])
+        if counts and len(verdicts) == 1
+        else None
+    )
     return {
         "classification_summary": counts,
         "consensus_classification": consensus,
         "consensus_confidence": counts[consensus] / sum(counts.values())
         if consensus
         else None,
-        "has_conflicts": len(
-            {
-                e["classification"]
-                for e in entries
-                if not e["in_progress"] and e["classification"]
-            }
-        )
-        > 1,
+        "has_conflicts": any(len(v) > 1 for v in verdicts.values()),
     }
 
 
@@ -98,6 +103,7 @@ class GeneSummaryService:
             "scope_name": scope.name,
             "is_public": scope.is_public,
             "curation_id": str(curation.id),
+            "entity_key": curation.entity_key,
             "disease_name": disease["disease_name"],
             "mode_of_inheritance": disease["mode_of_inheritance"],
             "stage": curation.workflow_stage.value,
@@ -184,7 +190,7 @@ class GeneSummaryService:
 
     @timed_operation("compute_gene_summary", warning_threshold_ms=1000)
     def _build(self, gene_id: UUID) -> list[dict[str, Any]]:
-        """Per-scope entries of the gene's active curations (one per scope), sorted."""
+        """Entries of the gene's active curations (one per scope and entity), sorted."""
         curations = (
             self.db.query(CurationNew)
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)

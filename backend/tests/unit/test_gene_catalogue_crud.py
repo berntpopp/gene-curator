@@ -46,6 +46,7 @@ def _curation(
         gene_id=gene.id,
         workflow_pair_id=pair.id,
         workflow_stage="curation",
+        status="active" if active else "draft",  # one open curation per entity
         evidence_data=evidence or {},
         computed_verdict=verdict,
         computed_scores=scores or {},

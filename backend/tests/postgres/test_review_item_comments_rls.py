@@ -148,7 +148,7 @@ def world() -> Generator[World, None, None]:
         ):
             cur.execute(
                 "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, created_by, "
-                "evidence_data) VALUES (%s, %s, %s, %s, %s, %s)",
+                "evidence_data, entity_key) VALUES (%s, %s, %s, %s, %s, %s, %s)",
                 (
                     str(ids[key]),
                     str(ids["gene"]),
@@ -156,6 +156,9 @@ def world() -> Generator[World, None, None]:
                     str(pair),
                     str(ids["reviewer" if key == "curation_own" else "curator"]),
                     json.dumps({"score": 2 if key == "curation_own" else 1}),
+                    "MONDO:2|AD"
+                    if key == "curation_own"
+                    else "",  # one open per entity
                 ),
             )
         cur.execute(

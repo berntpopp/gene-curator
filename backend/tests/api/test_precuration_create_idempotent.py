@@ -45,6 +45,7 @@ def test_create_returns_existing_draft_for_same_gene_scope_and_creator(
     second = client.post("/api/v1/precurations/", json=body, headers=headers)
 
     assert first.status_code == 201
+    # One draft per author and disease entity (#530): the pre-check returns it
     assert second.status_code == 200
     assert second.json()["id"] == first.json()["id"]
 
@@ -55,3 +56,13 @@ def test_create_returns_existing_draft_for_same_gene_scope_and_creator(
     third = client.post("/api/v1/precurations/", json=body, headers=headers)
     assert third.status_code == 201
     assert third.json()["id"] != first.json()["id"]
+
+    # Without a disease yet (entity_key ""), the pre-check answers the retry (200)
+    blank = client.post(
+        "/api/v1/precurations/", json={**body, "evidence_data": {}}, headers=headers
+    )
+    again = client.post(
+        "/api/v1/precurations/", json={**body, "evidence_data": {}}, headers=headers
+    )
+    assert blank.status_code == 201 and blank.json()["id"] != first.json()["id"]
+    assert again.status_code == 200 and again.json()["id"] == blank.json()["id"]

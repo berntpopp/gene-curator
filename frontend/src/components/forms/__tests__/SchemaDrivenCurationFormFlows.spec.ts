@@ -189,7 +189,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     }
     curationsStore.fetchCurationById.mockResolvedValue({
       id: 'active-1',
-      precuration_id: 'stale-pre', // rejected since: create would refuse this link
+      precuration_id: 'pre-a', // its disease entity; the gene may have others (#530)
       evidence_data: evidence,
       disease_name: 'Alport syndrome',
       mondo_id: 'MONDO:0018965',
@@ -217,22 +217,24 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(vm.lockVersion).toBe(0)
     expect(vm.curationStatus).toBe('draft')
 
-    // The draft links the currently approved precuration, never the source's stale one (#409)
+    // The draft re-curates the source's entity, not the gene's first approved one (#530)
+    expect(precurationsStore.fetchPrecurationById).toHaveBeenCalledWith('pre-a')
+    expect(precurationsStore.fetchCurationPrecuration).not.toHaveBeenCalled()
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
     await flushPromises()
     expect(curationsStore.createCuration).toHaveBeenCalledWith({
       gene_id: 'g-1',
       scope_id: 'scope-1',
       workflow_pair_id: 'wp-1',
-      precuration_id: 'pre-2',
+      precuration_id: 'pre-a',
       evidence_data: evidence
     })
   })
 
-  it('creates a re-curation without a link when no precuration is approved', async () => {
+  it('creates a re-curation of an unlinked source without a link when none is approved', async () => {
     curationsStore.fetchCurationById.mockResolvedValue({
       id: 'active-1',
-      precuration_id: 'stale-pre',
+      precuration_id: null,
       evidence_data: { a: 1 },
       status: 'active'
     })

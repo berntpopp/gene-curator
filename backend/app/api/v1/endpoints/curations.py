@@ -23,7 +23,12 @@ from app.core.constants import (
 from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
-from app.crud.curation import OpenCurationExistsError, curation_crud, merge_patch
+from app.crud.curation import (
+    EntityRequiredError,
+    OpenCurationExistsError,
+    curation_crud,
+    merge_patch,
+)
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
@@ -321,9 +326,11 @@ def create_curation(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation:
-    """Create a curation (curator or admin of the scope). Needs an approved precuration
-    for the gene and scope unless one is active; the approval already opens a draft
-    curation (list_curations), and this fails while one is open."""
+    """Create a curation (curator or admin of the scope) for one gene-disease-MOI entity.
+    Needs an approved precuration for the gene and scope unless one is active; the approval
+    already opens a draft curation (list_curations), and this fails (409) while the entity
+    has an open one. precuration_id picks the entity; without it a re-curation inherits
+    the active curation's entity, and a gene with several entities in the scope is a 422."""
     set_rls_context(db, current_user)
 
     # Verify scope access using scope_memberships
@@ -345,6 +352,8 @@ def create_curation(
             status_code=status.HTTP_409_CONFLICT,
             detail={"message": str(e), "curation_id": str(e.curation_id)},
         ) from e
+    except EntityRequiredError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

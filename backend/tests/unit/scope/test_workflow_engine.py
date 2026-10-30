@@ -250,8 +250,12 @@ def test_review_requires_evidence_and_warns_without_scores(
         stage=S.CURATION,
         evidence_data={},
     )
-    filled = make_curation(
-        db_session, scope=scope, gene=gene, creator=creator, stage=S.CURATION
+    filled = make_curation(  # another gene: one open curation per entity
+        db_session,
+        scope=scope,
+        gene=make_gene(db_session),
+        creator=creator,
+        stage=S.CURATION,
     )
 
     blocked = engine.validate_transition(

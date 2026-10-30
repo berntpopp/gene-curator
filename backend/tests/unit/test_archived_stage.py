@@ -42,17 +42,19 @@ def test_activation_supersede_sets_archived_stage(
     test_user_curator,
     test_user_admin,
 ):
-    first = _curation(
-        db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
-    )
-    second = _curation(
-        db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
-    )
-    for c in (first, second):
+    first = second = None
+    for _ in range(2):  # one open curation per entity: the second opens after the first
+        first, second = (
+            second,
+            _curation(
+                db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
+            ),
+        )
         workflow_engine._transition_to_active(
-            db_session, c, test_user_admin.id, None, None
+            db_session, second, test_user_admin.id, None, None
         )
         db_session.commit()
+    assert first and second
     db_session.refresh(first)
     assert first.workflow_stage == WorkflowStage.ARCHIVED
     assert second.workflow_stage == WorkflowStage.ACTIVE

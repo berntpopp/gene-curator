@@ -259,6 +259,7 @@ def test_comment_cannot_be_read_through_another_curation(
         workflow_pair_id=test_curation.workflow_pair_id,
         workflow_stage="curation",
         evidence_data={},
+        entity_key="MONDO:0000002|AD",  # a second open curation is another entity
     )
     db_session.add(twin)
     db_session.commit()

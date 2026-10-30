@@ -374,3 +374,42 @@ def test_deactivated_scope_is_hidden(client: TestClient, world: World) -> None:
     body = client.get(URL, params=world.ids(world.pub, world.other)).json()
     assert [s["id"] for s in body["scopes"]] == [str(world.pub.id)]
     assert [r["approved_symbol"] for r in body["rows"]] == ["PKD1"]
+
+
+def test_agreement_is_per_disease_entity(client: TestClient, world: World) -> None:
+    """#530: two entities of one gene are compared on their own, not with each other."""
+
+    def entity(gene: Gene, scope: Scope, verdict: str, key: str) -> None:
+        c = world.cur(gene, scope, verdict)
+        c.entity_key = key
+        world.db.query(ActiveCuration).filter_by(curation_id=c.id).update(
+            {"entity_key": key}
+        )
+        world.db.commit()
+
+    entity(world.hnf1b, world.pub, "Limited", "MONDO:2|AD")
+    entity(world.hnf1b, world.pub, "Definitive", "MONDO:1|AD")
+    entity(world.hnf1b, world.other, "definitive", "MONDO:1|AD")
+    entity(world.pkd1, world.pub, "Strong", "MONDO:1|AD")
+    entity(world.pkd1, world.other, "Limited", "MONDO:1|AD")
+    alice, headers = _user(world.db, "alice")
+    _member(world.db, world.other, alice)
+    params = world.ids(world.pub, world.other)
+
+    rows = {
+        r["approved_symbol"]: r
+        for r in client.get(URL, params=params, headers=headers).json()["rows"]
+    }
+    assert rows["HNF1B"]["agreement"] == "agree"
+    assert rows["PKD1"]["agreement"] == "disagree"
+    pub = next(c for c in rows["HNF1B"]["cells"] if c["scope_id"] == str(world.pub.id))
+    assert pub["classification"] == "Definitive"  # the highest of the scope's entities
+
+    def filtered(value: str) -> set[str]:
+        body = client.get(
+            URL, params=[*params, ("agreement", value)], headers=headers
+        ).json()
+        return {r["approved_symbol"] for r in body["rows"]}
+
+    assert filtered("agree") == {"HNF1B"}
+    assert filtered("disagree") == {"PKD1"}

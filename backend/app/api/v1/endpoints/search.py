@@ -15,6 +15,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint
 from app.core.search_text import MAX_SEARCH, escape_like
+from app.crud.gene_catalogue_matrix import VERDICT_ORDER
 from app.crud.scope_visibility import visible_scope_ids
 from app.models.models import (
     ActiveCuration,
@@ -66,7 +67,13 @@ def search(
         )
     contains, prefix = _like(q)
 
-    # Newest active classification in a scope the caller can see (#273)
+    # Highest active classification in a scope the caller can see (#273); a gene split
+    # into several disease entities (#530) shows its strongest, newest first on ties
+    rank = case(
+        {v: n for n, v in enumerate(VERDICT_ORDER)},
+        value=func.lower(CurationNew.computed_verdict),
+        else_=len(VERDICT_ORDER),
+    )
     classification = (
         select(CurationNew.computed_verdict)
         .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
@@ -75,7 +82,7 @@ def search(
             ActiveCuration.archived_at.is_(None),
             ActiveCuration.scope_id.in_(visible_scope_ids(current_user.id)),
         )
-        .order_by(ActiveCuration.activated_at.desc())
+        .order_by(rank, ActiveCuration.activated_at.desc())
         .limit(1)
         .correlate(Gene)
         .scalar_subquery()
