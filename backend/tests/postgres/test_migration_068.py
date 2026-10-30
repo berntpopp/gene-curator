@@ -45,11 +45,13 @@ def test_latest_seeded_version_uses_the_mondo_lookup(
         headers=_h(w.alice),
     )
     assert r.status_code == 200, r.text
-    latest, previous = r.json()[:2]
-    assert _entity(latest)["mondo_id"]["component"] == "MONDOAutocomplete"
+    versions = r.json()  # newest first; later migrations (075) may add versions on top
+    assert _entity(versions[0])["mondo_id"]["component"] == "MONDOAutocomplete"
+    i = max(i for i, v in enumerate(versions) if "component" in _entity(v)["mondo_id"])
+    added, previous = versions[i], versions[i + 1]  # the version 068 published
     assert "component" not in _entity(previous)["mondo_id"]  # history unchanged
-    assert _entity(latest).keys() == _entity(previous).keys()  # same field keys
-    assert latest["derived_from_version_id"] == previous["id"]
+    assert _entity(added).keys() == _entity(previous).keys()  # same field keys
+    assert added["derived_from_version_id"] == previous["id"]
 
 
 def test_new_precurations_pin_the_new_version(w: W) -> None:

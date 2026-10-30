@@ -40,6 +40,7 @@ export interface PrecurationData extends LumpingSplittingData {
     disease_name?: string | null
     mondo_id?: string | null
     mode_of_inheritance?: string | null
+    relationship_type?: string | null
     phenotypes?: string[] | null
   }
   lumping_splitting?: LumpingSplittingData

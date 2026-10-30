@@ -375,7 +375,7 @@
       frame?.setMeta({
         disease: p.disease_name ?? p.entity_definition?.disease_name ?? undefined,
         moi: p.mode_of_inheritance ?? p.entity_definition?.mode_of_inheritance ?? undefined,
-        relationship: p.relationship_type ?? undefined
+        relationship: p.relationship_type ?? p.entity_definition?.relationship_type ?? undefined
       }),
     { immediate: true }
   )
