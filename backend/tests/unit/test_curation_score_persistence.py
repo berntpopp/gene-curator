@@ -336,3 +336,43 @@ def test_recompute_counts_a_refused_update_as_skipped(
     assert recompute_scores.recompute_all_scores(db_session) == 0
     assert summaries[-1]["updated"] == 0
     assert str(test_curation.id) in summaries[-1]["skipped_ids"]
+
+
+def test_recompute_does_not_rewrite_when_only_warnings_differ(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """New warning text alone is not a score change: no write, so no lock_version bump
+    (008) for open editors and no audit row."""
+    from app.services import recompute_scores
+
+    summaries: list[dict] = []
+    monkeypatch.setattr(
+        recompute_scores.logger, "info", lambda msg, **kw: summaries.append(kw)
+    )
+    test_curation.evidence_data = _twelve_points()
+    test_curation.status = CurationStatus.ACTIVE
+    db_session.commit()
+    recompute_scores.recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert test_curation.computed_scores["total_score"] == 12
+    test_curation.computed_scores = {**test_curation.computed_scores, "warnings": []}
+    db_session.commit()
+    for _ in range(2):
+        recompute_scores.recompute_all_scores(db_session)
+        assert (summaries[-1]["updated"], summaries[-1]["unchanged"]) == (0, 1)
+    db_session.refresh(test_curation)
+    assert test_curation.computed_scores["warnings"] == []
+
+
+def _twelve_points() -> dict:
+    rows = [{**_NULL, "proband_counted_points": 3}] * 4
+    return {
+        "genetic_evidence": {
+            "case_level": {
+                "autosomal_dominant_or_x_linked": {"predicted_or_proven_null": rows}
+            }
+        }
+    }

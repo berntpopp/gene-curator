@@ -108,6 +108,10 @@ def _keeps_result(status: Any, breakdown: dict[str, Any]) -> bool:
     return kept and (flagged or any(e.get("reason") in UNCITED for e in excluded))
 
 
+def _scored(scores: dict[str, Any] | None) -> dict[str, Any]:
+    return {k: v for k, v in (scores or {}).items() if k != "warnings"}
+
+
 def _raise_if_failed(failed: int, total: int) -> None:
     if failed:
         raise RuntimeError(f"{failed} of {total} curations failed to recompute")
@@ -185,7 +189,8 @@ def recompute_all_scores(db: Session) -> int:
             **result.evidence_breakdown,
             "warnings": result.warnings,
         }
-        if (old_scores, old_verdict) == (scores, result.verdict):
+        # warning text alone is no score change: a write bumps lock_version (008)
+        if (_scored(old_scores), old_verdict) == (_scored(scores), result.verdict):
             unchanged += 1
             continue
         if _keeps_result(status, scores):  # its new score differs: reported, not saved

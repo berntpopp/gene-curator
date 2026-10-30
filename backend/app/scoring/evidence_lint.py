@@ -2,7 +2,7 @@
 text, a summary claiming another total than the computed one, and an experimental row that
 reuses a case row's PMID and variant or mentions a proband, patient, individual or family
 (a patient filed as experimental evidence; patient_cells rows excepted); and the hint
-that Definitive needs replicated_over_time once genetic evidence reaches 12 points."""
+that Definitive needs replicated_over_time once the total reaches 12 points."""
 
 import re
 from collections.abc import Iterator
@@ -104,11 +104,12 @@ def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[
     point model's (total, sections)."""
     total = result["total"]
     warnings = case_row_warnings(evidence)
-    genetic = result["sections"].get("genetic_evidence", 0)
-    if genetic >= 12 and evidence.get("replicated_over_time") is not True:
-        warnings.append(
-            "replicated_over_time: genetic evidence reaches 12 points; Definitive needs "
-            "replication over time (set it to true if shown, else the class stays Strong)"
+    if total >= 12 and evidence.get("replicated_over_time") is not True:
+        warnings.append(  # the Definitive band reads the total (R6/R7 T7-3)
+            "replicated_over_time: the total reaches 12 points; Definitive needs "
+            "replication over time. If the first evidence is over 3 years old and "
+            "later independent papers replicate it, set replicated_over_time to true; "
+            "else the class stays Strong"
         )
     warnings += [
         f"{at}: mentions a PMID in free text; record each paper in a row's pmid field"
