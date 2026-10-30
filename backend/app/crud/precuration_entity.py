@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import literal, literal_column, select
+from sqlalchemy import and_, exists, literal, literal_column, or_, select, true
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -95,12 +95,69 @@ def open_draft(
     ).first()
 
 
+# Statuses a precuration can still move on from to approval (rejected ones are revised)
+_OPEN = (
+    CurationStatus.DRAFT,
+    CurationStatus.SUBMITTED,
+    CurationStatus.IN_REVIEW,
+    CurationStatus.REJECTED,
+)
+
+
+def refuse_open_entity(
+    db: Session,
+    gene_id: UUID,
+    scope_id: UUID,
+    entity_key: str,
+    author: UUID | None,
+    exclude: UUID | None = None,
+) -> None:
+    """409 naming the scope's open or approved-unused precuration of this gene and entity
+    (#567); the author's own drafts are left to the open-draft index, '' names none."""
+    if not entity_key:
+        return
+    # ponytail: check-then-insert, so two concurrent creates of one entity can both pass;
+    # add a DB guard (trigger or partial unique index) if duplicates show up again.
+    curated = exists().where(CurationNew.precuration_id == PrecurationNew.id)
+    other = db.scalar(
+        select(PrecurationNew.id)
+        .where(
+            PrecurationNew.gene_id == gene_id,
+            PrecurationNew.scope_id == scope_id,
+            PrecurationNew.entity_key == entity_key,
+            PrecurationNew.id != exclude if exclude else true(),
+            or_(  # NULL-safe: a creatorless legacy draft still blocks
+                PrecurationNew.created_by.is_distinct_from(author),
+                PrecurationNew.status != CurationStatus.DRAFT,
+            ),
+            or_(
+                PrecurationNew.status.in_(_OPEN),
+                and_(PrecurationNew.status == CurationStatus.APPROVED, ~curated),
+            ),
+        )
+        .order_by(PrecurationNew.created_at)
+        .limit(1)
+    )
+    if other:
+        raise conflict(
+            "This disease entity already has an open or approved precuration in this "
+            "scope",
+            precuration_id=other,
+        )
+
+
 def write_draft(
     db: Session, db_obj: PrecurationNew, lock_version: int, values: dict[str, Any]
 ) -> bool:
     """update_if_version; 409 naming the author's draft when the new disease entity is one
     they already have a draft for (the open-draft index). Other errors propagate."""
     gene_id, scope_id, author = db_obj.gene_id, db_obj.scope_id, db_obj.created_by
+    if "evidence_data" in values:
+        key = entity_key_of(db, values["evidence_data"])
+        if (
+            key != db_obj.entity_key
+        ):  # unchanged keeps rows duplicated before #567 editable
+            refuse_open_entity(db, gene_id, scope_id, key, author, db_obj.id)
     try:
         return update_if_version(db, PrecurationNew, db_obj.id, lock_version, values)
     except IntegrityError:

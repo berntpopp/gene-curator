@@ -11,7 +11,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.core.capabilities import EDIT, REVIEW, require
+from app.core.capabilities import EDIT, MANAGE_MEMBERS, REVIEW, require
 from app.core.constants import (
     DEFAULT_SKIP,
     PRECURATIONS_DEFAULT_LIMIT,
@@ -625,7 +625,8 @@ def delete_precuration(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> None:
-    """Archive a precuration. Linked curations prevent deletion with HTTP 409."""
+    """Archive a precuration (its creator or a scope admin). Linked curations prevent
+    deletion with HTTP 409."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -639,6 +640,9 @@ def delete_precuration(
 
     # Verify scope access
     require(db, current_user, precuration.scope_id, EDIT)
+    if precuration.created_by != current_user.id:
+        # Someone else's precuration: scope admins only (#284; members.manage is theirs)
+        require(db, current_user, precuration.scope_id, MANAGE_MEMBERS)
 
     # Only allow deletion of drafts (or by admin)
     if precuration.status != CurationStatus.DRAFT and current_user.role != "admin":

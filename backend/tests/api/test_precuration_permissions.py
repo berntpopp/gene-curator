@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints import precurations
 from app.crud.workflow_engine import WorkflowEngine
-from app.models import PrecurationNew, Scope, WorkflowStage
+from app.models import CurationStatus, PrecurationNew, Scope, WorkflowStage
 from app.schemas.precuration import (
     PrecurationCreate,
     PrecurationDraftSave,
@@ -139,3 +139,26 @@ def test_viewer_cannot_delete_precuration(
         f"/api/v1/precurations/{test_precuration.id}", headers=auth_headers(user)
     )
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("role", "expected"), [("curator", 403), ("reviewer", 403), ("admin", 204)]
+)
+def test_only_the_creator_or_a_scope_admin_deletes_a_precuration(
+    client: TestClient,
+    db_session: Session,
+    test_precuration: PrecurationNew,
+    role: str,
+    expected: int,
+):
+    """#284: another curator of the scope may not archive someone else's draft."""
+    user = make_user(db_session)
+    scope = db_session.get(Scope, test_precuration.scope_id)
+    make_member(db_session, scope, user, role)
+    response = client.delete(
+        f"/api/v1/precurations/{test_precuration.id}", headers=auth_headers(user)
+    )
+    assert response.status_code == expected, response.text
+    db_session.refresh(test_precuration)
+    archived = test_precuration.status == CurationStatus.ARCHIVED
+    assert archived == (expected == 204)

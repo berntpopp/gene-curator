@@ -338,6 +338,12 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Delete (archive) curation
      */
+    /** Correct the disease entity (scope admins, #453), then reload the curation. */
+    async correctDisease(id: string, data: Schema<'DiseaseCorrection'>) {
+      await curationsAPI.correctDisease(id, data)
+      return this.fetchCurationById(id)
+    },
+
     async deleteCuration(id: string) {
       this.loading = true
       this.error = null

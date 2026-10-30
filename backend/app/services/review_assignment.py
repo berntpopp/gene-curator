@@ -13,7 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.core.capabilities import EDIT, require
 from app.crud.review_round import (
+    CORRECTED_OWN,
     REVIEW_ROLES,
+    corrected_by,
     has_pending_review,
     holds_review_capability,
 )
@@ -44,12 +46,15 @@ def check_reviewer(
     reviewer: UUID,
     scope: UUID,
 ) -> None:
-    """Same reviewer rules for curations and precurations (D1: never the author)."""
+    """Same reviewer rules for curations and precurations (D1: never the author, nor
+    who corrected a curation's disease entity)."""
     if reviewer == author:
         raise ValueError(
             f"4-eyes principle violation: the author of {kind} {item_id} cannot review it; "
             f"{APPROVERS}"
         )
+    if kind == "curation" and corrected_by(db, item_id, reviewer):
+        raise ValueError(f"{CORRECTED_OWN}; {APPROVERS}")
     if not holds_review_capability(db, reviewer, scope):
         raise ValueError(
             f"User {reviewer} is not allowed to review {kind} {item_id}: {APPROVERS}"

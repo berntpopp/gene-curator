@@ -16,7 +16,13 @@ from app.core.logging import get_logger
 from app.crud.base import CRUDBase
 from app.crud.curation import _patched, open_conflict_message, open_curation_id
 from app.crud.optimistic_lock import claim_version
-from app.crud.precuration_entity import conflict, entity_key_of, open_draft, write_draft
+from app.crud.precuration_entity import (
+    conflict,
+    entity_key_of,
+    open_draft,
+    refuse_open_entity,
+    write_draft,
+)
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -267,6 +273,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             updated_at=now,
         )
         key = entity_key_of(db, obj_in.evidence_data)  # before add: no autoflush
+        refuse_open_entity(db, obj_in.gene_id, scope.id, key, user_id)
         db.add(db_obj)
         try:
             db.commit()

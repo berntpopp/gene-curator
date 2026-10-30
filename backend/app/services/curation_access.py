@@ -6,7 +6,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.crud.review_round import holds_review_capability, in_current_round
+from app.crud.review_round import (
+    corrected_by,
+    holds_review_capability,
+    in_current_round,
+)
 from app.models import (
     CurationNew,
     CurationStatus,
@@ -58,7 +62,7 @@ def _can_user_review_curation(
     Enforces 4-eyes principle: user cannot review their own work.
     """
     # Cannot review own work (4-eyes principle)
-    if curation.created_by == user.id:
+    if curation.created_by == user.id or corrected_by(db, curation.id, user.id):
         return False
 
     # Must be in review status/stage

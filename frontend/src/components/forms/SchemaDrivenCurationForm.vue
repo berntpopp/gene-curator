@@ -20,6 +20,7 @@
         </template>
 
         <v-card-text>
+          <DiseaseCorrection v-if="diseaseGap" :save="saveForm" @corrected="onCorrected" />
           <!-- Rendered and validated from the version the curation is pinned to -->
           <DynamicForm
             v-if="version"
@@ -139,6 +140,7 @@
   import type { ApiErrorLike, PrecurationData } from './types'
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import { useDiseaseGap } from './useDiseaseGap'
+  import DiseaseCorrection from './DiseaseCorrection.vue'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { hasContent, hasDisputingRow } from './hasContent'
   import { scoreSnapshot } from './scorePreview'
@@ -340,6 +342,10 @@
   // The workspace frame (when the shell provides one) shows save state, the score and the
   // entity, and owns Ctrl+S and the Save/Submit buttons.
   const frame = inject(WORKSPACE_FRAME, null)
+  const saveForm = async () => {
+    await commitFocusedCell()
+    return handleSaveDraft()
+  }
   frame?.attachForm({
     // The leave guard and save state cover the curator's call too (#533)
     evidence: computed(() =>
@@ -350,10 +356,7 @@
     saving: savingDraft,
     savedAt,
     conflict,
-    save: async () => {
-      await commitFocusedCell()
-      return handleSaveDraft()
-    }
+    save: saveForm
   })
   frame?.attachSubmit({ canSubmit, run: requestSubmit })
   // Unknown PMIDs anywhere in the draft block Submit on every tab, not only in opened tables
@@ -386,12 +389,13 @@
     )
   )
   // #453: a disease gap the read-only form cannot fix blocks Submit with the reason
-  useDiseaseGap({
+  const diseaseGap = useDiseaseGap({
     curationId: () => (props.readonly ? undefined : (props.curationId ?? undefined)),
     linked: () => !!curationsStore.currentCuration?.precuration_id,
     checkAt: savedAt,
     report: message => frame?.setBlocker('curation-disease', message)
   })
+  const onCorrected = () => loadCuration().then(() => (savedAt.value = Date.now()))
   watch(score, s => frame?.setScore(s))
   watch(
     precurationData,

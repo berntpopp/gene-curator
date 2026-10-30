@@ -3,7 +3,7 @@
  * it. The form shows the disease read-only, so it cannot fix that; the server's pinned
  * required-content check (validate-transition) finds it, and Submit is blocked with the reason.
  */
-import { watch, type WatchSource } from 'vue'
+import { ref, watch, type WatchSource } from 'vue'
 import { useWorkflowStore } from '@/stores/workflow'
 
 const DISEASE: Record<string, string> = {
@@ -37,6 +37,7 @@ export function useDiseaseGap(opts: {
   report: (message: string | null) => void
 }) {
   const workflow = useWorkflowStore()
+  const message = ref<string | null>(null)
   watch(
     opts.checkAt,
     async () => {
@@ -44,8 +45,11 @@ export function useDiseaseGap(opts: {
       if (!id) return
       // The server check also refuses the submit; failing to ask it only skips the early hint
       const result = await workflow.validateTransition('curation', id, 'review').catch(() => null)
-      if (result) opts.report(diseaseGapMessage(result.missing_fields ?? [], opts.linked()))
+      if (!result) return
+      message.value = diseaseGapMessage(result.missing_fields ?? [], opts.linked())
+      opts.report(message.value)
     },
     { immediate: true }
   )
+  return message // the gap, for the scope admin's correction (DiseaseCorrection.vue)
 }
