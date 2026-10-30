@@ -1,7 +1,7 @@
 """API tests for scope membership management (invite, accept, list, update, remove)."""
 
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -415,6 +415,23 @@ def test_remove_member_soft_deletes(
         .one()
     )
     assert membership.is_active is False
+
+
+def test_removed_member_is_not_listed(
+    client: TestClient,
+    owner: UserNew,
+    scope_with_admin: Scope,
+    curator: UserNew,
+) -> None:
+    """A removed (inactive) membership grants nothing, so the list must not show it."""
+    url = f"{BASE}/{scope_with_admin.id}/members"
+    assert (
+        client.delete(f"{url}/{curator.id}", headers=auth_headers(owner)).status_code
+        == 204
+    )
+    for params in ({}, {"include_pending": True}):
+        listed = client.get(url, params=params, headers=auth_headers(owner)).json()
+        assert curator.id not in {UUID(m["user_id"]) for m in listed["members"]}
 
 
 def test_remove_last_admin_is_rejected(

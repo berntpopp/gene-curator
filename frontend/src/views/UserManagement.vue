@@ -88,6 +88,19 @@
           </v-chip>
         </template>
 
+        <template #item.scopes="{ item }">
+          <v-chip
+            v-for="r in rolesByUser[item.id] ?? []"
+            :key="r.scope_id"
+            size="small"
+            variant="tonal"
+            class="me-1 my-1"
+          >
+            {{ r.scope_name }} · {{ r.role }}
+          </v-chip>
+          <span v-if="!rolesByUser[item.id]?.length" class="text-medium-emphasis">None</span>
+        </template>
+
         <!-- Status -->
         <template #item.is_active="{ item }">
           <v-chip :color="item.is_active ? 'success' : 'error'" size="small" variant="flat">
@@ -236,6 +249,15 @@
               inset
             />
           </v-col>
+          <v-col v-if="editingUser" cols="12">
+            <UserScopeRoles
+              :user-id="editingUser.id"
+              :roles="rolesByUser[editingUser.id] ?? []"
+              :all-scopes="scopes"
+              :disabled="isSelf(editingUser)"
+              @changed="loadScopeRoles"
+            />
+          </v-col>
         </v-row>
       </v-form>
       <template #actions>
@@ -270,6 +292,8 @@
   import { useAuthStore } from '@/stores/auth'
   import ResetPasswordDialog from '@/views/user-management/ResetPasswordDialog.vue'
   import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
+  import UserScopeRoles from '@/views/user-management/UserScopeRoles.vue'
+  import { useUserScopeRoles } from '@/views/user-management/useUserScopeRoles'
   import { formatDate, formatDateTime } from '@/utils/format'
   import { pluralize } from '@/utils/pluralize'
   import BaseDialog from '@/components/BaseDialog.vue'
@@ -303,6 +327,10 @@
   const usersStore = useUsersStore()
   const authStore = useAuthStore()
   const isSelf = (u: UserRecord) => authStore.user?.id === u.id
+  // Scope roles are the real permissions; the app role only says user or admin (#218)
+  const { scopes, rolesByUser, load: loadRoles } = useUserScopeRoles()
+  const loadScopeRoles = () =>
+    loadRoles().catch(() => showSnackbar('Failed to load scope roles', 'error'))
 
   // Reactive state
   const searchQuery = ref('')
@@ -349,6 +377,7 @@
   const headers = [
     { title: 'User', key: 'name', sortable: true },
     { title: 'Role', key: 'role', sortable: true },
+    { title: 'Scopes', key: 'scopes', sortable: false },
     { title: 'Status', key: 'is_active', sortable: true },
     { title: 'Created', key: 'created_at', sortable: true },
     { title: 'Last Login', key: 'last_login', sortable: true },
@@ -385,6 +414,7 @@
     try {
       await usersStore.fetchUsers()
       await usersStore.fetchUserStatistics()
+      loadScopeRoles()
       showSnackbar('Users refreshed successfully', 'success')
     } catch (error) {
       showSnackbar('Failed to refresh users', 'error')
@@ -525,6 +555,7 @@
 
   // Initialize
   onMounted(async () => {
+    loadScopeRoles()
     try {
       await Promise.all([usersStore.fetchUsers(), usersStore.fetchUserStatistics()])
     } catch (error) {

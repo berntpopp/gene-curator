@@ -18,6 +18,7 @@ import { useWorkflowStore } from '@/stores/workflow'
 import { useUsersStore } from '@/stores/users'
 import { useScopesStore } from '@/stores/scopes'
 import { authApi } from '@/api/auth'
+import { scopeService } from '@/services/scopeService'
 
 const confirmMock = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
@@ -45,6 +46,12 @@ vi.mock('@/composables/useNotifications', () => ({
   showWarning: vi.fn()
 }))
 vi.mock('@/api/auth', () => ({ authApi: { changePassword: vi.fn() } }))
+vi.mock('@/services/scopeService', () => ({
+  scopeService: {
+    fetchScopes: vi.fn(async () => [{ id: 's1', name: 'kidney-genetics' }]),
+    fetchMembers: vi.fn(async () => [{ user_id: 'u1', role: 'curator' }])
+  }
+}))
 
 // The users store is replaced by a reactive fake so the table and statistics can be driven directly
 vi.mock('@/stores/users', () => {
@@ -175,6 +182,30 @@ describe('UserManagement', () => {
     expect(document.querySelector('.v-select.v-input--disabled')).not.toBeNull()
     expect(document.querySelector('.v-switch.v-input--disabled')).not.toBeNull()
     wrapper.unmount()
+  })
+
+  it("shows each user's scope roles and edits them for other users only (#218)", async () => {
+    useAuthStore().user = { id: 'admin' } as never
+    const bob = { ...alice, id: 'u2', name: 'Bob' }
+    users.paginatedUsers = [alice, bob]
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    expect(wrapper.text()).toContain('kidney-genetics · curator')
+    expect(wrapper.text()).toContain('None')
+
+    call(vmOf(wrapper), 'editUser', alice)
+    await flushPromises()
+    expect(document.querySelector('[data-testid=scope-roles]')?.textContent).toContain(
+      'kidney-genetics'
+    )
+    wrapper.unmount()
+  })
+
+  it('says so when the scope roles cannot load', async () => {
+    vi.mocked(scopeService.fetchScopes).mockRejectedValueOnce(new Error('down'))
+    mount(UserManagement, opts())
+    await flushPromises()
+    expect(showSnackbar).toHaveBeenCalledWith('Failed to load scope roles', 'error')
   })
 
   it('reports a load failure with a snackbar', async () => {
