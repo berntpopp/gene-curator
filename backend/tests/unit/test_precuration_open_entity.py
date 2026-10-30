@@ -4,13 +4,17 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import app.crud.precuration as precuration_crud
+import app.crud.precuration_entity as precuration_entity
 from app.models import CurationStatus, PrecurationNew, WorkflowStage
 from tests.api.scopes.factories import auth_headers, make_member, make_user
 from tests.unit.test_split_entities import A, World, _draft
 
 pytestmark = pytest.mark.unit
+REFUSE = precuration_entity.refuse_open_entity
 
 
 @pytest.fixture(autouse=True)
@@ -49,6 +53,19 @@ def _post(client: TestClient, world: World, evidence: dict, user=None):  # type:
         },
         headers=auth_headers(user or world.author),
     )
+
+
+def _skip_first():  # type: ignore[no-untyped-def]
+    """refuse_open_entity whose first call passes, as if the winner had not committed."""
+    calls: list[int] = []
+    real = REFUSE
+
+    def racing(*args, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(1)
+        if len(calls) > 1:
+            real(*args, **kwargs)
+
+    return racing
 
 
 @pytest.mark.parametrize(
@@ -122,19 +139,27 @@ def test_saving_a_draft_onto_an_entity_in_review_is_409(
     assert blank.entity_key == "" and blank.lock_version == body["lock_version"]
 
 
-def test_a_save_that_keeps_a_legacy_duplicates_entity_passes(
+def test_a_create_that_passes_the_check_meets_the_index(
     db_session: Session, client: TestClient
 ) -> None:
-    """Rows duplicated before #567 stay editable while their entity is unchanged."""
+    """Concurrent creates both pass the check; the open-entity index (077) refuses the
+    second insert, which is the same 409 naming the precuration that won (H1)."""
+    world = World(db_session)
+    first = _draft(world, A)
+    other = make_user(db_session)
+    make_member(db_session, world.scope, other, "curator")
+    with patch.object(precuration_crud, "refuse_open_entity", _skip_first()):
+        r = _post(client, world, A, other)
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["precuration_id"] == str(first.id)
+
+
+def test_the_index_refuses_a_second_open_precuration(db_session: Session) -> None:
     world = World(db_session)
     _pre(world, CurationStatus.SUBMITTED)
-    dup = _pre(world, CurationStatus.REJECTED)
-    r = client.patch(
-        f"/api/v1/precurations/{dup.id}/draft",
-        json={"evidence_data": {**A, "note": "x"}, "lock_version": dup.lock_version},
-        headers=auth_headers(world.author),
-    )
-    assert r.status_code == 200, r.text
+    with pytest.raises(IntegrityError):
+        _pre(world, CurationStatus.REJECTED)
+    db_session.rollback()
 
 
 def test_a_creatorless_legacy_draft_still_blocks(
@@ -148,3 +173,19 @@ def test_a_creatorless_legacy_draft_still_blocks(
     assert r.status_code == 409 and r.json()["detail"]["precuration_id"] == str(
         legacy.id
     )
+
+
+def test_a_draft_save_that_passes_the_check_meets_the_index(
+    db_session: Session, client: TestClient
+) -> None:
+    world = World(db_session)
+    first = _pre(world, CurationStatus.SUBMITTED)
+    blank = _draft(world, {})
+    with patch.object(precuration_entity, "refuse_open_entity", _skip_first()):
+        r = client.patch(
+            f"/api/v1/precurations/{blank.id}/draft",
+            json={"evidence_data": A, "lock_version": blank.lock_version},
+            headers=auth_headers(world.author),
+        )
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["precuration_id"] == str(first.id)

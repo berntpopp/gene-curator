@@ -4,10 +4,15 @@ correction of a legacy curation (#453)."""
 
 import json
 from collections.abc import Callable, Generator
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
 from tests.postgres.test_split_entities import (
@@ -25,6 +30,7 @@ pytestmark = pytest.mark.postgres
 # A legacy record: its disease entity started but empty, no linked precuration
 LEGACY = {"summary": "ok", "entity_definition": {"lumping_splitting_rationale": "one"}}
 __all__ = ["client", "w"]  # fixtures
+MIGRATION = Path(__file__).parents[3] / "database/sql/077_precuration_open_entity.sql"
 
 
 @pytest.fixture
@@ -103,6 +109,62 @@ def test_an_entity_in_review_refuses_a_second_precuration(
         str(w.gene),
         "MONDO:0000001|AD",
     ) == [(1,)]
+
+
+def test_parallel_creates_of_one_entity_leave_one_precuration(
+    client: TestClient, w: W, member: Callable[[str], UUID]
+) -> None:
+    """Monkey H1: six parallel creates by three curators gave three 201s; the
+    open-entity index (077) lets one through, the others get 409 or the author's draft."""
+    curators = [w.alice, member("curator"), member("curator")]
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        results = list(
+            pool.map(lambda u: _create(client, w, A, u), [*curators, *curators])
+        )
+    rows = _rows(
+        "SELECT id::text FROM precurations WHERE gene_id = %s AND entity_key = %s",
+        str(w.gene),
+        "MONDO:0000001|AD",
+    )
+    assert len(rows) == 1, results
+    winner = rows[0][0]
+    # the winner's own racing retry gets their draft back (201 or 200), others 409
+    assert [code for code, _ in results].count(409) >= 4, results
+    for code, body in results:
+        assert code in (200, 201, 409), body
+        named = body["id"] if code < 300 else body["detail"]["precuration_id"]
+        assert named == winner
+
+
+def test_migration_stops_on_duplicates_and_reruns(owner_session: Session, w: W) -> None:
+    s = owner_session
+    s.execute(text(MIGRATION.read_text()))  # index present: a re-run is a no-op
+    assert s.scalar(
+        text(
+            "SELECT count(*) FROM schema_migrations "
+            "WHERE filename = '077_precuration_open_entity.sql'"
+        )
+    )
+    s.execute(text("DROP INDEX uq_precurations_open_entity"))
+    ids = [
+        s.scalar(
+            text(
+                "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id, "
+                "status, evidence_data) VALUES (:g, :sc, :ps, :st, :e) RETURNING id"
+            ),
+            {
+                "g": w.gene,
+                "sc": w.scope,
+                "ps": w.schema,
+                "st": status,
+                "e": json.dumps({**A, "note": status}),
+            },
+        )
+        for status in ("submitted", "rejected")
+    ]
+    with pytest.raises(DBAPIError, match="share a disease entity") as err:
+        s.execute(text(MIGRATION.read_text()))
+    assert all(str(i) in str(err.value) for i in ids)
 
 
 def test_only_the_creator_or_a_scope_admin_archives_a_precuration(
