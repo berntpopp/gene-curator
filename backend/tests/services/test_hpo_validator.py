@@ -188,3 +188,27 @@ async def test_batch_validate_maps_each_term(validator: HPOValidator) -> None:
 
 def test_base_url_constant() -> None:
     assert HPO_API_BASE.startswith("https://")
+
+
+@pytest.mark.asyncio
+async def test_validate_follows_the_ols_redirect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OLS answers 301 to its new location; that is not an invalid term."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/ols4/" in request.url.path:
+            return httpx.Response(200, json=SEIZURE)
+        moved = str(request.url).replace("/ols/", "/ols4/")
+        return httpx.Response(301, headers={"Location": moved})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kw: real(transport=httpx.MockTransport(handler), **kw),
+    )
+    validator = HPOValidator()
+    result = await validator.validate("HP:0001250")
+    assert result.is_valid is True, result.error_code
+    await validator.close()
