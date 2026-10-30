@@ -378,6 +378,7 @@
       :classification="final"
       :calculated="classification"
       :rationale="rationale"
+      :replaces="replaces"
       :total="formatScore(scores.total)"
       :curator="curation?.curator_name"
       :blockers="blockers"
@@ -401,7 +402,7 @@
   import { formatDateTime } from '@/utils/format'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { registerClassifications } from '@/config/classification'
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, schemasAPI } from '@/api'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
@@ -421,12 +422,15 @@
   import { useReviewStore } from '@/stores/review'
   import { useScopesStore } from '@/stores/scopes'
   import { useCurationClassification, type ScoredCuration } from './useCurationClassification'
+  import { replacesActive } from './replacesActive'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useCurateGuard } from '@/components/workspace/useCurateGuard'
 
   interface CurationRecord extends ScoredCuration {
     status: string
     gene_id?: string
+    scope_id?: string
+    precuration_id?: string | null
     workflow_pair_id?: string
     methodology_version_id?: string | null
     evidence_data?: Record<string, unknown> | null
@@ -635,6 +639,10 @@
   }
 
   const review = useReviewTransitions(() => curationId.value, loadCuration)
+  const replaces = ref(false)
+  watch(review.showApprove, async open => {
+    if (open) replaces.value = await replacesActive(curation.value).catch(() => false)
+  })
 
   function exportCuration() {
     const exportData = {

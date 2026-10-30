@@ -9,7 +9,9 @@
     </template>
     <p class="text-body-medium text-medium-emphasis mb-4">
       Once every required reviewer has approved, this becomes the active, public assertion for
-      {{ geneSymbol }} in this scope and replaces any earlier version.
+      {{ geneSymbol }} in this scope<template v-if="replaces">
+        and replaces its active version of this disease entity</template
+      >.
     </p>
     <dl class="summary mb-4">
       <div>
@@ -100,7 +102,7 @@
 
 <script setup lang="ts">
   /** Approve with an SOP checklist: every item ticked and no unreviewed or queried items left. */
-  import { computed, ref, watch } from 'vue'
+  import { computed, ref } from 'vue'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { checklistFor } from './reviewModel'
 
@@ -112,6 +114,8 @@
     classification?: string | null
     calculated?: string | null
     rationale?: string | null
+    /** Approval replaces an active curation of the same entity */
+    replaces?: boolean
     total: number | string
     curator?: string | null
     blockers: { key: string; label: string; queried?: boolean }[]
@@ -125,17 +129,8 @@
   const items = computed(() => checklistFor(props.classification))
   const unaccepted = computed(() => props.blockers.filter(b => !b.queried).map(b => b.label))
   const queried = computed(() => props.blockers.filter(b => b.queried).map(b => b.label))
-  const left = computed(() => items.value.length - ticked.value.length)
-
-  watch(
-    () => props.modelValue,
-    open => {
-      if (open) {
-        ticked.value = []
-        note.value = ''
-      }
-    }
-  )
+  // Ticks and note survive Cancel: the dialog is one per curation page
+  const left = computed(() => items.value.filter(i => !ticked.value.includes(i.id)).length)
 </script>
 
 <style scoped>

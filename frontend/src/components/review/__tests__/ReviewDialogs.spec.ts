@@ -95,6 +95,22 @@ describe('ApproveChecklistDialog', () => {
     expect(w.emitted('update:modelValue')![0]).toEqual([false])
   })
 
+  it('keeps the ticks after Cancel and reopen (W9 monkey)', async () => {
+    const w = mount(ApproveChecklistDialog, opts({ ...approveProps, classification: 'Strong' }))
+    for (const cb of w.findAll('input[type=checkbox]')) await cb.setValue(true)
+    await w.setProps({ modelValue: false })
+    await w.setProps({ modelValue: true })
+    expect(w.find('[data-testid=checks-left]').text()).toBe('')
+    expect(w.find('[data-testid=approve-confirm]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('says it replaces an earlier version only when it does', async () => {
+    const w = mount(ApproveChecklistDialog, opts(approveProps))
+    expect(w.text()).not.toContain('replaces')
+    await w.setProps({ replaces: true })
+    expect(w.text()).toContain('replaces its active version')
+  })
+
   it('shows an API error inside the dialog', () => {
     const w = mount(ApproveChecklistDialog, opts({ ...approveProps, error: 'Not allowed' }))
     expect(w.text()).toContain('Not allowed')
