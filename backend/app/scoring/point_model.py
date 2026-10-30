@@ -2,10 +2,16 @@
 
 A point model (``scoring_configuration.point_model``, else the template file named after
 ``scoring_configuration.engine``) is ``{total_cap, sections: [{key, cap, categories:
-[{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?, group_by?, group_cap?}]}]}],
+[{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?, group_by?, group_cap?,
+points_when?, field?, steps?}]}]}],
 overrides: [{when, field?, in?, class}], bands: [{class, min?, requires?, section_min?}],
 review_flags?: {band_margin?, hotspot?: {max_variants, min_share}, experimental_over_genetic?:
 [section, section]}}``. ``path`` is dotted and relative to the section's evidence.
+
+``points_when: [{field, in?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets a row's
+points from its own fields; the first rule whose conditions all hold wins (#576).
+``rule: "step"`` sums ``field`` over the type's rows and scores the highest
+``steps: [{min, points}]`` reached as one item. Both are listed in the trace's ``rules_applied``.
 """
 
 import json
@@ -56,6 +62,105 @@ def _at(data: Any, path: str) -> Any:
     return data
 
 
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _holds(condition: dict[str, Any], row: dict[str, Any]) -> bool:
+    """``in`` is strict (``true`` is not ``1``); comparisons need a number; ``present``
+    is whether the value is set (not missing, null or a blank string)."""
+    value = row.get(condition["field"])
+    if "present" in condition and _blank(value) == condition["present"]:
+        return False
+    if "in" in condition and not any(
+        option == value and isinstance(option, bool) == isinstance(value, bool)
+        for option in condition["in"]
+    ):
+        return False
+    bounds = [(op, condition[op]) for op in COMPARISONS if op in condition]
+    number = _number(value) if bounds else None
+    return not bounds or (
+        number is not None and all(COMPARISONS[op](number, b) for op, b in bounds)
+    )
+
+
+COMPARISONS: dict[str, Callable[[float, float], bool]] = {
+    "gt": lambda a, b: a > b,
+    "gte": lambda a, b: a >= b,
+    "lt": lambda a, b: a < b,
+    "lte": lambda a, b: a <= b,
+}
+
+
+def _blank(value: Any) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _points_when(
+    type_def: dict[str, Any],
+    row: dict[str, Any],
+    entered: float,
+    at: str,
+    applied: list[Any],
+) -> float:
+    """A matching exclusion (0 points) wins wherever it stands; otherwise the first
+    matching rule fills the points only when the curator left them blank."""
+    hits = [
+        (i, float(rule["points"]))
+        for i, rule in enumerate(type_def.get("points_when", []))
+        if all(_holds(c, row) for c in [rule, *rule.get("and", [])])
+    ]
+    if not hits:
+        return entered
+    i, points = next((hit for hit in hits if hit[1] == 0), hits[0])
+    keep = points != 0 and not _blank(row.get(type_def.get("points_key", "points")))
+    result = entered if keep else points
+    applied.append(
+        {"path": at, "rule": "points_when", "index": i}
+        | {"entered": entered, "points": result, "applied": not keep}
+    )
+    return result
+
+
+def _step_points(
+    path: str,
+    type_def: dict[str, Any],
+    data: Any,
+    flags: list[Any],
+    excluded: list[Any],
+    applied: list[Any],
+) -> list[float]:
+    """One item: the highest step the rows' summed ``field`` reaches; none without a value."""
+    field, total, counted = type_def["field"], 0.0, False
+    for i, row in indexed(_at(data, type_def["path"])):
+        raw = row.get(field)
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            continue
+        number = _number(raw)
+        if number is None:  # counts nothing, like an out-of-range row (#278)
+            flags.append(
+                {"path": f"{path}[{i}].{field}", "value": str(raw), "range": None}
+            )
+        elif number > 0 and (why := uncited(row, False)):
+            excluded.append({"path": f"{path}[{i}]", **why})
+        else:
+            total, counted = total + number, True
+    if not counted:
+        return []
+    reached = [s["points"] for s in type_def["steps"] if total >= s["min"]]
+    points = float(max(reached, default=0))
+    applied.append(
+        {"path": path, "rule": "step", "field": field, "sum": total, "points": points}
+    )
+    return [points]
+
+
 def _category(
     category: dict[str, Any], points: dict[str, list[float]]
 ) -> dict[str, Any]:
@@ -84,11 +189,14 @@ def _type_points(
     excluded: list[Any],
     capped: list[Any],
     variants: dict[str, float],
+    applied: list[Any],
 ) -> list[float]:
     """Entered rows' points; rows outside the type's range or non-finite are flagged and
     count nothing (#278), never clamped. Rows with points but no citation count nothing and are listed in ``excluded``.
     With ``group_by``, rows sharing a non-blank value score at most ``group_cap`` together (#557).
     Counted case-row points add up in ``variants`` by normalised variant (the #559 hotspot flag)."""
+    if type_def.get("rule") == "step":
+        return _step_points(path, type_def, data, flags, excluded, applied)
     limits = type_def.get("range")
     group_by = type_def.get("group_by")
     groups: dict[
@@ -100,6 +208,7 @@ def _type_points(
         value = rule(type_def, row)
         if value is None:
             continue
+        value = _points_when(type_def, row, value, f"{path}[{i}]", applied)
         finite = math.isfinite(value)
         flagged = not finite or (limits and not limits[0] <= value <= limits[1])
         if flagged:
@@ -177,6 +286,7 @@ def _section_points(
     excluded: list[Any],
     capped: list[Any],
     variants: dict[str, float],
+    applied: list[Any],
 ) -> dict[str, dict[str, list[float]]]:
     """{category key: {type path: [item points]}} for one section's evidence."""
     if isinstance(data, list) and legacy is not None:
@@ -192,7 +302,7 @@ def _section_points(
             rule = rules.get(type_def.get("rule", ""), default_points)
             path = f"{section['key']}.{type_def['path']}"
             out[category["key"]][type_def["path"]] = _type_points(
-                path, type_def, data, rule, flags, excluded, capped, variants
+                path, type_def, data, rule, flags, excluded, capped, variants, applied
             )
     return out
 
@@ -248,10 +358,19 @@ def score(
     excluded: list[Any] = []
     capped: list[Any] = []
     variants: dict[str, float] = {}
+    applied: list[Any] = []
     for section in model["sections"]:
         data = evidence.get(section["key"])
         points = _section_points(
-            section, data, rules or {}, legacy, flags, excluded, capped, variants
+            section,
+            data,
+            rules or {},
+            legacy,
+            flags,
+            excluded,
+            capped,
+            variants,
+            applied,
         )
         categories = [_category(c, points[c["key"]]) for c in section["categories"]]
         raw = sum(c["score"] for c in categories)
@@ -281,6 +400,8 @@ def score(
         trace["out_of_range"] = flags
     if capped:
         trace["capped_groups"] = capped
+    if applied:
+        trace["rules_applied"] = applied
     return {
         "total": total,
         "class": band["class"],

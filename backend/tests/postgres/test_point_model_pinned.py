@@ -18,6 +18,24 @@ pytestmark = pytest.mark.postgres
 __all__ = ["client", "w"]  # fixtures shared with the methodology version tests
 
 
+# The cohort table the custom model scores: the publish check needs it to exist (#576)
+COHORT = {
+    "type": "object",
+    "properties": {"cohorts": {"type": "array", "items": {"properties": {}}}},
+}
+
+
+def use_custom_model(cur: Any, schema: str) -> None:
+    """Point the schema at ``_custom_model`` and define the cohort table it reads."""
+    config = {"engine": "clingen_sop_v11", "point_model": _custom_model()}
+    cur.execute(
+        "UPDATE curation_schemas SET scoring_configuration = %s, field_definitions ="
+        " jsonb_set(field_definitions,"
+        " '{genetic_evidence,properties,patient_registry_cohort}', %s) WHERE id = %s",
+        (json.dumps(config), json.dumps(COHORT), schema),
+    )
+
+
 def _create(client: TestClient, w: W, gene: UUID) -> dict[str, Any]:
     r = client.post(
         "/api/v1/curations/",
@@ -39,11 +57,7 @@ def test_saves_score_with_the_pinned_point_model(client: TestClient, w: W) -> No
     assert old["computed_scores"]["total_score"] == 2
 
     with _owner() as conn, conn.cursor() as cur:
-        config = {"engine": "clingen_sop_v11", "point_model": _custom_model()}
-        cur.execute(
-            "UPDATE curation_schemas SET scoring_configuration = %s WHERE id = %s",
-            (json.dumps(config), w.schema),
-        )
+        use_custom_model(cur, w.schema)
     r = client.post(
         f"/api/v1/schemas/curation-schemas/{w.schema}/versions", headers=_h(w.admin)
     )

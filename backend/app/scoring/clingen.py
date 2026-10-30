@@ -324,7 +324,7 @@ class ClinGenEngine(ScoringEngine):
             | ({"excluded": result["excluded"]} if result["excluded"] else {}),
             warnings=warnings,
             metadata={
-                "sop_version": "v11",
+                **({"sop_version": "v11"} if self.name == ENGINE_NAME else {}),
                 "engine_version": self.version,
                 "calculated_at": datetime.now(UTC).isoformat(),
                 "scope_context": scope_context or {},

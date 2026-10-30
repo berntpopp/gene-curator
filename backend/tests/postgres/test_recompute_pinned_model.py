@@ -13,8 +13,8 @@ from app.core import database
 from app.scoring.point_model import template
 from app.services import recompute_scores
 from tests.postgres.test_methodology_versions import W, _h, _owner, client, w
-from tests.postgres.test_point_model_pinned import _create
-from tests.unit.test_point_model import CUSTOM_EVIDENCE, _custom_model
+from tests.postgres.test_point_model_pinned import _create, use_custom_model
+from tests.unit.test_point_model import CUSTOM_EVIDENCE
 
 pytestmark = pytest.mark.postgres
 __all__ = ["client", "w"]  # fixtures shared with the methodology version tests
@@ -24,11 +24,7 @@ def test_recompute_scores_api_saved_custom_evidence(
     client: TestClient, w: W, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     with _owner() as conn, conn.cursor() as cur:
-        config = {"engine": "clingen_sop_v11", "point_model": _custom_model()}
-        cur.execute(
-            "UPDATE curation_schemas SET scoring_configuration = %s WHERE id = %s",
-            (json.dumps(config), w.schema),
-        )
+        use_custom_model(cur, w.schema)
     r = client.post(
         f"/api/v1/schemas/curation-schemas/{w.schema}/versions", headers=_h(w.admin)
     )
