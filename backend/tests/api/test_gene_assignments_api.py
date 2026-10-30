@@ -221,6 +221,24 @@ def test_update_assignment_changes_priority_and_notes(
     assert response.json()["assignment_notes"] == "later"
 
 
+def test_update_due_date_round_trips_as_the_same_day(
+    client: TestClient,
+    db_session: Session,
+    admin_token: str,
+    test_gene: Gene,
+    test_scope: Scope,
+) -> None:
+    """A plain date is stored and returned unchanged (no time-zone shift)."""
+    row = _assignment(db_session, test_gene, test_scope)
+    response = client.put(
+        f"{BASE}/{row.id}", json={"due_date": "2026-12-01"}, headers=_auth(admin_token)
+    )
+    assert response.status_code == 200
+    assert response.json()["due_date"] == "2026-12-01"
+    listed = client.get(f"{BASE}/scope/{test_scope.id}", headers=_auth(admin_token))
+    assert listed.json()[0]["due_date"] == "2026-12-01"
+
+
 def test_update_unknown_assignment_is_404(
     client: TestClient, curator_token: str
 ) -> None:

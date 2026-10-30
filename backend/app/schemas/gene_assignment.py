@@ -45,7 +45,7 @@ class GeneScopeAssignmentUpdate(BaseModel):
     # assigned_curator_id is deliberately absent: use the assign-curator endpoint,
     # which verifies the curator is a scope member.
     priority_level: str | None = Field(None, description="Assignment priority level")
-    due_date: datetime | None = Field(None, description="Due date for assignment")
+    due_date: date | None = Field(None, description="Due date for assignment")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
 
     @field_validator("priority_level")
@@ -71,7 +71,7 @@ class GeneScopeAssignmentInDBBase(BaseModel):
     priority: str = Field(
         "medium", description="Assignment priority (high, medium, low)"
     )
-    due_date: datetime | None = Field(None, description="Due date for assignment")
+    due_date: date | None = Field(None, description="Due date for assignment")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
     assigned_by: UUID | None = Field(None, description="User who created assignment")
     assigned_at: datetime = Field(..., description="When assignment was created")
