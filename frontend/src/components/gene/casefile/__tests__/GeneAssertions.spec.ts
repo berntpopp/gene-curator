@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { useScopesStore } from '@/stores/scopes'
 import GeneAssertions from '../GeneAssertions.vue'
 import type { Schema } from '@/types/api'
 
@@ -33,6 +35,15 @@ const mountIt = (scopes: ScopeSummary[], linked = true) =>
   })
 
 describe('GeneAssertions', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('shows the scope display name instead of its slug once scopes are loaded', () => {
+    useScopesStore().scopes = [
+      { id: 's1', name: 'kidney', display_name: 'Kidney Genetics' }
+    ] as never
+    expect(mountIt([row({ scope_name: 'kidney' })]).text()).toContain('Kidney Genetics')
+  })
+
   it('shows scope, disease, MOI, stage, classification, score and date per scope', () => {
     const wrapper = mountIt([row()])
     const text = wrapper.text()

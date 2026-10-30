@@ -22,9 +22,9 @@
                 v-if="linked"
                 :to="{ name: 'scope-dashboard', params: { scopeId: s.scope_id } }"
               >
-                {{ s.scope_name }}
+                {{ scopeLabel(s) }}
               </router-link>
-              <template v-else>{{ s.scope_name }}</template>
+              <template v-else>{{ scopeLabel(s) }}</template>
             </td>
             <td data-label="Disease" class="wide">
               {{ s.disease_name || EMPTY }}
@@ -50,7 +50,7 @@
                   name: 'curation-detail',
                   params: { scopeId: s.scope_id, curationId: s.curation_id }
                 }"
-                :aria-label="`Open curation in ${s.scope_name}`"
+                :aria-label="`Open curation in ${scopeLabel(s)}`"
               >
                 Open
               </router-link>
@@ -67,6 +67,7 @@
   import { curationStatusLabel } from '@/config/status'
   import { EMPTY, formatDate } from '@/utils/format'
   import { formatInheritance } from '@/utils/inheritance'
+  import { useScopesStore } from '@/stores/scopes'
   import type { Schema } from '@/types/api'
 
   defineProps<{
@@ -80,6 +81,10 @@
     curation: 'In curation',
     review: 'In review'
   }
+  // The summary names the scope by its slug; a loaded scope has its display name
+  const scopesStore = useScopesStore()
+  const scopeLabel = (s: Schema<'ScopeSummary'>) =>
+    scopesStore.scopes.find(x => x.id === s.scope_id)?.display_name || s.scope_name
   const stageLabel = (stage: string | null | undefined) =>
     stage ? (STAGES[stage] ?? curationStatusLabel(stage)) : EMPTY
 </script>

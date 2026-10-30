@@ -59,7 +59,9 @@
             (susceptibility)
           </span>
         </router-link>
-        <span v-if="!cellsOf(item, s.id).length" class="text-medium-emphasis">not in scope</span>
+        <span v-if="!cellsOf(item, s.id).length" class="text-medium-emphasis"
+          >no active curation</span
+        >
       </template>
 
       <template #item.agreement="{ item }">

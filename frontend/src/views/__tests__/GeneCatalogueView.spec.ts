@@ -121,7 +121,7 @@ describe('GeneCatalogueView', () => {
     expect(rows[0]!.text()).toContain('14.5')
     expect(rows[1]!.text()).toContain('Not classified')
     expect(rows[1]!.text()).not.toContain('Pending')
-    expect(rows[1]!.text()).toContain('not in scope')
+    expect(rows[1]!.text()).toContain('no active curation')
     expect(rows[2]!.text()).toContain('In review')
   })
 
