@@ -57,6 +57,17 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.10.1
+
+Run `make db-migrate` before restarting the backend: it applies 070, which publishes a ClinGen
+Precuration version with the X-linked and Undetermined MOI options. No breaking changes; new are
+the export of reviewed curations (`GET /api/v1/export/curations`, see
+[docs/EXPORT.md](docs/EXPORT.md)) and url fields in schemas. Details:
+[docs/releases/v0.10.1.md](docs/releases/v0.10.1.md).
+([#545](https://github.com/berntpopp/gene-curator/pull/545),
+[#547](https://github.com/berntpopp/gene-curator/pull/547),
+[#548](https://github.com/berntpopp/gene-curator/pull/548))
+
 ### Upgrading to v0.10.0
 
 Run `make db-migrate` (064–069, applied in order) before restarting the backend. The migration
