@@ -28,6 +28,7 @@ UNTRUSTED_DATA_NOTICE = (
 )
 
 _PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_BLOCK_TAG = re.compile(r"<(?=\s*/?\s*untrusted_data)", re.IGNORECASE)
 
 
 class PromptTemplateError(ValueError):
@@ -44,8 +45,9 @@ def template_placeholders(template: str) -> set[str]:
 
 
 def wrap_untrusted(name: str, value: str) -> str:
-    # Escape angle brackets so free text cannot close the block or open a fake one.
-    escaped = value.replace("<", "&lt;").replace(">", "&gt;")
+    # Neutralize only block tags, so free text cannot close the block or open a fake one;
+    # other angle brackets (c.1000C>T, p<0.05) are data and stay verbatim.
+    escaped = _BLOCK_TAG.sub("&lt;", value)
     return f'<untrusted_data name="{name}">\n{escaped}\n</untrusted_data>'
 
 
