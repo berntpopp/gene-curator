@@ -476,3 +476,45 @@ def test_cells_per_relationship_type_and_the_filter_shows_the_match(
     assert cells() == [("mendelian", "Limited"), ("susceptibility", "Strong")]
     assert cells(("classification", "limited")) == [("mendelian", "Limited")]
     assert cells(("classification", "moderate")) == [("susceptibility", "Moderate")]
+
+
+def test_each_scope_carries_its_declared_classifications(
+    client: TestClient, world: World
+) -> None:
+    """A custom class (kidney_candidate) needs its label and tone in the catalogue."""
+    from app.models import CurationSchema
+
+    vocab = [
+        {"key": "kidney_candidate", "label": "Kidney candidate", "order": 1},
+        {"key": "x", "label": "X", "order": 2, "tone": "limited"},
+        "junk",
+    ]
+    vocab[0]["tone"] = "moderate"
+    schema = CurationSchema(
+        id=uuid4(),
+        name="kidney",
+        version="1",
+        schema_type="curation",
+        field_definitions={},
+        workflow_states={},
+        ui_configuration={},
+        scoring_configuration={"classifications": vocab},
+        schema_hash=uuid4().hex,
+    )
+    world.db.add(schema)
+    world.pair.curation_schema_id = schema.id
+    world.pub.default_workflow_pair_id = world.pair.id
+    world.db.commit()
+    world.cur(world.pkd1, world.pub, "kidney_candidate")
+
+    body = client.get(URL, params=world.ids(world.pub, world.other)).json()
+    [pub] = body["scopes"]
+    assert pub["classifications"] == vocab[:2]
+    world.pub.default_workflow_pair_id = None
+    world.db.commit()
+    assert (
+        client.get(URL, params=world.ids(world.pub)).json()["scopes"][0][
+            "classifications"
+        ]
+        == []
+    )

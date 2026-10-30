@@ -12,11 +12,24 @@ MAX_MATRIX_SCOPES = 50
 Agreement = Literal["agree", "disagree", "single", "none"]
 
 
+class MatrixClassification(BaseModel):
+    """A class the scope's schema declares (#539), so the catalogue labels custom keys."""
+
+    key: str
+    label: str
+    order: float
+    tone: str
+
+
 class MatrixScope(BaseModel):
     id: UUID
     name: str
     display_name: str
     is_public: bool
+    classifications: list[MatrixClassification] = Field(
+        default_factory=list,
+        description="Declared classes of the scope's default workflow schema",
+    )
 
 
 class MatrixCell(BaseModel):

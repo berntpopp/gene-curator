@@ -77,7 +77,11 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import ScopePicker from '@/components/catalogue/ScopePicker.vue'
   import { useTableUrlState } from '@/composables/useTableUrlState'
-  import { compareClassifications, getClassification } from '@/config/classification'
+  import {
+    compareClassifications,
+    getClassification,
+    registerClassifications
+  } from '@/config/classification'
   import { curationStatusLabel } from '@/config/status'
   import { useAuthStore } from '@/stores/auth'
   import { useCatalogueMatrixStore } from '@/stores/catalogueMatrix'
@@ -94,6 +98,12 @@
     none: '—'
   }
   const store = useCatalogueMatrixStore()
+  // each scope's declared classes label and colour its custom keys (#539)
+  watch(
+    () => store.scopes,
+    list => list.forEach(s => registerClassifications(s.classifications)),
+    { immediate: true }
+  )
   const filterDefs = computed(() => [
     {
       key: 'agreement',

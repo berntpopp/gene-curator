@@ -7598,6 +7598,20 @@ export interface components {
              */
             in_progress: boolean;
         };
+        /**
+         * MatrixClassification
+         * @description A class the scope's schema declares (#539), so the catalogue labels custom keys.
+         */
+        MatrixClassification: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Order */
+            order: number;
+            /** Tone */
+            tone: string;
+        };
         /** MatrixResponse */
         MatrixResponse: {
             /**
@@ -7655,6 +7669,11 @@ export interface components {
             display_name: string;
             /** Is Public */
             is_public: boolean;
+            /**
+             * Classifications
+             * @description Declared classes of the scope's default workflow schema
+             */
+            classifications?: components["schemas"]["MatrixClassification"][];
         };
         /**
          * MethodologyDerive

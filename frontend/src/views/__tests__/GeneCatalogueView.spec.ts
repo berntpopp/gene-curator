@@ -159,6 +159,21 @@ describe('GeneCatalogueView', () => {
     )
   })
 
+  it("labels a scope's custom class from its declared vocabulary (#539)", async () => {
+    const vocab = [
+      { key: 'kidney_candidate', label: 'Kidney candidate', order: 1, tone: 'moderate' }
+    ]
+    api.getMatrix.mockResolvedValue({
+      ...response,
+      scopes: [{ ...scopes[0], classifications: vocab }, scopes[1]],
+      rows: [row('PKD1', 'single', [cell('s1', { classification: 'kidney_candidate' })])]
+    })
+    const { wrapper } = await mountView()
+    const first = wrapper.findAll('tbody tr')[0]!
+    expect(first.text()).toContain('Kidney candidate')
+    expect(first.text()).not.toContain('kidney_candidate')
+  })
+
   it('names every cell link and marks disagreeing rows', async () => {
     const { wrapper } = await mountView()
     const link = wrapper.find('tbody tr a[href*="/scopes/s1/curations/c-s1"]')

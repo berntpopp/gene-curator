@@ -9,17 +9,27 @@ from collections import defaultdict
 from typing import Any, Literal
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.search_text import escape_like
 from app.crud.curator_classification import class_key_sql
-from app.models import ActiveCuration, CurationNew, Gene, Scope, ScopeMembership
+from app.models import (
+    ActiveCuration,
+    CurationNew,
+    CurationSchema,
+    Gene,
+    Scope,
+    ScopeMembership,
+    WorkflowPair,
+)
 from app.models.models import CurationStatus
 from app.schemas.curation import class_key, relationship_of_key
 from app.schemas.gene_catalogue_matrix import (
     Agreement,
     MatrixCell,
+    MatrixClassification,
     MatrixResponse,
     MatrixRow,
     MatrixScope,
@@ -195,7 +205,7 @@ def get_matrix(
             )
         )
     return MatrixResponse(
-        scopes=[MatrixScope.model_validate(s, from_attributes=True) for s in scopes],
+        scopes=_with_vocabulary(db, scopes),
         rows=rows,
         total=total,
         skip=skip,
@@ -258,6 +268,34 @@ def _cells(
             cell = _cell(c, in_progress=False)
             cells[c.gene_id][c.scope_id, cell.relationship_type] = cell
     return cells, actives
+
+
+def _with_vocabulary(db: Session, scopes: list[Scope]) -> list[MatrixScope]:
+    """Each scope with its declared classes, in one query.
+
+    ponytail: reads the live schema of the scope's default pair, not each curation's
+    pinned version; upgrade if one scope mixes vocabularies."""
+    configs: dict[UUID, dict[str, Any] | None] = dict(
+        db.execute(
+            select(Scope.id, CurationSchema.scoring_configuration)
+            .join(WorkflowPair, WorkflowPair.id == Scope.default_workflow_pair_id)
+            .join(CurationSchema, CurationSchema.id == WorkflowPair.curation_schema_id)
+            .where(Scope.id.in_([s.id for s in scopes]))
+        ).all()
+    )
+    out = []
+    for s in scopes:
+        declared = (configs.get(s.id) or {}).get("classifications")
+        vocab = []
+        for c in declared if isinstance(declared, list) else []:
+            try:
+                vocab.append(MatrixClassification.model_validate(c))
+            except ValidationError:
+                continue  # a draft schema's malformed entry: skip, the rest still label
+        scope = MatrixScope.model_validate(s, from_attributes=True)
+        scope.classifications = vocab
+        out.append(scope)
+    return out
 
 
 def _cell(c: CurationNew, *, in_progress: bool) -> MatrixCell:
