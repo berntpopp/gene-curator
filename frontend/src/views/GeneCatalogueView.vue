@@ -28,6 +28,7 @@
           :model-value="shownIds"
           :mine="mineIds"
           @update:model-value="setScopes"
+          @disagreements="filters = { ...filters, agreement: 'disagree' }"
         />
       </template>
 
@@ -143,7 +144,8 @@
   const mineIds = computed(() => scopesStore.userScopes.filter(s => s.user_role).map(s => s.id))
 
   const headers = computed(() => [
-    { title: 'Gene', key: 'approved_symbol', sortable: true },
+    // fixed: the gene column stays put while 30+ scope columns scroll (#276)
+    { title: 'Gene', key: 'approved_symbol', sortable: true, fixed: true },
     ...store.scopes.map(s => ({ title: s.display_name, key: `scope:${s.id}`, sortable: false })),
     { title: 'Agreement', key: 'agreement', sortable: false }
   ])

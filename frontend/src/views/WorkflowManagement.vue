@@ -16,7 +16,7 @@
     </div>
 
     <!-- Workflow Pairs Table -->
-    <v-card class="mb-6">
+    <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start>mdi-sitemap-outline</v-icon>
         {{ TERMINOLOGY.WORKFLOWS }} ({{ workflowPairs.length }})
@@ -38,13 +38,17 @@
 
         <template #item.schemas="{ item }">
           <div>
-            <v-chip size="small" variant="outlined" class="mb-1">
-              Pre: {{ getSchemaName(item.precuration_schema_id, 'precuration') }}
-            </v-chip>
-            <br />
-            <v-chip size="small" variant="outlined">
-              Cur: {{ getSchemaName(item.curation_schema_id, 'curation') }}
-            </v-chip>
+            Precuration:
+            <router-link
+              :to="{ name: 'SchemaEditor', params: { id: item.precuration_schema_id } }"
+              >{{ getSchemaName(item.precuration_schema_id, 'precuration') }}</router-link
+            >
+          </div>
+          <div>
+            Curation:
+            <router-link :to="{ name: 'SchemaEditor', params: { id: item.curation_schema_id } }">{{
+              getSchemaName(item.curation_schema_id, 'curation')
+            }}</router-link>
           </div>
         </template>
 
@@ -85,35 +89,6 @@
           </div>
         </template>
       </v-data-table>
-    </v-card>
-
-    <!-- Workflow Stages Configuration -->
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-stairs</v-icon>
-        Workflow stages configuration
-      </v-card-title>
-      <v-card-text>
-        <v-row>
-          <v-col v-for="stage in workflowStages" :key="stage.id" cols="12" sm="6" md="4">
-            <v-card variant="outlined">
-              <v-card-title class="text-body-large">
-                <v-icon start>
-                  {{ getStageIcon(stage.stage_type) }}
-                </v-icon>
-                {{ stage.name }}
-              </v-card-title>
-              <v-card-text>
-                <div class="text-body-medium mb-2">{{ stage.description }}</div>
-                <div class="text-body-small text-medium-emphasis">
-                  Required Roles: {{ stage.required_roles.join(', ') }}
-                </div>
-                <div class="text-body-small text-medium-emphasis">Order: {{ stage.order }}</div>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-card-text>
     </v-card>
 
     <!-- View Workflow Dialog -->
@@ -231,6 +206,14 @@
           rows="3"
         />
 
+        <v-text-field
+          v-model="newWorkflow.version"
+          label="Version"
+          variant="outlined"
+          :rules="[v => !!v || 'Version is required']"
+          required
+        />
+
         <v-select
           v-model="newWorkflow.precuration_schema_id"
           :items="precurationSchemas"
@@ -252,6 +235,9 @@
           :rules="[v => !!v || 'Curation schema is required']"
           required
         />
+        <v-alert v-if="duplicatePair" data-testid="duplicate-pair" type="warning" variant="tonal">
+          "{{ duplicatePair.name }}" already links these two schemas.
+        </v-alert>
       </v-form>
       <template #actions>
         <v-btn variant="text" @click="createWorkflowDialog = false">Cancel</v-btn>
@@ -308,17 +294,22 @@
   const editWorkflowData = ref({ name: '', description: '', is_active: true })
   let editingWorkflowId: string | null = null
 
-  const newWorkflow = ref<{
-    name: string
-    description: string
-    precuration_schema_id: string | null
-    curation_schema_id: string | null
-  }>({
+  const emptyWorkflow = () => ({
     name: '',
     description: '',
-    precuration_schema_id: null,
-    curation_schema_id: null
+    version: '1.0.0',
+    precuration_schema_id: null as string | null,
+    curation_schema_id: null as string | null
   })
+  const newWorkflow = ref(emptyWorkflow())
+  // The backend only rejects a repeated name+version, so warn about a repeated schema pair (#216)
+  const duplicatePair = computed(() =>
+    workflowPairs.value.find(
+      p =>
+        p.precuration_schema_id === newWorkflow.value.precuration_schema_id &&
+        p.curation_schema_id === newWorkflow.value.curation_schema_id
+    )
+  )
 
   const workflowHeaders = [
     { title: 'Name', key: 'name', sortable: true },
@@ -386,7 +377,7 @@
   const getSchemaName = (schemaId: string | null | undefined, type: string) => {
     const schemas = type === 'precuration' ? precurationSchemas.value : curationSchemas.value
     const schema = schemas.find((s: { id: string }) => s.id === schemaId)
-    return schema ? schema.name : schemaId || '—'
+    return schema ? schema.title : schemaId || '—'
   }
 
   const viewWorkflow = (workflow: WorkflowRow) => {
@@ -463,19 +454,13 @@
         ...newWorkflow.value,
         precuration_schema_id,
         curation_schema_id,
-        version: '1.0.0',
         is_active: true
       })
       logger.info('Workflow created', { workflowName: newWorkflow.value.name })
       showSuccess('Workflow created successfully')
 
       createWorkflowDialog.value = false
-      newWorkflow.value = {
-        name: '',
-        description: '',
-        precuration_schema_id: null,
-        curation_schema_id: null
-      }
+      newWorkflow.value = emptyWorkflow()
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to create workflow', {

@@ -95,8 +95,14 @@ describe('WorkflowManagement', () => {
     }
     schemas.workflowPairs = [pair] as never
     schemas.schemas = [
-      { id: 'pre', name: 'Pre schema', schema_type: 'precuration', is_active: true },
-      { id: 'cur', name: 'Cur schema', schema_type: 'curation', is_active: true }
+      {
+        id: 'pre',
+        name: 'Pre schema',
+        version: '1.0',
+        schema_type: 'precuration',
+        is_active: true
+      },
+      { id: 'cur', name: 'Cur schema', version: '2.0', schema_type: 'curation', is_active: true }
     ] as never
     const wrapper = mount(WorkflowManagement, opts())
     await flushPromises()
@@ -105,9 +111,33 @@ describe('WorkflowManagement', () => {
 
   it('lists pairs with resolved schema names and status', async () => {
     const { wrapper } = await mountView()
-    expect(wrapper.text()).toContain('Pre: Pre schema')
-    expect(wrapper.text()).toContain('Cur: Cur schema')
+    expect(wrapper.text()).toContain('Precuration: Pre schema · v1.0')
+    expect(wrapper.text()).toContain('Curation: Cur schema · v2.0')
     expect(wrapper.text()).toContain('Active')
+  })
+
+  it('links each pair schema to its editor and drops the static stage grid (#216)', async () => {
+    const { wrapper } = await mountView()
+    const to = wrapper.findAllComponents(RouterLinkStub).map(l => l.props('to'))
+    expect(to).toEqual([
+      { name: 'SchemaEditor', params: { id: 'pre' } },
+      { name: 'SchemaEditor', params: { id: 'cur' } }
+    ])
+    expect(wrapper.text()).not.toContain('Workflow stages configuration')
+    expect(wrapper.text()).not.toContain('Required Roles')
+  })
+
+  it('warns when the chosen schema pair already exists (#216)', async () => {
+    const { vm } = await mountView()
+    vm.createWorkflowDialog = true
+    await nextTick()
+    const warning = () => document.body.querySelector('[data-testid="duplicate-pair"]')
+    vm.newWorkflow = { ...(vm.newWorkflow as object), precuration_schema_id: 'pre' }
+    await flushPromises()
+    expect(warning()).toBeNull()
+    vm.newWorkflow = { ...(vm.newWorkflow as object), curation_schema_id: 'cur' }
+    await flushPromises()
+    expect(warning()?.textContent).toContain('ClinGen flow')
   })
 
   it('loads inactive pairs and schemas too', async () => {
@@ -215,9 +245,11 @@ describe('WorkflowManagement', () => {
     const create = vi.spyOn(schemas, 'createWorkflowPair').mockResolvedValue(undefined as never)
     vm.createWorkflowDialog = true
     await nextTick()
+    expect((vm.newWorkflow as { version: string }).version).toBe('1.0.0')
     vm.newWorkflow = {
       name: 'New flow',
       description: '',
+      version: '2.1.0',
       precuration_schema_id: 'pre',
       curation_schema_id: 'cur'
     }
@@ -228,9 +260,10 @@ describe('WorkflowManagement', () => {
       description: '',
       precuration_schema_id: 'pre',
       curation_schema_id: 'cur',
-      version: '1.0.0',
+      version: '2.1.0',
       is_active: true
     })
+    expect((vm.newWorkflow as { version: string }).version).toBe('1.0.0')
     expect(showSuccess).toHaveBeenCalledWith('Workflow created successfully')
     expect(vm.createWorkflowDialog).toBe(false)
   })
@@ -260,7 +293,8 @@ describe('WorkflowManagement', () => {
       name: 'x',
       description: '',
       precuration_schema_id: 'pre',
-      curation_schema_id: 'cur'
+      curation_schema_id: 'cur',
+      version: '1.0.0'
     }
     await flushPromises()
     await call(vm, 'createWorkflow')

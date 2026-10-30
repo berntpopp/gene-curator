@@ -28,6 +28,14 @@
             My scopes
           </v-chip>
           <v-chip
+            data-testid="preset-disagreements"
+            size="small"
+            variant="outlined"
+            @click="emit('disagreements')"
+          >
+            Disagreements
+          </v-chip>
+          <v-chip
             data-testid="preset-all"
             size="small"
             variant="outlined"
@@ -75,7 +83,7 @@
   const MAX = 50
 
   const props = defineProps<{ scopes: PickerScope[]; modelValue: string[]; mine: string[] }>()
-  const emit = defineEmits<{ 'update:modelValue': [string[]] }>()
+  const emit = defineEmits<{ 'update:modelValue': [string[]]; disagreements: [] }>()
 
   const query = ref('')
   const all = computed(() => props.scopes.map(s => s.id))

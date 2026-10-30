@@ -64,6 +64,15 @@ describe('ScopePicker', () => {
     bare.unmount()
   })
 
+  it('offers a Disagreements preset that asks for disagreeing rows (#276)', async () => {
+    const w = mountPicker()
+    await open(w)
+    ;(body().querySelector('[data-testid="preset-disagreements"]') as HTMLElement).click()
+    expect(w.emitted('disagreements')).toHaveLength(1)
+    expect(w.emitted('update:modelValue')).toBeUndefined()
+    w.unmount()
+  })
+
   it('keeps the last shown scope checked and disabled', async () => {
     const w = mountPicker({ modelValue: ['s4'] })
     await open(w)

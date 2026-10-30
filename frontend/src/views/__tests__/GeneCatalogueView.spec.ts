@@ -221,6 +221,22 @@ describe('GeneCatalogueView', () => {
     expect(api.getMatrix.mock.calls.at(-1)![0].scope_ids).toEqual(['s1'])
   })
 
+  it('applies the Disagreements preset as the agreement filter (#276)', async () => {
+    const { wrapper, router } = await mountView()
+    await wrapper.find('[data-testid="scope-picker"]').trigger('click')
+    await new Promise(r => setTimeout(r, 50))
+    ;(document.body.querySelector('[data-testid="preset-disagreements"]') as HTMLElement).click()
+    await vi.waitFor(() => expect(router.currentRoute.value.query.agreement).toBe('disagree'))
+    expect(api.getMatrix.mock.calls.at(-1)![0]).toMatchObject({ agreement: 'disagree' })
+    expect(wrapper.find('[data-testid="filter-agreement"]').text()).toContain('Disagree')
+  })
+
+  it('keeps the gene column sticky while scope columns scroll (#276)', async () => {
+    const { wrapper } = await mountView()
+    expect(wrapper.find('th.v-data-table-column--fixed').exists()).toBe(true)
+    expect(wrapper.findAll('td.v-data-table-column--fixed')).toHaveLength(3)
+  })
+
   it('shows the error with retry, not the empty state', async () => {
     api.getMatrix.mockRejectedValue({ response: { data: { detail: 'Server down' } } })
     const { wrapper } = await mountView()
