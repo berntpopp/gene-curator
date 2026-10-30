@@ -1,0 +1,3342 @@
+{
+  "schemas": [
+    {
+      "name": "KGDB Mendelian Precuration",
+      "version": "alpha",
+      "schema_type": "precuration",
+      "institution": "Kidney Genetics",
+      "description": "KGDB precuration (alpha): adopt ClinGen, then the disease entity, lumping/splitting and kidney classification",
+      "field_definitions": {
+        "sections": [
+          {
+            "id": "adopt",
+            "label": "Step 0: adopt ClinGen",
+            "description": "Where a ClinGen expert panel has curated this gene-disease-MOI, record it; the reviewer confirms",
+            "fields": [
+              {
+                "id": "clingen_curated",
+                "type": "boolean",
+                "label": "ClinGen has curated this entity",
+                "required": true
+              },
+              {
+                "id": "clingen_url",
+                "type": "url",
+                "label": "ClinGen (CGGV) curation URL",
+                "show_when": {
+                  "clingen_curated": true
+                }
+              },
+              {
+                "id": "clingen_classification",
+                "type": "select",
+                "label": "ClinGen classification",
+                "options": [
+                  {
+                    "value": "definitive",
+                    "label": "Definitive"
+                  },
+                  {
+                    "value": "strong",
+                    "label": "Strong"
+                  },
+                  {
+                    "value": "moderate",
+                    "label": "Moderate"
+                  },
+                  {
+                    "value": "limited",
+                    "label": "Limited"
+                  },
+                  {
+                    "value": "no_known",
+                    "label": "No Known Disease Relationship"
+                  },
+                  {
+                    "value": "disputed",
+                    "label": "Disputed"
+                  },
+                  {
+                    "value": "refuted",
+                    "label": "Refuted"
+                  }
+                ],
+                "show_when": {
+                  "clingen_curated": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "entity",
+            "label": "Disease entity",
+            "description": "HGNC gene + MONDO entity + MOI (HPO CURIE) + relationship type",
+            "fields": [
+              {
+                "id": "mondo_id",
+                "type": "external_reference",
+                "external_source": "mondo",
+                "label": "MONDO disease ID",
+                "required": true,
+                "placeholder": "MONDO:0000001"
+              },
+              {
+                "id": "disease_name",
+                "type": "text",
+                "label": "Disease name",
+                "required": true
+              },
+              {
+                "id": "mode_of_inheritance",
+                "type": "select",
+                "label": "Mode of inheritance",
+                "options": [
+                  {
+                    "value": "HP:0000006",
+                    "label": "Autosomal dominant (HP:0000006)"
+                  },
+                  {
+                    "value": "HP:0000007",
+                    "label": "Autosomal recessive (HP:0000007)"
+                  },
+                  {
+                    "value": "HP:0001417",
+                    "label": "X-linked (HP:0001417)"
+                  },
+                  {
+                    "value": "HP:0001423",
+                    "label": "X-linked dominant (HP:0001423)"
+                  },
+                  {
+                    "value": "HP:0001419",
+                    "label": "X-linked recessive (HP:0001419)"
+                  },
+                  {
+                    "value": "HP:0032113",
+                    "label": "Semidominant (HP:0032113)"
+                  },
+                  {
+                    "value": "HP:0001427",
+                    "label": "Mitochondrial (HP:0001427)"
+                  },
+                  {
+                    "value": "HP:0001450",
+                    "label": "Y-linked (HP:0001450)"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "id": "relationship_type",
+                "type": "select",
+                "label": "Relationship type",
+                "options": [
+                  {
+                    "value": "mendelian",
+                    "label": "Mendelian"
+                  }
+                ],
+                "required": true,
+                "default": "mendelian"
+              },
+              {
+                "id": "omim_id",
+                "type": "text",
+                "label": "OMIM ID",
+                "placeholder": "OMIM:143100"
+              },
+              {
+                "id": "orphanet_id",
+                "type": "text",
+                "label": "Orphanet ID",
+                "placeholder": "ORPHA:93",
+                "validation": "orphanet_format"
+              }
+            ]
+          },
+          {
+            "id": "lumping_splitting",
+            "label": "Lumping and splitting",
+            "fields": [
+              {
+                "id": "lumping_splitting_applicable",
+                "type": "boolean",
+                "label": "Lumping or splitting applied",
+                "required": true
+              },
+              {
+                "id": "lumping_splitting_decision",
+                "type": "select",
+                "label": "Decision",
+                "options": [
+                  {
+                    "value": "lump",
+                    "label": "Lump"
+                  },
+                  {
+                    "value": "split",
+                    "label": "Split"
+                  }
+                ],
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              },
+              {
+                "id": "lumping_splitting_rationale",
+                "type": "textarea",
+                "label": "Rationale",
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              },
+              {
+                "id": "replaced_mondo_id",
+                "type": "array",
+                "item_type": "external_reference",
+                "external_source": "mondo",
+                "label": "Replaced MONDO terms",
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "kidney",
+            "label": "Kidney classification",
+            "fields": [
+              {
+                "id": "binning",
+                "type": "select",
+                "label": "Binning",
+                "options": [
+                  {
+                    "value": "isolated",
+                    "label": "Isolated"
+                  },
+                  {
+                    "value": "variable_single_organ",
+                    "label": "Variable, single organ"
+                  },
+                  {
+                    "value": "syndromic",
+                    "label": "Syndromic"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "id": "mechanism",
+                "type": "select",
+                "label": "Mechanism",
+                "options": [
+                  {
+                    "value": "lof",
+                    "label": "Loss of function"
+                  },
+                  {
+                    "value": "gof",
+                    "label": "Gain of function"
+                  },
+                  {
+                    "value": "dn",
+                    "label": "Dominant negative"
+                  },
+                  {
+                    "value": "unknown",
+                    "label": "Unknown"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "id": "kidney_relevance",
+                "type": "textarea",
+                "label": "Kidney relevance",
+                "help_text": "Kidney or urinary tract phenotype (HPO HP:0000079 or MP renal/urinary system); lower urinary tract counts"
+              },
+              {
+                "id": "cakut_subtype",
+                "type": "select",
+                "label": "CAKUT subtype",
+                "options": [
+                  {
+                    "value": "upper",
+                    "label": "Upper urinary tract"
+                  },
+                  {
+                    "value": "lower",
+                    "label": "Lower urinary tract"
+                  },
+                  {
+                    "value": "not_cakut",
+                    "label": "Not CAKUT"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "prefill",
+            "label": "Pre-filled context",
+            "description": "Looked up by the agent (GeneFoundry, KGDB); context only, never scored",
+            "fields": [
+              {
+                "id": "clinvar_plp_count",
+                "type": "number",
+                "label": "ClinVar P/LP variants",
+                "min": 0
+              },
+              {
+                "id": "genereviews_url",
+                "type": "url",
+                "label": "GeneReviews chapter"
+              },
+              {
+                "id": "prefill_notes",
+                "type": "textarea",
+                "label": "Candidate diseases and classifications seen"
+              },
+              {
+                "id": "curator_notes",
+                "type": "textarea",
+                "label": "Curator notes"
+              }
+            ]
+          }
+        ]
+      },
+      "validation_rules": {
+        "required_fields": [
+          "clingen_curated",
+          "mondo_id",
+          "disease_name",
+          "mode_of_inheritance",
+          "relationship_type",
+          "lumping_splitting_applicable",
+          "binning",
+          "mechanism"
+        ],
+        "conditional_required": {
+          "lumping_splitting_decision": {
+            "when": {
+              "lumping_splitting_applicable": true
+            }
+          },
+          "lumping_splitting_rationale": {
+            "when": {
+              "lumping_splitting_applicable": true
+            }
+          }
+        },
+        "orphanet_format": {
+          "type": "regex",
+          "pattern": "^ORPHA:\\d+$",
+          "message": "Orphanet: ORPHA:<digits>"
+        }
+      },
+      "workflow_states": {
+        "entry": {
+          "label": "Entry"
+        },
+        "precuration": {
+          "label": "Precuration"
+        },
+        "curation": {
+          "label": "Curation"
+        },
+        "review": {
+          "label": "Review",
+          "reviewers_required": 1
+        },
+        "active": {
+          "label": "Active"
+        }
+      },
+      "ui_configuration": {
+        "form_layout": "wizard",
+        "show_progress_bar": true,
+        "sections": []
+      },
+      "scoring_configuration": null
+    },
+    {
+      "name": "KGDB Susceptibility Precuration",
+      "version": "alpha",
+      "schema_type": "precuration",
+      "institution": "Kidney Genetics",
+      "description": "KGDB precuration (alpha): adopt ClinGen, then the disease entity, lumping/splitting and kidney classification; susceptibility (risk allele) entities. PROVISIONAL, not approved by KGDB",
+      "field_definitions": {
+        "sections": [
+          {
+            "id": "adopt",
+            "label": "Step 0: adopt ClinGen",
+            "description": "Where a ClinGen expert panel has curated this gene-disease-MOI, record it; the reviewer confirms",
+            "fields": [
+              {
+                "id": "clingen_curated",
+                "type": "boolean",
+                "label": "ClinGen has curated this entity",
+                "required": true
+              },
+              {
+                "id": "clingen_url",
+                "type": "url",
+                "label": "ClinGen (CGGV) curation URL",
+                "show_when": {
+                  "clingen_curated": true
+                }
+              },
+              {
+                "id": "clingen_classification",
+                "type": "select",
+                "label": "ClinGen classification",
+                "options": [
+                  {
+                    "value": "definitive",
+                    "label": "Definitive"
+                  },
+                  {
+                    "value": "strong",
+                    "label": "Strong"
+                  },
+                  {
+                    "value": "moderate",
+                    "label": "Moderate"
+                  },
+                  {
+                    "value": "limited",
+                    "label": "Limited"
+                  },
+                  {
+                    "value": "no_known",
+                    "label": "No Known Disease Relationship"
+                  },
+                  {
+                    "value": "disputed",
+                    "label": "Disputed"
+                  },
+                  {
+                    "value": "refuted",
+                    "label": "Refuted"
+                  }
+                ],
+                "show_when": {
+                  "clingen_curated": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "entity",
+            "label": "Disease entity",
+            "description": "HGNC gene + MONDO entity + MOI (HPO CURIE) + relationship type",
+            "fields": [
+              {
+                "id": "mondo_id",
+                "type": "external_reference",
+                "external_source": "mondo",
+                "label": "MONDO disease ID",
+                "required": true,
+                "placeholder": "MONDO:0000001"
+              },
+              {
+                "id": "disease_name",
+                "type": "text",
+                "label": "Disease name",
+                "required": true
+              },
+              {
+                "id": "mode_of_inheritance",
+                "type": "select",
+                "label": "Mode of inheritance",
+                "options": [
+                  {
+                    "value": "HP:0000006",
+                    "label": "Autosomal dominant (HP:0000006)"
+                  },
+                  {
+                    "value": "HP:0000007",
+                    "label": "Autosomal recessive (HP:0000007)"
+                  },
+                  {
+                    "value": "HP:0001417",
+                    "label": "X-linked (HP:0001417)"
+                  },
+                  {
+                    "value": "HP:0001423",
+                    "label": "X-linked dominant (HP:0001423)"
+                  },
+                  {
+                    "value": "HP:0001419",
+                    "label": "X-linked recessive (HP:0001419)"
+                  },
+                  {
+                    "value": "HP:0032113",
+                    "label": "Semidominant (HP:0032113)"
+                  },
+                  {
+                    "value": "HP:0001427",
+                    "label": "Mitochondrial (HP:0001427)"
+                  },
+                  {
+                    "value": "HP:0001450",
+                    "label": "Y-linked (HP:0001450)"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "id": "relationship_type",
+                "type": "select",
+                "label": "Relationship type",
+                "options": [
+                  {
+                    "value": "susceptibility",
+                    "label": "Susceptibility (risk allele)"
+                  }
+                ],
+                "required": true,
+                "default": "susceptibility"
+              },
+              {
+                "id": "omim_id",
+                "type": "text",
+                "label": "OMIM ID",
+                "placeholder": "OMIM:143100"
+              },
+              {
+                "id": "orphanet_id",
+                "type": "text",
+                "label": "Orphanet ID",
+                "placeholder": "ORPHA:93",
+                "validation": "orphanet_format"
+              }
+            ]
+          },
+          {
+            "id": "lumping_splitting",
+            "label": "Lumping and splitting",
+            "fields": [
+              {
+                "id": "lumping_splitting_applicable",
+                "type": "boolean",
+                "label": "Lumping or splitting applied",
+                "required": true
+              },
+              {
+                "id": "lumping_splitting_decision",
+                "type": "select",
+                "label": "Decision",
+                "options": [
+                  {
+                    "value": "lump",
+                    "label": "Lump"
+                  },
+                  {
+                    "value": "split",
+                    "label": "Split"
+                  }
+                ],
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              },
+              {
+                "id": "lumping_splitting_rationale",
+                "type": "textarea",
+                "label": "Rationale",
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              },
+              {
+                "id": "replaced_mondo_id",
+                "type": "array",
+                "item_type": "external_reference",
+                "external_source": "mondo",
+                "label": "Replaced MONDO terms",
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              }
+            ]
+          },
+          {
+            "id": "kidney",
+            "label": "Kidney classification",
+            "fields": [
+              {
+                "id": "binning",
+                "type": "select",
+                "label": "Binning",
+                "options": [
+                  {
+                    "value": "isolated",
+                    "label": "Isolated"
+                  },
+                  {
+                    "value": "variable_single_organ",
+                    "label": "Variable, single organ"
+                  },
+                  {
+                    "value": "syndromic",
+                    "label": "Syndromic"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "id": "mechanism",
+                "type": "select",
+                "label": "Mechanism",
+                "options": [
+                  {
+                    "value": "lof",
+                    "label": "Loss of function"
+                  },
+                  {
+                    "value": "gof",
+                    "label": "Gain of function"
+                  },
+                  {
+                    "value": "dn",
+                    "label": "Dominant negative"
+                  },
+                  {
+                    "value": "unknown",
+                    "label": "Unknown"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "id": "kidney_relevance",
+                "type": "textarea",
+                "label": "Kidney relevance",
+                "help_text": "Kidney or urinary tract phenotype (HPO HP:0000079 or MP renal/urinary system); lower urinary tract counts"
+              },
+              {
+                "id": "cakut_subtype",
+                "type": "select",
+                "label": "CAKUT subtype",
+                "options": [
+                  {
+                    "value": "upper",
+                    "label": "Upper urinary tract"
+                  },
+                  {
+                    "value": "lower",
+                    "label": "Lower urinary tract"
+                  },
+                  {
+                    "value": "not_cakut",
+                    "label": "Not CAKUT"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "prefill",
+            "label": "Pre-filled context",
+            "description": "Looked up by the agent (GeneFoundry, KGDB); context only, never scored",
+            "fields": [
+              {
+                "id": "clinvar_plp_count",
+                "type": "number",
+                "label": "ClinVar P/LP variants",
+                "min": 0
+              },
+              {
+                "id": "genereviews_url",
+                "type": "url",
+                "label": "GeneReviews chapter"
+              },
+              {
+                "id": "prefill_notes",
+                "type": "textarea",
+                "label": "Candidate diseases and classifications seen"
+              },
+              {
+                "id": "curator_notes",
+                "type": "textarea",
+                "label": "Curator notes"
+              }
+            ]
+          }
+        ]
+      },
+      "validation_rules": {
+        "required_fields": [
+          "clingen_curated",
+          "mondo_id",
+          "disease_name",
+          "mode_of_inheritance",
+          "relationship_type",
+          "lumping_splitting_applicable",
+          "binning",
+          "mechanism"
+        ],
+        "conditional_required": {
+          "lumping_splitting_decision": {
+            "when": {
+              "lumping_splitting_applicable": true
+            }
+          },
+          "lumping_splitting_rationale": {
+            "when": {
+              "lumping_splitting_applicable": true
+            }
+          }
+        },
+        "orphanet_format": {
+          "type": "regex",
+          "pattern": "^ORPHA:\\d+$",
+          "message": "Orphanet: ORPHA:<digits>"
+        }
+      },
+      "workflow_states": {
+        "entry": {
+          "label": "Entry"
+        },
+        "precuration": {
+          "label": "Precuration"
+        },
+        "curation": {
+          "label": "Curation"
+        },
+        "review": {
+          "label": "Review",
+          "reviewers_required": 1
+        },
+        "active": {
+          "label": "Active"
+        }
+      },
+      "ui_configuration": {
+        "form_layout": "wizard",
+        "show_progress_bar": true,
+        "sections": []
+      },
+      "scoring_configuration": null
+    },
+    {
+      "name": "KGDB Mendelian Curation",
+      "version": "alpha",
+      "schema_type": "curation",
+      "institution": "Kidney Genetics",
+      "description": "KGDB gene-disease validity (alpha, draft iteration 3): cited evidence rows, point model, reviewer flags, clinical diagnostics",
+      "field_definitions": {
+        "genetic": {
+          "type": "object",
+          "label": "Genetic evidence (max 12)",
+          "properties": {
+            "probands": {
+              "type": "evidence_table",
+              "label": "Probands",
+              "help_text": "One row per unrelated proband whose genotype fits the MOI; a sib-pair or one consanguineous family is one proband",
+              "columns": {
+                "proband_label": {
+                  "type": "text",
+                  "label": "Proband",
+                  "required": true
+                },
+                "variant": {
+                  "type": "text",
+                  "label": "Variant (HGVS or rsID; AR: v1 / v2)",
+                  "required": true
+                },
+                "variant_class": {
+                  "type": "select",
+                  "label": "Variant class",
+                  "options": [
+                    {
+                      "value": "lof",
+                      "label": "Loss of function"
+                    },
+                    {
+                      "value": "missense",
+                      "label": "Missense"
+                    },
+                    {
+                      "value": "inframe",
+                      "label": "In-frame"
+                    },
+                    {
+                      "value": "splice",
+                      "label": "Splice"
+                    },
+                    {
+                      "value": "other",
+                      "label": "Other"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "zygosity": {
+                  "type": "select",
+                  "label": "Zygosity",
+                  "options": [
+                    {
+                      "value": "heterozygous",
+                      "label": "Heterozygous"
+                    },
+                    {
+                      "value": "hemizygous",
+                      "label": "Hemizygous"
+                    },
+                    {
+                      "value": "homozygous",
+                      "label": "Homozygous"
+                    },
+                    {
+                      "value": "compound_heterozygous",
+                      "label": "Compound heterozygous"
+                    }
+                  ],
+                  "required": true,
+                  "help_text": "Required: the allele-frequency cutoff keys on it (heterozygous/hemizygous 1e-4, otherwise 2.5e-3)"
+                },
+                "phase": {
+                  "type": "select",
+                  "label": "Phase (required for compound het)",
+                  "options": [
+                    {
+                      "value": "confirmed",
+                      "label": "Confirmed in trans"
+                    },
+                    {
+                      "value": "suspected",
+                      "label": "Suspected in trans"
+                    },
+                    {
+                      "value": "unknown",
+                      "label": "Unknown"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "de_novo": {
+                  "type": "select",
+                  "label": "De novo",
+                  "options": [
+                    {
+                      "value": "confirmed",
+                      "label": "Confirmed (both parents tested)"
+                    },
+                    {
+                      "value": "assumed",
+                      "label": "Assumed"
+                    },
+                    {
+                      "value": "no",
+                      "label": "No"
+                    }
+                  ]
+                },
+                "variant_source": {
+                  "type": "select",
+                  "label": "Variant source",
+                  "options": [
+                    {
+                      "value": "primary",
+                      "label": "Primary paper"
+                    },
+                    {
+                      "value": "clinvar_omim_summary",
+                      "label": "ClinVar OMIM summary"
+                    },
+                    {
+                      "value": "secondary_table",
+                      "label": "Secondary table"
+                    },
+                    {
+                      "value": "not_given",
+                      "label": "Not given"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "allele_frequency": {
+                  "type": "number",
+                  "label": "gnomAD popmax filtering AF",
+                  "min": 0,
+                  "max": 1,
+                  "llm_share": true
+                },
+                "duplicate_of": {
+                  "type": "text",
+                  "label": "Possible duplicate of (proband label)",
+                  "llm_share": true
+                },
+                "pmid": {
+                  "type": "text",
+                  "label": "PMID",
+                  "required": true,
+                  "validation": "pmid_format"
+                },
+                "points": {
+                  "type": "number",
+                  "label": "Points",
+                  "min": 0,
+                  "max": 1.5,
+                  "step": 0.5,
+                  "help_text": "Leave blank for the default (1) or the row rules"
+                },
+                "explanation": {
+                  "type": "textarea",
+                  "label": "Explanation"
+                }
+              }
+            },
+            "segregation": {
+              "type": "evidence_table",
+              "label": "Segregation",
+              "help_text": "One row for the entity: summed LOD of families that reach the minimum (AR >=3 affected, AD >=4 segregations); 2 / 3 / 5 -> 1 / 2 / 3 points",
+              "columns": {
+                "families": {
+                  "type": "integer",
+                  "label": "Families",
+                  "min": 1,
+                  "llm_share": true
+                },
+                "summed_lod": {
+                  "type": "number",
+                  "label": "Summed LOD",
+                  "min": 0,
+                  "llm_share": true
+                },
+                "method_note": {
+                  "type": "textarea",
+                  "label": "LOD method",
+                  "llm_share": true
+                },
+                "pmid": {
+                  "type": "text",
+                  "label": "PMID",
+                  "required": true,
+                  "validation": "pmid_format"
+                }
+              }
+            },
+            "cohort": {
+              "type": "evidence_table",
+              "label": "Cohort (case-control / burden)",
+              "help_text": "A significant case-control or burden study",
+              "columns": {
+                "study_label": {
+                  "type": "text",
+                  "label": "Study",
+                  "required": true
+                },
+                "cases_with_variant": {
+                  "type": "integer",
+                  "label": "Cases with variant",
+                  "min": 0
+                },
+                "cases_total": {
+                  "type": "integer",
+                  "label": "Cases",
+                  "min": 0
+                },
+                "controls_with_variant": {
+                  "type": "integer",
+                  "label": "Controls with variant",
+                  "min": 0
+                },
+                "controls_total": {
+                  "type": "integer",
+                  "label": "Controls",
+                  "min": 0
+                },
+                "odds_ratio": {
+                  "type": "number",
+                  "label": "Odds ratio",
+                  "min": 0
+                },
+                "p_value": {
+                  "type": "number",
+                  "label": "p value",
+                  "min": 0,
+                  "max": 1
+                },
+                "pmid": {
+                  "type": "text",
+                  "label": "PMID",
+                  "required": true,
+                  "validation": "pmid_format"
+                },
+                "points": {
+                  "type": "number",
+                  "label": "Points",
+                  "min": 0,
+                  "max": 2,
+                  "step": 0.5,
+                  "help_text": "Leave blank for the default (2) or the row rules"
+                }
+              }
+            }
+          }
+        },
+        "experimental": {
+          "type": "object",
+          "label": "Experimental evidence (max 6)",
+          "properties": {
+            "models": {
+              "type": "evidence_table",
+              "label": "Models",
+              "help_text": "Animal or cell model whose kidney or urinary-tract phenotype matches (lower urinary tract counts)",
+              "columns": {
+                "organism": {
+                  "type": "text",
+                  "label": "Organism",
+                  "required": true
+                },
+                "genotype": {
+                  "type": "text",
+                  "label": "Genotype",
+                  "llm_share": true
+                },
+                "phenotype": {
+                  "type": "textarea",
+                  "label": "Phenotype",
+                  "llm_share": true
+                },
+                "mechanism_fit": {
+                  "type": "select",
+                  "label": "Genotype fits the mechanism",
+                  "options": [
+                    {
+                      "value": "yes",
+                      "label": "Yes"
+                    },
+                    {
+                      "value": "partial",
+                      "label": "Partial (e.g. KO for an AD LoF entity)"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "morpholino_only": {
+                  "type": "boolean",
+                  "label": "Morpholino data only",
+                  "llm_share": true
+                },
+                "pmid": {
+                  "type": "text",
+                  "label": "PMID",
+                  "required": true,
+                  "validation": "pmid_format"
+                },
+                "points": {
+                  "type": "number",
+                  "label": "Points",
+                  "min": 0,
+                  "max": 2,
+                  "step": 0.5,
+                  "help_text": "Leave blank for the default (2) or the row rules"
+                }
+              }
+            },
+            "functional": {
+              "type": "evidence_table",
+              "label": "Functional",
+              "help_text": "Assay or rescue showing disrupted relevant function",
+              "columns": {
+                "assay": {
+                  "type": "text",
+                  "label": "Assay or rescue",
+                  "required": true,
+                  "llm_share": true
+                },
+                "finding": {
+                  "type": "textarea",
+                  "label": "Finding",
+                  "llm_share": true
+                },
+                "pmid": {
+                  "type": "text",
+                  "label": "PMID",
+                  "required": true,
+                  "validation": "pmid_format"
+                },
+                "points": {
+                  "type": "number",
+                  "label": "Points",
+                  "min": 0,
+                  "max": 1,
+                  "step": 0.5,
+                  "help_text": "Leave blank for the default (1) or the row rules"
+                }
+              }
+            }
+          }
+        },
+        "contradictory_evidence": {
+          "type": "evidence_table",
+          "label": "Contradictory evidence",
+          "help_text": "Disputed or refuted sets the class and needs the reviewer's attention",
+          "columns": {
+            "description": {
+              "type": "textarea",
+              "label": "Counter-evidence",
+              "required": true,
+              "help_text": "High allele frequency, non-segregation, adequate non-replication, model without phenotype, non-significant case-control. Lack of evidence is not contradictory"
+            },
+            "impact": {
+              "type": "select",
+              "label": "Impact",
+              "options": [
+                {
+                  "value": "disputed",
+                  "label": "Disputed"
+                },
+                {
+                  "value": "refuted",
+                  "label": "Refuted"
+                },
+                {
+                  "value": "minor",
+                  "label": "Minor"
+                }
+              ],
+              "required": true
+            },
+            "source": {
+              "type": "select",
+              "label": "Source",
+              "options": [
+                {
+                  "value": "paper",
+                  "label": "Paper"
+                },
+                {
+                  "value": "gnomad",
+                  "label": "gnomAD"
+                },
+                {
+                  "value": "clinvar",
+                  "label": "ClinVar"
+                }
+              ],
+              "llm_share": true
+            },
+            "pmid": {
+              "type": "text",
+              "label": "PMID",
+              "required": true,
+              "validation": "pmid_format"
+            }
+          }
+        },
+        "replicated_over_time": {
+          "type": "boolean",
+          "label": "Replicated over time",
+          "help_text": ">=3 years since the first report and >=2 later papers from independent groups (one multicentre series = one paper)"
+        },
+        "reported_not_scored": {
+          "type": "textarea",
+          "label": "Reported, not scored",
+          "help_text": "Probands claimed in papers that could not be verified (count + PMIDs)",
+          "llm_share": true
+        },
+        "context_notes": {
+          "type": "textarea",
+          "label": "Context (never scored)",
+          "help_text": "STRING, GTEx/Descartes, MGI and other gene-level context",
+          "llm_share": true
+        },
+        "evidence_summary": {
+          "type": "textarea",
+          "label": "Evidence summary"
+        },
+        "diagnostics_notes": {
+          "type": "object",
+          "label": "Diagnostics notes (not part of KGDB diagnostics)",
+          "properties": {
+            "transcript_verified_via": {
+              "type": "text",
+              "label": "Transcript verified via (tool and field)",
+              "llm_share": true
+            },
+            "detectability_note": {
+              "type": "textarea",
+              "label": "Detectability note",
+              "help_text": "e.g. standard short-read testing adequate (CNV calling recommended)",
+              "llm_share": true
+            }
+          }
+        },
+        "diagnostics": {
+          "type": "object",
+          "label": "Clinical diagnostics (non-scoring)",
+          "properties": {
+            "recommended_transcript": {
+              "type": "object",
+              "label": "Recommended transcript",
+              "properties": {
+                "refseq": {
+                  "type": "text",
+                  "label": "RefSeq (NM_ with version)",
+                  "validation": "refseq_format",
+                  "llm_share": true
+                },
+                "ensembl": {
+                  "type": "text",
+                  "label": "Ensembl (ENST with version)",
+                  "validation": "ensembl_format",
+                  "llm_share": true
+                },
+                "mane_status": {
+                  "type": "select",
+                  "label": "MANE status",
+                  "options": [
+                    {
+                      "value": "select",
+                      "label": "MANE Select"
+                    },
+                    {
+                      "value": "plus_clinical",
+                      "label": "MANE Plus Clinical"
+                    },
+                    {
+                      "value": "none",
+                      "label": "No MANE transcript"
+                    },
+                    {
+                      "value": "not_checked",
+                      "label": "Not checked"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "legacy_transcript": {
+                  "type": "text",
+                  "label": "Legacy transcript used in the literature",
+                  "max_length": 50,
+                  "llm_share": true
+                },
+                "numbering_conversion": {
+                  "type": "textarea",
+                  "label": "Numbering conversion note",
+                  "max_length": 500,
+                  "llm_share": true
+                }
+              }
+            },
+            "detectability": {
+              "type": "evidence_table",
+              "label": "Detectability",
+              "help_text": "Why standard short-read testing can miss variants; leave empty when nothing special is known",
+              "columns": {
+                "challenge": {
+                  "type": "select",
+                  "label": "Challenge",
+                  "options": [
+                    {
+                      "value": "vntr_repeat",
+                      "label": "VNTR / repeat"
+                    },
+                    {
+                      "value": "pseudogene_segmental_duplication",
+                      "label": "Pseudogene / segmental duplication"
+                    },
+                    {
+                      "value": "gc_rich_low_coverage",
+                      "label": "GC-rich / low coverage"
+                    },
+                    {
+                      "value": "cnv_whole_gene_or_exon_deletion",
+                      "label": "CNV: whole-gene or exon deletion"
+                    },
+                    {
+                      "value": "structural_variant",
+                      "label": "Structural variant"
+                    },
+                    {
+                      "value": "deep_intronic",
+                      "label": "Deep intronic"
+                    },
+                    {
+                      "value": "mosaicism",
+                      "label": "Mosaicism"
+                    },
+                    {
+                      "value": "other",
+                      "label": "Other"
+                    }
+                  ],
+                  "required": true,
+                  "llm_share": true
+                },
+                "share_of_variants": {
+                  "type": "text",
+                  "label": "Share of variants",
+                  "max_length": 100,
+                  "llm_share": true
+                },
+                "affected_variants": {
+                  "type": "text",
+                  "label": "Variants missed",
+                  "max_length": 300,
+                  "llm_share": true
+                },
+                "methods": {
+                  "type": "multiselect",
+                  "label": "Recommended methods",
+                  "options": [
+                    {
+                      "value": "long_read_sequencing",
+                      "label": "Long-read sequencing"
+                    },
+                    {
+                      "value": "specialised_caller",
+                      "label": "Specialised caller"
+                    },
+                    {
+                      "value": "mlpa_qpcr_array",
+                      "label": "MLPA / qPCR / array"
+                    },
+                    {
+                      "value": "long_range_pcr_sanger",
+                      "label": "Long-range PCR + Sanger"
+                    },
+                    {
+                      "value": "snapshot_minisequencing",
+                      "label": "SNaPshot minisequencing"
+                    },
+                    {
+                      "value": "rna_analysis",
+                      "label": "RNA analysis"
+                    },
+                    {
+                      "value": "genome_sequencing",
+                      "label": "Genome sequencing"
+                    },
+                    {
+                      "value": "ddpcr",
+                      "label": "ddPCR"
+                    },
+                    {
+                      "value": "low_af_calling",
+                      "label": "Low-AF calling"
+                    },
+                    {
+                      "value": "other",
+                      "label": "Other"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "tools": {
+                  "type": "array",
+                  "label": "Tools, one entry each: name | url | PMID or DOI",
+                  "llm_share": true
+                },
+                "negative_report_does_not_exclude": {
+                  "type": "boolean",
+                  "label": "A negative report does not exclude",
+                  "llm_share": true
+                },
+                "sources": {
+                  "type": "array",
+                  "label": "Sources (PMID or DOI)",
+                  "llm_share": true
+                }
+              }
+            },
+            "resources": {
+              "type": "evidence_table",
+              "label": "Resources",
+              "help_text": "Only URLs that were fetched and match their description",
+              "columns": {
+                "type": {
+                  "type": "select",
+                  "label": "Type",
+                  "options": [
+                    {
+                      "value": "patient_organisation",
+                      "label": "Patient organisation"
+                    },
+                    {
+                      "value": "registry",
+                      "label": "Registry"
+                    },
+                    {
+                      "value": "variant_database",
+                      "label": "Variant database"
+                    },
+                    {
+                      "value": "guideline",
+                      "label": "Guideline"
+                    },
+                    {
+                      "value": "other",
+                      "label": "Other"
+                    }
+                  ],
+                  "required": true,
+                  "llm_share": true
+                },
+                "name": {
+                  "type": "text",
+                  "label": "Name",
+                  "required": true,
+                  "min_length": 1,
+                  "max_length": 200,
+                  "llm_share": true
+                },
+                "url": {
+                  "type": "url",
+                  "label": "URL",
+                  "required": true,
+                  "llm_share": true
+                },
+                "language": {
+                  "type": "text",
+                  "label": "Language",
+                  "max_length": 20,
+                  "llm_share": true
+                },
+                "audiences": {
+                  "type": "multiselect",
+                  "label": "Audiences",
+                  "options": [
+                    {
+                      "value": "patients",
+                      "label": "Patients"
+                    },
+                    {
+                      "value": "clinicians",
+                      "label": "Clinicians"
+                    },
+                    {
+                      "value": "labs",
+                      "label": "Labs"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "maintainer": {
+                  "type": "text",
+                  "label": "Maintainer",
+                  "max_length": 200,
+                  "llm_share": true
+                },
+                "conflict_of_interest": {
+                  "type": "text",
+                  "label": "Conflict of interest",
+                  "max_length": 500,
+                  "llm_share": true
+                },
+                "verified_method": {
+                  "type": "select",
+                  "label": "Verified by",
+                  "options": [
+                    {
+                      "value": "fetched",
+                      "label": "Fetched"
+                    },
+                    {
+                      "value": "api",
+                      "label": "API"
+                    },
+                    {
+                      "value": "captcha_title_only",
+                      "label": "Captcha, title only"
+                    }
+                  ],
+                  "required": true,
+                  "llm_share": true
+                },
+                "verified_date": {
+                  "type": "date",
+                  "label": "Verified on",
+                  "required": true,
+                  "llm_share": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "validation_rules": {
+        "pmid_format": {
+          "type": "regex",
+          "pattern": "^(PMID:?\\s*)?\\d{1,9}$",
+          "message": "PMID: 1-9 digits, e.g. 31558469"
+        },
+        "refseq_format": {
+          "type": "regex",
+          "pattern": "^NM_\\d+\\.\\d+$",
+          "message": "RefSeq: NM_ with version, e.g. NM_006580.4"
+        },
+        "ensembl_format": {
+          "type": "regex",
+          "pattern": "^ENST\\d{11}\\.\\d+$",
+          "message": "Ensembl: ENST with version, e.g. ENST00000264734.3"
+        }
+      },
+      "workflow_states": {
+        "entry": {
+          "label": "Entry"
+        },
+        "precuration": {
+          "label": "Precuration"
+        },
+        "curation": {
+          "label": "Curation"
+        },
+        "review": {
+          "label": "Review",
+          "reviewers_required": 1
+        },
+        "active": {
+          "label": "Active"
+        }
+      },
+      "ui_configuration": {
+        "layout": {
+          "type": "tabs",
+          "tabs": [
+            {
+              "id": "summary",
+              "name": "Summary",
+              "icon": "mdi-file-document-outline",
+              "sections": [
+                {
+                  "name": "Evidence summary",
+                  "fields": [
+                    "evidence_summary"
+                  ]
+                },
+                {
+                  "name": "Score summary",
+                  "component": "ScoreSummary"
+                }
+              ]
+            },
+            {
+              "id": "genetic",
+              "name": "Genetic evidence",
+              "icon": "mdi-dna",
+              "show_score_badge": true,
+              "sections": [
+                {
+                  "name": "Probands",
+                  "fields": [
+                    "genetic.probands"
+                  ],
+                  "help_text": "Default 1, de novo confirmed 1.5, cap 10; at most 2 points per recurrent variant"
+                },
+                {
+                  "name": "Segregation",
+                  "fields": [
+                    "genetic.segregation"
+                  ],
+                  "help_text": "Summed LOD 2 / 3 / 5 -> 1 / 2 / 3 points"
+                },
+                {
+                  "name": "Cohort",
+                  "fields": [
+                    "genetic.cohort"
+                  ],
+                  "help_text": "Default 2, cap 4"
+                }
+              ]
+            },
+            {
+              "id": "experimental",
+              "name": "Experimental evidence",
+              "icon": "mdi-flask",
+              "show_score_badge": true,
+              "sections": [
+                {
+                  "name": "Models",
+                  "fields": [
+                    "experimental.models"
+                  ],
+                  "help_text": "Default 2 (1 for a partial mechanism fit or morpholino only), cap 4"
+                },
+                {
+                  "name": "Functional",
+                  "fields": [
+                    "experimental.functional"
+                  ],
+                  "help_text": "Default 1, cap 2"
+                }
+              ]
+            },
+            {
+              "id": "contradictory",
+              "name": "Contradictory and replication",
+              "icon": "mdi-alert-circle-outline",
+              "sections": [
+                {
+                  "name": "Contradictory evidence",
+                  "fields": [
+                    "contradictory_evidence"
+                  ]
+                },
+                {
+                  "name": "Replication and unscored reports",
+                  "fields": [
+                    "replicated_over_time",
+                    "reported_not_scored",
+                    "context_notes"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "diagnostics",
+              "name": "Clinical diagnostics",
+              "icon": "mdi-hospital-box-outline",
+              "sections": [
+                {
+                  "name": "Recommended transcript",
+                  "fields": [
+                    "diagnostics.recommended_transcript",
+                    "diagnostics_notes.transcript_verified_via"
+                  ]
+                },
+                {
+                  "name": "Detectability",
+                  "fields": [
+                    "diagnostics.detectability",
+                    "diagnostics_notes.detectability_note"
+                  ]
+                },
+                {
+                  "name": "Resources",
+                  "fields": [
+                    "diagnostics.resources"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "scoring_configuration": {
+        "engine": "point_model",
+        "point_model": {
+          "name": "KGDB point model (alpha)",
+          "total_cap": 18,
+          "sections": [
+            {
+              "key": "genetic",
+              "cap": 12,
+              "categories": [
+                {
+                  "key": "probands",
+                  "cap": 10,
+                  "types": [
+                    {
+                      "path": "probands",
+                      "default": 1,
+                      "range": [
+                        0,
+                        1.5
+                      ],
+                      "require_variant": true,
+                      "group_by": "variant",
+                      "group_cap": 2,
+                      "points_when": [
+                        {
+                          "field": "de_novo",
+                          "in": [
+                            "confirmed"
+                          ],
+                          "points": 1.5
+                        },
+                        {
+                          "field": "variant_source",
+                          "in": [
+                            "not_given"
+                          ],
+                          "points": 0
+                        },
+                        {
+                          "field": "duplicate_of",
+                          "present": true,
+                          "points": 0
+                        },
+                        {
+                          "field": "phase",
+                          "in": [
+                            "unknown"
+                          ],
+                          "and": [
+                            {
+                              "field": "zygosity",
+                              "in": [
+                                "compound_heterozygous"
+                              ]
+                            }
+                          ],
+                          "points": 0
+                        },
+                        {
+                          "field": "phase",
+                          "present": false,
+                          "and": [
+                            {
+                              "field": "zygosity",
+                              "in": [
+                                "compound_heterozygous"
+                              ]
+                            }
+                          ],
+                          "points": 0
+                        },
+                        {
+                          "field": "zygosity",
+                          "present": false,
+                          "points": 0
+                        },
+                        {
+                          "field": "allele_frequency",
+                          "gt": 0.0025,
+                          "points": 0
+                        },
+                        {
+                          "field": "allele_frequency",
+                          "gt": 0.0001,
+                          "and": [
+                            {
+                              "field": "zygosity",
+                              "in": [
+                                "heterozygous",
+                                "hemizygous"
+                              ]
+                            }
+                          ],
+                          "points": 0
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "key": "segregation",
+                  "cap": 3,
+                  "types": [
+                    {
+                      "path": "segregation",
+                      "rule": "step",
+                      "field": "summed_lod",
+                      "steps": [
+                        {
+                          "min": 2,
+                          "points": 1
+                        },
+                        {
+                          "min": 3,
+                          "points": 2
+                        },
+                        {
+                          "min": 5,
+                          "points": 3
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "key": "cohort",
+                  "cap": 4,
+                  "types": [
+                    {
+                      "path": "cohort",
+                      "default": 2,
+                      "range": [
+                        0,
+                        2
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "experimental",
+              "cap": 6,
+              "categories": [
+                {
+                  "key": "models",
+                  "cap": 4,
+                  "types": [
+                    {
+                      "path": "models",
+                      "default": 2,
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "points_when": [
+                        {
+                          "field": "mechanism_fit",
+                          "in": [
+                            "partial"
+                          ],
+                          "points": 1
+                        },
+                        {
+                          "field": "morpholino_only",
+                          "in": [
+                            true
+                          ],
+                          "points": 1
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "key": "functional",
+                  "cap": 2,
+                  "types": [
+                    {
+                      "path": "functional",
+                      "default": 1,
+                      "range": [
+                        0,
+                        1
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "overrides": [
+            {
+              "when": "contradictory_evidence",
+              "field": "impact",
+              "in": [
+                "refuted"
+              ],
+              "class": "refuted"
+            },
+            {
+              "when": "contradictory_evidence",
+              "field": "impact",
+              "in": [
+                "disputed"
+              ],
+              "class": "disputed"
+            }
+          ],
+          "bands": [
+            {
+              "class": "definitive",
+              "min": 12,
+              "requires": "replicated_over_time",
+              "section_min": {
+                "genetic": 4
+              }
+            },
+            {
+              "class": "strong",
+              "min": 12,
+              "section_min": {
+                "genetic": 4
+              }
+            },
+            {
+              "class": "moderate",
+              "min": 7,
+              "section_min": {
+                "genetic": 4
+              }
+            },
+            {
+              "class": "limited",
+              "min": 0.1
+            },
+            {
+              "class": "no_known",
+              "min": 0
+            }
+          ],
+          "review_flags": {
+            "band_margin": 2,
+            "hotspot": {
+              "max_variants": 2,
+              "min_share": 0.5
+            },
+            "experimental_over_genetic": [
+              "experimental",
+              "genetic"
+            ]
+          }
+        },
+        "classifications": [
+          {
+            "key": "definitive",
+            "label": "Definitive",
+            "order": 1,
+            "tone": "definitive"
+          },
+          {
+            "key": "strong",
+            "label": "Strong",
+            "order": 2,
+            "tone": "strong"
+          },
+          {
+            "key": "moderate",
+            "label": "Moderate",
+            "order": 3,
+            "tone": "moderate"
+          },
+          {
+            "key": "limited",
+            "label": "Limited",
+            "order": 4,
+            "tone": "limited"
+          },
+          {
+            "key": "no_known",
+            "label": "No Known Disease Relationship",
+            "order": 5,
+            "tone": "no_known"
+          },
+          {
+            "key": "disputed",
+            "label": "Disputed",
+            "order": 6,
+            "tone": "disputed"
+          },
+          {
+            "key": "refuted",
+            "label": "Refuted",
+            "order": 7,
+            "tone": "refuted"
+          }
+        ],
+        "tests": [
+          {
+            "name": "CLDN16 (AR HOMG3): 10 probands + 6 experimental, replicated",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000001",
+                    "proband_label": "P1",
+                    "variant": "c.101G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000002",
+                    "proband_label": "P2",
+                    "variant": "c.102G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000003",
+                    "proband_label": "P3",
+                    "variant": "c.103G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000004",
+                    "proband_label": "P4",
+                    "variant": "c.104G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000005",
+                    "proband_label": "P5",
+                    "variant": "c.105G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000006",
+                    "proband_label": "P6",
+                    "variant": "c.106G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000007",
+                    "proband_label": "P7",
+                    "variant": "c.107G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000008",
+                    "proband_label": "P8",
+                    "variant": "c.108G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000009",
+                    "proband_label": "P9",
+                    "variant": "c.109G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000010",
+                    "proband_label": "P10",
+                    "variant": "c.110G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  }
+                ]
+              },
+              "experimental": {
+                "models": [
+                  {
+                    "pmid": "31000020",
+                    "organism": "mouse",
+                    "mechanism_fit": "yes"
+                  },
+                  {
+                    "pmid": "31000021",
+                    "organism": "zebrafish",
+                    "mechanism_fit": "yes"
+                  }
+                ],
+                "functional": [
+                  {
+                    "pmid": "31000022",
+                    "assay": "paracellular Mg2+ flux"
+                  },
+                  {
+                    "pmid": "31000023",
+                    "assay": "tight junction localisation"
+                  }
+                ]
+              },
+              "replicated_over_time": true
+            },
+            "expect": {
+              "total": 16,
+              "class": "definitive"
+            }
+          },
+          {
+            "name": "NEK8 (AD ADPKD): 12 genetic + 2 experimental, not replicated",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000001",
+                    "proband_label": "P1",
+                    "variant": "c.201C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000002",
+                    "proband_label": "P2",
+                    "variant": "c.202C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000003",
+                    "proband_label": "P3",
+                    "variant": "c.203C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000004",
+                    "proband_label": "P4",
+                    "variant": "c.204C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000005",
+                    "proband_label": "P5",
+                    "variant": "c.205C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000006",
+                    "proband_label": "P6",
+                    "variant": "c.206C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000007",
+                    "proband_label": "P7",
+                    "variant": "c.207C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000008",
+                    "proband_label": "P8",
+                    "variant": "c.208C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000009",
+                    "proband_label": "P9",
+                    "variant": "c.209C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000010",
+                    "proband_label": "P10",
+                    "variant": "c.210C>T",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  }
+                ],
+                "segregation": [
+                  {
+                    "pmid": "31000030",
+                    "families": 2,
+                    "summed_lod": 3.2
+                  }
+                ]
+              },
+              "experimental": {
+                "models": [
+                  {
+                    "pmid": "31000031",
+                    "organism": "mouse",
+                    "mechanism_fit": "yes"
+                  }
+                ]
+              },
+              "replicated_over_time": false
+            },
+            "expect": {
+              "total": 14,
+              "class": "strong"
+            }
+          },
+          {
+            "name": "SIX5 (AD BOR): contradictory evidence disputes it",
+            "evidence_data": {
+              "experimental": {
+                "functional": [
+                  {
+                    "pmid": "31000040",
+                    "assay": "reporter assay"
+                  }
+                ]
+              },
+              "contradictory_evidence": [
+                {
+                  "pmid": "31000041",
+                  "description": "Variants too common in gnomAD and fail to segregate",
+                  "impact": "disputed",
+                  "source": "gnomad"
+                }
+              ]
+            },
+            "expect": {
+              "total": 1,
+              "class": "disputed"
+            }
+          },
+          {
+            "name": "DNAJB11-like: genetic 2 + experimental 6 = 8 stays Limited (genetic >= 4 for Moderate+)",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000050",
+                    "proband_label": "P50",
+                    "variant": "c.500A>G / c.501del",
+                    "zygosity": "compound_heterozygous",
+                    "variant_source": "primary",
+                    "phase": "confirmed"
+                  },
+                  {
+                    "pmid": "31000051",
+                    "proband_label": "P51",
+                    "variant": "c.502C>T",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  }
+                ]
+              },
+              "experimental": {
+                "models": [
+                  {
+                    "pmid": "31000052",
+                    "organism": "mouse",
+                    "mechanism_fit": "yes"
+                  },
+                  {
+                    "pmid": "31000053",
+                    "organism": "zebrafish",
+                    "mechanism_fit": "yes"
+                  }
+                ],
+                "functional": [
+                  {
+                    "pmid": "31000054",
+                    "assay": "ER chaperone assay"
+                  },
+                  {
+                    "pmid": "31000055",
+                    "assay": "secretion assay"
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 8,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "Hotspot: 6 probands with one recurrent variant score 2",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000060",
+                    "proband_label": "P60",
+                    "variant": "p.(Arg137His)",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000061",
+                    "proband_label": "P61",
+                    "variant": "p.(Arg137His)",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000062",
+                    "proband_label": "P62",
+                    "variant": "p.(Arg137His)",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000063",
+                    "proband_label": "P63",
+                    "variant": "p.(Arg137His)",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000064",
+                    "proband_label": "P64",
+                    "variant": "p.(Arg137His)",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000065",
+                    "proband_label": "P65",
+                    "variant": "p.(Arg137His)",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary"
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 2,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "Compound het without a phase scores 0 (only confirmed or suspected count)",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000090",
+                    "proband_label": "P90",
+                    "variant": "c.90G>A / c.91del",
+                    "zygosity": "compound_heterozygous",
+                    "variant_source": "primary"
+                  },
+                  {
+                    "pmid": "31000092",
+                    "proband_label": "P92",
+                    "variant": "c.92G>A / c.93del",
+                    "zygosity": "compound_heterozygous",
+                    "variant_source": "primary",
+                    "phase": "suspected"
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 1,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "A row without zygosity scores 0 (the AF cutoff needs it)",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000094",
+                    "proband_label": "P94",
+                    "variant": "c.94G>A",
+                    "zygosity": null,
+                    "variant_source": "primary",
+                    "allele_frequency": 0.001
+                  },
+                  {
+                    "pmid": "31000095",
+                    "proband_label": "P95",
+                    "variant": "c.95G>A",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary",
+                    "allele_frequency": 1e-05
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 1,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "Row rules: de novo 1.5, not_given/duplicate/AF/phase unknown/no PMID 0, AR AF below 2.5e-3 counts; models partial and morpholino 1",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000070",
+                    "proband_label": "P70",
+                    "variant": "c.70G>A",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary",
+                    "de_novo": "confirmed"
+                  },
+                  {
+                    "pmid": "31000071",
+                    "proband_label": "P71",
+                    "variant": "c.71G>A",
+                    "zygosity": "heterozygous",
+                    "variant_source": "not_given"
+                  },
+                  {
+                    "pmid": "31000072",
+                    "proband_label": "P72",
+                    "variant": "c.72G>A",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary",
+                    "duplicate_of": "P70"
+                  },
+                  {
+                    "pmid": "31000073",
+                    "proband_label": "P73",
+                    "variant": "c.73G>A",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary",
+                    "allele_frequency": 0.001
+                  },
+                  {
+                    "pmid": "31000074",
+                    "proband_label": "P74",
+                    "variant": "c.74G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary",
+                    "allele_frequency": 0.001
+                  },
+                  {
+                    "pmid": "31000075",
+                    "proband_label": "P75",
+                    "variant": "c.75G>A / c.76del",
+                    "zygosity": "compound_heterozygous",
+                    "variant_source": "primary",
+                    "phase": "unknown"
+                  },
+                  {
+                    "pmid": "",
+                    "proband_label": "P76",
+                    "variant": "c.77G>A",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary"
+                  }
+                ]
+              },
+              "experimental": {
+                "models": [
+                  {
+                    "pmid": "31000077",
+                    "organism": "mouse",
+                    "mechanism_fit": "partial"
+                  },
+                  {
+                    "pmid": "31000078",
+                    "organism": "zebrafish",
+                    "morpholino_only": true
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 4.5,
+              "class": "limited"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "KGDB Susceptibility Curation",
+      "version": "alpha",
+      "schema_type": "curation",
+      "institution": "Kidney Genetics",
+      "description": "PROVISIONAL, not approved by KGDB: susceptibility (risk allele) curation (alpha), Established / Likely / Uncertain association, off the Mendelian bands",
+      "field_definitions": {
+        "association": {
+          "type": "object",
+          "label": "Association evidence",
+          "properties": {
+            "studies": {
+              "type": "evidence_table",
+              "label": "Association studies",
+              "help_text": "One row per independent association study; no p value, p > 0.05 or a protective odds ratio (< 1) scores 0",
+              "columns": {
+                "study_label": {
+                  "type": "text",
+                  "label": "Study",
+                  "required": true
+                },
+                "design": {
+                  "type": "select",
+                  "label": "Design",
+                  "options": [
+                    {
+                      "value": "case_control",
+                      "label": "Case-control"
+                    },
+                    {
+                      "value": "gwas",
+                      "label": "GWAS"
+                    },
+                    {
+                      "value": "meta_analysis",
+                      "label": "Meta-analysis"
+                    },
+                    {
+                      "value": "family_based",
+                      "label": "Family-based"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "variant": {
+                  "type": "text",
+                  "label": "Risk allele (HGVS or rsID)",
+                  "required": true
+                },
+                "ancestry": {
+                  "type": "text",
+                  "label": "Ancestry",
+                  "llm_share": true
+                },
+                "cases_total": {
+                  "type": "integer",
+                  "label": "Cases",
+                  "min": 0
+                },
+                "controls_total": {
+                  "type": "integer",
+                  "label": "Controls",
+                  "min": 0
+                },
+                "odds_ratio": {
+                  "type": "number",
+                  "label": "Odds ratio",
+                  "min": 0
+                },
+                "p_value": {
+                  "type": "number",
+                  "label": "p value",
+                  "min": 0,
+                  "max": 1
+                },
+                "pmid": {
+                  "type": "text",
+                  "label": "PMID",
+                  "required": true,
+                  "validation": "pmid_format"
+                },
+                "points": {
+                  "type": "number",
+                  "label": "Points",
+                  "min": 0,
+                  "max": 2,
+                  "step": 0.5,
+                  "help_text": "Leave blank for the default (2) or the row rules"
+                }
+              }
+            }
+          }
+        },
+        "experimental": {
+          "type": "object",
+          "label": "Experimental evidence",
+          "properties": {
+            "functional": {
+              "type": "evidence_table",
+              "label": "Functional",
+              "help_text": "Functional data supporting the risk allele",
+              "columns": {
+                "assay": {
+                  "type": "text",
+                  "label": "Assay",
+                  "required": true,
+                  "llm_share": true
+                },
+                "finding": {
+                  "type": "textarea",
+                  "label": "Finding",
+                  "llm_share": true
+                },
+                "pmid": {
+                  "type": "text",
+                  "label": "PMID",
+                  "required": true,
+                  "validation": "pmid_format"
+                },
+                "points": {
+                  "type": "number",
+                  "label": "Points",
+                  "min": 0,
+                  "max": 1,
+                  "step": 0.5,
+                  "help_text": "Leave blank for the default (1) or the row rules"
+                }
+              }
+            }
+          }
+        },
+        "contradictory_evidence": {
+          "type": "evidence_table",
+          "label": "Contradictory evidence",
+          "help_text": "Disputed or refuted sets the class and needs the reviewer's attention",
+          "columns": {
+            "description": {
+              "type": "textarea",
+              "label": "Counter-evidence",
+              "required": true,
+              "help_text": "High allele frequency, non-segregation, adequate non-replication, model without phenotype, non-significant case-control. Lack of evidence is not contradictory"
+            },
+            "impact": {
+              "type": "select",
+              "label": "Impact",
+              "options": [
+                {
+                  "value": "disputed",
+                  "label": "Disputed"
+                },
+                {
+                  "value": "refuted",
+                  "label": "Refuted"
+                },
+                {
+                  "value": "minor",
+                  "label": "Minor"
+                }
+              ],
+              "required": true
+            },
+            "source": {
+              "type": "select",
+              "label": "Source",
+              "options": [
+                {
+                  "value": "paper",
+                  "label": "Paper"
+                },
+                {
+                  "value": "gnomad",
+                  "label": "gnomAD"
+                },
+                {
+                  "value": "clinvar",
+                  "label": "ClinVar"
+                }
+              ],
+              "llm_share": true
+            },
+            "pmid": {
+              "type": "text",
+              "label": "PMID",
+              "required": true,
+              "validation": "pmid_format"
+            }
+          }
+        },
+        "replicated_over_time": {
+          "type": "boolean",
+          "label": "Replicated over time",
+          "help_text": ">=3 years since the first report and >=2 later papers from independent groups (one multicentre series = one paper)"
+        },
+        "reported_not_scored": {
+          "type": "textarea",
+          "label": "Reported, not scored",
+          "help_text": "Probands claimed in papers that could not be verified (count + PMIDs)",
+          "llm_share": true
+        },
+        "context_notes": {
+          "type": "textarea",
+          "label": "Context (never scored)",
+          "help_text": "STRING, GTEx/Descartes, MGI and other gene-level context",
+          "llm_share": true
+        },
+        "evidence_summary": {
+          "type": "textarea",
+          "label": "Evidence summary"
+        },
+        "diagnostics_notes": {
+          "type": "object",
+          "label": "Diagnostics notes (not part of KGDB diagnostics)",
+          "properties": {
+            "transcript_verified_via": {
+              "type": "text",
+              "label": "Transcript verified via (tool and field)",
+              "llm_share": true
+            },
+            "detectability_note": {
+              "type": "textarea",
+              "label": "Detectability note",
+              "help_text": "e.g. standard short-read testing adequate (CNV calling recommended)",
+              "llm_share": true
+            }
+          }
+        },
+        "diagnostics": {
+          "type": "object",
+          "label": "Clinical diagnostics (non-scoring)",
+          "properties": {
+            "recommended_transcript": {
+              "type": "object",
+              "label": "Recommended transcript",
+              "properties": {
+                "refseq": {
+                  "type": "text",
+                  "label": "RefSeq (NM_ with version)",
+                  "validation": "refseq_format",
+                  "llm_share": true
+                },
+                "ensembl": {
+                  "type": "text",
+                  "label": "Ensembl (ENST with version)",
+                  "validation": "ensembl_format",
+                  "llm_share": true
+                },
+                "mane_status": {
+                  "type": "select",
+                  "label": "MANE status",
+                  "options": [
+                    {
+                      "value": "select",
+                      "label": "MANE Select"
+                    },
+                    {
+                      "value": "plus_clinical",
+                      "label": "MANE Plus Clinical"
+                    },
+                    {
+                      "value": "none",
+                      "label": "No MANE transcript"
+                    },
+                    {
+                      "value": "not_checked",
+                      "label": "Not checked"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "legacy_transcript": {
+                  "type": "text",
+                  "label": "Legacy transcript used in the literature",
+                  "max_length": 50,
+                  "llm_share": true
+                },
+                "numbering_conversion": {
+                  "type": "textarea",
+                  "label": "Numbering conversion note",
+                  "max_length": 500,
+                  "llm_share": true
+                }
+              }
+            },
+            "detectability": {
+              "type": "evidence_table",
+              "label": "Detectability",
+              "help_text": "Why standard short-read testing can miss variants; leave empty when nothing special is known",
+              "columns": {
+                "challenge": {
+                  "type": "select",
+                  "label": "Challenge",
+                  "options": [
+                    {
+                      "value": "vntr_repeat",
+                      "label": "VNTR / repeat"
+                    },
+                    {
+                      "value": "pseudogene_segmental_duplication",
+                      "label": "Pseudogene / segmental duplication"
+                    },
+                    {
+                      "value": "gc_rich_low_coverage",
+                      "label": "GC-rich / low coverage"
+                    },
+                    {
+                      "value": "cnv_whole_gene_or_exon_deletion",
+                      "label": "CNV: whole-gene or exon deletion"
+                    },
+                    {
+                      "value": "structural_variant",
+                      "label": "Structural variant"
+                    },
+                    {
+                      "value": "deep_intronic",
+                      "label": "Deep intronic"
+                    },
+                    {
+                      "value": "mosaicism",
+                      "label": "Mosaicism"
+                    },
+                    {
+                      "value": "other",
+                      "label": "Other"
+                    }
+                  ],
+                  "required": true,
+                  "llm_share": true
+                },
+                "share_of_variants": {
+                  "type": "text",
+                  "label": "Share of variants",
+                  "max_length": 100,
+                  "llm_share": true
+                },
+                "affected_variants": {
+                  "type": "text",
+                  "label": "Variants missed",
+                  "max_length": 300,
+                  "llm_share": true
+                },
+                "methods": {
+                  "type": "multiselect",
+                  "label": "Recommended methods",
+                  "options": [
+                    {
+                      "value": "long_read_sequencing",
+                      "label": "Long-read sequencing"
+                    },
+                    {
+                      "value": "specialised_caller",
+                      "label": "Specialised caller"
+                    },
+                    {
+                      "value": "mlpa_qpcr_array",
+                      "label": "MLPA / qPCR / array"
+                    },
+                    {
+                      "value": "long_range_pcr_sanger",
+                      "label": "Long-range PCR + Sanger"
+                    },
+                    {
+                      "value": "snapshot_minisequencing",
+                      "label": "SNaPshot minisequencing"
+                    },
+                    {
+                      "value": "rna_analysis",
+                      "label": "RNA analysis"
+                    },
+                    {
+                      "value": "genome_sequencing",
+                      "label": "Genome sequencing"
+                    },
+                    {
+                      "value": "ddpcr",
+                      "label": "ddPCR"
+                    },
+                    {
+                      "value": "low_af_calling",
+                      "label": "Low-AF calling"
+                    },
+                    {
+                      "value": "other",
+                      "label": "Other"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "tools": {
+                  "type": "array",
+                  "label": "Tools, one entry each: name | url | PMID or DOI",
+                  "llm_share": true
+                },
+                "negative_report_does_not_exclude": {
+                  "type": "boolean",
+                  "label": "A negative report does not exclude",
+                  "llm_share": true
+                },
+                "sources": {
+                  "type": "array",
+                  "label": "Sources (PMID or DOI)",
+                  "llm_share": true
+                }
+              }
+            },
+            "resources": {
+              "type": "evidence_table",
+              "label": "Resources",
+              "help_text": "Only URLs that were fetched and match their description",
+              "columns": {
+                "type": {
+                  "type": "select",
+                  "label": "Type",
+                  "options": [
+                    {
+                      "value": "patient_organisation",
+                      "label": "Patient organisation"
+                    },
+                    {
+                      "value": "registry",
+                      "label": "Registry"
+                    },
+                    {
+                      "value": "variant_database",
+                      "label": "Variant database"
+                    },
+                    {
+                      "value": "guideline",
+                      "label": "Guideline"
+                    },
+                    {
+                      "value": "other",
+                      "label": "Other"
+                    }
+                  ],
+                  "required": true,
+                  "llm_share": true
+                },
+                "name": {
+                  "type": "text",
+                  "label": "Name",
+                  "required": true,
+                  "min_length": 1,
+                  "max_length": 200,
+                  "llm_share": true
+                },
+                "url": {
+                  "type": "url",
+                  "label": "URL",
+                  "required": true,
+                  "llm_share": true
+                },
+                "language": {
+                  "type": "text",
+                  "label": "Language",
+                  "max_length": 20,
+                  "llm_share": true
+                },
+                "audiences": {
+                  "type": "multiselect",
+                  "label": "Audiences",
+                  "options": [
+                    {
+                      "value": "patients",
+                      "label": "Patients"
+                    },
+                    {
+                      "value": "clinicians",
+                      "label": "Clinicians"
+                    },
+                    {
+                      "value": "labs",
+                      "label": "Labs"
+                    }
+                  ],
+                  "llm_share": true
+                },
+                "maintainer": {
+                  "type": "text",
+                  "label": "Maintainer",
+                  "max_length": 200,
+                  "llm_share": true
+                },
+                "conflict_of_interest": {
+                  "type": "text",
+                  "label": "Conflict of interest",
+                  "max_length": 500,
+                  "llm_share": true
+                },
+                "verified_method": {
+                  "type": "select",
+                  "label": "Verified by",
+                  "options": [
+                    {
+                      "value": "fetched",
+                      "label": "Fetched"
+                    },
+                    {
+                      "value": "api",
+                      "label": "API"
+                    },
+                    {
+                      "value": "captcha_title_only",
+                      "label": "Captcha, title only"
+                    }
+                  ],
+                  "required": true,
+                  "llm_share": true
+                },
+                "verified_date": {
+                  "type": "date",
+                  "label": "Verified on",
+                  "required": true,
+                  "llm_share": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "validation_rules": {
+        "pmid_format": {
+          "type": "regex",
+          "pattern": "^(PMID:?\\s*)?\\d{1,9}$",
+          "message": "PMID: 1-9 digits, e.g. 31558469"
+        },
+        "refseq_format": {
+          "type": "regex",
+          "pattern": "^NM_\\d+\\.\\d+$",
+          "message": "RefSeq: NM_ with version, e.g. NM_006580.4"
+        },
+        "ensembl_format": {
+          "type": "regex",
+          "pattern": "^ENST\\d{11}\\.\\d+$",
+          "message": "Ensembl: ENST with version, e.g. ENST00000264734.3"
+        }
+      },
+      "workflow_states": {
+        "entry": {
+          "label": "Entry"
+        },
+        "precuration": {
+          "label": "Precuration"
+        },
+        "curation": {
+          "label": "Curation"
+        },
+        "review": {
+          "label": "Review",
+          "reviewers_required": 1
+        },
+        "active": {
+          "label": "Active"
+        }
+      },
+      "ui_configuration": {
+        "layout": {
+          "type": "tabs",
+          "tabs": [
+            {
+              "id": "summary",
+              "name": "Summary",
+              "icon": "mdi-file-document-outline",
+              "sections": [
+                {
+                  "name": "Evidence summary",
+                  "fields": [
+                    "evidence_summary"
+                  ]
+                },
+                {
+                  "name": "Score summary",
+                  "component": "ScoreSummary"
+                }
+              ]
+            },
+            {
+              "id": "association",
+              "name": "Association evidence",
+              "icon": "mdi-dna",
+              "show_score_badge": true,
+              "sections": [
+                {
+                  "name": "Association studies",
+                  "fields": [
+                    "association.studies"
+                  ],
+                  "help_text": "Default 2 per significant study, cap 6"
+                },
+                {
+                  "name": "Functional",
+                  "fields": [
+                    "experimental.functional"
+                  ],
+                  "help_text": "Default 1, cap 2"
+                }
+              ]
+            },
+            {
+              "id": "contradictory",
+              "name": "Contradictory and replication",
+              "icon": "mdi-alert-circle-outline",
+              "sections": [
+                {
+                  "name": "Contradictory evidence",
+                  "fields": [
+                    "contradictory_evidence"
+                  ]
+                },
+                {
+                  "name": "Replication and unscored reports",
+                  "fields": [
+                    "replicated_over_time",
+                    "reported_not_scored",
+                    "context_notes"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "diagnostics",
+              "name": "Clinical diagnostics",
+              "icon": "mdi-hospital-box-outline",
+              "sections": [
+                {
+                  "name": "Recommended transcript",
+                  "fields": [
+                    "diagnostics.recommended_transcript",
+                    "diagnostics_notes.transcript_verified_via"
+                  ]
+                },
+                {
+                  "name": "Detectability",
+                  "fields": [
+                    "diagnostics.detectability",
+                    "diagnostics_notes.detectability_note"
+                  ]
+                },
+                {
+                  "name": "Resources",
+                  "fields": [
+                    "diagnostics.resources"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "scoring_configuration": {
+        "engine": "point_model",
+        "point_model": {
+          "name": "KGDB susceptibility model (alpha)",
+          "total_cap": 8,
+          "sections": [
+            {
+              "key": "association",
+              "cap": 6,
+              "categories": [
+                {
+                  "key": "studies",
+                  "cap": 6,
+                  "types": [
+                    {
+                      "path": "studies",
+                      "default": 2,
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "require_variant": true,
+                      "points_when": [
+                        {
+                          "field": "p_value",
+                          "gt": 0.05,
+                          "points": 0
+                        },
+                        {
+                          "field": "p_value",
+                          "present": false,
+                          "points": 0
+                        },
+                        {
+                          "field": "odds_ratio",
+                          "lt": 1,
+                          "points": 0
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "key": "experimental",
+              "cap": 2,
+              "categories": [
+                {
+                  "key": "functional",
+                  "cap": 2,
+                  "types": [
+                    {
+                      "path": "functional",
+                      "default": 1,
+                      "range": [
+                        0,
+                        1
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "overrides": [
+            {
+              "when": "contradictory_evidence",
+              "field": "impact",
+              "in": [
+                "disputed",
+                "refuted"
+              ],
+              "class": "uncertain"
+            }
+          ],
+          "bands": [
+            {
+              "class": "established",
+              "min": 4,
+              "requires": "replicated_over_time",
+              "section_min": {
+                "association": 4
+              }
+            },
+            {
+              "class": "likely",
+              "min": 2,
+              "section_min": {
+                "association": 2
+              }
+            },
+            {
+              "class": "uncertain"
+            }
+          ],
+          "review_flags": {
+            "band_margin": 1
+          }
+        },
+        "classifications": [
+          {
+            "key": "established",
+            "label": "Established association",
+            "order": 1,
+            "tone": "definitive"
+          },
+          {
+            "key": "likely",
+            "label": "Likely association",
+            "order": 2,
+            "tone": "moderate"
+          },
+          {
+            "key": "uncertain",
+            "label": "Uncertain association",
+            "order": 3,
+            "tone": "limited"
+          }
+        ],
+        "tests": [
+          {
+            "name": "Established: two significant studies, replicated",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 0.001
+                  },
+                  {
+                    "pmid": "31000081",
+                    "study_label": "Cohort B",
+                    "variant": "rs4844573",
+                    "p_value": 0.01
+                  }
+                ]
+              },
+              "replicated_over_time": true
+            },
+            "expect": {
+              "total": 4,
+              "class": "established"
+            }
+          },
+          {
+            "name": "Likely: two significant studies, not replicated",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 0.001
+                  },
+                  {
+                    "pmid": "31000081",
+                    "study_label": "Cohort B",
+                    "variant": "rs4844573",
+                    "p_value": 0.01
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 4,
+              "class": "likely"
+            }
+          },
+          {
+            "name": "Uncertain: a non-significant study scores 0",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000082",
+                    "study_label": "Cohort C",
+                    "variant": "rs4844573",
+                    "p_value": 0.2
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 0,
+              "class": "uncertain"
+            }
+          },
+          {
+            "name": "Uncertain: no p value or a protective odds ratio scores 0",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000084",
+                    "study_label": "Cohort D",
+                    "variant": "rs4844573"
+                  },
+                  {
+                    "pmid": "31000085",
+                    "study_label": "Cohort E",
+                    "variant": "rs4844573",
+                    "p_value": 0.001,
+                    "odds_ratio": 0.6
+                  }
+                ]
+              },
+              "replicated_over_time": true
+            },
+            "expect": {
+              "total": 0,
+              "class": "uncertain"
+            }
+          },
+          {
+            "name": "Uncertain: refuted evidence overrides two significant studies",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 0.001
+                  },
+                  {
+                    "pmid": "31000081",
+                    "study_label": "Cohort B",
+                    "variant": "rs4844573",
+                    "p_value": 0.01
+                  }
+                ]
+              },
+              "replicated_over_time": true,
+              "contradictory_evidence": [
+                {
+                  "pmid": "31000086",
+                  "description": "Association not replicated in a large cohort",
+                  "impact": "refuted"
+                }
+              ]
+            },
+            "expect": {
+              "total": 4,
+              "class": "uncertain"
+            }
+          },
+          {
+            "name": "Uncertain: functional data alone",
+            "evidence_data": {
+              "experimental": {
+                "functional": [
+                  {
+                    "pmid": "31000083",
+                    "assay": "complement assay"
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 1,
+              "class": "uncertain"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "workflow_pairs": [
+    {
+      "name": "KGDB Mendelian",
+      "version": "alpha",
+      "description": "KGDB gene-disease validity: Mendelian precuration -> Mendelian curation",
+      "precuration_schema": "KGDB Mendelian Precuration",
+      "curation_schema": "KGDB Mendelian Curation"
+    },
+    {
+      "name": "KGDB Susceptibility",
+      "version": "alpha",
+      "description": "PROVISIONAL, not approved by KGDB: susceptibility (risk allele) precuration -> susceptibility curation",
+      "precuration_schema": "KGDB Susceptibility Precuration",
+      "curation_schema": "KGDB Susceptibility Curation"
+    }
+  ],
+  "scope_default": {
+    "scope_name": "kidney-genetics",
+    "workflow_pair": "KGDB Mendelian"
+  }
+}
