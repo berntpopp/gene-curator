@@ -54,6 +54,7 @@
 | #546 | schema verdicts, MONDO susceptibility | targeted pytest (313), `make check`, `make ci` (55487, incl. test-postgres), diff-cover 100% |
 | #547 | export | `make ci` (55486, all lanes incl. test-postgres, api-types-check, zizmor), diff-cover 100% |
 | #548 | url fields | targeted pytest + Vitest, `make ci` (55484, incl. test-postgres), diff-cover 90% / 91% |
+| #549 | leave guard and status after approval | targeted Vitest, `make check`; comment: `make ci` (55488, incl. test-postgres), diff-cover 100% |
 | this PR | release v0.10.1 | see the PR body |
 
 ## Monkey results
@@ -61,7 +62,7 @@
 - Round 1 ([#536](https://github.com/berntpopp/gene-curator/pull/536)): LLM prompt missed disease/MONDO/MOI from the nested shape; two parallel second views could both queue; failed reruns hid status; HTML-escaped prompt data mangled `c.1000C>T`; MockProvider output did not match the schema; My work offered "Start precuration" for a gene someone else started; ScorePanel reasons, audit-trail 404, revoke label, 422 logged as database error; 068 MONDO lookup on seeded schemas.
 - Round 2 ([#541](https://github.com/berntpopp/gene-curator/pull/541)): RLS defeated the reviewer `FOR UPDATE` lock (advisory lock instead); empty proposals failed mock runs; gene page conflict banner, scope count, MOI labels; several-entity palette cap and entity chooser; legacy blocker message; 069 XLD = HP:0001423.
 - Round 3 ([#543](https://github.com/berntpopp/gene-curator/pull/543)): database logging never wrote to `system_logs`; entity choice on a plain new curation; second-view links for reviewers; leave prompt on untouched forms; raw UUID in the approval notice; MCP `curation_created: false` wording.
-- Chrome pass (W8L, leave-guard fixes): PR not open when this report was written; add its findings when it merges.
+- Chrome pass on master f2a3138d ([#549](https://github.com/berntpopp/gene-curator/pull/549), W8L): add-then-delete of a table row prompted "Leave without saving?"; the precuration form had no leave guard, so an unsaved MONDO pick could be lost; the header said Submitted after approval. The Unsaved changes label on untouched new forms is unchanged (#470 pending).
 
 ## Real LLM eval
 
