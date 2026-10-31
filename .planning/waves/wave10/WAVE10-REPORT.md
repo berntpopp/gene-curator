@@ -137,6 +137,8 @@ This wave:
 - R3-1: the MONDO picker shows "MONDO disease is required" before any input on an untouched precuration.
 - R3-2: a nested select (diagnostics `mane_status`) shows the raw value, not the label, in Evidence changes.
 - Not checked in round 3: second approval activating WT1; phone width of KGDB forms.
+- `scoring/point_model.py` module docstring (~13-14) still says the first rule wins and omits `present`;
+  a 0-point rule always wins and other rules fill only blank points (#582).
 - Skipped polish from #587: Tests still need hand-written evidence JSON; Create stays on the list; Text/String and
   Single choice/Choice (enum) duplicates; raw OS file chooser for import; resolve step does not flag genes already in
   scope; phone empty state off-screen in the catalogue.
