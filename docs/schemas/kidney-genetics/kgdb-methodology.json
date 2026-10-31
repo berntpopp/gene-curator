@@ -697,6 +697,7 @@
           "disease_name",
           "mode_of_inheritance",
           "relationship_type",
+          "risk_allele",
           "lumping_splitting_applicable",
           "binning",
           "mechanism"

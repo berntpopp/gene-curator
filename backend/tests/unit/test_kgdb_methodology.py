@@ -189,3 +189,18 @@ def test_moi_options_carry_their_hpo_label() -> None:
         ]
         for option in moi["options"]:
             assert option["label"] == f"{hpo[option['value']]} ({option['value']})"
+
+
+@pytest.mark.parametrize(
+    "name", ["KGDB Mendelian Precuration", "KGDB Susceptibility Precuration"]
+)
+def test_required_fields_list_every_required_field(name: str) -> None:
+    """KGDB end-to-end: a field marked required is also in validation_rules."""
+    schema = SCHEMAS[name]
+    required = {
+        f["id"]
+        for s in schema["field_definitions"]["sections"]
+        for f in s["fields"]
+        if f.get("required")
+    }
+    assert set(schema["validation_rules"]["required_fields"]) == required
