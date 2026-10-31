@@ -56,3 +56,11 @@ def test_the_latest_software_write_wins_whatever_the_input_type() -> None:
     lines = [EvidenceLine(path="r[0]", contributions=[older, newer])]
     [_, software] = curation_contributions("A", T, None, None, lines)
     assert software.date == datetime(2026, 10, 3, 10, tzinfo=UTC)
+
+
+def test_a_prefixed_pmid_source_exports_bare_digits() -> None:
+    """MUI-15: "PMID:20414234" is accepted and exported as 20414234."""
+    from app.services.export_provenance import _source
+
+    out = _source({"kind": "pmid", "id": "PMID:20414234"})
+    assert (out.id, out.pmid) == ("20414234", "20414234")

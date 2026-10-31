@@ -12,6 +12,8 @@ pytestmark = pytest.mark.unit
 
 GOOD = [
     ("pmid", "12345678"),
+    ("pmid", "PMID:20414234"),  # MUI-15: the prefix is accepted
+    ("pmid", "pmid: 20414234"),
     ("doi", "10.1038/s41586-020-2308-7"),
     ("clinvar", "VCV000012345"),
     ("clinvar", "SCV000123456.2"),
