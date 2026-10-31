@@ -109,8 +109,12 @@ def _reference(
     gene = db.get(Gene, curation.gene_id)
     mondo, _, rest = curation.entity_key.partition("|")
     moi = rest.partition("|")[0]
-    errors = entity_errors(
-        record, gene.hgnc_id if gene else "", mondo, moi, "clingen_reference"
+    errors = (
+        entity_errors(
+            record, gene.hgnc_id if gene else "", mondo, moi, "clingen_reference"
+        )
+        if mondo
+        else ["clingen_reference: the curation has no MONDO id and MOI yet"]
     )
     if errors:
         raise HTTPException(

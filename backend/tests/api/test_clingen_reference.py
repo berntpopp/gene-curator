@@ -106,6 +106,16 @@ def _detail(client: TestClient, token: str, cid: object) -> Any:
     return r.json()
 
 
+def test_a_curation_without_an_entity_takes_no_reference(
+    client: TestClient, admin_token: str, test_curation: CurationNew, test_gene: Gene
+) -> None:
+    r = _put(
+        client, admin_token, test_curation.id, clingen_reference=_record(test_gene)
+    )
+    assert r.status_code == 422, r.text
+    assert [e["path"] for e in r.json()["detail"]["errors"]] == ["clingen_reference"]
+
+
 @pytest.mark.parametrize(
     ("ours", "key", "rationale", "needs"),
     [
