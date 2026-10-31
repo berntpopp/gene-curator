@@ -35,10 +35,13 @@ def no_rls_on_sqlite() -> Iterator[None]:
 @pytest.fixture
 def team(db_session: Session) -> dict:
     scope = make_scope(db_session)
-    users = {r: make_user(db_session) for r in ("author", "sadmin", "other")}
+    users = {
+        r: make_user(db_session) for r in ("author", "sadmin", "other", "reviewer")
+    }
     make_member(db_session, scope, users["author"], "curator")
     make_member(db_session, scope, users["sadmin"], "admin")
     make_member(db_session, scope, users["other"], "curator")
+    make_member(db_session, scope, users["reviewer"], "reviewer")
     return {"scope": scope, **users}
 
 
@@ -69,6 +72,10 @@ def test_admin_edits_a_precuration_and_then_may_not_approve_it(
         )
         assert r.status_code == 403, (action, r.text)
         assert "4-eyes" in r.json()["detail"]
+    # a third member, neither author nor editor, still approves it
+    r = client.post(f"{url}/approve", headers=auth_headers(team["reviewer"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["approved"] is True
 
 
 def test_curation_put_needs_the_author_or_a_scope_admin(
@@ -91,3 +98,40 @@ def test_curation_put_needs_the_author_or_a_scope_admin(
     body["lock_version"] = r.json()["lock_version"]
     r = client.put(url, json=body, headers=auth_headers(team["sadmin"]))
     assert r.status_code == 200, r.text
+
+
+def test_admin_edits_a_curation_and_a_third_reviewer_approves_it(
+    client: TestClient, db_session: Session, team: dict
+) -> None:
+    curation = make_curation(
+        db_session,
+        scope=team["scope"],
+        gene=make_gene(db_session),
+        creator=team["author"],
+        stage=WorkflowStage.CURATION,
+        status=CurationStatus.DRAFT,
+    )
+    body = {"evidence_data": {"note": "x"}, "lock_version": curation.lock_version}
+    r = client.patch(
+        f"/api/v1/curations/{curation.id}/draft",
+        json=body,
+        headers=auth_headers(team["sadmin"]),
+    )
+    assert r.status_code == 200, r.text
+    curation.status, curation.workflow_stage = (
+        CurationStatus.SUBMITTED,
+        WorkflowStage.REVIEW,
+    )
+    db_session.commit()
+    url = f"/api/v1/workflow/curation/{curation.id}"
+    move = {"target_stage": "active", "notes": "ok"}
+    r = client.post(
+        f"{url}/transition", json=move, headers=auth_headers(team["sadmin"])
+    )
+    assert r.status_code == 403, r.text
+    r = client.post(
+        f"{url}/transition", json=move, headers=auth_headers(team["reviewer"])
+    )
+    assert r.status_code == 200, r.text
+    db_session.refresh(curation)
+    assert curation.status == CurationStatus.ACTIVE

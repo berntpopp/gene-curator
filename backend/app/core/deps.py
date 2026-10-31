@@ -203,6 +203,10 @@ async def get_async_db(
             if not isinstance(e, HTTPException):
                 logger.error("Async database error", error=e)
             await session.rollback()
+            if isinstance(e, ConnectionError):  # the database is down: 503, not 500
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE, "Database unavailable"
+                ) from e
             raise
 
 

@@ -97,16 +97,16 @@ def _no_real_async_database(
     )
     from sqlalchemy.pool import NullPool
 
-    from app.core import deps
+    from app.core import database, deps
 
     engine = create_async_engine(  # port 9 (discard): refused at once, no network
         "postgresql+asyncpg://test:test@127.0.0.1:9/none", poolclass=NullPool
     )
-    monkeypatch.setattr(
-        deps,
-        "AsyncSessionLocal",
-        async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False),
-    )
+    safe = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    monkeypatch.setattr(deps, "AsyncSessionLocal", safe)
+    # the database log handler, and app.core.logging when it initialises it again
+    monkeypatch.setattr(database, "AsyncSessionLocal", safe)
+    monkeypatch.setattr(get_database_logger(), "session_factory", safe)
 
 
 @pytest.fixture(autouse=True)
