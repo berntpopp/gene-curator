@@ -36,8 +36,8 @@
               label="Section key"
               variant="outlined"
               :hint="
-                sections.some(o => o.value === section.key)
-                  ? 'Types read the tables inside this form field'
+                readsInside(fieldDefinitions, section.key)
+                  ? 'Types read inside this form field'
                   : 'Types read the form\'s tables from the top level'
               "
               persistent-hint
@@ -130,7 +130,7 @@
   import { computed, ref } from 'vue'
   import FieldPicker from './FieldPicker.vue'
   import PointModelTypes from './PointModelTypes.vue'
-  import { sectionOptions, tableOptions } from './evidenceFields'
+  import { readsInside, sectionOptions, tableOptions } from './evidenceFields'
   import { MODEL_PATH, setNumber, type Category, type DiagFn, type PointModel } from './pointModel'
 
   const props = defineProps<{

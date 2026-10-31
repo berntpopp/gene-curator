@@ -6,7 +6,7 @@ import FieldPicker from '../FieldPicker.vue'
 import PointModelRowRules from '../PointModelRowRules.vue'
 import PointModelSections from '../PointModelSections.vue'
 import PointModelTypes from '../PointModelTypes.vue'
-import { sectionOptions, tableOptions, topFields } from '../evidenceFields'
+import { readsInside, sectionOptions, tableOptions, topFields } from '../evidenceFields'
 import { call, vmOf } from '@/views/__tests__/vm'
 import type { ItemType, PointModel, PointsWhen } from '../pointModel'
 
@@ -64,6 +64,11 @@ describe('evidenceFields', () => {
       a: { id: 'a' }
     })
     expect(tableOptions(null, 'x')).toEqual([])
+    // a key naming a top-level table is read inside it, as the scorer does: no top-level tables
+    expect(readsInside(flat, 'probands')).toBe(true)
+    expect(tableOptions(flat, 'probands')).toEqual([])
+    expect(readsInside(flat, 'genetic')).toBe(true)
+    expect(readsInside(flat, 'anything')).toBe(false)
   })
 })
 
@@ -97,6 +102,10 @@ describe('pickers in the point model', () => {
     const cols = vmOf(types).columnsOf as (i: ItemType) => { value: string }[]
     expect(cols({ path: 'probands' }).map(c => c.value)).toContain('variant_class')
     expect(cols({ path: 'nowhere' })).toEqual([])
+    expect(w.text()).toContain("Types read the form's tables from the top level")
+    model.sections[0]!.key = 'probands'
+    await nextTick()
+    expect(w.text()).toContain('Types read inside this form field')
   })
 
   it('offers the values of a choice column and tests a blank field', async () => {

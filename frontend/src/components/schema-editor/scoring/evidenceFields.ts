@@ -83,11 +83,15 @@ export function sectionOptions(defs: unknown): Option[] {
     .map(([key, cfg]) => option(key, obj(cfg)))
 }
 
+/** Whether a section reads inside its own key: it names a top-level field, as the scorer
+ * and `_check_model_paths` resolve it; any other key reads from the top level. */
+export const readsInside = (defs: unknown, sectionKey: string) => sectionKey in topFields(defs)
+
 /** Evidence tables a section's types can read, with paths as the scorer resolves them. */
 export function tableOptions(defs: unknown, sectionKey: string): TableOption[] {
   const top = topFields(defs)
-  const own = obj(obj(top[sectionKey])?.properties)
   const out: TableOption[] = []
-  walk(own ?? top, '', out)
+  if (!readsInside(defs, sectionKey)) walk(top, '', out)
+  else walk(obj(obj(top[sectionKey])?.properties) ?? {}, '', out)
   return out
 }
