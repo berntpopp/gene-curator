@@ -1,7 +1,7 @@
 """Gene Curator as an MCP server: every tool is an existing API route (#462).
 
 FastMCP builds the tools from the app's OpenAPI and calls the routes in process over
-httpx.ASGITransport, so routers, Depends, capabilities, D1, lock_version and RLS apply
+httpx2.ASGITransport, so routers, Depends, capabilities, D1, lock_version and RLS apply
 exactly as in the API. There is no second code path and no new endpoint.
 """
 
@@ -10,7 +10,7 @@ from collections import Counter
 from typing import Any, cast
 from urllib.parse import quote
 
-import httpx
+import httpx2
 from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
 from fastmcp import FastMCP
@@ -351,10 +351,10 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     # Spec defaults are left out: a write is neither read-only nor idempotent, and
     # destructiveHint means nothing on a read
     tool.annotations = ToolAnnotations(
-        readOnlyHint=read_only or None,
-        destructiveHint=None if read_only else destructive,
-        idempotentHint=read_only or None,
-        openWorldHint=False,
+        read_only_hint=read_only or None,
+        destructive_hint=None if read_only else destructive,
+        idempotent_hint=read_only or None,
+        open_world_hint=False,
     )
     tool.tags = set()  # nothing selects by tag; each tag repeats in the list
 
@@ -443,13 +443,13 @@ class CallerToolFilter(Middleware):
         tools = await call_next(context)
         token = get_access_token()
         if token is not None and "write" not in token.scopes:  # monkey L4
-            tools = [t for t in tools if t.annotations and t.annotations.readOnlyHint]
+            tools = [t for t in tools if t.annotations and t.annotations.read_only_hint]
         if token is not None and token.claims.get("role") == "admin":
             return tools
         return [tool for tool in tools if tool.name not in self.admin_only]
 
 
-async def _as_caller(request: httpx.Request) -> None:
+async def _as_caller(request: httpx2.Request) -> None:
     """Every internal call carries the caller's own token and the MCP channel.
 
     FastMCP strips Authorization before calling the API; never replace it with a
@@ -479,8 +479,8 @@ def create_mcp(app: FastAPI, *, core: bool = False) -> FastMCP:
         RouteMap(pattern=r"^/api/v1/", mcp_type=MCPType.TOOL),
         RouteMap(mcp_type=MCPType.EXCLUDE),  # /, /health: not API operations
     ]
-    client = httpx.AsyncClient(
-        transport=httpx.ASGITransport(
+    client = httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(
             app=mark_internal(app),
             raise_app_exceptions=False,  # a 500 stays a 500
         ),

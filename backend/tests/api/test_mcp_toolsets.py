@@ -208,7 +208,10 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     client: TestClient, db_session: Session, test_user_curator: UserNew
 ) -> None:
     tools = _tools(client, pat(db_session, test_user_curator), "/mcp")
-    text = json.dumps(list(tools.values()))
+    # fastmcp 4 gives every tool a display title; schemas stay title-free
+    text = json.dumps(
+        [{k: v for k, v in t.items() if k != "title"} for t in tools.values()]
+    )
     assert '"title"' not in text and ".0," not in text
     text = tools["save_draft_curations"]["description"]
     assert "genetic_evidence.case_level" in text
@@ -363,8 +366,9 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 # Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
 # only on purpose. Bytes are the tools/list response as a client receives it.
 # +#533, #560 fields; W9: create_curation takes the curator's call; W11: #105 adopt tool,
-# #593 agent block; KGDB 2026-10-31: update_curation takes the ClinGen reference
-SURFACE_BUDGET = {"curator": (48, 42_800), "admin": (48, 42_800)}
+# #593 agent block; KGDB 2026-10-31: update_curation takes the ClinGen reference;
+# fastmcp 4: every tool carries a title (+1.3 kB)
+SURFACE_BUDGET = {"curator": (48, 44_200), "admin": (48, 44_200)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)
