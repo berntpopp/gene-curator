@@ -51,10 +51,8 @@ ADOPTION_COMMENT = (
 # VA-Spec 1.0 contribution roles (ClinGen SEPIO ContributoryRole value set, #593)
 SEPIO_ROLES = {
     "curator": "SEPIO:0000156",
-    "assessor": "SEPIO:0000154",
     "approver": "SEPIO:0000155",
     "interpreter": "SEPIO:0000331",
-    "publisher": "SEPIO-CG:97010",
 }
 
 
@@ -164,8 +162,7 @@ def adopt(
     result = ClinGenAdoptionResult(dry_run=dry_run, errors=errors, items=items)
     if errors or dry_run:
         return result
-    created = [_create(db, row, key, user.id) for row, key in plan]
-    _commit(db)
+    created = _write(db, plan, user.id)
     ids = iter(c.id for c in created)
     for item in items:
         if item.action == "create":
@@ -216,9 +213,14 @@ def _create(
     return curation
 
 
-def _commit(db: Session) -> None:
+def _write(
+    db: Session, plan: list[tuple[ClinGenAdoptionRow, str]], user_id: UUID
+) -> list[CurationNew]:
+    """All curations in one transaction; the flush of each can already hit the index."""
     try:
+        created = [_create(db, row, key, user_id) for row, key in plan]
         db.commit()
+        return created
     except IntegrityError as e:  # a concurrent curation of an entity won its open index
         db.rollback()
         raise HTTPException(
@@ -231,13 +233,11 @@ def _commit(db: Session) -> None:
 
 
 def _contribution(
-    name: str | None, agent_type: str, agent_id: Any, role: str, date: Any
+    name: str | None, agent_type: str, role: str, date: Any
 ) -> dict[str, Any]:
-    contributor: dict[str, Any] = {"name": name, "agentType": agent_type}
-    if agent_id is not None:
-        contributor["id"] = str(agent_id)
+    """No contributor id: the export is public and user ids are not (names already are)."""
     return {
-        "contributor": contributor,
+        "contributor": {"name": name, "agentType": agent_type},
         "activityType": {
             "name": role,
             "primaryCoding": {"system": "SEPIO", "code": SEPIO_ROLES[role]},
@@ -258,20 +258,16 @@ def adoption_statement(
         _contribution(
             record["expert_panel"],
             "organization",
-            None,
             "interpreter",
             record["classified_date"],
         ),
-        _contribution(
-            curator_name, "person", curation.created_by, "curator", curation.created_at
-        ),
+        _contribution(curator_name, "person", "curator", curation.created_at),
     ]
     if curation.approved_by:
         contributions.append(
             _contribution(
                 approver_name,
                 "person",
-                curation.approved_by,
                 "approver",
                 curation.approved_at,
             )

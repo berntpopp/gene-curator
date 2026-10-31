@@ -259,7 +259,8 @@ def curation_diff(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationDiff:
     """Current evidence versus the version the reviewer last saw, else the active curation it
-    replaces (none of either: all items added)."""
+    replaces (none of either: all items added). Long text changes come as word_diff
+    ([-removed-]{+added+}), not the whole before and after."""
     curation = _curation(db, curation_id)
     require(db, current_user, curation.scope_id, VIEW)
     current = curation.evidence_data or {}

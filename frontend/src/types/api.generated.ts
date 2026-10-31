@@ -2023,7 +2023,8 @@ export interface paths {
         /**
          * Curation Diff
          * @description Current evidence versus the version the reviewer last saw, else the active curation it
-         *     replaces (none of either: all items added).
+         *     replaces (none of either: all items added). Long text changes come as word_diff
+         *     ([-removed-]{+added+}), not the whole before and after.
          */
         get: operations["curation_diff_api_v1_curations__curation_id__diff_get"];
         put?: never;

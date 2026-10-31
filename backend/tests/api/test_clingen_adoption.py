@@ -20,6 +20,7 @@ from app.models import (
     UserNew,
     WorkflowPair,
 )
+from app.services import clingen_adoption
 from app.services.clingen_adoption import ADOPTION_COMMENT, _moi
 
 pytestmark = pytest.mark.unit
@@ -163,12 +164,82 @@ def test_any_invalid_row_refuses_all_and_lists_each_error(
     assert dry.status_code == 200 and len(dry.json()["errors"]) == 4
 
 
-def test_viewer_may_not_adopt(
-    client: TestClient, db_session: Session, viewer_token: str, row: dict
+def _member(db: Session, scope: Scope, role: str, name: str = "Member") -> UserNew:
+    user = UserNew(
+        id=uuid4(),
+        email=f"{uuid4().hex[:8]}@adopt.org",
+        hashed_password=get_password_hash("pw"),
+        name=name,
+        role="user",
+        is_active=True,
+    )
+    db.add(user)
+    db.flush()
+    db.add(
+        ScopeMembership(
+            scope_id=scope.id, user_id=user.id, role=role, accepted_at=datetime.now(UTC)
+        )
+    )
+    db.commit()
+    return user
+
+
+@pytest.mark.parametrize("role", ["viewer", "reviewer"])
+def test_only_curators_may_adopt(
+    client: TestClient, db_session: Session, test_scope: Scope, row: dict, role: str
 ) -> None:
-    r = client.post(URL, json={"rows": [row]}, headers=_h(viewer_token))
+    user = _member(db_session, test_scope, role)
+    token = create_access_token(data={"sub": str(user.id)})
+    r = client.post(URL, json={"rows": [row]}, headers=_h(token))
     assert r.status_code == 403
     assert _count(db_session) == 0
+
+
+@pytest.mark.parametrize(
+    ("change", "errors"),
+    [
+        ({"mondo_id": "mondo_0004691"}, []),  # the entity's id in another spelling
+        (
+            {"clingen": {"hgnc_id": "HGNC:9008"}},
+            ["rows[0].clingen.hgnc_id: HGNC:9008 is not HGNC:1100"],
+        ),
+    ],
+)
+def test_gene_and_mondo_are_compared_normalised(
+    client: TestClient, curator_token: str, row: dict, change: dict, errors: list
+) -> None:
+    sent = row | change
+    sent["clingen"] = row["clingen"] | change.get("clingen", {})
+    r = client.post(
+        URL, params={"dry_run": True}, json={"rows": [sent]}, headers=_h(curator_token)
+    )
+    assert r.status_code == 200 and r.json()["errors"] == errors
+
+
+def test_a_concurrent_curation_of_the_entity_is_a_409(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_user_curator: UserNew,
+    row: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The open curation lands after the check: the open-entity index refuses the flush."""
+    db_session.add(
+        CurationNew(
+            gene_id=row["gene_id"],
+            scope_id=row["scope_id"],
+            workflow_pair_id=row["workflow_pair_id"],
+            entity_key="MONDO:0004691|AD",
+            evidence_data={},
+            created_by=test_user_curator.id,
+        )
+    )
+    db_session.commit()
+    monkeypatch.setattr(clingen_adoption, "open_curation_id", lambda *a: None)
+    r = client.post(URL, json={"rows": [row]}, headers=_h(curator_token))
+    assert r.status_code == 409, r.text
+    assert _count(db_session) == 1
 
 
 def test_inactive_scope_is_refused(
@@ -218,25 +289,7 @@ def test_adopter_may_not_approve_another_reviewer_does_and_export_has_the_statem
     own = client.post(move, json={"target_stage": "active"}, headers=_h(curator_token))
     assert own.status_code == 403, own.text
 
-    reviewer = UserNew(
-        id=uuid4(),
-        email="rev@adopt.org",
-        hashed_password=get_password_hash("pw"),
-        name="Rita Reviewer",
-        role="user",
-        is_active=True,
-    )
-    db_session.add(reviewer)
-    db_session.flush()
-    db_session.add(
-        ScopeMembership(
-            scope_id=test_scope.id,
-            user_id=reviewer.id,
-            role="reviewer",
-            accepted_at=datetime.now(UTC),
-        )
-    )
-    db_session.commit()
+    reviewer = _member(db_session, test_scope, "reviewer", "Rita Reviewer")
     rev = create_access_token(data={"sub": str(reviewer.id)})
     ok = client.post(move, json={"target_stage": "active"}, headers=_h(rev))
     assert ok.status_code == 200, ok.text
@@ -274,8 +327,16 @@ def test_adopter_may_not_approve_another_reviewer_does_and_export_has_the_statem
         ("person", "Curator User", "curator", "SEPIO:0000156"),
         ("person", "Rita Reviewer", "approver", "SEPIO:0000155"),
     ]
-    assert adoption["contributions"][1]["contributor"]["id"] == str(
-        test_user_curator.id
+    # anonymous callers of a public scope get the statement, never a user id
+    test_scope.is_public = True
+    db_session.commit()
+    public = client.get("/api/v1/export/curations")
+    assert public.json()["items"][0]["adoption"]["id"] == CGGV
+    assert str(test_user_curator.id) not in public.text
+    assert str(reviewer.id) not in public.text
+    assert all(
+        set(c["contributor"]) == {"name", "agentType"}
+        for c in adoption["contributions"]
     )
 
 
