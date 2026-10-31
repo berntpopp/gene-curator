@@ -13,7 +13,9 @@ from typing import Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.schema_validation_result import SchemaValidationResult
 from app.core.schema_validator import schema_validator
+from app.core.source_field import KINDS as SOURCE_KINDS, source_errors
 from app.schemas.curation import EvidenceWarning
 from app.scoring.evidence_lint import NOT_TEXT, PMID_TEXT
 from app.services.ontology_service import lookup_terms
@@ -98,13 +100,34 @@ def _refs(node: Any, path: str = "") -> Iterator[_Ref]:
                 yield _Ref(at, kind, text, _normalize(kind, text))
 
 
+def source_warnings(node: Any, path: str = "") -> list[EvidenceWarning]:
+    """Each bad part of every source object (#593), by field path."""
+    if isinstance(node, list):
+        return [
+            w for i, v in enumerate(node) for w in source_warnings(v, f"{path}[{i}]")
+        ]
+    if not isinstance(node, dict):
+        return []
+    if node.get("kind") in SOURCE_KINDS:
+        res = SchemaValidationResult()
+        source_errors(path, node, {}, res)
+        return [
+            EvidenceWarning(path=e["field"], message=e["message"]) for e in res.errors
+        ]
+    return [
+        w
+        for key, value in node.items()
+        for w in source_warnings(value, f"{path}.{key}" if path else str(key))
+    ]
+
+
 def format_errors(evidence: Any) -> list[EvidenceWarning]:
-    """Network-free: every malformed ID, by field path."""
+    """Network-free: every malformed ID and source, by field path."""
     return [
         EvidenceWarning(path=r.path, message=_KINDS[r.kind][1])
         for r in _refs(evidence)
         if r.id is None
-    ]
+    ] + source_warnings(evidence)
 
 
 # A draft never blocks (owner rule); say what an unknown PMID costs (MCP study round 6)
@@ -142,7 +165,7 @@ def check_ids(db: Session, evidence: Any) -> tuple[list[EvidenceWarning], set[st
         elif r.id in failed:
             message = f"{r.value} unverified: {source} lookup unavailable, retry later"
             warnings.append(EvidenceWarning(path=r.path, message=message))
-    return warnings, unknown
+    return warnings + source_warnings(evidence), unknown
 
 
 def _unknown_pmid(row: dict[str, Any], unknown: set[str]) -> bool:

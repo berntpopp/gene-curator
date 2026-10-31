@@ -8,6 +8,7 @@ from sqlalchemy import and_, case, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.core.config import settings
+from app.core.synopsis import synopsis_of
 from app.crud.curation import get_disease_fields, section_total
 from app.crud.scope_visibility import member_scope_ids, visible_scope_ids
 from app.models import (
@@ -16,6 +17,8 @@ from app.models import (
     CurationSchema,
     CurationStatus,
     Gene,
+    Review,
+    ReviewStatus,
     Scope,
     UserNew,
     WorkflowPair,
@@ -29,6 +32,7 @@ from app.schemas.curation_export import (
     ExportMethodology,
 )
 from app.services.clingen_adoption import adoption_statement
+from app.services.export_provenance import curation_contributions, evidence_lines
 from app.services.publication_service import evidence_pmids
 
 _MOI_HPO = {abbr.upper(): hpo.upper() for abbr, (_, hpo) in _MOI_SYNONYMS.items()}
@@ -59,6 +63,7 @@ def export_curations(
             reviewer.name,
             CurationSchema.name,
             MethodologyVersion.version,
+            CurationSchema.id,
             _changed_at,
         )
         .options(joinedload(CurationNew.precuration))
@@ -98,7 +103,30 @@ def export_curations(
         )
     rows = db.execute(query).unique().all()
     members = set(db.scalars(member_scope_ids(user_id))) if user_id else set()
-    items = [_item(members, *row) for row in rows[:limit]]
+    # Fetched apart: .unique() cannot hash a JSON column
+    schema_ids = {row[-2] for row in rows if row[-2]}
+    uis: dict[UUID | None, dict[str, Any] | None] = dict(
+        db.execute(
+            select(CurationSchema.id, CurationSchema.ui_configuration).where(
+                CurationSchema.id.in_(schema_ids)
+            )
+        )
+        .tuples()
+        .all()
+    )
+    # Approving reviewers (VA-Spec assessors), oldest first; RLS may hide reviews
+    assessors: dict[UUID, list[tuple[str | None, datetime | None]]] = {}
+    for cid, name, at in db.execute(
+        select(Review.curation_id, UserNew.name, Review.reviewed_at)
+        .join(UserNew, Review.reviewer_id == UserNew.id)
+        .where(
+            Review.curation_id.in_({row[1].id for row in rows}),
+            Review.status == ReviewStatus.APPROVED,
+        )
+        .order_by(Review.reviewed_at)
+    ):
+        assessors.setdefault(cid, []).append((name or None, at))
+    items = [_item(members, uis, assessors, *row) for row in rows[:limit]]
     last = rows[limit - 1] if len(rows) > limit else None
     return CurationExportPage(
         items=items,
@@ -108,6 +136,8 @@ def export_curations(
 
 def _item(
     members: set[UUID],
+    uis: dict[UUID | None, dict[str, Any] | None],
+    assessors: dict[UUID, list[tuple[str | None, datetime | None]]],
     ac: ActiveCuration,
     c: CurationNew,
     gene: Gene,
@@ -116,6 +146,7 @@ def _item(
     reviewer_name: str | None,
     schema_name: str | None,
     version: int | None,
+    schema_id: UUID | None,
     updated_at: datetime,
 ) -> ExportCuration:
     scores: dict[str, Any] = c.computed_scores or {}
@@ -124,6 +155,7 @@ def _item(
     parts = ac.entity_key.split("|")  # MONDO|MOI[|SUSCEPTIBILITY]
     moi = parts[1] if len(parts) > 1 else ""
     pre = c.precuration.evidence_data if c.precuration else None
+    lines = evidence_lines(c.evidence_data, c.row_provenance) if detail else None
     return ExportCuration(
         curation_id=c.id,
         entity_key=ac.entity_key,
@@ -158,4 +190,14 @@ def _item(
         archive_reason=ac.archive_reason,
         updated_at=updated_at,
         adoption=adoption_statement(c, curator_name, reviewer_name),
+        contributions=curation_contributions(
+            curator_name,
+            c.created_at,
+            reviewer_name,
+            c.approved_at,
+            lines or [],
+            assessors.get(c.id),
+        ),
+        evidence_lines=lines,
+        synopsis=synopsis_of(c.evidence_data, uis.get(schema_id)) if detail else None,
     )

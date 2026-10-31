@@ -4426,6 +4426,44 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityType */
+        ActivityType: {
+            /**
+             * Name
+             * @description SEPIO contributory role
+             * @enum {string}
+             */
+            name: "curator" | "assessor" | "approver" | "interpreter" | "publisher";
+            primaryCoding: components["schemas"]["Coding"];
+        };
+        /**
+         * Agent
+         * @description VA-Spec Agent: a person, an organization or software (an AI model).
+         */
+        Agent: {
+            /**
+             * Name
+             * @description Person's name, or the model
+             */
+            name?: string | null;
+            /**
+             * Agenttype
+             * @enum {string}
+             */
+            agentType: "person" | "organization" | "software";
+            /** Id */
+            id?: string | null;
+            /**
+             * Description
+             * @description Software: the agent (client)
+             */
+            description?: string | null;
+            /**
+             * Extensions
+             * @description Software: tools_used, as the client reported them
+             */
+            extensions?: components["schemas"]["Extension"][] | null;
+        };
         /**
          * AssignedReviewer
          * @description The reviewer a submit routed the item to.
@@ -4740,6 +4778,35 @@ export interface components {
             record_sha256: string;
             /** Citation */
             citation: string;
+        };
+        /** Coding */
+        Coding: {
+            /**
+             * System
+             * @description Code system
+             * @default SEPIO
+             */
+            system: string;
+            /**
+             * Code
+             * @description SEPIO or SEPIO-CG code of the role
+             */
+            code: string;
+        };
+        /**
+         * Contribution
+         * @description VA-Spec Contribution.
+         */
+        Contribution: {
+            contributor: components["schemas"]["Agent"];
+            activityType: components["schemas"]["ActivityType"];
+            /**
+             * Date
+             * @description ISO 8601 date-time, like the other export timestamps
+             */
+            date?: string | null;
+            /** @description PROV-O: the person a software agent acted for */
+            actedOnBehalfOf?: components["schemas"]["Agent"] | null;
         };
         /**
          * Curation
@@ -5073,6 +5140,13 @@ export interface components {
              * @description In review: who still has to review it
              */
             assigned_reviewers?: components["schemas"]["AssignedReviewer"][];
+            /**
+             * Row Provenance
+             * @description #593: per evidence row (key: path#row id, else path[index]) added_by/added_at/changed_by/changed_at; an MCP agent under by.agent
+             */
+            row_provenance?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * CurationDiff
@@ -5943,6 +6017,28 @@ export interface components {
             lock_version: number;
         };
         /**
+         * EvidenceLine
+         * @description One evidence table row (VA-Spec EvidenceLine): its sources and contributions.
+         */
+        EvidenceLine: {
+            /**
+             * Path
+             * @description Row path in evidence, e.g. genetic.probands[0]
+             */
+            path: string;
+            /** Row Id */
+            row_id?: string | null;
+            /** Directionofevidenceprovided */
+            directionOfEvidenceProvided?: ("supports" | "disputes" | "neutral") | null;
+            /**
+             * Sources
+             * @description VA-Spec reportedIn: the row's documents
+             */
+            sources?: components["schemas"]["ExportSource"][];
+            /** Contributions */
+            contributions?: components["schemas"]["Contribution"][];
+        };
+        /**
          * EvidenceWarning
          * @description A value a draft keeps but that needs fixing before submit.
          */
@@ -6081,6 +6177,21 @@ export interface components {
             adoption?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Contributions
+             * @description VA-Spec Contribution[]: curator and approver (persons) and any software agent that wrote evidence rows
+             */
+            contributions?: components["schemas"]["Contribution"][];
+            /**
+             * Synopsis
+             * @description The entity's synopsis: the text field the schema names in ui_configuration.synopsis_field; null like evidence
+             */
+            synopsis?: string | null;
+            /**
+             * Evidence Lines
+             * @description VA-Spec EvidenceLine per evidence row with sources (reportedIn), directionOfEvidenceProvided or contributions
+             */
+            evidence_lines?: components["schemas"]["EvidenceLine"][] | null;
         };
         /** ExportMethodology */
         ExportMethodology: {
@@ -6099,6 +6210,51 @@ export interface components {
              * @description Pinned methodology version id
              */
             version_id?: string | null;
+        };
+        /**
+         * ExportSource
+         * @description VA-Spec Document, plus the GeneFoundry provenance of the record.
+         */
+        ExportSource: {
+            /**
+             * Documenttype
+             * @description Source kind: pmid, doi, clinvar, clingen_allele, clingen_validity, url or database
+             */
+            documentType: string;
+            /**
+             * Id
+             * @description Identifier as recorded
+             */
+            id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Urls */
+            urls?: string[];
+            /** Pmid */
+            pmid?: string | null;
+            /** Doi */
+            doi?: string | null;
+            /**
+             * Citation
+             * @description recommended_citation, verbatim
+             */
+            citation?: string | null;
+            /** Retrieved At */
+            retrieved_at?: string | null;
+            /**
+             * Tool
+             * @description e.g. genefoundry:clinvar_get_variant
+             */
+            tool?: string | null;
+            /** Record Sha256 */
+            record_sha256?: string | null;
+        };
+        /** Extension */
+        Extension: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: unknown;
         };
         /**
          * FieldValidationRequest
@@ -10879,6 +11035,11 @@ export interface components {
              * @description Curation this row links to
              */
             curation_id?: string | null;
+            /**
+             * Synopsis
+             * @description Synopsis of the active curation (schema synopsis_field); members, or anyone when the scope exports evidence publicly
+             */
+            synopsis?: string | null;
             /**
              * Disease Name
              * @description Disease of the curation

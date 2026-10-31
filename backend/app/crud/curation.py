@@ -52,6 +52,7 @@ from app.services.evidence_ids import (
 )
 from app.services.review_assignment import submit_reviewer
 from app.services.review_guards import check_review_content
+from app.services.row_provenance import stamped
 
 logger = get_logger(__name__)
 DELETED_REASON = "Curation deleted"  # pointer archive_reason of a soft delete
@@ -428,6 +429,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             precuration_id=precuration_id,
             entity_key=entity_key,
             evidence_data=obj_in.evidence_data,
+            row_provenance=stamped(db, None, obj_in.evidence_data, None, user_id),
             status=CurationStatus.DRAFT,
             workflow_stage=WorkflowStage.CURATION,
             is_draft=True,
@@ -528,6 +530,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             refuse_entity_change(db, db_obj, evidence)
             warnings, unknown = check_ids(db, evidence)
             values["evidence_data"] = evidence
+            values["row_provenance"] = stamped(
+                db, db_obj.evidence_data, evidence, db_obj.row_provenance, user_id
+            )
             values.update(_computed(db, db_obj, evidence, (shrunk + warnings, unknown)))
         values.update(curator_call(db, db_obj, obj_in))
         if not update_if_version(
@@ -558,6 +563,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         warnings = shrunk + warnings
         values = {
             "evidence_data": evidence,
+            "row_provenance": stamped(
+                db, db_obj.evidence_data, evidence, db_obj.row_provenance, user_id
+            ),
             **_computed(db, db_obj, evidence, (warnings, unknown)),
             "is_draft": True,
             "auto_saved_at": _utc_now(),

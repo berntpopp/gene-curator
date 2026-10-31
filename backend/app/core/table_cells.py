@@ -38,5 +38,5 @@ def cell_errors(
                 isinstance(value, bool) or not _WHOLE.fullmatch(str(value))
             ):
                 res.add_error(at, "Value must be a whole number", "type")
-            elif kind in ("number", "integer", "url"):
+            elif kind in ("number", "integer", "url", "source"):
                 checks[kind](at, value, col, res)

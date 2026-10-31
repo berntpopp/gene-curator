@@ -291,6 +291,8 @@ class CurationNew(Base):
         compatible_jsonb(), nullable=False, default={}
     )
 
+    # #593 (080): who added and last changed each evidence table row, by row key
+    row_provenance: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
     # Computed results (updated by scoring engines)
     computed_scores: Mapped[dict[str, Any]] = mapped_column(
         compatible_jsonb(), default={}

@@ -39,6 +39,7 @@ from app.schemas.clingen_adoption import (
     ClinGenAdoptionRow,
 )
 from app.schemas.curation import class_key
+from app.schemas.provenance import Agent, contribution
 from app.scoring.point_limits import scoring_configuration
 
 logger = get_logger(__name__)
@@ -47,13 +48,6 @@ ADOPTION_COMMENT = (
     "Curation details were taken from ClinGen as available there, the individual point "
     "values must be re-scored manually."
 )
-
-# VA-Spec 1.0 contribution roles (ClinGen SEPIO ContributoryRole value set, #593)
-SEPIO_ROLES = {
-    "curator": "SEPIO:0000156",
-    "approver": "SEPIO:0000155",
-    "interpreter": "SEPIO:0000331",
-}
 
 
 def _moi(value: str) -> str:
@@ -232,20 +226,6 @@ def _write(
         raise
 
 
-def _contribution(
-    name: str | None, agent_type: str, role: str, date: Any
-) -> dict[str, Any]:
-    """No contributor id: the export is public and user ids are not (names already are)."""
-    return {
-        "contributor": {"name": name, "agentType": agent_type},
-        "activityType": {
-            "name": role,
-            "primaryCoding": {"system": "SEPIO", "code": SEPIO_ROLES[role]},
-        },
-        "date": date.isoformat() if isinstance(date, datetime) else date,
-    }
-
-
 def adoption_statement(
     curation: CurationNew, curator_name: str | None, approver_name: str | None
 ) -> dict[str, Any] | None:
@@ -254,24 +234,26 @@ def adoption_statement(
     record = curation.clingen_adoption
     if not record:
         return None
-    contributions = [
-        _contribution(
-            record["expert_panel"],
-            "organization",
+    # No contributor id: the export is public and user ids are not (names already are)
+    made = [
+        contribution(
             "interpreter",
+            Agent(name=record["expert_panel"], agentType="organization"),
             record["classified_date"],
         ),
-        _contribution(curator_name, "person", "curator", curation.created_at),
+        contribution(
+            "curator", Agent(name=curator_name, agentType="person"), curation.created_at
+        ),
     ]
     if curation.approved_by:
-        contributions.append(
-            _contribution(
-                approver_name,
-                "person",
+        made.append(
+            contribution(
                 "approver",
+                Agent(name=approver_name, agentType="person"),
                 curation.approved_at,
             )
         )
+    contributions = [c.model_dump(mode="json", exclude_none=True) for c in made]
     return {
         "type": "Statement",
         "id": record["cggv_id"],

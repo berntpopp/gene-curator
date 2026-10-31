@@ -18,6 +18,7 @@ import { VSelect } from 'vuetify/components/VSelect'
 import { VTextField } from 'vuetify/components/VTextField'
 import EvidenceTableField from './EvidenceTableField.vue'
 import ReadonlyValue from './ReadonlyValue.vue'
+import SourceCell from './SourceCell.vue'
 import { rulesFor } from './composables/useValidationRules'
 import type { FieldSchema } from './types'
 import MONDOAutocomplete from '@/components/evidence/MONDOAutocomplete.vue'
@@ -164,6 +165,8 @@ export const fieldTypes: Record<string, FieldTypeDef> = {
     cell: { is: VTextField, props: { type: 'url' }, lazy: true },
     empty: () => ''
   },
+  // #593: one source or a list of them (VA-Spec Document), as a cell or a field
+  source: { editor: SourceCell, cell: { is: SourceCell }, empty: () => [] },
   evidence_table: {
     // Getter: EvidenceTableField imports this module back, so resolve it at render time
     get editor() {

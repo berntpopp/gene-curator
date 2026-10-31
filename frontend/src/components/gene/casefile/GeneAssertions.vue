@@ -16,48 +16,56 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="s in scopes" :key="s.curation_id ?? s.scope_id">
-            <td data-label="Scope" class="scope">
-              <router-link
-                v-if="linked"
-                :to="{ name: 'scope-dashboard', params: { scopeId: s.scope_id } }"
-              >
-                {{ s.scope_display_name }}
-              </router-link>
-              <template v-else>{{ s.scope_display_name }}</template>
-            </td>
-            <td data-label="Disease" class="wide">
-              {{ s.disease_name || EMPTY }}
-              <span v-if="s.mondo_id" class="mono assertions__mondo">{{ s.mondo_id }}</span>
-            </td>
-            <td data-label="MOI">
-              {{ s.mode_of_inheritance ? formatInheritance(s.mode_of_inheritance) : EMPTY }}
-              <span v-if="relationshipLabel(s.relationship_type)"
-                >({{ relationshipLabel(s.relationship_type) }})</span
-              >
-            </td>
-            <td data-label="Stage">
-              {{ stageLabel(s.stage) }}
-              <span v-if="s.in_progress" class="assertions__progress">in progress</span>
-            </td>
-            <td data-label="Classification">
-              <ClassificationMark :classification="s.classification" />
-            </td>
-            <td data-label="Score" class="num mono tabular">{{ s.total_score.toFixed(1) }}</td>
-            <td data-label="Updated" class="mono tabular">{{ formatDate(s.last_updated) }}</td>
-            <td class="open">
-              <router-link
-                v-if="linked && s.curation_id"
-                :to="{
-                  name: 'curation-detail',
-                  params: { scopeId: s.scope_id, curationId: s.curation_id }
-                }"
-                :aria-label="`Open curation in ${s.scope_display_name}`"
-              >
-                Open
-              </router-link>
-            </td>
-          </tr>
+          <template v-for="s in scopes" :key="s.curation_id ?? s.scope_id">
+            <tr>
+              <td data-label="Scope" class="scope">
+                <router-link
+                  v-if="linked"
+                  :to="{ name: 'scope-dashboard', params: { scopeId: s.scope_id } }"
+                >
+                  {{ s.scope_display_name }}
+                </router-link>
+                <template v-else>{{ s.scope_display_name }}</template>
+              </td>
+              <td data-label="Disease" class="wide">
+                {{ s.disease_name || EMPTY }}
+                <span v-if="s.mondo_id" class="mono assertions__mondo">{{ s.mondo_id }}</span>
+              </td>
+              <td data-label="MOI">
+                {{ s.mode_of_inheritance ? formatInheritance(s.mode_of_inheritance) : EMPTY }}
+                <span v-if="relationshipLabel(s.relationship_type)"
+                  >({{ relationshipLabel(s.relationship_type) }})</span
+                >
+              </td>
+              <td data-label="Stage">
+                {{ stageLabel(s.stage) }}
+                <span v-if="s.in_progress" class="assertions__progress">in progress</span>
+              </td>
+              <td data-label="Classification">
+                <ClassificationMark :classification="s.classification" />
+              </td>
+              <td data-label="Score" class="num mono tabular">{{ s.total_score.toFixed(1) }}</td>
+              <td data-label="Updated" class="mono tabular">{{ formatDate(s.last_updated) }}</td>
+              <td class="open">
+                <router-link
+                  v-if="linked && s.curation_id"
+                  :to="{
+                    name: 'curation-detail',
+                    params: { scopeId: s.scope_id, curationId: s.curation_id }
+                  }"
+                  :aria-label="`Open curation in ${s.scope_display_name}`"
+                >
+                  Open
+                </router-link>
+              </td>
+            </tr>
+            <!-- Synopsis of the active curation; the API leaves it out where evidence is hidden -->
+            <tr v-if="s.synopsis" class="assertions__synopsis-row">
+              <td colspan="8" class="assertions__synopsis">
+                <span class="assertions__synopsis-label">Synopsis</span> {{ s.synopsis }}
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -99,6 +107,16 @@
     font-size: 15px;
     font-weight: 600;
     line-height: 20px;
+  }
+
+  .assertions__synopsis {
+    white-space: pre-wrap;
+    font-size: 13px;
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
+  }
+
+  .assertions__synopsis-label {
+    font-weight: 600;
   }
 
   .assertions__scroll {

@@ -13,6 +13,14 @@ as one import bundle ([docs/METHODOLOGY-IMPORT.md](../../METHODOLOGY-IMPORT.md))
 | Workflow pair | `KGDB Mendelian` (default of scope `kidney-genetics`) | `alpha` |
 | Workflow pair | `KGDB Susceptibility` | `alpha` |
 
+Every evidence table (not the diagnostics tables) has a `sources` cell (field type
+`source`: PMID, DOI, ClinVar, ClinGen allele or validity, URL or database record, with
+GeneFoundry's tool, retrieval date and citation) and a `direction` cell (`supports`,
+`disputes`, `neutral`), added in #593; importing this file publishes them as the next
+methodology version. Both reach the export as `evidence_lines` ([docs/EXPORT.md](../../EXPORT.md)). The curation
+schemas name `evidence_summary` as the entity's synopsis (`ui_configuration.synopsis_field`),
+exported as `synopsis`.
+
 The curator picks the pair by hand: a Mendelian entity is precurated with the Mendelian
 precuration schema, a susceptibility (risk allele) entity with the susceptibility one. Each
 precuration schema belongs to one pair, so approval opens the curation of the right pair
@@ -236,11 +244,15 @@ genetic.probands[].duplicate_of
 genetic.probands[].pmid
 genetic.probands[].points
 genetic.probands[].explanation
+genetic.probands[].sources
+genetic.probands[].direction
 genetic.segregation
 genetic.segregation[].families
 genetic.segregation[].summed_lod
 genetic.segregation[].method_note
 genetic.segregation[].pmid
+genetic.segregation[].sources
+genetic.segregation[].direction
 genetic.cohort
 genetic.cohort[].study_label
 genetic.cohort[].cases_with_variant
@@ -251,6 +263,8 @@ genetic.cohort[].odds_ratio
 genetic.cohort[].p_value
 genetic.cohort[].pmid
 genetic.cohort[].points
+genetic.cohort[].sources
+genetic.cohort[].direction
 experimental
 experimental.models
 experimental.models[].organism
@@ -260,16 +274,22 @@ experimental.models[].mechanism_fit
 experimental.models[].morpholino_only
 experimental.models[].pmid
 experimental.models[].points
+experimental.models[].sources
+experimental.models[].direction
 experimental.functional
 experimental.functional[].assay
 experimental.functional[].finding
 experimental.functional[].pmid
 experimental.functional[].points
+experimental.functional[].sources
+experimental.functional[].direction
 contradictory_evidence
 contradictory_evidence[].description
 contradictory_evidence[].impact
 contradictory_evidence[].source
 contradictory_evidence[].pmid
+contradictory_evidence[].sources
+contradictory_evidence[].direction
 replicated_over_time
 reported_not_scored
 context_notes
@@ -319,17 +339,23 @@ association.studies[].odds_ratio
 association.studies[].p_value
 association.studies[].pmid
 association.studies[].points
+association.studies[].sources
+association.studies[].direction
 experimental
 experimental.functional
 experimental.functional[].assay
 experimental.functional[].finding
 experimental.functional[].pmid
 experimental.functional[].points
+experimental.functional[].sources
+experimental.functional[].direction
 contradictory_evidence
 contradictory_evidence[].description
 contradictory_evidence[].impact
 contradictory_evidence[].source
 contradictory_evidence[].pmid
+contradictory_evidence[].sources
+contradictory_evidence[].direction
 replicated_over_time
 reported_not_scored
 context_notes

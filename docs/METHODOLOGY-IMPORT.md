@@ -48,6 +48,16 @@ MCP: the `import_methodology` tool on `/mcp/full` (platform admins only; not on 
 
 The JSON download of a schema in the schema editor is the body of one `schemas[]` entry.
 
+## Synopsis field
+
+`ui_configuration.synopsis_field` (optional) names one `text`, `textarea` or `string` field of
+a curation schema (a dotted path through object fields, e.g. `evidence_summary`) as the
+entity's synopsis. The publish gate refuses a name that is not such a field; unset means no
+synopsis. The synopsis shows on the curation detail and, for the active curation, on the
+gene page, and is exported as `synopsis` ([EXPORT.md](EXPORT.md)), with the visibility of
+the evidence: scope members always, anyone else only when the public scope exports
+evidence publicly. The schema editor sets it with *Synopsis field* under the fields.
+
 ## Behaviour
 
 - Schemas and pairs are matched by `name` + `version`.

@@ -307,6 +307,11 @@ class CurationDetail(CurationInDBBase):
     assigned_reviewers: list[AssignedReviewer] = Field(
         default_factory=list, description="In review: who still has to review it"
     )
+    row_provenance: dict[str, Any] | None = Field(
+        None,
+        description="#593: per evidence row (key: path#row id, else path[index]) "
+        "added_by/added_at/changed_by/changed_at; an MCP agent under by.agent",
+    )
 
     @classmethod
     def from_orm_with_relations(cls, curation: Any) -> "CurationDetail":
@@ -319,6 +324,7 @@ class CurationDetail(CurationInDBBase):
             "workflow_pair_id": curation.workflow_pair_id,
             "precuration_id": curation.precuration_id,
             "evidence_data": curation.evidence_data or {},
+            "row_provenance": curation.row_provenance,
             "status": curation.status,
             "workflow_stage": curation.workflow_stage,
             "is_draft": curation.is_draft,
