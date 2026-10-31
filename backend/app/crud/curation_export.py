@@ -1,5 +1,6 @@
 """Export v1 of reviewed curations (#532): active and archived pointers, keyset-paged."""
 
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -42,6 +43,18 @@ _changed_at = case(
     (CurationNew.updated_at > ActiveCuration.updated_at, CurationNew.updated_at),
     else_=ActiveCuration.updated_at,
 )
+
+
+def encode_cursor(at: datetime, row_id: UUID) -> str:
+    """Opaque, URL-safe page cursor (base64url): "+00:00" in a raw query string is a space."""
+    return urlsafe_b64encode(f"{at.isoformat()}|{row_id}".encode()).decode().rstrip("=")
+
+
+def decode_cursor(cursor: str) -> tuple[datetime, UUID]:
+    """Inverse of encode_cursor; ValueError for anything else."""
+    raw = urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode()
+    at, _, row_id = raw.partition("|")
+    return datetime.fromisoformat(at), UUID(row_id)
 
 
 def export_curations(
@@ -130,7 +143,7 @@ def export_curations(
     last = rows[limit - 1] if len(rows) > limit else None
     return CurationExportPage(
         items=items,
-        next_cursor=f"{last[-1].isoformat()}|{last[0].id}" if last else None,
+        next_cursor=encode_cursor(last[-1], last[0].id) if last else None,
     )
 
 
