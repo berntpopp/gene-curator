@@ -13,7 +13,25 @@
       </template>
       <span>{{ fieldSchema.tooltip }}</span>
     </v-tooltip>
+    <!-- A required boolean must be answered and No is an answer: Yes / No, not a checkbox (monkey B14) -->
+    <v-radio-group
+      v-if="fieldSchema.required"
+      :model-value="modelValue"
+      :label="label"
+      :rules="rules"
+      :error-messages="errorMessages"
+      :disabled="disabled"
+      :hint="fieldSchema.hint"
+      :persistent-hint="hasHint"
+      inline
+      hide-details="auto"
+      @update:model-value="emit('update:model-value', $event)"
+    >
+      <v-radio label="Yes" :value="true" />
+      <v-radio label="No" :value="false" />
+    </v-radio-group>
     <v-checkbox
+      v-else
       :model-value="modelValue"
       :label="label"
       :rules="rules"

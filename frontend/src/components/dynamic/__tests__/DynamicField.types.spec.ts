@@ -161,6 +161,16 @@ describe('DynamicField field types', () => {
     expect(hasComponent(wrapper, 'VCheckbox')).toBe(true)
   })
 
+  it('asks a required boolean as Yes / No so No is an answer (monkey B14)', async () => {
+    const wrapper = mountField({ type: 'boolean', required: true, title: 'Curated by ClinGen' })
+
+    expect(hasComponent(wrapper, 'VCheckbox')).toBe(false)
+    const radios = wrapper.findAll('input[type="radio"]')
+    expect(radios).toHaveLength(2)
+    await radios[1]!.setValue(true)
+    expect(wrapper.emitted('update:model-value')?.at(-1)).toEqual([false])
+  })
+
   it('renders date-formatted strings as a native date input', () => {
     const wrapper = mountField({ type: 'string', format: 'date' })
 
