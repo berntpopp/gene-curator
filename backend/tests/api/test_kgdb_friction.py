@@ -152,3 +152,21 @@ def test_export_names_the_moi_by_its_hpo_id(
     ]
     assert (item["mode_of_inheritance"], item["moi_hpo_id"]) == ("HP:0000007",) * 2
     assert item["mode_of_inheritance_entered"] == entered
+
+
+def test_mcp_reads_name_the_entity_key_and_risk_allele(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator: object,
+    susceptible: CurationNew,
+) -> None:
+    import json
+
+    from tests.api.test_mcp import call, pat
+
+    token = pat(db_session, test_user_curator)  # type: ignore[arg-type]
+    for tool in ("get_curation", "read_curation_for_review"):
+        result = call(client, token, tool, curation_id=str(susceptible.id))
+        body = json.loads(result["content"][0]["text"])
+        body = body.get("curation", body)
+        assert (body["entity_key"], body.get("risk_allele")) == (KEY, "G1"), tool
