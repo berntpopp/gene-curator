@@ -255,6 +255,28 @@ def test_the_corrector_is_no_peer_reviewer(
     assert not _can_user_review_curation(db_session, admin, c)
     assert _can_user_review_curation(db_session, world.reviewer, c)
 
+    # A real reviewer approves too: one approval counts, two are required, still in review
+    r = client.post(
+        f"/api/v1/workflow/curation/{c.id}/assign-reviewer",
+        json={"reviewer_id": str(world.reviewer.id)},
+        headers=auth_headers(world.author),
+    )
+    assert r.status_code == 200, r.text
+    real = db_session.scalar(
+        select(Review).where(
+            Review.curation_id == c.id, Review.reviewer_id == world.reviewer.id
+        )
+    )
+    r = client.post(
+        f"/api/v1/workflow/reviews/{real.id}/submit",
+        json={"decision": "approve"},
+        headers=auth_headers(world.reviewer),
+    )
+    assert r.status_code == 200, r.text
+    db_session.refresh(c)
+    assert approving_reviewers(db_session, c) == 1
+    assert c.status == CurationStatus.IN_REVIEW
+
 
 def test_a_short_reason_names_its_trimmed_length(
     db_session: Session, client: TestClient
