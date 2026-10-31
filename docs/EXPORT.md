@@ -132,7 +132,9 @@ SEPIO-CG:97010. `date` is an ISO 8601 date-time in UTC with a `Z` suffix, like t
 export timestamps (a bare source date such as ClinGen's classified date is midnight UTC).
 An assessor is listed only for an approving review the caller may see, so adopted
 curations and anonymous callers get none. Software contributions are always `curator`, never `approver`: the approver
-is the person who approved (4-eyes). Persons carry no `id`.
+is the person who approved (4-eyes). They come from the evidence rows' provenance, so callers who
+get no `evidence_lines` (non-members while `export_evidence_public` is off) get no software
+contributions either. Persons carry no `id`.
 
 The `source` field type (schema-driven, a table cell or a list) checks the identifier per
 kind: PMID digits; DOI `10.\d{4,9}/\S+`; ClinVar `(VCV|RCV|SCV)\d{9}(\.\d+)?`; ClinGen allele
