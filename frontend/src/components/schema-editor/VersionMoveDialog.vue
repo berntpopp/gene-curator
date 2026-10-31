@@ -36,7 +36,7 @@
           <td>v{{ item.from_version }} → v{{ item.to_version }}</td>
           <td>
             <template v-if="item.kind === 'curation'">
-              {{ item.old_class ?? '-' }} → {{ item.new_class ?? '-' }}
+              {{ classLabel(item.old_class) }} → {{ classLabel(item.new_class) }}
             </template>
           </td>
           <td class="text-body-small">
@@ -77,11 +77,14 @@
   import { ref } from 'vue'
   import { storeToRefs } from 'pinia'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { getClassification } from '@/config/classification'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
   import { errorMessage } from '@/stores/apiError'
   import { useMethodologyImportStore } from '@/stores/methodologyImport'
   import type { Schema } from '@/types/api'
+
+  const classLabel = (key?: string | null) => (key ? getClassification(key).label : '-')
 
   type VersionMoveItem = Schema<'VersionMoveItem'>
 

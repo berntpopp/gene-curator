@@ -32,6 +32,7 @@ interface Harness {
   result: Ref<FormValidationResult | undefined>
   backendErrors: Ref<Record<string, string[]>>
   activeTab: Ref<string | null>
+  missing: Ref<string[]>
 }
 
 function setup(schema: JsonSchemaDocument = {}): Harness {
@@ -39,13 +40,15 @@ function setup(schema: JsonSchemaDocument = {}): Harness {
   const result = ref<FormValidationResult | undefined>(undefined)
   const backendErrors = ref<Record<string, string[]>>({})
   const activeTab = ref<string | null>(null)
+  const missing = ref<string[]>([])
   const tabs = useFormTabs({
+    missingPaths: computed(() => missing.value),
     jsonSchema: computed(() => schemaRef.value) as ComputedRef<JsonSchemaDocument>,
     validationResult: computed(() => result.value) as ComputedRef<FormValidationResult | undefined>,
     backendErrors,
     activeTab
   })
-  return { tabs, schema: schemaRef, result, backendErrors, activeTab }
+  return { tabs, schema: schemaRef, result, backendErrors, activeTab, missing }
 }
 
 describe('useFormTabs', () => {
@@ -152,6 +155,14 @@ describe('useFormTabs', () => {
       backendErrors.value = { a_field: ['Required'] }
 
       expect(tabs.tabValidationErrors.value).toEqual({ a: true, b: false })
+    })
+
+    it('flags tabs holding an empty required field, nested too (MUI-16)', () => {
+      const { tabs, missing } = setup(tabSchema([tab('a'), tab('b'), tab('c')]))
+      missing.value = ['b_field', 'c_field.inner']
+
+      expect(tabs.tabValidationErrors.value).toEqual({ a: false, b: true, c: true })
+      expect(tabs.findFirstInvalidTab()).toBe('b')
     })
   })
 

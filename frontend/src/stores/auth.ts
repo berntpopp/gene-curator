@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { useScopesStore } from './scopes'
 import { authAPI } from '@/api'
 import { isExpired } from '@/api/client'
 import { logService } from '@/services/logService'
@@ -141,6 +142,7 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       clearFormRecoveryDrafts()
+      useScopesStore().reset() // menus and the Setup guard read scope roles from it
     },
 
     clearError() {

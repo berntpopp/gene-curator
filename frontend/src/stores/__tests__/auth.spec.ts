@@ -293,3 +293,17 @@ describe('useAuthStore', () => {
     })
   })
 })
+
+describe('auth store logout clears scope roles (review #608)', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it("forgets the previous user's scopes so menus and guards never reuse them", async () => {
+    const { useScopesStore } = await import('@/stores/scopes')
+    const scopes = useScopesStore()
+    scopes.scopes = [{ id: 's1', user_role: 'admin' }] as never
+    scopes.currentScope = { id: 's1' } as never
+    useAuthStore().clearAuth()
+    expect(scopes.scopes).toEqual([])
+    expect(scopes.currentScope).toBeNull()
+  })
+})

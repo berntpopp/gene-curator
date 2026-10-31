@@ -138,7 +138,7 @@
    * CurationFormView
    *
    * Scope-aware wrapper for creating/editing curations.
-   * Schema resolution: a 5-level priority chain (resolvedSchemaId).
+   * Schema resolution: the curation's or its precuration's pair, else the scope default (resolvedSchemaId).
    */
 
   import { ref, computed, watch, onMounted, provide } from 'vue'
@@ -185,6 +185,7 @@
 
   interface WorkflowPairRecord {
     id: string
+    precuration_schema_id?: string | null
     curation_schema_id?: string | null
   }
 
@@ -237,6 +238,8 @@
   const formGene = computed(() => (gene.value ? { symbol: gene.value.approved_symbol } : undefined))
   const scope = ref<ScopeRecord | null>(null)
   const pendingPrecurationId = ref<string | undefined>(undefined)
+  // Schema of the approved precuration a new curation starts from: it picks the pair (MUI-03)
+  const precurationSchemaId = ref<string | undefined>(undefined)
   const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
   // Several disease entities (#530): the user picks one instead of getting the first
   const choices = ref<{ id: string; label: string; to: RouteLocationRaw }[]>([])
@@ -325,65 +328,40 @@
     return all.filter(s => scopePairs.value.some(wp => wp.curation_schema_id === s.id))
   })
 
-  // Schema resolution with clear 5-level priority chain
+  const pairById = (id?: string | null) =>
+    id ? (schemasStore.workflowPairs as WorkflowPairRecord[]).find(wp => wp.id === id) : undefined
+
+  // The approved precuration's own pair (the scope default when it is one of them), as the
+  // backend picks it when approval creates the curation (MUI-03, #609)
+  const precurationPair = computed(() => {
+    if (!precurationSchemaId.value) return undefined
+    const own = scopePairs.value.filter(
+      wp => wp.precuration_schema_id === precurationSchemaId.value
+    )
+    return own.find(wp => wp.id === scope.value?.default_workflow_pair_id) ?? own[0]
+  })
+
+  // The curation's (or its precuration's) pair decides; the scope default only when neither is known
   const resolvedSchemaId = computed<string | undefined>(() => {
-    // Priority 1: Existing curation has schema
-    if (curation.value?.curation_schema_id) {
-      return curation.value.curation_schema_id
-    }
-
-    // Priority 2: User selected schema
-    if (selectedSchemaId.value) {
-      return selectedSchemaId.value
-    }
-
-    // Priority 3: Route query param (admin override)
-    if (route.query.schema_id) {
-      return route.query.schema_id as string
-    }
-
-    // Priority 4: Workflow pair default for scope (FIXED: use scope.default_workflow_pair_id)
-    if (scope.value?.default_workflow_pair_id) {
-      const workflowPair = (schemasStore.workflowPairs as WorkflowPairRecord[]).find(
-        wp => wp.id === scope.value?.default_workflow_pair_id
-      )
-      if (workflowPair?.curation_schema_id) {
-        return workflowPair.curation_schema_id
-      }
-    }
-
-    // Priority 5: Only one schema available - auto-select it
-    if (availableSchemas.value.length === 1) {
-      return availableSchemas.value[0]?.id
-    }
-
-    return undefined
+    const fromPair = (id?: string | null) => pairById(id)?.curation_schema_id ?? undefined
+    return (
+      curation.value?.curation_schema_id ??
+      fromPair(curation.value?.workflow_pair_id) ??
+      selectedSchemaId.value ??
+      ((route.query.schema_id as string | undefined) || undefined) ??
+      precurationPair.value?.curation_schema_id ??
+      fromPair(scope.value?.default_workflow_pair_id) ??
+      (availableSchemas.value.length === 1 ? availableSchemas.value[0]?.id : undefined)
+    )
   })
 
-  // Resolve workflow pair ID from schema or scope default
-  const resolvedWorkflowPairId = computed<string | undefined>(() => {
-    // Priority 1: Existing curation has workflow pair
-    if (curation.value?.workflow_pair_id) {
-      return curation.value.workflow_pair_id
-    }
-
-    // Priority 2: Scope's default workflow pair
-    if (scope.value?.default_workflow_pair_id) {
-      return scope.value.default_workflow_pair_id
-    }
-
-    // Priority 3: Find workflow pair that uses the resolved schema
-    if (resolvedSchemaId.value) {
-      const workflowPair = scopePairs.value.find(
-        wp => wp.curation_schema_id === resolvedSchemaId.value
-      )
-      if (workflowPair) {
-        return workflowPair.id
-      }
-    }
-
-    return undefined
-  })
+  const resolvedWorkflowPairId = computed<string | undefined>(
+    () =>
+      curation.value?.workflow_pair_id ??
+      precurationPair.value?.id ??
+      scope.value?.default_workflow_pair_id ??
+      scopePairs.value.find(wp => wp.curation_schema_id === resolvedSchemaId.value)?.id
+  )
 
   function handleSchemaSelected(schemaId: string) {
     selectedSchemaId.value = schemaId
@@ -549,7 +527,15 @@
     )
   }
 
+  // The list shows summaries without the schema: read the precuration itself. Unreadable, the
+  // backend still puts the curation on the precuration's own pair (#609)
+  async function loadPrecurationPair(id: string) {
+    const full = await precurationsStore.fetchPrecurationById(id).catch(() => undefined)
+    precurationSchemaId.value = full?.precuration_schema_id ?? undefined
+  }
+
   async function startEntity(body: { scope_id: string; gene_id: string; precuration_id: string }) {
+    await loadPrecurationPair(body.precuration_id)
     const workflow_pair_id = resolvedWorkflowPairId.value ?? ''
     // a 409 names the entity's open curation, which the openCurationId watcher opens
     const created = await curationsStore
@@ -598,6 +584,7 @@
       )
       if (precuration?.status === 'approved') {
         precurationStatus.value = 'approved'
+        await loadPrecurationPair(precuration.id)
       } else if (precuration) {
         precurationStatus.value = 'pending'
         pendingPrecurationId.value = precuration.id

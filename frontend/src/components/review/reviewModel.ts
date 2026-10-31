@@ -1,6 +1,7 @@
 /** Pure helpers for the review diff: grouping by evidence item, per-item state, approve rules. */
 import type { Schema } from '@/types/api'
 import { humanize } from '@/components/dynamic/fieldLabels'
+import { sourceLabel } from '@/components/dynamic/sourceModel'
 
 type DiffItem = Schema<'DiffItem'>
 type Comment = Schema<'ReviewComment'>
@@ -141,22 +142,41 @@ function rows(it: DiffItem): [string, unknown, unknown][] {
 // The record's own name: its `label` / `*_label` field (every SOP v11 list item has one).
 const isNameField = (name: string) => name === 'label' || name.endsWith('_label')
 
-function name(key: string, ctx: DiffContext, rows: DiffField[] = []) {
+function name(
+  key: string,
+  ctx: DiffContext,
+  rows: DiffField[] = [],
+  all?: Map<string, DiffGroup>
+): { label: string; context: string } {
   const list = key.replace(/\[[^\]]*\]$/, '')
   const sections = segments(list).map((_, i, all) =>
     fieldLabel(ctx.fields, all.slice(0, i + 1).join('.'))
   )
   const label = sections.pop() ?? key
-  if (list === key) return { label, context: sections.join(' › ') }
-  const row = rows.find(f => isNameField(f.name))
+  // A list inside a record (sources of a proband) sits under that record's own name (MUI-05)
+  const parentKey = itemKey(list)
+  const parent = list.includes(']') ? name(parentKey, ctx, all?.get(parentKey)?.fields, all) : null
+  const context = parent ? [parent.context, parent.label].filter(Boolean).join(' › ') : ''
+  if (list === key) return { label, context: context || sections.join(' › ') }
+  const field = (test: (name: string) => boolean) => {
+    const row = rows.find(f => test(f.name))
+    return row ? (row.after ?? row.before) : undefined
+  }
   const record = valueAt(ctx.evidence, key)
   const own =
-    row?.after ??
-    row?.before ??
+    field(isNameField) ??
     (isRecord(record) ? Object.entries(record).find(([k]) => isNameField(k))?.[1] : null)
-  const index = key.match(/\[(\d+)\]$/)?.[1]
-  const suffix = own ? ` · ${String(own)}` : index !== undefined ? ` #${+index + 1}` : ''
-  return { label: label + suffix, context: sections.join(' › ') }
+  const kind = field(f => f === 'kind') ?? (isRecord(record) ? record.kind : undefined)
+  const id = key.match(/\[([^\]]*)\]$/)?.[1]
+  const index = id && /^\d+$/.test(id) ? id : undefined
+  const suffix = own
+    ? ` · ${String(own)}`
+    : kind && id
+      ? ` · ${sourceLabel({ kind: String(kind), id })}`
+      : index !== undefined
+        ? ` #${+index + 1}`
+        : ''
+  return { label: label + suffix, context: context || sections.join(' › ') }
 }
 
 export function groupDiff(items: DiffItem[], ctx: DiffContext = {}): DiffGroup[] {
@@ -179,7 +199,7 @@ export function groupDiff(items: DiffItem[], ctx: DiffContext = {}): DiffGroup[]
       if (g.change !== it.change) g.change = 'changed'
     }
   }
-  return [...groups.values()].map(g => Object.assign(g, name(g.key, ctx, g.fields)))
+  return [...groups.values()].map(g => ({ ...g, ...name(g.key, ctx, g.fields, groups) }))
 }
 
 export { formatValue } from '@/utils/evidenceValue'

@@ -69,7 +69,7 @@ describe('SideRail', () => {
 
     auth.user = { email: 'a@b.c', role: 'admin' } as never
     const admin = await mountRail()
-    expect(admin.text()).toContain('Admin')
+    expect(admin.find('.v-list-subheader').text()).toBe('Setup') // scope admins see it too
     expect(admin.text()).toContain('Users')
     admin.unmount()
   })

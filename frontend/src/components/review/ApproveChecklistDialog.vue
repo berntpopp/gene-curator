@@ -65,6 +65,17 @@
       data-testid="blockers"
     >
       <div v-if="unaccepted.length">Accept these items first: {{ unaccepted.join(', ') }}</div>
+      <v-btn
+        v-if="acceptable.length"
+        size="small"
+        variant="outlined"
+        class="mt-2"
+        :loading="busy"
+        data-testid="accept-all"
+        @click="emit('accept-all', acceptable)"
+      >
+        Accept all {{ acceptable.length }}
+      </v-btn>
       <div v-if="queried.length">Resolve the open queries on: {{ queried.join(', ') }}</div>
     </v-alert>
 
@@ -126,12 +137,18 @@
     busy: boolean
     error: string | null
   }>()
-  const emit = defineEmits<{ 'update:modelValue': [boolean]; approve: [string] }>()
+  const emit = defineEmits<{
+    'update:modelValue': [boolean]
+    approve: [string]
+    'accept-all': [string[]]
+  }>()
 
   const ticked = ref<string[]>([])
   const note = ref('')
   const items = computed(() => checklistFor(props.classification))
   const unaccepted = computed(() => props.blockers.filter(b => !b.queried).map(b => b.label))
+  // Unaccepted diff items (a blocker without a key is a review that did not load)
+  const acceptable = computed(() => props.blockers.filter(b => !b.queried && b.key).map(b => b.key))
   const queried = computed(() => props.blockers.filter(b => b.queried).map(b => b.label))
   // Ticks and note survive Cancel: the dialog is one per curation page
   const left = computed(() => items.value.filter(i => !ticked.value.includes(i.id)).length)

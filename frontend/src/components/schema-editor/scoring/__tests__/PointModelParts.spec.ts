@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
+import { confirmState } from '@/composables/useConfirm'
 import { nextTick, reactive } from 'vue'
 import PointModelTypes from '../PointModelTypes.vue'
 import PointModelRowRules from '../PointModelRowRules.vue'
@@ -96,6 +97,8 @@ describe('PointModelTypes', () => {
       .trigger('click')
     expect(types).toHaveLength(2)
     await w.find('button[aria-label="Remove evidence type"]').trigger('click')
+    confirmState.settle(true) // removal asks first (MUI-08)
+    await flushPromises()
     expect(types).toEqual([{ path: '' }])
   })
 })

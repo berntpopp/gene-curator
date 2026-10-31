@@ -58,7 +58,7 @@
               icon="mdi-delete"
               variant="text"
               color="error"
-              @click="model.sections.splice(i, 1)"
+              @click="remove(model.sections, i, 'section')"
             />
           </div>
 
@@ -100,7 +100,7 @@
                   icon="mdi-delete"
                   variant="text"
                   color="error"
-                  @click="section.categories.splice(j, 1)"
+                  @click="remove(section.categories, j, 'category')"
                 />
               </div>
               <PointModelTypes
@@ -128,6 +128,7 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
+  import { confirmRemoval } from '@/composables/useConfirm'
   import FieldPicker from './FieldPicker.vue'
   import PointModelTypes from './PointModelTypes.vue'
   import { readsInside, sectionOptions, tableOptions } from './evidenceFields'
@@ -153,6 +154,9 @@
     if (value === 'max') category.combine = 'max'
     else delete category.combine // sum is the default; keep stored models unchanged
   }
+
+  const remove = async (list: unknown[], i: number, what: string) =>
+    (await confirmRemoval(what)) && list.splice(i, 1)
 
   const addSection = () => {
     model.value.sections.push({ key: '', categories: [] })

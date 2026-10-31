@@ -45,7 +45,7 @@
     { key: 'validation_rules', label: 'Validation rules', hint: 'Cross-field rules, or {}' },
     {
       key: 'scoring_configuration',
-      label: 'Scoring',
+      label: 'Scoring configuration',
       hint: 'Engine, point model and classifications; empty for no scoring'
     },
     { key: 'workflow_states', label: 'Workflow states', hint: 'States and allowed transitions' }

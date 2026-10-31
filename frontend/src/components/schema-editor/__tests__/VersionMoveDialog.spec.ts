@@ -50,7 +50,8 @@ describe('VersionMoveDialog', () => {
     post.mockResolvedValueOnce(plan() as never)
     await openDialog()
     expect(post).toHaveBeenCalledWith('sc', true, undefined)
-    expect(document.body.textContent).toContain('strong → moderate')
+    // MUI-18: class labels, not stored keys
+    expect(document.body.textContent).toContain('Strong → Moderate')
     expect(document.body.textContent).toContain('Copy to review')
     expect(document.body.textContent).toContain('Dropped: old_note')
 

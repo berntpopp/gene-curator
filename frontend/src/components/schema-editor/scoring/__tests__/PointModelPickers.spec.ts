@@ -56,7 +56,9 @@ describe('evidenceFields', () => {
     expect(top[0]!.columns.map(c => c.value)).toEqual(['variant', 'variant_class', 'points'])
     expect(top[0]!.columns[1]).toMatchObject({
       title: 'variant_class',
-      options: ['lof', 'missense']
+      options: ['lof', 'missense'],
+      // MUI-18: rule values show the option labels
+      optionLabels: { lof: 'LoF' }
     })
     expect(top[0]!.columns[1]!.subtitle).toBeUndefined()
     expect(tableOptions(seeded, '')[0]).toMatchObject({ value: 'segregation' })

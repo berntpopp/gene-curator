@@ -147,7 +147,7 @@ def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
         out.append(
             ("error", "ui_configuration", "ui_configuration must be a dictionary")
         )
-    elif isinstance(ui, dict) and "sections" not in ui:
+    elif isinstance(ui, dict) and "sections" not in ui and not _layout_tabs(ui):
         msg = "UI configuration missing 'sections' - form may not render properly"
         out.append(("warning", "ui_configuration.sections", msg))
     known = fields if isinstance(fields, dict) else None
@@ -157,6 +157,16 @@ def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
         out += _check_conditions(known)
     out += synopsis_diagnostics(schema)
     return out
+
+
+def _layout_tabs(ui: dict[str, Any]) -> bool:
+    """`layout.tabs` lays the form out as well as `sections` (normalizeDefinition.ts)."""
+    layout = ui.get("layout")
+    return (
+        isinstance(layout, dict)
+        and isinstance(layout.get("tabs"), list)
+        and bool(layout["tabs"])
+    )
 
 
 def _children(cfg: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:

@@ -221,6 +221,10 @@ describe('SchemaManagement methodology import', () => {
     ;(vm.newSchema as Record<string, unknown>).name = 'Mine'
     ;(vm.newSchema as Record<string, unknown>).type = 'curation'
     await call(vm, 'createSchema')
-    expect(push).toHaveBeenCalledWith({ name: 'SchemaEditor', params: { id: 'new1' } })
+    expect(push).toHaveBeenCalledWith({
+      name: 'SchemaEditor',
+      params: { id: 'new1' },
+      query: { edit: '1' }
+    })
   })
 })
