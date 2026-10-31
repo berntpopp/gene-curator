@@ -311,12 +311,15 @@ class CurationNew(Base):
 
     @hybrid_property
     def final_classification(self) -> str | None:
-        return self.curator_classification or self.computed_verdict
+        # a blank curator call is no call, here and in SQL alike
+        return (self.curator_classification or "").strip() or self.computed_verdict
 
     @final_classification.inplace.expression
     @classmethod
     def _final_classification_expression(cls) -> ColumnElement[str | None]:
-        return func.coalesce(cls.curator_classification, cls.computed_verdict)
+        return func.coalesce(
+            func.nullif(func.trim(cls.curator_classification), ""), cls.computed_verdict
+        )
 
     # Auto-save functionality (nullable)
     auto_saved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))

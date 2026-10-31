@@ -27,6 +27,7 @@ from .models import (
 )
 from .personal_access_token import PersonalAccessToken
 from .review_comments import ReviewItemComment
+from .user_view_preference import UserViewPreference
 
 # Create aliases for backward compatibility
 User = UserNew
@@ -55,6 +56,7 @@ __all__ = [
     "UserNew",
     "UserRole",
     "UserRoleNew",
+    "UserViewPreference",
     "WorkflowPair",
     "WorkflowStage",
 ]

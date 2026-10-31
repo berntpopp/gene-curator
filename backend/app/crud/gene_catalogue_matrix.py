@@ -52,8 +52,8 @@ def _agreement(active: list[CurationNew]) -> Agreement:
     """Per gene-disease-MOI entity (#530): scopes agree or disagree on the same entity."""
     by_entity: dict[str, list[str]] = defaultdict(list)
     for c in active:
-        if c.final_classification:
-            by_entity[c.entity_key].append(class_key(c.final_classification))
+        if key := class_key(c.final_classification or ""):  # a blank verdict is none
+            by_entity[c.entity_key].append(key)
     if any(len(set(v)) > 1 for v in by_entity.values()):
         return "disagree"
     if any(len(v) > 1 for v in by_entity.values()):
@@ -158,7 +158,7 @@ def get_matrix(
                 .where(
                     ActiveCuration.archived_at.is_(None),
                     ActiveCuration.scope_id.in_(visible),
-                    CurationNew.final_classification.is_not(None),
+                    class_key_sql(CurationNew.final_classification) != "",
                 )
                 .group_by(ActiveCuration.gene_id, ActiveCuration.entity_key)
                 .having(*having)

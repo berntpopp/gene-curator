@@ -28,6 +28,16 @@ export const catalogueMatrixAPI = {
     return response.data
   },
 
+  /** The signed-in user's saved columns, in order; empty when none were chosen (#276). */
+  async getSavedView(): Promise<string[]> {
+    const response = await apiClient.get<Schema<'CatalogueView'>>('/me/views/catalogue')
+    return response.data.scope_ids ?? []
+  },
+
+  async saveView(scopeIds: string[]): Promise<void> {
+    await apiClient.put('/me/views/catalogue', { scope_ids: scopeIds })
+  },
+
   async getScopes(): Promise<Schema<'ScopeFilterOption'>[]> {
     const response = await apiClient.get<Schema<'ScopeFilterOption'>[]>(
       '/gene-catalogue/filters/scopes'
