@@ -625,7 +625,8 @@ def _check_point_rules(item: dict[str, Any], path: str) -> list[Diagnostic]:
     for i, rule in _items(_as(list, rules), f"{path}.points_when", out):
         at = f"{path}.points_when[{i}]"
         out += _check_condition(rule, at, {"points", "factor", "max", "and"})
-        if sum(_is_number(rule.get(k)) for k in ("points", "factor", "max")) != 1:
+        kinds = [k for k in ("points", "factor", "max") if k in rule]
+        if len(kinds) != 1 or not _is_number(rule[kinds[0]]):
             out.append(("error", f"{at}.points", "points, factor or max: one number"))
         for j, cond in _items(_as(list, rule.get("and", [])), f"{at}.and", out):
             out += _check_condition(cond, f"{at}.and[{j}]", set())

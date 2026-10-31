@@ -106,6 +106,8 @@ def test_valid_shapes() -> None:
         {"field": "x", "in": [1], "factor": "0.5"},
         {"field": "x", "in": [1], "max": None},
         {"field": "x", "in": [1], "points": 1, "max": 2},
+        {"field": "x", "in": [1], "points": "x", "factor": 0.5},
+        {"field": "x", "in": [1], "factor": True},
         {"field": "x", "in": [1]},
     ],
 )
