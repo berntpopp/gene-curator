@@ -613,7 +613,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             user_id,
             submit_data.notes,
             expected_version=submit_data.lock_version,
-            reviewer_id=submit_reviewer(db, db_obj.scope_id, submit_data),
+            reviewer_id=submit_reviewer(
+                db, db_obj.scope_id, submit_data, db_obj.created_by
+            ),
         )
         db.refresh(db_obj)
 
