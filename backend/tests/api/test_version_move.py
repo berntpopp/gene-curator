@@ -412,3 +412,33 @@ def test_inactive_scope_rows_are_reported_as_skipped(
     assert r.status_code == 200, r.text
     assert {i["skipped"] for i in r.json()["items"]} == {INACTIVE_SCOPE}
     assert db_session.scalar(select(func.count()).select_from(AuditLogNew)) == 0
+
+
+def test_a_moved_adoption_stays_unscored_and_keeps_its_marker(
+    client: TestClient, db_session: Session, admin_token: str, world: World
+) -> None:
+    """#613: no points of ours on the new version either; a reopened copy is still one."""
+    marker = {"cggv_id": "CGGV:assertion_x", "classification": "Definitive"}
+    for key in "ac":
+        row = world.rows[key]
+        row.clingen_adoption, row.computed_scores, row.computed_verdict = (
+            marker,
+            {},
+            None,
+        )
+    db_session.commit()
+    r = client.post(_url(world, dry_run=False), headers=auth(admin_token))
+    assert r.status_code == 200, r.text
+    db_session.expire_all()
+    a, c = (db_session.get(CurationNew, world.rows[k].id) for k in "ac")
+    assert a and c
+    # no class change: moved in place, still active and unscored
+    assert (a.status, a.methodology_version_id) == (CurationStatus.ACTIVE, world.v2)
+    assert (a.computed_verdict, a.computed_scores, a.clingen_adoption) == (
+        None,
+        {},
+        marker,
+    )
+    copy_c = _copy(db_session, c)  # misses new_req: back to draft as before
+    assert (copy_c.clingen_adoption, copy_c.computed_verdict) == (marker, None)
+    assert copy_c.computed_scores == {}

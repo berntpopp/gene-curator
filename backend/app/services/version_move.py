@@ -171,7 +171,9 @@ def _plan_curation(
     db: Session, row: CurationNew, item: VersionMoveItem, target: UUID, kept: Any
 ) -> dict[str, Any]:
     """Score as a save on the new version does; decide whether an active result reopens."""
-    probe = CurationNew(workflow_pair_id=row.workflow_pair_id)  # never added
+    probe = CurationNew(  # never added; an adoption stays unscored (#613)
+        workflow_pair_id=row.workflow_pair_id, clingen_adoption=row.clingen_adoption
+    )
     probe.methodology_version_id = target
     computed = _computed(db, probe, kept, lookup=False)
     item.old_score = (row.computed_scores or {}).get("total_score")
@@ -198,6 +200,7 @@ def _open_copy(
         entity_key=row.entity_key,
         curator_classification=row.curator_classification,
         curator_classification_rationale=row.curator_classification_rationale,
+        clingen_adoption=row.clingen_adoption,
         created_by=row.created_by,  # the curator's work: they may not approve it
         status=CurationStatus.IN_REVIEW if review else CurationStatus.DRAFT,
         workflow_stage=WorkflowStage.REVIEW if review else WorkflowStage.CURATION,
