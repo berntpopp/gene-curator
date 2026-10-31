@@ -58,6 +58,8 @@ Step 0 is answered; do not ask again.
 | #614 susceptibility risk allele, undetermined MOI, CI columns, association score | #619 |
 | #615 KGDB bundle at prompt iteration 8, README, `mondo_id` normalised | #619 |
 | Re-check findings and remaining UX nits (fix/w11-final) | #617 |
+| KGDB end-to-end frictions, bundle (canonical risk allele, 091) | #622, #623 |
+| KGDB end-to-end frictions, API/MCP/export | #624, #625 (tests) |
 | Release v0.13.0 | #607 (release/v0.13.0) |
 
 ## Migrations
@@ -76,6 +78,8 @@ Step 0 is answered; do not ask again.
 | 087 | - | unused (#618 needed none) |
 | 088_susceptibility_allele_key | #619 | `risk_allele` joins the susceptibility entity key; UNDETERMINED / MULTIFACTORIAL MOI keys; stops on open precurations it would merge |
 | 089_review_comments_inactive_scope_read | #617 | members read an inactive scope's review comments (SELECT only) |
+| 090 | - | unused (#624 needed none) |
+| 091_canonical_risk_allele | #622, #623 | risk alleles rewritten to `rs<digits> <BASE>`; keys follow; stops on open precurations it would merge |
 
 ## Reviews
 
@@ -164,9 +168,14 @@ KGDB QA round (kidney-genetics-db#448): KGDB's own QA of this stack filed #610â€
 susceptibility risk allele, bundle at prompt iteration 8). All six are closed by #616, #618 and
 #619, with follow-ups #620 and #621.
 
+KGDB end-to-end round 2: PASS on 0fda2285. MAGI2 (Mendelian), PLA2R1 rs17831251 C
+(susceptibility) and KCNJ16 (adoption) went through; the export passed KGDB's pinned schema; the
+import into KGDB created 3, skipped 4 and rejected 2 with a reason. The 12 frictions it found
+were fixed in #622 (bundle; #623 for 091 edge cases) and #624 (API, MCP, export; #625 tests).
+
 ## Remaining follow-ups
 
-None after fix/w11-final (#617) and #620.
+None.
 
 Orchestration notes:
 
