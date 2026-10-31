@@ -16,6 +16,7 @@ from app.models import (
     AuditLogNew,
     CurationNew,
     CurationStatus,
+    PrecurationNew,
     Review,
     ReviewStatus,
     ScopeMembership,
@@ -39,27 +40,34 @@ def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | No
     return membership.role if membership else None
 
 
-def may_edit_curation(db: Session, user: UserNew, curation: CurationNew) -> bool:
-    """The creator, a scope admin of its scope (#284 matrix) or a platform admin."""
+def may_edit_curation(
+    db: Session, user: UserNew, item: CurationNew | PrecurationNew
+) -> bool:
+    """The creator, a scope admin of its scope (#284 matrix) or a platform admin; for a
+    curation or a precuration."""
     return (
         user.role == "admin"
-        or curation.created_by == user.id
-        or holds(db, user.id, curation.scope_id, MANAGE_SCOPE)
+        or item.created_by == user.id
+        or holds(db, user.id, item.scope_id, MANAGE_SCOPE)
     )
 
 
-def record_edit_by_other(db: Session, user: UserNew, curation: CurationNew) -> None:
-    """D1 (#609 review): someone saving another person's curation did part of its work, so
-    they may not review it (draft_edit is one of review_round.correctors). Added before
-    the save, whose commit writes it."""
-    if curation.created_by != user.id:
+def record_edit_by_other(
+    db: Session, user: UserNew, item: CurationNew | PrecurationNew
+) -> None:
+    """D1 (#609 review): someone saving another person's curation or precuration did part
+    of its work, so they may not review it (draft_edit is one of review_round.correctors).
+    Added before the save, whose commit writes it."""
+    if item.created_by != user.id:
         db.add(
             AuditLogNew(
-                entity_type="curations",
-                entity_id=curation.id,
+                entity_type="curations"
+                if isinstance(item, CurationNew)
+                else "precurations",
+                entity_id=item.id,
                 operation="UPDATE",
                 change_type="draft_edit",
-                scope_id=curation.scope_id,
+                scope_id=item.scope_id,
                 user_id=user.id,
             )
         )

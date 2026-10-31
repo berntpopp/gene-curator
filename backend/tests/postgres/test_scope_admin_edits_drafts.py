@@ -126,3 +126,36 @@ def test_scope_admin_saves_another_members_draft(client: TestClient, w: W) -> No
         headers=_h(w.sadmin),
     )
     assert r.status_code == 403, r.text
+
+
+def test_admin_edits_a_precuration_then_may_not_approve_it(
+    client: TestClient, w: W
+) -> None:
+    """#609 delta review as app_user: the precuration edit is the admin's work too."""
+    pre = uuid4()
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO precurations (id, gene_id, scope_id, precuration_schema_id, "
+            "status, workflow_stage, is_draft, created_by) SELECT %s, %s, %s, "
+            "precuration_schema_id, 'draft', 'precuration', true, %s FROM workflow_pairs "
+            "WHERE is_active AND precuration_schema_id IS NOT NULL LIMIT 1",
+            (str(pre), str(w.gene), str(w.scope), str(w.alice)),
+        )
+    url = f"/api/v1/precurations/{pre}"
+    lock = client.get(url, headers=_h(w.alice)).json()["lock_version"]
+    body = {"evidence_data": {"note": "x"}, "merge": True, "lock_version": lock}
+    assert (
+        client.patch(f"{url}/draft", json=body, headers=_h(w.carl)).status_code == 403
+    )
+    r = client.patch(f"{url}/draft", json=body, headers=_h(w.sadmin))
+    assert r.status_code == 200, r.text
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE precurations SET status = 'submitted', workflow_stage = 'review' "
+            "WHERE id = %s",
+            (str(pre),),
+        )
+    r = client.post(f"{url}/approve", headers=_h(w.sadmin))
+    assert r.status_code == 403, r.text
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM precurations WHERE id = %s", (str(pre),))
