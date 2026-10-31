@@ -63,10 +63,10 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
 INSTRUCTIONS = """\
 Gene Curator: gene-disease validity curation in scopes (teams). Every tool calls the
 REST API as you, so your scope role, row-level security and the 4-eyes rule apply.
-This endpoint (/mcp) serves pipeline setup, curation and review tools; /mcp/full
-serves every other API operation (schema authoring, statistics, platform admin).
+/mcp serves pipeline setup, curation and review tools; /mcp/full serves every
+other API operation (schema authoring, statistics, platform admin).
 
-Scopes by name: tools with scope_name take the team name instead of scope_id
+Scopes by name: tools with scope_name take the team name for scope_id
 (create_precuration, add_genes_to_scope, list_precurations, list_curations,
 get_peer_reviewers, get_my_review_assignments); list_scopes(name=) finds the id.
 
@@ -83,9 +83,8 @@ MONDO id + mode of inheritance, each curated on its own.
 1. Entry: add_genes_to_scope(symbols, scope_name) resolves HGNC symbols, creates
    missing genes and assigns them in one call.
 2. Precuration: create_precuration, save_draft_precurations, then
-   submit_precuration(reviewer_email=...) submits and routes it to a reviewer. The
-   reviewer finds it in read_my_work and calls approve_precuration or
-   reject_precuration.
+   submit_precuration(reviewer_email=...) routes it to a reviewer, who finds it in
+   read_my_work and calls approve_precuration or reject_precuration.
 3. Curation: approval opens a draft curation (list_curations); curation_created
    false means curation_id is the open one blocking it. create_curation needs an
    approved precuration and no open curation of that entity; pass precuration_id
@@ -107,16 +106,17 @@ MONDO id + mode of inheritance, each curated on its own.
 6. Active: one active curation per entity; a re-curation replaces only its entity.
 
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
-to another reviewer of the scope.
+to another reviewer.
 
 Scope roles (yours: user_role on each list_scopes row; everyone's: list_members):
-viewer reads; curator also adds genes and creates, edits and submits precurations and
-curations; reviewer also approves or rejects precurations and reviews others'
-curations; admin does all of that plus members and scope edits.
+viewer reads; curator adds genes, creates, edits and submits; reviewer approves or
+rejects precurations and reviews others' curations; admin does all that plus members
+and scope edits.
 
-Queue: read_my_work.
-Errors start with a code (invalid_input, forbidden, not_found, conflict, ...), then
-the detail and a next: line naming the tool to call. On conflict, re-read the item and
+Queue: read_my_work and get_my_review_assignments.
+Errors start with a code (invalid_input, unauthorized, forbidden, not_found,
+conflict, rate_limited, upstream_unavailable, internal, response_too_large), then the
+detail and a next: line naming the tool to call. On conflict, re-read the item and
 retry with its lock_version. Results omit null fields. Confirm destructive tools with
 the user.
 """

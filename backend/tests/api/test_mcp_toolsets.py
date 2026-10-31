@@ -336,6 +336,16 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
     assert "a literature MCP such as GeneFoundry;" in INSTRUCTIONS
     assert '"ClinGen\nGene-Disease Validity" is_default' in INSTRUCTIONS
     assert "previous_submission the one before it" in INSTRUCTIONS
+    # W11 polish: the full closed error-code list and both queues (trimmed in #601)
+    assert "Queue: read_my_work and get_my_review_assignments." in INSTRUCTIONS
+    for code in (
+        "unauthorized",
+        "rate_limited",
+        "upstream_unavailable",
+        "internal",
+        "response_too_large",
+    ):
+        assert code in INSTRUCTIONS, code
     # the old multi-step gene entry and reviewer routing are gone
     assert "create_gene_assignment" not in INSTRUCTIONS
     assert "assign_peer_reviewer" not in INSTRUCTIONS
