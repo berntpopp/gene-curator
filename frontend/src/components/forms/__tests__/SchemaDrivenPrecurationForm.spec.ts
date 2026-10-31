@@ -16,7 +16,8 @@ const precurationsStore = vi.hoisted(() => ({
   saveDraft: vi.fn(),
   createPrecuration: vi.fn(),
   submitForReview: vi.fn(),
-  error: null as { message?: string; isConflict?: boolean } | null
+  deletePrecuration: vi.fn(),
+  error: null as { message?: string; isConflict?: boolean; existingId?: string } | null
 }))
 const history = vi.hoisted(() => ({ undo: vi.fn(), redo: vi.fn(), clearHistory: vi.fn() }))
 const recovery = vi.hoisted(() => ({
@@ -104,7 +105,8 @@ const stubs = {
   ErrorBoundary: { template: '<div><slot /></div>' },
   DynamicForm: true,
   FormActions: true,
-  FormRecoveryDialog: true
+  FormRecoveryDialog: true,
+  RouterLink: { props: ['to'], template: '<a><slot /></a>' }
 }
 
 function mountForm(props: Record<string, unknown> = {}) {
@@ -234,6 +236,34 @@ describe('SchemaDrivenPrecurationForm', () => {
 
     expect(logger.error).toHaveBeenCalledWith('Failed to save draft', { error: 'offline' })
     expect(addToast).toHaveBeenCalledWith('Failed to save draft', 'error')
+  })
+
+  it('names the existing precuration on a duplicate entity and discards this draft (B5)', async () => {
+    const message = 'This disease entity already has an open precuration'
+    precurationsStore.saveDraft.mockResolvedValue(null)
+    precurationsStore.error = { message, existingId: 'p-0' }
+    const wrapper = mountForm({ precurationId: 'p-1' })
+    await internals(wrapper).handleSaveDraft()
+    await flushPromises()
+    expect(addToast).toHaveBeenCalledWith(message, 'error')
+    expect(wrapper.find('[data-testid="duplicate-entity"]').text()).toContain(message)
+    await wrapper.find('[data-testid="discard-duplicate"]').trigger('click')
+    await flushPromises()
+    expect(precurationsStore.deletePrecuration).toHaveBeenCalledWith('p-1')
+    expect(push).toHaveBeenCalledWith({
+      name: 'precuration-edit',
+      params: { scopeId: 'scope-1', precurationId: 'p-0' }
+    })
+  })
+
+  it('reads the duplicate entity from a refused create', async () => {
+    const detail = { message: 'Already open', precuration_id: 'p-0' }
+    precurationsStore.createPrecuration.mockRejectedValue({ response: { data: { detail } } })
+    const wrapper = mountForm({ geneId: 'g-1' })
+    await internals(wrapper).handleSaveDraft()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="duplicate-entity"]').text()).toContain('Already open')
+    expect(wrapper.find('[data-testid="discard-duplicate"]').exists()).toBe(false)
   })
 
   it('submits an existing precuration for review and emits submit', async () => {

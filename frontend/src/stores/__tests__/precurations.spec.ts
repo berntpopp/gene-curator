@@ -281,6 +281,20 @@ describe('usePrecurationsStore', () => {
       await expect(store.saveDraft('p1', {})).resolves.toBeNull()
       expect(store.error).toMatchObject({ isConflict: true, currentVersion: 2, yourVersion: 1 })
     })
+
+    it('keeps a duplicate-entity 409 apart from a version conflict (monkey B5)', async () => {
+      const store = usePrecurationsStore()
+      const message =
+        'This disease entity already has an open or approved precuration in this scope'
+      api.saveDraft.mockRejectedValue({
+        isAxiosError: true,
+        message: 'Request failed',
+        response: { status: 409, data: { detail: { message, precuration_id: 'p0' } } }
+      })
+
+      await expect(store.saveDraft('p1', {})).resolves.toBeNull()
+      expect(store.error).toEqual({ message, existingId: 'p0' })
+    })
   })
 
   describe('submitForReview', () => {
