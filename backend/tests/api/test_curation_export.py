@@ -240,9 +240,8 @@ def test_pages_by_cursor_and_filters_by_updated_since(
 
     seen, cursor = [], None
     for _ in range(3):
-        r = client.get(
-            URL, params={"limit": 1, **({"cursor": cursor} if cursor else {})}
-        )
+        # sent raw: next_cursor must be URL-safe (W11 A5)
+        r = client.get(f"{URL}?limit=1" + (f"&cursor={cursor}" if cursor else ""))
         assert r.status_code == 200, r.text
         seen += _ids(r)
         cursor = r.json()["next_cursor"]
@@ -253,7 +252,16 @@ def test_pages_by_cursor_and_filters_by_updated_since(
     assert _ids(client.get(URL, params={"updated_since": since})) == ordered[1:]
 
 
-@pytest.mark.parametrize("cursor", ["junk", "2026-01-01T00:00:00|nope"])
+def test_cursor_of_an_offset_time_is_url_safe(client: TestClient) -> None:
+    """W11 A5: "+00:00" in a raw query string decoded to a space and a 422."""
+    from app.crud.curation_export import encode_cursor
+
+    cursor = encode_cursor(T0.replace(tzinfo=UTC), uuid4())
+    assert cursor.replace("-", "").replace("_", "").isalnum()
+    assert client.get(f"{URL}?cursor={cursor}").status_code == 200
+
+
+@pytest.mark.parametrize("cursor", ["junk", "2026-01-01T00:00:00|nope", "!!"])
 def test_bad_cursor_is_refused(client: TestClient, cursor: str) -> None:
     assert client.get(URL, params={"cursor": cursor}).status_code == 422
 

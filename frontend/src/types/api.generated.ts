@@ -785,7 +785,7 @@ export interface paths {
         get: operations["get_catalogue_view_api_v1_me_views_catalogue_get"];
         /**
          * Save Catalogue View
-         * @description Save your catalogue columns as your default view.
+         * @description Save your catalogue columns as your default view: scopes you can see, each once.
          */
         put: operations["save_catalogue_view_api_v1_me_views_catalogue_put"];
         post?: never;
@@ -4748,9 +4748,10 @@ export interface components {
             cggv_id: string;
             /**
              * Action
+             * @description refused: the row has errors (see errors) and nothing is written
              * @enum {string}
              */
-            action: "create" | "unchanged";
+            action: "create" | "unchanged" | "refused";
             /**
              * Curation Id
              * @description Empty for curations a dry run would create

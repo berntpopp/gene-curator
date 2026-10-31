@@ -444,3 +444,28 @@ def test_two_entities_of_one_gene_are_two_done_rows(client, db_session: Session)
         }
         assert set(done) == ids
         assert sorted(done.values()) == ["mendelian", "susceptibility"]
+
+
+def test_approved_precuration_without_curation_needs_start_curation(
+    client, db_session: Session, test_scope, test_gene, test_workflow_pair,
+    test_user_curator, test_precuration,
+):  # fmt: skip
+    """MUI-04: no curation was created (no usable pair): the gene left My work."""
+    test_precuration.status, test_precuration.workflow_stage = "approved", "curation"
+    db_session.commit()
+
+    def starts() -> list[dict]:
+        items = _get(client, test_user_curator)["items"]
+        return [i for i in items if i["verb"] == "Start curation"]
+
+    (item,) = starts()
+    assert (item["tab"], item["item_id"]) == ("needs_you", str(test_precuration.id))
+    assert item["link"] == (
+        f"/scopes/{test_scope.id}/genes/{test_gene.id}/curation/new"
+        f"?precuration_id={test_precuration.id}"
+    )
+    c = _cur(test_scope, test_gene, test_workflow_pair, test_user_curator, "draft")
+    c.precuration_id = test_precuration.id
+    db_session.add(c)
+    db_session.commit()
+    assert starts() == []

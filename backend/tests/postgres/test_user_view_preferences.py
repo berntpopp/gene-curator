@@ -38,6 +38,22 @@ def users() -> Generator[tuple[UUID, UUID], None, None]:
 
 
 @pytest.fixture
+def public_ids(users: tuple[UUID, UUID]) -> Generator[list[str], None, None]:
+    """Saved views keep only visible scopes (W11 A7): three public ones."""
+    ids = [str(uuid4()) for _ in range(3)]
+    with _owner() as conn, conn.cursor() as cur:
+        for sid in ids:
+            cur.execute(
+                "INSERT INTO scopes (id, name, display_name, is_public, created_by) "
+                "VALUES (%s, %s, 'V', true, %s)",
+                (sid, f"views-{sid}", str(users[0])),
+            )
+    yield ids
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM scopes WHERE id = ANY(%s::uuid[])", (ids,))
+
+
+@pytest.fixture
 def client() -> Generator[TestClient, None, None]:
     database.engine.dispose()
     with TestClient(app) as c:
@@ -50,10 +66,10 @@ def _jwt(uid: UUID) -> dict[str, str]:
 
 
 def test_each_user_saves_and_reads_only_their_own_view(
-    client: TestClient, users: tuple[UUID, UUID]
+    client: TestClient, users: tuple[UUID, UUID], public_ids: list[str]
 ) -> None:
     alice, bob = users
-    first, second = [str(uuid4())], [str(uuid4()), str(uuid4())]
+    first, second = public_ids[:1], public_ids[1:]
     assert (
         client.put(URL, json={"scope_ids": first}, headers=_jwt(alice)).status_code
         == 200

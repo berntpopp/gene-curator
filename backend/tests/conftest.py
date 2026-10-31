@@ -81,6 +81,35 @@ def _no_database_logging() -> Generator[None, None, None]:
 
 
 @pytest.fixture(autouse=True)
+def _no_real_async_database(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Async endpoints never reach DATABASE_URL here (make exports the live dev database
+    from .env.dev). NullPool: no asyncpg connection outlives a TestClient's event loop,
+    which made one path 500 when the next client reused it. The Postgres lane keeps the
+    real engine."""
+    if request.node.get_closest_marker("postgres"):
+        return
+    from sqlalchemy.ext.asyncio import (
+        AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
+    )
+    from sqlalchemy.pool import NullPool
+
+    from app.core import deps
+
+    engine = create_async_engine(  # port 9 (discard): refused at once, no network
+        "postgresql+asyncpg://test:test@127.0.0.1:9/none", poolclass=NullPool
+    )
+    monkeypatch.setattr(
+        deps,
+        "AsyncSessionLocal",
+        async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False),
+    )
+
+
+@pytest.fixture(autouse=True)
 def _offline_draft_lookups(monkeypatch: pytest.MonkeyPatch) -> None:
     """Draft saves and score previews look IDs up; tests needing that patch the fetchers."""
     from app.services import evidence_ids, recompute_scores, review_entry

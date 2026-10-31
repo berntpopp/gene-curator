@@ -425,7 +425,8 @@ describe('CurationFormView', () => {
 
     async function mountFramed(
       curation: Record<string, unknown> = { workflow_stage: 'curation' },
-      params: Record<string, string> = { scopeId: 'sc1', curationId: 'c1' }
+      params: Record<string, string> = { scopeId: 'sc1', curationId: 'c1' },
+      scope: Record<string, unknown> = {}
     ) {
       routeState.params = params
       const wrapper = await mountView(
@@ -433,7 +434,8 @@ describe('CurationFormView', () => {
           schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch' }] as never
           vi.spyOn(scopes, 'fetchScope').mockResolvedValue({
             default_workflow_pair_id: 'wp1',
-            display_name: 'Kidney genetics'
+            display_name: 'Kidney genetics',
+            ...scope
           } as never)
           vi.spyOn(curations, 'fetchCurationById').mockResolvedValue({
             curation_schema_id: 'sch',
@@ -580,7 +582,18 @@ describe('CurationFormView', () => {
         curator_name: 'Alice Smith'
       })
       expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain(
-        'Read-only: this curation belongs to Alice Smith. Only its author can edit it.'
+        'Read-only: this curation belongs to Alice Smith. Only its author or a scope admin can edit it.'
+      )
+    })
+
+    it('names the inactive scope before the author rule (MUI-22)', async () => {
+      const { wrapper } = await mountFramed(
+        { status: 'draft', can_edit: false, curator_name: 'Alice Smith' },
+        undefined,
+        { is_active: false }
+      )
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain(
+        'This scope is inactive; its curations are read-only.'
       )
     })
 

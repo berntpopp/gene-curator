@@ -160,12 +160,12 @@ def update_review_comment(
 
 
 def _baseline(
-    db: Session, curation_id: UUID, user_id: UUID
+    db: Session, curation_id: UUID, user_id: UUID, current: dict[str, Any]
 ) -> tuple[AuditLogNew, str, datetime] | None:
     """The version the requester last saw. The audit trigger stores the row after each update, so
     the last submission equals the current evidence; the useful baseline is the state at the
-    requester's own last review decision, else anyone's latest decision, else the submission
-    before the latest one."""
+    requester's own last review decision, else anyone's latest decision unless it saw the
+    current evidence, else the submission before the latest one."""
     decided_q = (
         select(Review.reviewed_at)
         .where(Review.curation_id == curation_id, Review.reviewed_at.isnot(None))
@@ -180,7 +180,9 @@ def _baseline(
         if decided is None:
             continue
         row = snapshot_at(db, curation_id, decided)
-        if row is not None:
+        seen = ((row.changes or {}).get("evidence_data") or {}) if row else None
+        # MUI-17: another reviewer's decision on this very evidence shows nothing new
+        if row is not None and not (source == "any_review" and seen == current):
             return row, source, decided
     submissions = submitted_snapshots(db, curation_id)
     if len(submissions) >= 2:
@@ -269,7 +271,7 @@ def curation_diff(
         return CurationDiff.model_validate(
             {"baseline": info, "items": diff_evidence(snapshot, current)}
         )
-    found = _baseline(db, curation_id, current_user.id)
+    found = _baseline(db, curation_id, current_user.id, current)
     if found is None:
         # A re-curation's first review compares against the active curation it replaces
         active = _active(db, curation, others_only=True)

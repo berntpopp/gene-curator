@@ -50,9 +50,11 @@ from app.models import (
     CurationNew,
     CurationStatus,
     Gene,
+    PrecurationNew,
     Scope,
     ScopeMembership,
     UserNew,
+    WorkflowPair,
 )
 from app.schemas.curation import (
     ClassificationChoice,
@@ -81,6 +83,8 @@ from app.services.curation_access import (
     _can_user_review_curation,
     _check_scope_access,
     _has_approved,
+    may_edit_curation,
+    record_edit_by_other,
 )
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.llm_runs import queue_on_submit
@@ -355,6 +359,14 @@ def create_curation(
     require(db, current_user, curation_in.scope_id, EDIT)
     scope = db.get(Scope, curation_in.scope_id)
     require_active_scope(scope)
+    sent = db.get(WorkflowPair, curation_in.workflow_pair_id)
+    if curation_in.precuration_id and sent:  # MUI-03: the precuration's pair, up front
+        pre = db.get(PrecurationNew, curation_in.precuration_id)
+        try:
+            pair = precuration_crud.pair_for(db, pre, sent)
+        except ValueError as e:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        curation_in = curation_in.model_copy(update={"workflow_pair_id": pair.id})
     require_allowed_pair(scope, curation_in.workflow_pair_id)
 
     enforce_clingen_point_ranges(
@@ -434,6 +446,12 @@ def update_curation(
         curation_in.evidence_data,
         curation.methodology_version_id,
     )
+    if not may_edit_curation(db, current_user, curation):  # same rule as PATCH draft
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the creator or a scope admin can edit this curation",
+        )
+    record_edit_by_other(db, current_user, curation)
     updated = curation_crud.update_with_lock(
         db,
         db_obj=curation,
@@ -494,13 +512,13 @@ def save_draft(
             detail="Only draft or rejected curations can be edited",
         )
 
-    # Only creator or admin can save drafts
-    if current_user.role != "admin" and curation.created_by != current_user.id:
+    if not may_edit_curation(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the creator can save drafts",
+            detail="Only the creator or a scope admin can save drafts",
         )
 
+    record_edit_by_other(db, current_user, curation)
     saved = curation_crud.save_draft(
         db, db_obj=curation, draft_data=draft_in, user_id=current_user.id
     )
@@ -541,11 +559,10 @@ def submit_curation(
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 
-    # Only creator or admin can submit
-    if current_user.role != "admin" and curation.created_by != current_user.id:
+    if not may_edit_curation(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the creator can submit for review",
+            detail="Only the creator or a scope admin can submit for review",
         )
 
     # Point ranges and PMIDs: review_guards, in the transition into review

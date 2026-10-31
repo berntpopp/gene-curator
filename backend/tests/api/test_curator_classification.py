@@ -355,3 +355,31 @@ def test_engine_label_and_curator_key_count_in_one_bucket(
     assert client.get("/api/v1/gene-catalogue/filters/classifications").json() == [
         "no_known"
     ]
+
+
+@pytest.mark.parametrize("call", ["  ", "\t", " strong "])
+def test_python_and_sql_final_classification_agree(
+    db_session: Session, call: str
+) -> None:
+    """#605 review: SQL trim strips spaces only; Python must not strip more."""
+    from sqlalchemy import select
+
+    from tests.api.scopes.factories import (
+        make_curation,
+        make_gene,
+        make_scope,
+        make_user,
+    )
+
+    row = make_curation(
+        db_session,
+        scope=make_scope(db_session),
+        gene=make_gene(db_session),
+        creator=make_user(db_session),
+    )
+    row.curator_classification, row.computed_verdict = call, "Limited"
+    db_session.commit()
+    sql = db_session.scalar(
+        select(CurationNew.final_classification).where(CurationNew.id == row.id)
+    )
+    assert row.final_classification == sql

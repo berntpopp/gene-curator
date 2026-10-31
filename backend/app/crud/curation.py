@@ -413,6 +413,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                 "An approved precuration for this gene and scope is required"
             )
         pre = db.get(PrecurationNew, precuration_id) if precuration_id else None
+        from app.crud.precuration import precuration_crud  # import cycle
+
+        workflow_pair = precuration_crud.pair_for(db, pre, workflow_pair)  # MUI-03
         refuse_other_entity(
             db,
             entity_key,
@@ -425,7 +428,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db_obj = CurationNew(
             gene_id=obj_in.gene_id,
             scope_id=obj_in.scope_id,
-            workflow_pair_id=obj_in.workflow_pair_id,
+            workflow_pair_id=workflow_pair.id,
             precuration_id=precuration_id,
             entity_key=entity_key,
             evidence_data=obj_in.evidence_data,

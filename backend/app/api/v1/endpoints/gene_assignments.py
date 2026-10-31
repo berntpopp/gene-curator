@@ -18,7 +18,7 @@ from app.core.constants import (
 )
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
-from app.crud.gene_assignment import gene_assignment_crud
+from app.crud.gene_assignment import AlreadyAssignedError, gene_assignment_crud
 from app.models import GeneScopeAssignment as AssignmentRow, UserNew
 from app.schemas.gene_assignment import (
     AvailableGene,
@@ -146,6 +146,8 @@ def create_gene_assignment(
             db, obj_in=assignment_in, assigned_by=current_user.id
         )
         return GeneScopeAssignment.model_validate(assignment_model)
+    except AlreadyAssignedError as e:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(e)) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)

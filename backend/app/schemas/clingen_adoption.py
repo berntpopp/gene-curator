@@ -51,7 +51,10 @@ class ClinGenAdoptionItem(BaseModel):
 
     row: int
     cggv_id: str
-    action: Literal["create", "unchanged"]
+    action: Literal["create", "unchanged", "refused"] = Field(
+        ...,
+        description="refused: the row has errors (see errors) and nothing is written",
+    )
     curation_id: UUID | None = Field(
         None, description="Empty for curations a dry run would create"
     )

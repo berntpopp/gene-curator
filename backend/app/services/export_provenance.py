@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any
 
-from app.core.source_field import DIRECTIONS, KINDS
+from app.core.source_field import DIRECTIONS, KINDS, source_id
 from app.schemas.provenance import (
     Agent,
     Contribution,
@@ -49,7 +49,8 @@ def _is_source(value: Any) -> bool:
 
 
 def _source(value: dict[str, Any]) -> ExportSource:
-    kind, ident = value["kind"], str(value.get("id") or "").strip() or None
+    kind = value["kind"]
+    ident = source_id(kind, value.get("id")) or None
     url = value.get("url") or (ident if kind == "url" else None)
     return ExportSource(
         documentType=kind,

@@ -118,6 +118,14 @@ def require(
     if user.role == "admin":
         return
     if scope_id is None or not holds(db, user.id, scope_id, capability, active_only):
+        # A1: a member of an inactive scope gets the read-only reason, a stranger the 403
+        if (
+            scope_id is not None
+            and active_only
+            and capability != VIEW
+            and holds(db, user.id, scope_id, capability, active_only=False)
+        ):
+            require_active_scope(db.get(Scope, scope_id))
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Needs a platform admin (global configuration or data)"
@@ -158,7 +166,8 @@ def audit(
     entity: tuple[str, UUID],
     details: dict[str, Any] | None = None,
 ) -> None:
-    """Record a permission-relevant action: actor, capability and scope (#284)."""
+    """Record a permission-relevant action: actor, capability and scope (#284). Only adds
+    the row: the caller's commit writes it with the change, in one transaction."""
     entity_type, entity_id = entity
     db.add(
         AuditLogNew(
@@ -172,7 +181,6 @@ def audit(
             ),
         )
     )
-    db.commit()
 
 
 def allowed_pair_ids(scope: Scope) -> set[UUID] | None:

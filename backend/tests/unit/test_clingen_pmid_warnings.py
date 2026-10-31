@@ -88,3 +88,23 @@ def test_legacy_flat_lists() -> None:
 @pytest.mark.parametrize("value", [True, "n/a", None, "-1", 0])
 def test_non_positive_points_do_not_score(value: object) -> None:
     assert _positive(value) is False
+
+
+SEG_WARNING = "Segregation evidence missing lod_score, points, or segregations_counted"
+
+
+@pytest.mark.parametrize(
+    ("row", "warns"),
+    [
+        ({"lod_source": "published", "published_lod": 1.5}, False),  # #447 pLOD
+        ({"lod_source": "estimated", "lod_formula": "ar_classic"}, False),  # AR
+        ({"lod_score": 3}, False),  # old pin with a score
+        ({"family_label": "F1"}, True),  # old pin without one
+    ],
+)
+def test_segregation_warning_only_for_rows_without_a_score(
+    row: dict, warns: bool
+) -> None:
+    """W11 A2: rows of the #447 version carry lod_source, not the old columns."""
+    evidence = {"genetic_evidence": {"segregation": [{"pmid": "9326933", **row}]}}
+    assert (SEG_WARNING in _warnings(evidence)) is warns

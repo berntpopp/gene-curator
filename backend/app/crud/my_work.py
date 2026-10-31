@@ -190,6 +190,34 @@ def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]
         items.append(
             _item(r, "draft", "needs_you", "Continue precuration draft", pview)
         )
+    # MUI-04: an approved precuration whose entity has no curation yet (none was created,
+    # e.g. no usable pair, or it was deleted) waits for the curator to start one
+    curated = exists().where(
+        CurationNew.gene_id == PrecurationNew.gene_id,
+        CurationNew.scope_id == PrecurationNew.scope_id,
+        CurationNew.status != _S.ARCHIVED,
+        or_(
+            CurationNew.entity_key == PrecurationNew.entity_key,
+            CurationNew.entity_key == "",
+            PrecurationNew.entity_key == "",
+        ),
+    )
+    for r in rows(
+        PrecurationNew,
+        "precuration",
+        *pmine,
+        PrecurationNew.status == _S.APPROVED,
+        ~curated,
+    ):
+        items.append(
+            _item(
+                r,
+                "draft",
+                "needs_you",
+                "Start curation",
+                "/scopes/{s}/genes/{g}/curation/new?precuration_id={i}",
+            )
+        )
     # A rejected precuration is the reviewer asking for changes
     for r in rows(
         PrecurationNew, "precuration", *pmine, PrecurationNew.status == _S.REJECTED

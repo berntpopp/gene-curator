@@ -322,7 +322,7 @@ def require_capability(capability: str, active_only: bool = True) -> Callable[..
     """Dependency: the caller holds `capability` in the path's scope (core.capabilities.require).
 
     Returns the scope. Platform admins pass; non-members and lacking roles get 403, an
-    unknown scope 404 active_only=False for managing the scope itself (settings,
+    unknown scope 404. active_only=False for managing the scope itself (settings,
     members), which must also work while it is inactive.
 
     Example:

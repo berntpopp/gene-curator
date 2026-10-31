@@ -216,6 +216,15 @@ describe('api client', () => {
     expect(refreshSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('an anonymous visitor with a leftover refresh token never calls /auth/refresh (MUI-19)', async () => {
+    localStorage.setItem('refresh_token', 'refresh-1')
+    const refreshSpy = vi.spyOn(axios, 'post')
+    handler = config => fail(config, 401)
+
+    await expect(apiClient.get('/me/work')).rejects.toMatchObject({ response: { status: 401 } })
+    expect(refreshSpy).not.toHaveBeenCalled()
+  })
+
   it('rejects a 401 without attempting a refresh when no refresh token is stored', async () => {
     localStorage.setItem('access_token', 'expired')
     const refreshSpy = vi.spyOn(axios, 'post')

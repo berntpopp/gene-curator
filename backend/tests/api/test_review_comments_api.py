@@ -592,6 +592,27 @@ def test_baseline_is_the_requesters_own_latest_review_then_anyones_then_the_prev
     assert newcomer["items"][0]["before"] == 2  # latest decision by anyone
 
 
+def test_second_reviewer_of_a_round_sees_everything_not_no_changes(
+    client: TestClient,
+    db_session: Session,
+    test_scope: Scope,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    """MUI-17: the first reviewer's decision on the same evidence is no baseline for the
+    second reviewer ("No changes to review"); the first review shows every item."""
+    now = datetime.now(UTC)
+    second = _member(db_session, test_scope, "reviewer")
+    test_curation.evidence_data = {"score": 1}
+    _snapshot(
+        db_session, test_curation, {"score": 1}, "submitted", now - timedelta(days=2)
+    )
+    _decision(db_session, test_curation, reviewer, now - timedelta(days=1))
+    seen = _diff(client, second, test_curation)
+    assert seen["baseline"] is None
+    assert [i["before"] for i in seen["items"]] == [None]
+
+
 def test_only_the_reviewer_who_accepted_may_withdraw_it(
     client: TestClient,
     db_session: Session,

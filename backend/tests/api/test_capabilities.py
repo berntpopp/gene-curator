@@ -66,7 +66,8 @@ def test_other_scope_admin_has_no_capability(db_session: Session, test_scope: Sc
 
 @pytest.mark.parametrize(
     ("role", "expected"),
-    [("curator", 200), ("admin", 200), ("reviewer", 403), ("viewer", 403)],
+    # another curator is not the author (#609 delta review); the author is in test_edits_by_others
+    [("curator", 403), ("admin", 200), ("reviewer", 403), ("viewer", 403)],
 )
 def test_update_curation_by_scope_role(
     client: TestClient,

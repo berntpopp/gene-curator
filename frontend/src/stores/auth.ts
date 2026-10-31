@@ -47,6 +47,8 @@ export const useAuthStore = defineStore('auth', {
       const refresh = localStorage.getItem('refresh_token')
       // B21: an expired session that cannot refresh is dropped without a sure-401 round trip
       if (token && isExpired(token) && (!refresh || isExpired(refresh))) return this.clearAuth()
+      // MUI-19: no access token is no session; a leftover refresh token alone is dropped
+      if (!token) return refresh ? this.clearAuth() : undefined
       if (token) {
         try {
           this.loading = true

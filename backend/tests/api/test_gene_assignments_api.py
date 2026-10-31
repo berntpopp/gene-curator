@@ -105,7 +105,7 @@ def test_create_duplicate_active_assignment_is_rejected(
         headers=_auth(curator_token),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 409  # W11 A8: a conflict, not a bad request
     assert "already assigned" in response.json()["detail"]
 
 

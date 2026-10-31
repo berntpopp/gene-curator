@@ -35,6 +35,7 @@ from app.core.workflow_errors import http_error
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_entity import entity_key_of
 from app.crud.precuration_required import MissingRequiredFieldsError, open_fields
+from app.crud.review_round import corrected_by
 from app.crud.scope_visibility import scope_id_for
 from app.models import CurationStatus, PrecurationNew, Scope, UserNew, WorkflowPair
 from app.schemas.curation import collapse_warnings
@@ -53,6 +54,7 @@ from app.schemas.precuration import (
     PrecurationUpdate,
 )
 from app.schemas.scope import SCOPE_NAME
+from app.services.curation_access import may_edit_curation, record_edit_by_other
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.review_assignment import assigned_reviewer, submit_reviewer
 from app.services.review_guards import item_definition
@@ -356,6 +358,7 @@ def update_precuration(
             detail="Only draft or rejected precurations can be edited",
         )
 
+    _require_editor(db, current_user, precuration)
     saved = precuration_crud.update_with_lock(
         db,
         db_obj=precuration,
@@ -374,6 +377,24 @@ def update_precuration(
 # ========================================
 # DRAFT & SUBMIT ENDPOINTS
 # ========================================
+
+
+def _require_editor(db: Session, user: UserNew, precuration: PrecurationNew) -> None:
+    """The author, a scope admin (#284) or a platform admin; a non-author's save is
+    recorded as their work too (D1, #609 review)."""
+    if not may_edit_curation(db, user, precuration):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the creator or a scope admin can edit this precuration",
+        )
+    record_edit_by_other(db, user, precuration)
+
+
+def _own_work(db: Session, user: UserNew, precuration: PrecurationNew) -> bool:
+    """Its author, or someone who edited it for its author (D1)."""
+    return precuration.created_by == user.id or corrected_by(
+        db, precuration.id, user.id
+    )
 
 
 @router.patch(
@@ -406,12 +427,7 @@ def save_draft(
 
     require(db, current_user, precuration.scope_id, EDIT)
 
-    # Only creator or admin can save drafts
-    if current_user.role != "admin" and precuration.created_by != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the creator can save drafts",
-        )
+    _require_editor(db, current_user, precuration)
 
     saved = precuration_crud.save_draft(
         db,
@@ -559,7 +575,7 @@ def approve_precuration(
         )
 
     # 4-eyes first, so the creator learns why even without a reviewer role (#393)
-    if precuration.created_by == current_user.id:
+    if _own_work(db, current_user, precuration):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot approve your own precuration (4-eyes principle)",
@@ -606,7 +622,7 @@ def reject_precuration(
             detail="Precuration not found",
         )
 
-    if precuration.created_by == current_user.id:  # D1, as in approve
+    if _own_work(db, current_user, precuration):  # D1, as in approve
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot reject your own precuration (4-eyes principle)",

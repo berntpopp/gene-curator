@@ -150,7 +150,7 @@ def error_code(status: int) -> str:
 _HINTS = {
     400: "fix what the detail names and retry",
     401: "the access token is invalid or expired; create a new one in the web app",
-    403: "check your role with list_scopes (user_role); nobody approves their own work",
+    403: "check your role with list_scopes (user_role)",
     404: "check the id; list_scopes and list_curations return valid ids",
     409: "the detail says why; a retry will not help",
     422: "fix the arguments the detail names and retry",
@@ -220,6 +220,8 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
         or (_not_found_hint(detail) if status == 404 else None)
         or _HINTS.get(status)
     )
+    if status == 403 and "4-eyes" in str(detail):  # only 4-eyes refusals (W11 A6)
+        hint = f"{hint}; nobody approves their own work"
     if isinstance(detail, dict) and "current_lock_version" in detail:  # stale save
         hint = _STALE_HINT
     return ToolError(f"{message}\nnext: {hint}" if hint else message)

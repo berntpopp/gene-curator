@@ -134,15 +134,17 @@ def create_curation_schema(
 
     with _unique_name_version(db):
         schema = schema_crud.create_with_owner(
-            db, obj_in=schema_in, owner_id=current_user.id
+            db, obj_in=schema_in, owner_id=current_user.id, commit=False
         )
-    audit(
-        db,
-        current_user,
-        METHODOLOGY_DERIVE,
-        schema.owner_scope_id,
-        ("curation_schema", schema.id),
-    )
+        audit(
+            db,
+            current_user,
+            METHODOLOGY_DERIVE,
+            schema.owner_scope_id,
+            ("curation_schema", schema.id),
+        )
+        db.commit()
+    db.refresh(schema)
     return schema  # type: ignore[return-value]
 
 
@@ -246,7 +248,9 @@ def publish_methodology_version(
             status_code=422,
             detail={"message": "Methodology version not published", "errors": errors},
         )
-    version = schema_crud.publish_version(db, schema=schema, user_id=current_user.id)
+    version = schema_crud.publish_version(
+        db, schema=schema, user_id=current_user.id, commit=False
+    )
     audit(
         db,
         current_user,
@@ -255,6 +259,8 @@ def publish_methodology_version(
         ("methodology_version", version.id),
         {"schema_id": schema.id, "version": version.version},
     )
+    db.commit()
+    db.refresh(version)
     return version  # type: ignore[return-value]
 
 
@@ -315,15 +321,18 @@ def derive_methodology(
             version=derive_in.version,
             user_id=current_user.id,
             owner_scope_id=derive_in.owner_scope_id,
+            commit=False,
         )
-    audit(
-        db,
-        current_user,
-        METHODOLOGY_DERIVE,
-        schema.owner_scope_id,
-        ("curation_schema", schema.id),
-        {"derived_from_version_id": source.id},
-    )
+        audit(
+            db,
+            current_user,
+            METHODOLOGY_DERIVE,
+            schema.owner_scope_id,
+            ("curation_schema", schema.id),
+            {"derived_from_version_id": source.id},
+        )
+        db.commit()
+    db.refresh(schema)
     return schema  # type: ignore[return-value]
 
 
@@ -353,15 +362,15 @@ def update_curation_schema(
                 "Reload it and apply your changes again.",
             )
         values = schema_in.model_dump(exclude_unset=True, exclude={"lock_version"})
+        audit(  # before update(), whose commit writes it with the change
+            db,
+            current_user,
+            METHODOLOGY_EDIT,
+            schema.owner_scope_id,
+            ("curation_schema", schema.id),
+            {"fields": sorted(values)},
+        )
         schema = schema_crud.update(db, db_obj=schema, obj_in=values)
-    audit(
-        db,
-        current_user,
-        METHODOLOGY_EDIT,
-        schema.owner_scope_id,
-        ("curation_schema", schema.id),
-        {"fields": sorted(values)},
-    )
     return schema  # type: ignore[return-value]
 
 
@@ -387,8 +396,8 @@ def delete_curation_schema(
         )
 
     owner = schema.owner_scope_id
-    schema_crud.remove(db, id=schema_id)
     audit(db, current_user, METHODOLOGY_EDIT, owner, ("curation_schema", schema_id))
+    schema_crud.remove(db, id=schema_id)  # its commit writes the audit row too
     return {"message": "Schema deleted successfully"}
 
 

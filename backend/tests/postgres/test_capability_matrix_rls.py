@@ -218,6 +218,10 @@ def test_scope_admin_configures_own_scope_only(client: TestClient, w: W) -> None
     allowed = client.put(allow, json=ids, headers=admin)
     assert allowed.status_code == 200, allowed.text
     assert allowed.json()["allowed_workflow_pair_ids"] == [pid]
+    # MUI-01: the scope read as app_user keeps them (get_with_statistics dropped them)
+    read = client.get(f"/api/v1/scopes/{w.scope}", headers=admin)
+    assert read.status_code == 200, read.text
+    assert read.json()["allowed_workflow_pair_ids"] == [pid]
     # every one of these is audited with actor, capability and scope
     audited = (
         "SELECT array_agg(operation ORDER BY id) FROM audit_log "

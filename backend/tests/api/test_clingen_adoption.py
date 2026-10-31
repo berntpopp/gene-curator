@@ -369,3 +369,5 @@ def test_a_pair_the_scope_does_not_allow_is_a_row_error(
         "rows[0].workflow_pair_id: not allowed in this scope (#284)"
         in (r.json()["detail"]["errors"])
     )
+    # W11 A11: the plan says refused, not create
+    assert [i["action"] for i in r.json()["detail"]["items"]] == ["refused"]
