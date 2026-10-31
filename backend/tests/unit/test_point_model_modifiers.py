@@ -117,3 +117,29 @@ def test_a_rule_needs_exactly_one_of_points_factor_max(rule: dict[str, Any]) -> 
 @pytest.mark.parametrize("by", [[], ["variant", 1], {"variant": 1}])
 def test_bad_group_by_lists(by: Any) -> None:
     assert _type_errors(group_by=by, group_cap=3) == [".group_by"]
+
+
+def test_group_values_cap_named_groups_and_leave_the_rest() -> None:
+    """Review of #619: ``group_values`` maps a field's values to named groups; unmapped
+    values are never grouped, and grouped rows do not feed the hotspot flag."""
+    model = _model(
+        {
+            "path": "probands",
+            "default": 0.5,
+            "group_by": "subtype",
+            "group_cap": 2,
+            "group_values": {"expression": "function", "interaction": "function"},
+        }
+    )
+    rows = [{"subtype": "expression"}] * 5 + [{"subtype": "Interaction "}]
+    result = score(model, _probands(*rows, {"subtype": "rescue", "points": 2}))
+    assert result["total"] == 2 + 2
+    assert [g["value"] for g in result["trace"]["capped_groups"]] == ["function"]
+    assert result["variant_points"] == {}
+
+
+def test_group_values_must_be_a_mapping() -> None:
+    assert _type_errors(group_by="s", group_cap=2, group_values={"a": "g"}) == []
+    assert _type_errors(group_by="s", group_cap=2, group_values=["a"]) == [
+        ".group_values"
+    ]

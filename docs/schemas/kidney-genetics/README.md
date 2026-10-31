@@ -86,7 +86,10 @@ population form one group per variant. Rows are grouped by the text after trimmi
 folding only, so write a recurrent variant identically on every row: `c.100C>T` and
 `NM_006580.4:c.100C>T` are two variants (not HGVS-normalised). `af_checked` is recorded. Cohort, model and functional rows also
 score 0 without an `evidence_quote`; segregation rows carry one but the step rule does not
-check it. A row without a PMID scores nothing. A functional row's `subtype` sets its default;
+check it. A row without a PMID scores nothing. A functional row's `subtype` sets its default
+and its maximum (function 0.5, non-patient cells 0.5, patient cells 1, rescue 2; `max` rules);
+function rows (biochemical, interaction, expression) score at most 2 together and functional
+alteration rows (patient and non-patient cells) at most 2 (`group_values` + `group_cap`);
 rescue stays in the functional category (cap 4) rather than counting toward the models cap.
 
 Bands, first match wins: Definitive >= 11.5 and `replicated_over_time`; Strong >= 11.5;
@@ -144,6 +147,7 @@ Embedded `scoring_configuration.tests` (run at every publish and import):
 | Functional subtypes 0.5 / 1 / 2, cap 4, no genetic points | 4 | no_known |
 | Unknown phase halves entered 3, consanguineous homozygote at most 2 | 6.5 | moderate |
 | Recurrent variant: cap 3 per population (Japan 4.5 -> 3, Finland 3) | 6 | limited |
+| Functional sub-caps: 6 expression rows 2, non-patient cells entered 1 -> 0.5, + 1 genetic | 3.5 | limited |
 | Susceptibility: established (600/700 + 800/900, Very Strong) | 6 | established |
 | Susceptibility: likely (600/700 + 120/150, not Very Strong) | 5 | likely |
 | Susceptibility: small study; not significant after correction, or blank, scores 0 | 1 | uncertain |

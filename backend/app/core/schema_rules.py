@@ -570,6 +570,8 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
         fields = by if isinstance(by, list) else [by]
         if not by or not all(isinstance(f, str) for f in fields):
             out.append(("error", f"{path}.group_by", "group_by: a field or fields"))
+        if not isinstance(item.get("group_values", {}), dict):
+            out.append(("error", f"{path}.group_values", "group_values: a map"))
         if not _is_number(item.get("group_cap")):
             out.append(("error", f"{path}.group_cap", "group_cap must be a number"))
     out += _check_point_rules(item, path)

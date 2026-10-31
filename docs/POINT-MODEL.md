@@ -76,6 +76,11 @@ group is every listed value after trimming and case folding; a row whose first f
 is never grouped, while blank later fields group together. The trace's `capped_groups` shows
 the values as typed, joined by ` | `.
 
+`group_values` (`{value: group}`, one `group_by` field) caps named sets of values instead:
+`{"biochemical": "function", "expression": "function", "patient_cells": "alteration"}`
+with `group_cap: 2` lets all function rows score 2 together; a value the map does not name
+is never grouped, and such a type does not feed the hotspot flag.
+
 ## Step rule
 
 `"rule": "step"` sums `field` over the type's rows and scores the highest step reached as one item:

@@ -1855,7 +1855,7 @@
                   "fields": [
                     "experimental.functional"
                   ],
-                  "help_text": "Function 0.5 (cap 2), functional alteration 1 / 0.5 (cap 2), rescue 2; category cap 4"
+                  "help_text": "Function 0.5 each (biochemical, interaction, expression; cap 2), functional alteration patient cells 1 / non-patient 0.5 (cap 2), rescue 2; category cap 4"
                 }
               ]
             },
@@ -2165,11 +2165,44 @@
                           "points": 2
                         },
                         {
+                          "field": "subtype",
+                          "in": [
+                            "biochemical",
+                            "interaction",
+                            "expression",
+                            "non_patient_cells"
+                          ],
+                          "max": 0.5
+                        },
+                        {
+                          "field": "subtype",
+                          "in": [
+                            "patient_cells"
+                          ],
+                          "max": 1
+                        },
+                        {
+                          "field": "subtype",
+                          "in": [
+                            "rescue"
+                          ],
+                          "max": 2
+                        },
+                        {
                           "field": "evidence_quote",
                           "present": false,
                           "points": 0
                         }
-                      ]
+                      ],
+                      "group_by": "subtype",
+                      "group_cap": 2,
+                      "group_values": {
+                        "biochemical": "function",
+                        "interaction": "function",
+                        "expression": "function",
+                        "patient_cells": "functional_alteration",
+                        "non_patient_cells": "functional_alteration"
+                      }
                     }
                   ]
                 }
@@ -3022,6 +3055,75 @@
             },
             "expect": {
               "total": 6,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "Functional sub-caps: 6 expression rows score 2 (function cap 2); entered 1 on non-patient cells scores 0.5",
+            "evidence_data": {
+              "experimental": {
+                "functional": [
+                  {
+                    "pmid": "31000300",
+                    "subtype": "expression",
+                    "assay": "expression",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000301",
+                    "subtype": "expression",
+                    "assay": "expression",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000302",
+                    "subtype": "expression",
+                    "assay": "expression",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000303",
+                    "subtype": "expression",
+                    "assay": "expression",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000304",
+                    "subtype": "expression",
+                    "assay": "expression",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000305",
+                    "subtype": "expression",
+                    "assay": "expression",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000310",
+                    "subtype": "non_patient_cells",
+                    "assay": "knockdown in HEK cells",
+                    "points": 1,
+                    "evidence_quote": "Quoted from the source."
+                  }
+                ]
+              },
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000311",
+                    "proband_label": "P311",
+                    "variant": "c.311del",
+                    "zygosity": "heterozygous",
+                    "variant_source": "primary",
+                    "points": 1,
+                    "evidence_quote": "Quoted from the source."
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 3.5,
               "class": "limited"
             }
           }
