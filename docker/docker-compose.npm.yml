@@ -1,0 +1,183 @@
+# docker-compose.npm.yml
+# Gene Curator - Nginx Proxy Manager (NPM) production overlay
+#
+# Usage (from the repository root; paths resolve from docker-compose.yml's directory):
+#   docker compose -f docker-compose.yml -f docker/docker-compose.npm.yml --env-file .env.docker up -d
+# A deployment adds a third file that pins the GHCR release images by digest, for example
+#   image: ghcr.io/berntpopp/gene-curator/backend:X.Y.Z@sha256:...
+# for migrate, backend and frontend; the build sections below are for local testing only.
+#
+# This overlay:
+# - publishes no host ports (NPM reaches the containers by container_name)
+# - joins the external NPM network (npm_default) with the frontend only
+# - gives the internal network an explicit subnet (the VPS default address pools are exhausted)
+# - applies the schema with a one-shot migrate service before the backend starts
+# - never mounts the dev fixtures (seeded admin123 logins) or initdb scripts
+#
+# NPM: one plain proxy host gene-curator.org -> gene_curator_frontend:80, no custom locations.
+# The frontend's nginx routes /api, /mcp and the MCP OAuth endpoints to the backend over the
+# internal network (frontend/nginx.conf); the backend is not on the NPM network at all.
+#
+# Prerequisites:
+# 1. .env.docker from .env.docker.example with production values
+# 2. docker network create npm_default (exists wherever NPM runs)
+# 3. docker volume create gene_curator_postgres_data (external, so `down -v` cannot delete it)
+# 4. First admin: backend/scripts/create_default_user.py (README, Production deployment)
+
+services:
+  # ============================================
+  # PostgreSQL (internal only)
+  # ============================================
+  postgres:
+    container_name: gene_curator_postgres
+    ports: !reset []
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gene_curator}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    # Data only: the schema comes from the migrate service, never from initdb or fixtures
+    volumes: !override
+      - gene_curator_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-gene_curator}"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+      - FOWNER
+    security_opt:
+      - no-new-privileges:true
+
+  # ============================================
+  # Database migration (one-shot, idempotent)
+  # ============================================
+  migrate:
+    build:
+      context: ./database
+    container_name: gene_curator_migrate
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-gene_curator}
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      # Read by 031 (runtime role app_user)
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    read_only: true
+    networks:
+      - gene_curator_network
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  # ============================================
+  # FastAPI backend
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      target: production
+    container_name: gene_curator_backend
+    ports: !reset []
+    environment:
+      DATABASE_URL: postgresql://app_user:${APP_DB_PASSWORD:?APP_DB_PASSWORD required}@postgres:5432/${POSTGRES_DB:-gene_curator}
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LLM_CREDENTIAL_KEYS: ${LLM_CREDENTIAL_KEYS:-}
+      LLM_CREDENTIAL_ACTIVE_KID: ${LLM_CREDENTIAL_ACTIVE_KID:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["https://gene-curator.org"]}
+      GENE_CURATOR_PUBLIC_URL: ${GENE_CURATOR_PUBLIC_URL:-https://gene-curator.org}
+      GENE_CURATOR_FRONTEND_URL: ${GENE_CURATOR_FRONTEND_URL:-https://gene-curator.org}
+      GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING: "true"
+      # Only the frontend's nginx reaches the backend (internal network); it sends one clean
+      # client address, resolved from NPM's X-Forwarded-For (frontend/nginx.conf)
+      FORWARDED_ALLOW_IPS: 10.251.10.0/24
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:uid=1000,gid=1000,size=100M,mode=1777
+    networks:
+      - gene_curator_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  # ============================================
+  # Vue SPA (nginx), same-origin API
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: gene_curator_frontend
+    ports: !reset []
+    depends_on:
+      - backend
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:uid=101,gid=101,size=50M,mode=0755
+      - /run:uid=101,gid=101,size=1M,mode=0755
+      - /tmp:uid=101,gid=101,size=10M,mode=1777
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - gene_curator_network
+      - npm_proxy_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  npm_proxy_network:
+    external: true
+    name: ${NPM_SHARED_NETWORK_NAME:-npm_default}
+  # Explicit subnet: the VPS Docker default address pools are exhausted
+  gene_curator_network:
+    name: gene_curator_internal
+    ipam:
+      config:
+        - subnet: 10.251.10.0/24
+
+volumes:
+  gene_curator_postgres_data:
+    external: true
+    name: gene_curator_postgres_data

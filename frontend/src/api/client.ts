@@ -11,7 +11,8 @@ declare module 'axios' {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8051'
+// Unset (the published image): same origin, the reverse proxy routes /api to the backend
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
 /** Credential endpoints: a 401 here is the real answer (wrong password), never an expired session. */
 const NO_REFRESH_URL = /^\/?auth\/(login|register|refresh)\b/

@@ -65,14 +65,12 @@ def test_every_forced_rls_table_has_a_select_policy() -> None:
         assert cur.fetchall() == []
 
 
-@pytest.mark.parametrize("role", ["test_user", "rls_probe_role"])
-def test_only_app_user_may_drop_log_partitions(role: str) -> None:
+def test_only_app_user_may_drop_log_partitions() -> None:
     with psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as conn:
         try:
             with conn.cursor() as cur:
-                if role == "rls_probe_role":
-                    cur.execute("CREATE ROLE rls_probe_role NOLOGIN")
-                cur.execute(f"SET ROLE {role}")
+                cur.execute("CREATE ROLE rls_probe_role NOLOGIN")
+                cur.execute("SET ROLE rls_probe_role")
                 with pytest.raises(psycopg2.errors.InsufficientPrivilege):
                     cur.execute("SELECT cleanup_old_logs(90)")
         finally:
@@ -91,7 +89,44 @@ def test_log_cleanup_rejects_retention_below_one_day() -> None:
             conn.rollback()
 
 
-def test_legacy_test_user_cannot_log_in() -> None:
-    owner = psycopg2.extensions.parse_dsn(os.environ["OWNER_DATABASE_URL"])
-    with pytest.raises(psycopg2.OperationalError, match="not permitted to log in"):
-        psycopg2.connect(**{**owner, "user": "test_user", "password": "test_password"})
+def test_fresh_database_has_no_test_user() -> None:
+    with (
+        psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as conn,
+        conn.cursor() as cur,
+    ):
+        cur.execute("SELECT 1 FROM pg_roles WHERE rolname = 'test_user'")
+        assert cur.fetchone() is None
+
+
+def test_031_disables_the_legacy_test_user() -> None:
+    owner_url = os.environ["OWNER_DATABASE_URL"]
+    owner = psycopg2.extensions.parse_dsn(owner_url)
+    psql = shutil.which("psql")
+    assert psql is not None
+    with psycopg2.connect(owner_url) as conn, conn.cursor() as cur:
+        # What 006 created before it was emptied
+        cur.execute("CREATE ROLE test_user LOGIN PASSWORD 'test_password'")
+        cur.execute("GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO test_user")
+    try:
+        subprocess.run(  # noqa: S603 - fixed arguments
+            [psql, "-X", "-q", "-v", "ON_ERROR_STOP=1", "--single-transaction"]
+            + ["-f", str(MIGRATION), owner_url],
+            capture_output=True,
+            check=True,
+        )
+        with pytest.raises(psycopg2.OperationalError, match="not permitted to log in"):
+            psycopg2.connect(
+                **{**owner, "user": "test_user", "password": "test_password"}
+            )
+        with psycopg2.connect(owner_url) as conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SET ROLE test_user")
+                    with pytest.raises(psycopg2.errors.InsufficientPrivilege):
+                        cur.execute("SELECT cleanup_old_logs(90)")
+            finally:
+                conn.rollback()
+    finally:
+        with psycopg2.connect(owner_url) as conn, conn.cursor() as cur:
+            cur.execute("DROP OWNED BY test_user")
+            cur.execute("DROP ROLE test_user")

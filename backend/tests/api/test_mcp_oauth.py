@@ -349,7 +349,7 @@ def test_authorize_parameters_are_bounded(
 
 
 def test_production_refuses_a_plain_http_issuer() -> None:
-    base = {"DATABASE_URL": "postgresql://u:p@h/x", "SECRET_KEY": "x"}
+    base = {"DATABASE_URL": "postgresql://u:p@h/x", "SECRET_KEY": "k" * 32}
     with pytest.raises(ValidationError, match="must be https"):
         Settings(
             **base, ENVIRONMENT="production", GENE_CURATOR_PUBLIC_URL="http://api.org"

@@ -55,6 +55,9 @@ def test_runner_applies_once_and_rolls_back_failed_file(tmp_path: Path) -> None:
     (tmp_path / "database/sql").mkdir(parents=True)
     (tmp_path / "Makefile").write_text((ROOT / "Makefile").read_text())
     (tmp_path / ".env.dev").write_text((ROOT / ".env.dev").read_text())
+    runner = tmp_path / "database/migrate.sh"
+    runner.write_text((ROOT / "database/migrate.sh").read_text())
+    runner.chmod(0o755)
     (tmp_path / "database/sql/030_schema_migrations.sql").write_text(
         (ROOT / "database/sql/030_schema_migrations.sql").read_text()
     )

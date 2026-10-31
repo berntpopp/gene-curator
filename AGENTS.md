@@ -17,7 +17,7 @@ configurable schemas, scope-based teams and a multi-stage, 4-eyes review workflo
 | Quality | ruff, mypy (strict), bandit, pytest; ESLint 10 + typescript-eslint, Prettier, vue-tsc, Vitest, Playwright |
 
 Ports (source of truth `.env.dev`): API 8051, Vite 5193, Docker UI 3051, Postgres 5454.
-Seeded dev logins (`004_seed_data.sql`): `admin@genecurator.org`, `alice.smith@genecurator.org`
+Seeded dev logins (`database/fixtures/dev_users.sql`, dev and test databases only): `admin@genecurator.org`, `alice.smith@genecurator.org`
 (curator), `bob.jones@genecurator.org` (reviewer), all `admin123`. Local frontend needs `frontend/.env.local` with
 `VITE_API_BASE_URL=http://localhost:8051` and `VITE_ENABLE_DEV_LOGIN=true`; without it login fails silently.
 
@@ -110,7 +110,9 @@ New migrations are a new numbered file, idempotent (`IF NOT EXISTS`, `CREATE OR 
 pass `make test-postgres`, which builds a fresh database from all files. Mirror schema changes in
 `backend/app/models/` (domain modules; `models.py` is a re-export shim). `schema_migrations` records applied files; `make db-migrate` applies pending files atomically.
 Legacy databases must be upgraded through 027 before the initial baseline. New migrations must
-record their own filename for fresh Docker initialization.
+record their own filename for fresh Docker initialization. Production applies the same files with
+the one-shot migrate image (`database/Dockerfile`, `database/migrate.sh`, shared with
+`make db-migrate`); test or demo logins go in `database/fixtures/`, never in a migration.
 
 **RLS.** The API connects as `app_user` (031: no superuser, no BYPASSRLS); `POSTGRES_USER` runs
 migrations only. `get_current_user` sets `app.current_user_id` transaction-locally for every

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# PostgreSQL lane: build a throwaway database from database/sql (exactly like a fresh
-# deployment), then run the tests marked `postgres` (RLS policies, scope CRUD) against it.
+# PostgreSQL lane: build a throwaway database from database/sql plus the dev logins in
+# database/fixtures (like a fresh dev volume), then run the tests marked `postgres`
+# (RLS policies, scope CRUD) against it.
 # The tests connect as app_user (no superuser, no BYPASSRLS) like the API does; fixtures that
 # need DDL or seed data use OWNER_DATABASE_URL.
 # Same script locally (`make test-postgres`) and in CI. Never touches the dev database.
@@ -9,7 +10,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NAME="gene-curator-pgtest-$$"
 PORT="${PGTEST_PORT:-55461}"
-IMAGE="${PGTEST_IMAGE:-postgres:15-alpine}"
+IMAGE="${PGTEST_IMAGE:-postgres:15-alpine@sha256:54e0dd8e8cddcdbb9156c2486eed5a43eccb7214d7c6828097d41ce049fb3984}"
 
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -18,7 +19,8 @@ docker run -d --name "$NAME" \
   -e POSTGRES_DB=gene_curator_dev -e POSTGRES_USER=dev_user -e POSTGRES_PASSWORD=dev_password \
   -e APP_DB_PASSWORD=app_password \
   -p "127.0.0.1:$PORT:5432" \
-  -v "$ROOT/database/sql:/docker-entrypoint-initdb.d:ro" "$IMAGE" >/dev/null
+  -v "$ROOT/database/sql:/docker-entrypoint-initdb.d:ro" \
+  -v "$ROOT/database/fixtures:/docker-entrypoint-fixtures:ro" "$IMAGE" >/dev/null
 
 # initdb runs every migration, then restarts the server; an SQL error stops the container.
 for _ in $(seq 120); do
