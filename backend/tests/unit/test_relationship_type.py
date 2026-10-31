@@ -194,3 +194,13 @@ def test_class_key_matches_the_frontend_class_key() -> None:
     assert class_key("Limited - Moderate") == "limited___moderate"
     assert class_key(" Strong  Association ") == "strong__association"
     assert class_key("No Known Disease Relationship") == "no_known"
+
+
+def test_blank_risk_allele_is_none() -> None:
+    """Review of #619: blank or whitespace is no allele; a blank curation value falls
+    back to the precuration's; a named allele is kept exactly as named."""
+    from app.schemas.curation import risk_allele
+
+    assert risk_allele({"risk_allele": "  "}, None) is None
+    assert risk_allele({"risk_allele": " "}, {"risk_allele": "rs1 A"}) == "rs1 A"
+    assert risk_allele(None, {"entity_definition": {"risk_allele": "\t"}}) is None

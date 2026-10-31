@@ -273,8 +273,8 @@ def risk_allele(
     evidence: dict[str, Any] | None, precuration: dict[str, Any] | None
 ) -> str | None:
     """The susceptibility entity's risk allele (#614), evidence before precuration."""
-    raw = _pick(evidence, "risk_allele") or _pick(precuration, "risk_allele")
-    return str(raw) if raw else None
+    named = (str(_pick(s, "risk_allele") or "") for s in (evidence, precuration))
+    return next((a for a in named if a.strip()), None)  # blank is no allele
 
 
 class ClassificationChoice(BaseModel):
