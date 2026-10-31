@@ -76,3 +76,20 @@ def test_formatting_variants_share_one_entity_key(db_session: Session) -> None:
 def test_an_rsid_without_its_base_is_refused(allele: str, refused: bool) -> None:
     paths = {e.path for e in evidence_errors({"risk_allele": allele}, SUS)}
     assert ("risk_allele" in paths) is refused
+
+
+@pytest.mark.parametrize(
+    ("typed", "stored"),
+    [
+        (
+            "rs\uff11\uff12\uff13 C",
+            "rs\uff11\uff12\uff13 C",
+        ),  # non-ASCII digits are not an rsID (as in SQL)
+        ("APOL1\u00a0G1", "APOL1\u00a0G1"),  # only ASCII whitespace collapses
+        ("\t rs12  a \n", "rs12 A"),
+    ],
+)
+def test_the_normaliser_is_ascii_like_migration_091(typed: str, stored: str) -> None:
+    from app.core.risk_allele import canonical_allele
+
+    assert canonical_allele(typed) == stored

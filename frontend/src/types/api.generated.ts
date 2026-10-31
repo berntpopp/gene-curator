@@ -4907,6 +4907,17 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]]; '' lumped or legacy
+             * @default
+             */
+            entity_key: string;
+            /**
+             * Risk Allele
+             * @description Susceptibility only (#614)
+             */
+            risk_allele?: string | null;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Is Draft */
@@ -5087,6 +5098,17 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]]; '' lumped or legacy
+             * @default
+             */
+            entity_key: string;
+            /**
+             * Risk Allele
+             * @description Susceptibility only (#614)
+             */
+            risk_allele?: string | null;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Is Draft */
@@ -5268,6 +5290,17 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]]; '' lumped or legacy
+             * @default
+             */
+            entity_key: string;
+            /**
+             * Risk Allele
+             * @description Susceptibility only (#614)
+             */
+            risk_allele?: string | null;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Is Draft */
@@ -5766,6 +5799,11 @@ export interface components {
             genetic_score: number;
             /** Experimental Score */
             experimental_score: number;
+            /**
+             * Association Score
+             * @description Susceptibility: the association points the bands read
+             */
+            association_score?: number | null;
             /** Breakdown */
             breakdown: {
                 [key: string]: unknown;
@@ -5866,6 +5904,13 @@ export interface components {
             scope_id: string;
             /** Scope Name */
             scope_name: string;
+            /**
+             * Entity Key
+             * @default
+             */
+            entity_key: string;
+            /** Risk Allele */
+            risk_allele?: string | null;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Computed Verdict */
@@ -6175,9 +6220,14 @@ export interface components {
             mondo_id?: string | null;
             /**
              * Mode Of Inheritance
-             * @description As entered
+             * @description HPO CURIE of the canonical MOI (as moi_hpo_id); as entered only when it maps to none
              */
             mode_of_inheritance?: string | null;
+            /**
+             * Mode Of Inheritance Entered
+             * @description The MOI as the curator entered it
+             */
+            mode_of_inheritance_entered?: string | null;
             /**
              * Moi Hpo Id
              * @description HPO CURIE of the canonical MOI
@@ -9249,6 +9299,12 @@ export interface components {
              * Format: uuid
              */
             precuration_schema_id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]] the evidence names
+             * @default
+             */
+            entity_key: string;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Is Draft */
@@ -9304,6 +9360,11 @@ export interface components {
              * @enum {string}
              */
             readonly relationship_type: "mendelian" | "susceptibility";
+            /**
+             * Risk Allele
+             * @description The susceptibility entity's risk allele (#614), else null.
+             */
+            readonly risk_allele: string | null;
         };
         /**
          * PrecurationApprovalResult
@@ -9402,6 +9463,12 @@ export interface components {
              * Format: uuid
              */
             precuration_schema_id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]] the evidence names
+             * @default
+             */
+            entity_key: string;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Is Draft */
@@ -9464,6 +9531,11 @@ export interface components {
              * @enum {string}
              */
             readonly relationship_type: "mendelian" | "susceptibility";
+            /**
+             * Risk Allele
+             * @description The susceptibility entity's risk allele (#614), else null.
+             */
+            readonly risk_allele: string | null;
         };
         /**
          * PrecurationDraftResult
@@ -9490,6 +9562,12 @@ export interface components {
              * Format: uuid
              */
             precuration_schema_id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]] the evidence names
+             * @default
+             */
+            entity_key: string;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Is Draft */
@@ -9550,6 +9628,11 @@ export interface components {
              * @enum {string}
              */
             readonly relationship_type: "mendelian" | "susceptibility";
+            /**
+             * Risk Allele
+             * @description The susceptibility entity's risk allele (#614), else null.
+             */
+            readonly risk_allele: string | null;
         };
         /**
          * PrecurationDraftSave
@@ -9651,6 +9734,12 @@ export interface components {
              * Format: uuid
              */
             precuration_schema_id: string;
+            /**
+             * Entity Key
+             * @description MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]] the evidence names
+             * @default
+             */
+            entity_key: string;
             status: components["schemas"]["CurationStatus"];
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Is Draft */
@@ -9708,6 +9797,11 @@ export interface components {
              * @enum {string}
              */
             readonly relationship_type: "mendelian" | "susceptibility";
+            /**
+             * Risk Allele
+             * @description The susceptibility entity's risk allele (#614), else null.
+             */
+            readonly risk_allele: string | null;
         };
         /**
          * PrecurationSummary

@@ -21,7 +21,7 @@ const rows = [
     created_by: 'u1',
     curator_name: 'Ada',
     status: 'draft',
-    computed_verdict: 'Definitive',
+    computed_verdict: 'definitive', // list_curations sends the stored key
     computed_scores: { total_score: 12 },
     updated_at: '2024-01-01T00:00:00Z'
   },
@@ -32,7 +32,7 @@ const rows = [
     created_by: 'u2',
     curator_name: 'Grace',
     status: 'approved',
-    computed_verdict: null,
+    computed_verdict: 'no_known',
     computed_scores: { total_score: 3 },
     updated_at: '2024-01-02T00:00:00Z'
   }
@@ -87,7 +87,9 @@ describe('CurationList', () => {
     const text = wrapper.text()
     expect(text).toContain('HNF1B')
     expect(text).toContain('PKD1')
-    expect(text).toContain('Definitive')
+    expect(text).toContain('Definitive') // labels, never the raw keys
+    expect(text).toContain('No known disease relationship')
+    expect(text).not.toContain('no_known')
     expect(text).toContain('12')
     expect(text).toContain('Grace')
   })

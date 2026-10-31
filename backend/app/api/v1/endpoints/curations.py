@@ -458,6 +458,7 @@ def update_curation(
     record_edit_by_other(db, current_user, curation)
     # an adoption's diagnostics (#613): the edit and its new review round, one commit
     in_review = curation.status == CurationStatus.IN_REVIEW
+    before = curation.evidence_data
     updated = curation_crud.update_with_lock(
         db,
         db_obj=curation,
@@ -471,8 +472,11 @@ def update_curation(
             curation, curation_in.lock_version, _mine(curation, curation_in)
         )
     if in_review:
-        try:
-            restart_review_round(db, updated, current_user.id)  # commits both
+        try:  # an unchanged save restarts nothing and notifies nobody
+            if updated.evidence_data != before:
+                restart_review_round(db, updated, current_user.id)  # commits both
+            else:
+                db.commit()
         except Exception:
             db.rollback()
             raise

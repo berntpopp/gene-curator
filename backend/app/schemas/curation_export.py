@@ -35,7 +35,14 @@ class ExportCuration(BaseModel):
     mondo_id: str | None = Field(
         None, description="MONDO:nnnnnnn (MONDO_ typed is normalised)"
     )
-    mode_of_inheritance: str | None = Field(None, description="As entered")
+    mode_of_inheritance: str | None = Field(
+        None,
+        description="HPO CURIE of the canonical MOI (as moi_hpo_id); as entered only "
+        "when it maps to none",
+    )
+    mode_of_inheritance_entered: str | None = Field(
+        None, description="The MOI as the curator entered it"
+    )
     moi_hpo_id: str | None = Field(None, description="HPO CURIE of the canonical MOI")
     relationship_type: RelationshipType = Field(
         "mendelian", description="mendelian or susceptibility (#539)"

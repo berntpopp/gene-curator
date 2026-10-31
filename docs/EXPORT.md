@@ -55,7 +55,7 @@ harmless).
 ## Row fields
 
 `curation_id`, `entity_key`, `url`, `status` (`active` or `archived`), `scope_name`,
-`hgnc_id`, `approved_symbol`, `disease_name`, `mondo_id`, `mode_of_inheritance` (as entered),
+`hgnc_id`, `approved_symbol`, `disease_name`, `mondo_id`, `mode_of_inheritance` (HPO CURIE of the canonical MOI, as entered only when none maps), `mode_of_inheritance_entered`,
 `moi_hpo_id` (HPO CURIE of the canonical MOI), `relationship_type`, `risk_allele`,
 `computed_verdict`, `final_classification`, `curator_classification_rationale`,
 `genetic_score`, `experimental_score`, `association_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`

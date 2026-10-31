@@ -494,3 +494,21 @@ def test_091_stops_on_open_precurations_the_rewrite_merges(
     message = str(refused.value)
     assert "091: open precurations would share a disease entity" in message
     assert all(str(i) in message for i in ids)
+
+
+def test_091_lists_ids_when_a_whitespace_only_allele_merges(
+    owner_session: Session,
+) -> None:
+    """A tab-only allele kept a '|\\t' key part; canonical it is blank, so the key loses the
+    part (no trailing '|') and meets the precuration without an allele: ids, not an index
+    error."""
+    gene = _gene(owner_session, 9103)
+    ids = [
+        _sus_precuration(owner_session, gene, allele, "submitted")
+        for allele in ({"risk_allele": "\t"}, {})
+    ]
+    with pytest.raises(DBAPIError) as refused:
+        owner_session.execute(text((SQL / "091_canonical_risk_allele.sql").read_text()))
+    message = str(refused.value)
+    assert "091: open precurations would share a disease entity" in message
+    assert all(str(i) in message for i in ids)

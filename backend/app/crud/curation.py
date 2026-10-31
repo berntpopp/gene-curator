@@ -41,6 +41,7 @@ from app.schemas.curation import (
     CurationUpdate,
     EvidenceWarning,
     disease_fields,
+    entity_allele,
     relationship_of_key,
 )
 from app.scoring.point_limits import scoring_configuration
@@ -331,11 +332,10 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         summaries = []
         for row in results:
             scores = row.CurationNew.computed_scores or {}
-            verdict = row.CurationNew.computed_verdict
 
-            disease = get_disease_fields(
-                row.CurationNew.evidence_data, row.precuration_evidence
-            )
+            evidence, pre = row.CurationNew.evidence_data, row.precuration_evidence
+            disease = get_disease_fields(evidence, pre)
+            key = row.CurationNew.entity_key
 
             summaries.append(
                 CurationSummary(
@@ -346,13 +346,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                     scope_name=row.scope_name,
                     status=row.CurationNew.status,
                     workflow_stage=row.CurationNew.workflow_stage,
-                    computed_verdict=(
-                        "No Known Disease Relationship"
-                        if verdict == "no_known"
-                        else verdict.title()
-                        if verdict
-                        else None
-                    ),
+                    computed_verdict=row.CurationNew.computed_verdict,  # the key
                     curator_classification=row.CurationNew.curator_classification,
                     final_classification=row.CurationNew.final_classification,
                     clingen_adoption=row.CurationNew.clingen_adoption,
@@ -361,9 +355,12 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         "genetic_score": section_total(scores, "genetic") or 0.0,
                         "experimental_score": section_total(scores, "experimental")
                         or 0.0,
+                        "association_score": section_total(scores, "association"),
                     },
                     disease_name=disease["disease_name"],
-                    relationship_type=relationship_of_key(row.CurationNew.entity_key),
+                    relationship_type=relationship_of_key(key),
+                    entity_key=key or "",
+                    risk_allele=entity_allele(key, evidence, pre),
                     is_draft=row.CurationNew.is_draft,
                     created_at=row.CurationNew.created_at,
                     updated_at=row.CurationNew.updated_at,
@@ -650,6 +647,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             classification=result.verdict,
             genetic_score=genetic_score,
             experimental_score=experimental_score,
+            association_score=section_total(result.scores, "association"),
             breakdown=result.evidence_breakdown,
             warnings=result.warnings,
             calculated_at=_utc_now(),

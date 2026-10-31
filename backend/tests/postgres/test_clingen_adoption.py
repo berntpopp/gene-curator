@@ -142,6 +142,12 @@ def test_adopt_then_only_another_reviewer_approves(client: TestClient, w: W) -> 
             (cid, str(w.bob)),
         )
         assert c.fetchone()[0] == 1
+    # KGDB e2e: the new round is a submission, so the reviewer sees what changed
+    diff = client.get(
+        f"{cur}/diff", params={"baseline": "previous_submission"}, headers=_h(w.bob)
+    )
+    assert diff.status_code == 200, diff.text
+    assert any(i["path"].startswith("diagnostics") for i in diff.json()["items"])
     lock = {"lock_version": r.json()["lock_version"]}
     moved = {"curator_classification": "limited"} | lock
     refused = client.put(cur, json=moved, headers=_h(w.alice))
