@@ -244,6 +244,32 @@ def _allow_bundle_pairs(db: Session, scope: Scope, ids: list[UUID | None]) -> No
             scope.allowed_workflow_pairs.append(pair)
 
 
+def _apply_scope_default(
+    db: Session,
+    bundle: MethodologyBundle,
+    pair_ids: dict[str, UUID | None],
+    *,
+    write: bool,
+) -> ImportItem:
+    """Plan (and on write set) the scope's default pair; the bundle's other pairs become
+    allowed there (082, #284)."""
+    default = bundle.scope_default
+    assert default is not None
+    scope = db.scalars(select(Scope).where(Scope.name == default.scope_name)).one()
+    pair_id = pair_ids[default.workflow_pair]
+    changed = scope.default_workflow_pair_id != pair_id or pair_id is None
+    if write and changed:
+        scope.default_workflow_pair_id = pair_id
+    if write:
+        _allow_bundle_pairs(db, scope, [i for i in pair_ids.values() if i != pair_id])
+    return ImportItem(
+        kind="scope_default",
+        name=default.scope_name,
+        action="update" if changed else "unchanged",
+        id=scope.id,
+    )
+
+
 def import_bundle(
     db: Session, bundle: MethodologyBundle, *, user_id: UUID, dry_run: bool
 ) -> MethodologyImportResult:
@@ -283,24 +309,8 @@ def import_bundle(
         pair_ids[spec_pair.name] = item.id
         items.append(item)
 
-    if (default := bundle.scope_default) and not errors:
-        scope = db.scalars(select(Scope).where(Scope.name == default.scope_name)).one()
-        pair_id = pair_ids[default.workflow_pair]
-        changed = scope.default_workflow_pair_id != pair_id or pair_id is None
-        items.append(
-            ImportItem(
-                kind="scope_default",
-                name=default.scope_name,
-                action="update" if changed else "unchanged",
-                id=scope.id,
-            )
-        )
-        if write and changed:
-            scope.default_workflow_pair_id = pair_id
-        if write:
-            _allow_bundle_pairs(
-                db, scope, [i for i in pair_ids.values() if i != pair_id]
-            )
+    if bundle.scope_default and not errors:
+        items.append(_apply_scope_default(db, bundle, pair_ids, write=write))
 
     if write:
         db.add(
