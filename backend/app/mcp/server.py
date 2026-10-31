@@ -193,7 +193,8 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
   that reports that proband.
 - variant_type values per table:
 {variant_types}
-- genetic_evidence.segregation[]: family_label, lod_score or segregations_counted, pmid
+- genetic_evidence.segregation[]: one row per family; estimated LODs count only if
+  .segregation_assessment.disorder_rare_highly_penetrant and .phenocopies_rare are true
 - genetic_evidence.case_control.{single_variant_analysis|aggregate_variant_analysis}[]
 - experimental_evidence.function.{biochemical_function|protein_interaction|expression}[],
   .functional_alteration.{patient_cells|non_patient_cells}[],

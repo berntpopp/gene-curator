@@ -125,6 +125,29 @@ describe('ScoreTrace', () => {
     )
     expect(text).toContain('Genetic › segregation: summed lod 3.2 reached 2.00 points')
   })
+  it('lists each segregation family with its rationale (#447)', () => {
+    const family = (rationale: string) => ({ rationale })
+    const w = render({
+      ...trace,
+      rules_applied: [
+        {
+          path: 'genetic_evidence.segregation',
+          rule: 'segregation_sop11',
+          total: 4.304,
+          band: '3-4.99',
+          points: 1,
+          computed_points: 2,
+          override: { points: 1, applied: true, rationale: 'small study' },
+          families: [family('F1 (PMID 1): AD, eLOD 3.10 adjusted, comprehensive; included')]
+        }
+      ]
+    })
+    const text = w.get('[data-testid="rules-applied"]').text()
+    expect(text).toContain(
+      'Genetic evidence › segregation: summed LOD 4.30 (Figure 6 band 3-4.99) gives 1.00 points; curator override of the computed 2.00: small study'
+    )
+    expect(text).toContain('F1 (PMID 1): AD, eLOD 3.10 adjusted, comprehensive; included')
+  })
   it('handles old partial traces and null caps as unknown', () => {
     const w = render({ sections: [{ key: 'old', categories: [{ key: 'legacy', types: [{}] }] }] })
     expect(w.text()).toContain('Unavailable')

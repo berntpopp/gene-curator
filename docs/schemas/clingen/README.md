@@ -17,6 +17,17 @@ It also adds a top-level `evidence_summary` (textarea, never scored) and names i
 synopsis (`ui_configuration.synopsis_field`), shown on the gene page and exported as
 `synopsis`.
 
+Segregation (#447) is scored by family and sequencing method: the segregation table holds
+one row per family (inheritance, published or estimated LOD, counts, method, `scored`) and
+`genetic_evidence.segregation_assessment` the eLOD preconditions and an optional override with
+rationale; the rule is `segregation_sop11` ([docs/POINT-MODEL.md](../../POINT-MODEL.md)). The
+table's former `points` and `lod_score` columns are gone (`explanation` stays, labelled
+Notes); curations pinned to an earlier version keep them and their points. Moving an old
+pin to this version zeroes its segregation points until its families are re-entered with
+`lod_source` and the other family fields: compare old and new scores in the version-move dry
+run first.
+Embedded tests guard SOP Example 2, the p.35 omission rule and the 4-segregation minimum.
+
 Importing it as a platform admin publishes the next methodology version of the curation
 schema (matched by name and version); the precuration schema is unchanged. Existing
 curations keep their pinned version. Export mapping: [docs/EXPORT.md](../../EXPORT.md).
