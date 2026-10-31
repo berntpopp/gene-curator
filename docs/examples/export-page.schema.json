@@ -448,8 +448,21 @@
             }
           ],
           "default": null,
-          "description": "As entered",
+          "description": "HPO CURIE of the canonical MOI (as moi_hpo_id); as entered only when it maps to none",
           "title": "Mode Of Inheritance"
+        },
+        "mode_of_inheritance_entered": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The MOI as the curator entered it",
+          "title": "Mode Of Inheritance Entered"
         },
         "moi_hpo_id": {
           "anyOf": [

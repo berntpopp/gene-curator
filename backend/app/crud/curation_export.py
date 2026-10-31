@@ -26,7 +26,7 @@ from app.models import (
 )
 from app.models.curation import _MOI_SYNONYMS
 from app.models.methodology import MethodologyVersion
-from app.schemas.curation import relationship_of_key, risk_allele
+from app.schemas.curation import entity_allele, relationship_of_key
 from app.schemas.curation_export import (
     CurationExportPage,
     ExportCuration,
@@ -178,7 +178,19 @@ def _item(
         lines or [],
         assessors.get(c.id),
     )
-    made[1:1] = adoption_agent(c, curator_name)  # after the curator, as row agents are
+    # after the curator, as row agents are; once per agent (its row writes win)
+    made[1:1] = [
+        a
+        for a in adoption_agent(c, curator_name)
+        if all(
+            a.model_dump(exclude={"date"}) != m.model_dump(exclude={"date"})
+            for m in made
+        )
+    ]
+    disease = get_disease_fields(c.evidence_data, pre)
+    # a key from before #614 can hold the HPO id itself
+    hpo = _MOI_HPO.get(moi) or (moi if moi.startswith("HP:") else None)
+    entered = disease["mode_of_inheritance"]
     return ExportCuration(
         curation_id=c.id,
         entity_key=ac.entity_key,
@@ -187,12 +199,11 @@ def _item(
         scope_name=scope.name,
         hgnc_id=gene.hgnc_id,
         approved_symbol=gene.approved_symbol,
-        **get_disease_fields(c.evidence_data, pre),
-        moi_hpo_id=_MOI_HPO.get(moi),
+        **disease | {"mode_of_inheritance": hpo or entered},  # one form (KGDB e2e)
+        mode_of_inheritance_entered=entered,
+        moi_hpo_id=hpo,
         relationship_type=relationship_of_key(ac.entity_key),
-        risk_allele=risk_allele(c.evidence_data, pre)
-        if relationship_of_key(ac.entity_key) == "susceptibility"
-        else None,
+        risk_allele=entity_allele(ac.entity_key, c.evidence_data, pre),
         computed_verdict=None if c.clingen_adoption else c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,
@@ -208,7 +219,7 @@ def _item(
         pmids=sorted(evidence_pmids(c.evidence_data), key=int),
         evidence=c.evidence_data if detail else None,
         scores=c.computed_scores if detail and not c.clingen_adoption else None,
-        summary=c.computed_summary if detail else None,
+        summary=c.computed_summary if detail and not c.clingen_adoption else None,
         curator_name=curator_name,
         reviewer_name=reviewer_name,
         approved_at=c.approved_at,

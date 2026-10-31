@@ -12,7 +12,8 @@
       :state="guard.denied.value || guard.failed.value ? undefined : frame.state.value"
       :saved-at="frame.savedAt.value"
       :readonly="readonly"
-      :show-submit="frame.hasSubmit.value"
+      :show-submit="frame.hasSubmit.value && !adoptionInReview"
+      :save-label="adoptionInReview ? 'Save' : undefined"
       :can-submit="frame.canSubmit.value"
       :blockers="frame.blockers.value"
       :saving="frame.state.value === 'saving'"
@@ -28,6 +29,17 @@
       :me="myId"
       :evidence="curation?.evidence_data"
     />
+
+    <v-alert
+      v-if="adoptionInReview && !readonly && !loading"
+      data-testid="ws-in-review"
+      type="info"
+      variant="tonal"
+      class="mb-4"
+    >
+      This adopted ClinGen classification is in review. Saving diagnostics starts a new review
+      round; its entity and classification stay ClinGen's.
+    </v-alert>
 
     <v-alert
       v-if="readonlyReason && !loading"
@@ -174,6 +186,7 @@
     status?: string | null
     curator_name?: string | null
     evidence_data?: Record<string, unknown> | null
+    clingen_adoption?: Record<string, unknown> | null
   }
 
   interface ScopeRecord {
@@ -245,6 +258,10 @@
   const choices = ref<{ id: string; label: string; to: RouteLocationRaw }[]>([])
 
   const isActive = computed(() => curation.value?.workflow_stage === 'active')
+  // Already submitted: it saves diagnostics through PUT, never submits again (#613)
+  const adoptionInReview = computed(
+    () => curation.value?.status === 'in_review' && !!curation.value?.clingen_adoption
+  )
   // Saving is only possible for a draft or returned curation the user may edit (backend `can_edit`)
   const readonlyReason = computed(() => {
     if (curation.value?.status === 'archived') {

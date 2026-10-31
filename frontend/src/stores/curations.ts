@@ -22,6 +22,8 @@ function toSummary(c: Schema<'Curation'>): CurationRecord {
     gene_symbol: '',
     scope_id: c.scope_id,
     scope_name: '',
+    entity_key: c.entity_key ?? '',
+    risk_allele: c.risk_allele,
     status: c.status,
     workflow_stage: c.workflow_stage,
     computed_verdict: c.computed_verdict,
@@ -257,7 +259,16 @@ export const useCurationsStore = defineStore('curations', {
     async saveDraft(id: string, data: Schema<'CurationDraftSave'>) {
       this.error = null
       try {
-        const updated = await curationsAPI.saveDraft(id, data)
+        const current = this.currentCuration?.id === id ? this.currentCuration : null
+        // An adoption in review takes evidence through PUT only; its class is ClinGen's (#613)
+        const updated =
+          current?.clingen_adoption && current.status === 'in_review'
+            ? await curationsAPI.updateCuration(id, {
+                evidence_data: data.evidence_data,
+                lock_version: data.lock_version,
+                merge: true
+              })
+            : await curationsAPI.saveDraft(id, data)
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)

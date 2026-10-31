@@ -206,6 +206,7 @@ def test_band_margin_measures_a_section_min_band_by_its_section() -> None:
     """Functional points never reach a band with section_min (association >= 4)."""
     assert _kgdb_susceptibility_flags(30) == []  # association 1 + functional 2
     assert _kgdb_susceptibility_flags(600) == [  # association 3 + functional 2
-        "review_flags.band_margin: the total of 5 points is within 1 point of the "
-        "likely band edge at 4 (association 3 of 4); check the evidence near the boundary"
+        "review_flags.band_margin: the association score of 3 points is within 1 "
+        "point of the likely band edge at 4 association points; check the evidence "
+        "near the boundary"
     ]

@@ -242,6 +242,7 @@ def test_an_adoption_scored_before_613_exports_no_points(
     assert c is not None
     c.computed_verdict = "no_known"
     c.computed_scores = {"genetic_total": 0, "experimental_total": 0, "total_score": 0}
+    c.computed_summary = "genetic = 0.0 ... NO KNOWN disease relationship"  # DNAJB11
     db_session.commit()
     _approve(client, db_session, test_scope, cid)
     [item] = client.get("/api/v1/export/curations", headers=_h(curator_token)).json()[
@@ -252,6 +253,7 @@ def test_an_adoption_scored_before_613_exports_no_points(
         item[k] for k in ("genetic_score", "experimental_score", "total_score")
     ] == [None] * 3
     assert (item["scores"], item["final_classification"]) == (None, "definitive")
+    assert item["summary"] is None
 
 
 def test_a_diagnostics_edit_in_review_starts_a_new_review_round(
@@ -344,3 +346,70 @@ def test_a_failed_new_review_round_rolls_the_edit_back(
     c = db_session.get(CurationNew, cid)
     assert c is not None
     assert (c.lock_version, c.evidence_data, c.submitted_at) == before
+
+
+def test_can_edit_matches_what_update_curation_allows_in_review(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_scope: Scope,
+    row: dict,
+) -> None:
+    """KGDB e2e: an adoption in review takes diagnostics, so its creator may edit it."""
+    cid = _adopt(client, curator_token, row)
+    detail = client.get(f"/api/v1/curations/{cid}", headers=_h(curator_token)).json()
+    assert detail["can_edit"] is True
+    other = _member(db_session, test_scope, "curator", "Other Curator")
+    token = create_access_token(data={"sub": str(other.id)})
+    assert (
+        client.get(f"/api/v1/curations/{cid}", headers=_h(token)).json()["can_edit"]
+        is False
+    )
+
+
+def test_an_agent_that_adopts_and_adds_diagnostics_is_credited_once(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator: UserNew,
+    test_scope: Scope,
+    row: dict,
+) -> None:
+    token = pat(db_session, test_user_curator)
+    result = call(
+        client, token, "adopt_clingen_classifications", rows=[row], agent=AGENT
+    )
+    cid = json.loads(result["content"][0]["text"])["items"][0]["curation_id"]
+    lock = db_session.get(CurationNew, cid)
+    assert lock is not None
+    rows = {"detectability": [{"id": "d1", "challenge": "copy_number_variants"}]}
+    saved = call(
+        client,
+        token,
+        "update_curation",
+        curation_id=cid,
+        lock_version=lock.lock_version,
+        evidence_data={"diagnostics": rows},
+        merge=True,
+        agent=AGENT,
+    )
+    assert status_of(saved) == 200, saved
+    _approve(client, db_session, test_scope, cid)
+    jwt = create_access_token(data={"sub": str(test_user_curator.id)})
+    [item] = client.get("/api/v1/export/curations", headers=_h(jwt)).json()["items"]
+    software = [
+        c for c in item["contributions"] if c["contributor"]["agentType"] == "software"
+    ]
+    assert [c["contributor"]["name"] for c in software] == [AGENT["model"]]
+
+
+def test_a_save_that_changes_nothing_starts_no_new_round(
+    client: TestClient, db_session: Session, curator_token: str, row: dict
+) -> None:
+    cid = _adopt(client, curator_token, row)
+    c = db_session.get(CurationNew, cid)
+    assert c is not None
+    submitted = c.submitted_at
+    r = _put(client, curator_token, cid, evidence_data={}, merge=True)
+    assert r.status_code == 200, r.text
+    db_session.refresh(c)
+    assert c.submitted_at == submitted

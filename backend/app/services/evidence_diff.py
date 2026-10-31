@@ -74,6 +74,9 @@ def diff_evidence(
     return out
 
 
+NEW_REVIEW_ROUND = "new_review_round"  # an edit in review that restarts it (adoptions)
+
+
 def submitted_snapshots(db: Session, curation_id: UUID) -> list[AuditLogNew]:
     """Audit rows of status transitions into submitted/in_review, newest first (an edit made while
     already submitted is not a submission)."""
@@ -87,6 +90,7 @@ def submitted_snapshots(db: Session, curation_id: UUID) -> list[AuditLogNew]:
                 or_(
                     AuditLogNew.previous_status.is_(None),
                     AuditLogNew.previous_status != AuditLogNew.new_status,
+                    AuditLogNew.change_type == NEW_REVIEW_ROUND,
                 ),
             )
             .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
