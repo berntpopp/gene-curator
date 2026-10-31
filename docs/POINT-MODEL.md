@@ -20,6 +20,9 @@ A section `key` is a top-level evidence field; a type `path` is dotted below it 
 evidence table. Other type keys: `points_key`, `rule` (`case_row`, `explicit_points`,
 `segregation`, `step`), `group_by` + `group_cap`, `require_variant`. Bands take `min`,
 `requires`, `section_min`; `review_flags` and `classifications` are described in the code.
+The `review_flags.hotspot` warning (`max_variants`, `min_share`) means recurrence: the top
+`max_variants` variants carry at least `min_share` of the proband points and at least one
+of them appears in 2 or more scoring proband rows (counted before a group cap).
 
 ## Row rules: `points_when`
 

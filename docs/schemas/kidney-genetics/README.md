@@ -65,7 +65,8 @@ Bands, first match wins: Definitive >= 12 and `replicated_over_time`; Strong >= 
 >= 7; Limited > 0; No Known 0. Definitive, Strong and Moderate also need genetic >= 4
 (`section_min`). Contradictory evidence with impact `refuted` or `disputed` sets that class.
 Reviewer flags: total within 2 points of a band edge, experimental above genetic, hotspot
-(>= 50% of proband points from <= 2 variants; the hotspot pilot case raises it).
+(the top 2 variants carry >= 50% of proband points and one of them is in 2 or more scoring
+probands; single-proband variants never raise it; the hotspot pilot case raises it).
 
 Susceptibility (**provisional, not approved by KGDB**; the tiering is a Gene Curator draft):
 significant association studies score 2 points each (cap 6). A study scores 0 without a p

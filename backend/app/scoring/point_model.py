@@ -188,7 +188,7 @@ def _type_points(
     flags: list[Any],
     excluded: list[Any],
     capped: list[Any],
-    variants: dict[str, float],
+    variants: dict[str, list[float]],
     applied: list[Any],
 ) -> list[float]:
     """Entered rows' points; rows outside the type's range or non-finite are flagged and
@@ -238,9 +238,10 @@ def _type_points(
             points.append(value)
             variant = group_by or ("variant_1" if "variant_1" in row else "variant")
             keys.append(_norm(row.get(variant)))
+    scored = [value > 0 for value in points]  # before the cap: recurrence counts rows
     if groups:
         _cap_groups(path, type_def["group_cap"], groups, points, capped)
-    _count_variants(type_def, keys, points, variants)
+    _count_variants(type_def, keys, points, scored, variants)
     return points
 
 
@@ -248,12 +249,15 @@ def _count_variants(
     type_def: dict[str, Any],
     keys: list[str],
     points: list[float],
-    variants: dict[str, float],
+    scored: list[bool],
+    variants: dict[str, list[float]],
 ) -> None:
-    """Case rows and grouped rows (#557) feed the hotspot flag, with capped points."""
+    """Case rows and grouped rows (#557) feed the hotspot flag: per variant its capped
+    points and its scoring rows."""
     if type_def.get("rule") == "case_row" or type_def.get("group_by"):
-        for key, value in zip(keys, points, strict=True):
-            variants[key] = variants.get(key, 0.0) + value
+        for key, value, row in zip(keys, points, scored, strict=True):
+            total = variants.setdefault(key, [0.0, 0.0])
+            total[0], total[1] = total[0] + value, total[1] + row
 
 
 def _norm(value: Any) -> str:
@@ -286,7 +290,7 @@ def _section_points(
     flags: list[Any],
     excluded: list[Any],
     capped: list[Any],
-    variants: dict[str, float],
+    variants: dict[str, list[float]],
     applied: list[Any],
 ) -> dict[str, dict[str, list[float]]]:
     """{category key: {type path: [item points]}} for one section's evidence."""
@@ -353,12 +357,12 @@ def score(
     legacy: LegacyRule | None = None,
 ) -> dict[str, Any]:
     """Interpret ``model`` over ``evidence``: {total, class, sections, trace, excluded,
-    model, variant_points}."""
+    model, variant_points, variant_rows}."""
     sections = []
     flags: list[Any] = []
     excluded: list[Any] = []
     capped: list[Any] = []
-    variants: dict[str, float] = {}
+    variants: dict[str, list[float]] = {}
     applied: list[Any] = []
     for section in model["sections"]:
         data = evidence.get(section["key"])
@@ -411,5 +415,6 @@ def score(
         "trace": trace,
         "excluded": excluded,
         "model": model,  # evidence_warnings reads its review_flags and bands (#559)
-        "variant_points": variants,
+        "variant_points": {k: v[0] for k, v in variants.items()},
+        "variant_rows": {k: int(v[1]) for k, v in variants.items()},
     }
