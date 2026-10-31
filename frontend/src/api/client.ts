@@ -152,7 +152,8 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refresh_token')
-        if (refreshToken) {
+        // MUI-19: an anonymous request (no access token) has no session to refresh
+        if (refreshToken && originalRequest.headers.Authorization) {
           if (originalRequest._refreshFailed) throw new Error('Refresh token refused')
           logService.debug('Attempting token refresh', { originalUrl: originalRequest.url })
 
@@ -191,19 +192,15 @@ apiClient.interceptors.response.use(
       duration
     )
 
-    // A request aborted on purpose (a stale palette search) is not an error; a 401 is the
-    // expected answer for a signed-out visitor or a dropped session (MUI-19), so a warning
+    // A request aborted on purpose (a stale palette search) is not an error
     if (!axios.isCancel(error)) {
-      logService[status === 401 ? 'warn' : 'error'](
-        status === 401 ? 'API unauthorized' : 'API Error',
-        {
-          method: error.config?.method,
-          url: error.config?.url,
-          status,
-          error: error.message,
-          detail: errorDetail(error.response?.data)
-        }
-      )
+      logService.error('API Error', {
+        method: error.config?.method,
+        url: error.config?.url,
+        status,
+        error: error.message,
+        detail: errorDetail(error.response?.data)
+      })
     }
 
     clearCorrelationIdFor(originalRequest?.headers?.['X-Request-ID'])
