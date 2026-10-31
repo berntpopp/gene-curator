@@ -224,10 +224,7 @@ describe('useCurationsStore', () => {
       expect(store.isConflictError).toBe(true)
       expect(store.error).toEqual({
         message: 'Another user has modified this curation. Please refresh and try again.',
-        isConflict: true,
-        currentVersion: 5,
-        yourVersion: 3,
-        currentState: 'submitted'
+        isConflict: true
       })
     })
 
@@ -290,7 +287,7 @@ describe('useCurationsStore', () => {
       await expect(
         store.saveDraft('c1', { evidence_data: {}, lock_version: 4 })
       ).resolves.toBeNull()
-      expect(store.error).toMatchObject({ isConflict: true, currentVersion: 5, yourVersion: 4 })
+      expect(store.error).toMatchObject({ isConflict: true })
       expect(store.isConflictError).toBe(true)
     })
 

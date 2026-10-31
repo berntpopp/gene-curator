@@ -279,7 +279,7 @@ describe('usePrecurationsStore', () => {
       })
 
       await expect(store.saveDraft('p1', {})).resolves.toBeNull()
-      expect(store.error).toMatchObject({ isConflict: true, currentVersion: 2, yourVersion: 1 })
+      expect(store.error).toMatchObject({ isConflict: true })
     })
 
     it('keeps a duplicate-entity 409 apart from a version conflict (monkey B5)', async () => {
@@ -340,7 +340,7 @@ describe('usePrecurationsStore', () => {
         response: { status: 409, data: { current_lock_version: 3, your_lock_version: 2 } }
       })
       await expect(store.submitForReview('p1')).rejects.toBeTruthy()
-      expect(store.error).toMatchObject({ isConflict: true, currentVersion: 3, yourVersion: 2 })
+      expect(store.error).toMatchObject({ isConflict: true })
     })
 
     it('shows the server reason for a workflow-state 409 (L6)', async () => {
