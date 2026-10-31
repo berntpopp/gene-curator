@@ -406,6 +406,11 @@ describe('SchemaManagement', () => {
     vi.unstubAllGlobals()
   })
 
+  it('wraps the header actions on a narrow screen (monkey B11)', async () => {
+    const { wrapper } = await mountView()
+    expect(wrapper.find('[data-testid="page-header"]').classes()).toContain('flex-wrap')
+  })
+
   it('creates an inactive skeleton schema from the dialog and resets the form', async () => {
     const { vm, schemas } = await mountView()
     const create = vi.spyOn(schemas, 'createSchema').mockResolvedValue({ id: 's3' } as never)

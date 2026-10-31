@@ -1,7 +1,7 @@
 <template>
   <v-container fluid>
-    <!-- Page Header -->
-    <div class="d-flex align-center mb-6">
+    <!-- Page Header: actions wrap below the title on a phone (monkey B11) -->
+    <div class="d-flex flex-wrap align-center ga-3 mb-6" data-testid="page-header">
       <div>
         <h1 class="page-title text-headline-large font-weight-bold">{{ TERMINOLOGY.TEMPLATES }}</h1>
         <p class="text-body-large text-medium-emphasis mt-1">
@@ -20,7 +20,6 @@
       <v-btn
         variant="outlined"
         size="large"
-        class="mr-3"
         prepend-icon="mdi-file-upload"
         :loading="importing"
         @click="importInput?.click()"
