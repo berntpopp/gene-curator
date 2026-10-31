@@ -238,8 +238,8 @@ export const useCurationsStore = defineStore('curations', {
       } catch (error) {
         // Handle 409 Conflict specially
         const apiError = toApiError(error)
-        if (apiError.response?.status === 409) {
-          const conflictData = apiError.response.data ?? {}
+        if (isStaleSave(error)) {
+          const conflictData = apiError.response?.data ?? {}
           this.error = {
             message: 'Another user has modified this curation. Please refresh and try again.',
             isConflict: true,
@@ -280,9 +280,9 @@ export const useCurationsStore = defineStore('curations', {
         return updated
       } catch (error) {
         const apiError = toApiError(error)
-        if (apiError.response?.status === 409) {
+        if (isStaleSave(error)) {
           // Another tab saved first: never overwrite it; the workspace shows the conflict
-          const data = apiError.response.data ?? {}
+          const data = apiError.response?.data ?? {}
           this.error = {
             message: 'Another user or tab has modified this curation. Reload to see their version.',
             isConflict: true,

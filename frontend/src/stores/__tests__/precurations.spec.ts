@@ -295,6 +295,15 @@ describe('usePrecurationsStore', () => {
       await expect(store.saveDraft('p1', {})).resolves.toBeNull()
       expect(store.error).toEqual({ message, existingId: 'p0' })
     })
+
+    it('shows the server reason for an inactive-scope 409, not a conflict', async () => {
+      const store = usePrecurationsStore()
+      const detail = 'This scope is inactive; its curations are read-only'
+      api.saveDraft.mockRejectedValue({ message: 'x', response: { status: 409, data: { detail } } })
+
+      await expect(store.saveDraft('p1', {})).resolves.toBeNull()
+      expect(store.error).toEqual({ message: detail, isAutoSave: true })
+    })
   })
 
   describe('submitForReview', () => {

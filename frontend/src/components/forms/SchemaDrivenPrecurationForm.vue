@@ -366,7 +366,7 @@
               return false
             }
           }
-          throw new Error('Draft not saved')
+          throw new Error(precurationsStore.error?.message || 'Draft not saved')
         }
         markSaved(sent, recoveryVersion(updated))
         emit('saved')
@@ -430,7 +430,7 @@
         const updated = await precurationsStore.saveDraft(id, sent)
         if (!updated) {
           if (precurationsStore.error?.isConflict) conflict.value = true
-          throw new Error('Draft not saved')
+          throw new Error(precurationsStore.error?.message || 'Draft not saved')
         }
         markSaved(sent, recoveryVersion(updated))
       }
