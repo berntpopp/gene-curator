@@ -32,7 +32,7 @@ from app.schemas.curation_export import (
     ExportCuration,
     ExportMethodology,
 )
-from app.services.clingen_adoption import adoption_statement
+from app.services.clingen_adoption import adoption_agent, adoption_statement
 from app.services.export_provenance import curation_contributions, evidence_lines
 from app.services.publication_service import evidence_pmids
 
@@ -162,13 +162,23 @@ def _item(
     schema_id: UUID | None,
     updated_at: datetime,
 ) -> ExportCuration:
-    scores: dict[str, Any] = c.computed_scores or {}
+    # #613: an adoption has no points of ours, also one scored before the fix
+    scores: dict[str, Any] = {} if c.clingen_adoption else (c.computed_scores or {})
     # #558: members always; others only when the public scope opted in
     detail = scope.id in members or (scope.is_public and scope.export_evidence_public)
     parts = ac.entity_key.split("|")  # MONDO|MOI[|SUSCEPTIBILITY]
     moi = parts[1] if len(parts) > 1 else ""
     pre = c.precuration.evidence_data if c.precuration else None
     lines = evidence_lines(c.evidence_data, c.row_provenance) if detail else None
+    made = curation_contributions(
+        curator_name,
+        c.created_at,
+        reviewer_name,
+        c.approved_at,
+        lines or [],
+        assessors.get(c.id),
+    )
+    made[1:1] = adoption_agent(c, curator_name)  # after the curator, as row agents are
     return ExportCuration(
         curation_id=c.id,
         entity_key=ac.entity_key,
@@ -180,7 +190,7 @@ def _item(
         **get_disease_fields(c.evidence_data, pre),
         moi_hpo_id=_MOI_HPO.get(moi),
         relationship_type=relationship_of_key(ac.entity_key),
-        computed_verdict=c.computed_verdict,
+        computed_verdict=None if c.clingen_adoption else c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,
         genetic_score=section_total(scores, "genetic"),
@@ -193,7 +203,7 @@ def _item(
         ),
         pmids=sorted(evidence_pmids(c.evidence_data), key=int),
         evidence=c.evidence_data if detail else None,
-        scores=c.computed_scores if detail else None,
+        scores=c.computed_scores if detail and not c.clingen_adoption else None,
         summary=c.computed_summary if detail else None,
         curator_name=curator_name,
         reviewer_name=reviewer_name,
@@ -203,14 +213,7 @@ def _item(
         archive_reason=ac.archive_reason,
         updated_at=updated_at,
         adoption=adoption_statement(c, curator_name, reviewer_name),
-        contributions=curation_contributions(
-            curator_name,
-            c.created_at,
-            reviewer_name,
-            c.approved_at,
-            lines or [],
-            assessors.get(c.id),
-        ),
+        contributions=made,
         evidence_lines=lines,
         synopsis=synopsis_of(c.evidence_data, uis.get(schema_id)) if detail else None,
     )

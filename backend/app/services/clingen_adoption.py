@@ -24,13 +24,16 @@ from app.core.capabilities import (
 )
 from app.core.database import raise_if_rls_denied
 from app.core.logging import get_logger
-from app.crud.curation import _update_computed_scores, open_curation_id
+from app.crud.curation import _patched, _update_computed_scores, open_curation_id
 from app.crud.curator_classification import allowed_classifications
 from app.crud.precuration_entity import entity_key_of
+from app.crud.review_round import reassign_earlier_reviewers
+from app.mcp.audit import request_agent
 from app.models import (
     CurationNew,
     CurationStatus,
     Gene,
+    NotificationNew,
     ReviewItemComment,
     Scope,
     UserNew,
@@ -38,20 +41,22 @@ from app.models import (
     WorkflowStage,
 )
 from app.models.curation import _MOI_SYNONYMS
+from app.models.model_enums import NotificationType
 from app.schemas.clingen_adoption import (
     ClinGenAdoptionItem,
     ClinGenAdoptionResult,
     ClinGenAdoptionRow,
 )
-from app.schemas.curation import class_key
-from app.schemas.provenance import Agent, contribution
+from app.schemas.curation import CurationUpdate, class_key
+from app.schemas.provenance import Agent, Contribution, contribution
 from app.scoring.point_limits import scoring_configuration
+from app.services.export_provenance import _software
 
 logger = get_logger(__name__)
 
 ADOPTION_COMMENT = (
-    "Curation details were taken from ClinGen as available there, the individual point "
-    "values must be re-scored manually."
+    "Classification adopted from ClinGen, which holds its evidence and points; none are "
+    "scored here. Diagnostics can still be added while it is in review."
 )
 
 
@@ -197,7 +202,8 @@ def _create(
         lock_version=0,
         curator_classification=class_key(record.classification),
         curator_classification_rationale=record.citation,
-        clingen_adoption=record.model_dump(mode="json"),
+        clingen_adoption=record.model_dump(mode="json")
+        | ({"adopted_by_agent": agent} if (agent := request_agent.get()) else {}),
         created_by=user_id,
         updated_by=user_id,
         submitted_by=user_id,
@@ -237,6 +243,64 @@ def _write(
         db.rollback()
         raise_if_rls_denied(e, "Adopting here needs an accepted curator membership")
         raise
+
+
+def adopted_edit_allowed(curation: CurationNew, update: CurationUpdate) -> bool:
+    """#613: an adoption in review still takes evidence (diagnostics: ClinGen has none,
+    and nothing of it is scored); 409 for a new entity or classification, which are
+    ClinGen's. False for anything else, which the draft-only rule refuses."""
+    if not (curation.clingen_adoption and curation.status == CurationStatus.IN_REVIEW):
+        return False
+    called = {"curator_classification", "curator_classification_rationale"}
+    entity = (curation.evidence_data or {}).get("entity_definition")
+    after = (
+        _patched(curation, update.evidence_data, update.merge)[0]
+        if update.evidence_data is not None
+        else curation.evidence_data or {}
+    )
+    if called & update.model_fields_set or after.get("entity_definition") != entity:
+        raise HTTPException(
+            409, "An adopted curation keeps ClinGen's entity and classification"
+        )
+    return True
+
+
+def restart_review_round(db: Session, curation: CurationNew, user_id: UUID) -> None:
+    """After an edit in review, as on resubmit: approvals of the old content no longer
+    count and each earlier reviewer is asked again (a round starts at submitted_at)."""
+    curation.submitted_at = datetime.now(UTC)
+    db.flush()
+    gene = db.get(Gene, curation.gene_id)
+    for reviewer_id in reassign_earlier_reviewers(db, curation, user_id):
+        db.add(  # as a resubmit notifies (workflow_engine)
+            NotificationNew(
+                user_id=reviewer_id,
+                type=NotificationType.REVIEW_ASSIGNED,
+                title="New review assigned",
+                message=f"New review assigned: {gene.approved_symbol if gene else 'Unknown'}",
+                link=f"/scopes/{curation.scope_id}/curations/{curation.id}",
+            )
+        )
+    db.commit()
+    db.refresh(curation)
+
+
+def adoption_agent(
+    curation: CurationNew, curator_name: str | None
+) -> list[Contribution]:
+    """The AI agent that adopted it over MCP, as a software curator on the curator's
+    behalf (the adoption has no evidence rows to carry it)."""
+    agent = (curation.clingen_adoption or {}).get("adopted_by_agent")
+    if not isinstance(agent, dict):
+        return []
+    return [
+        contribution(
+            "curator",
+            _software(agent),
+            curation.created_at,
+            actedOnBehalfOf=Agent(name=curator_name, agentType="person"),
+        )
+    ]
 
 
 def adoption_statement(

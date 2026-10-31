@@ -92,6 +92,7 @@ def test_member_gets_curation_link_disease_stage_score_and_in_progress(
     )
     d = rows[str(draft.id)]
     assert (d["stage"], d["in_progress"], d["total_score"]) == ("curation", True, 2)
+    assert d["classification"] == "limited"  # the proposal: nobody approved it (#613)
     # active rows come first, then in-progress; deterministic
     assert [r["in_progress"] for r in body["scope_summaries"]] == [False, True]
     # in-progress work does not change the consensus

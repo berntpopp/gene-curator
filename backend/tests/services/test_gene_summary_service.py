@@ -32,6 +32,7 @@ def _curation(
         workflow_stage="curation",
         evidence_data={},
         computed_verdict=verdict,
+        approved_at=datetime.now(UTC),  # #613: final once approved
         computed_scores={
             "genetic_evidence_total": 4,
             "experimental_evidence_total": 1,

@@ -98,6 +98,7 @@ def _curation(
         evidence_data={},
         computed_verdict=verdict,
         computed_scores={"total_score": total} if total is not None else {},
+        approved_at=datetime.now(UTC) if status == "active" else None,  # #613
     )
     db.add(c)
     db.commit()

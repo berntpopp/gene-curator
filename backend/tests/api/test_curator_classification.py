@@ -48,7 +48,7 @@ def test_override_needs_a_rationale_at_submit_and_saves_keep_or_clear_it(
     assert r.status_code == 200, r.text
     body = _detail(client, admin_token, test_curation.id)
     assert body["curator_classification"] == "strong"  # a label is stored as its key
-    assert body["final_classification"] == "strong"
+    assert body["final_classification"] is None  # #613: final only once approved
     assert body["computed_verdict"] != "strong"
     lock = body["lock_version"]
 
@@ -80,7 +80,8 @@ def test_override_needs_a_rationale_at_submit_and_saves_keep_or_clear_it(
     assert body["curator_classification_rationale"] == "Replicated over 5 years"
 
     listed = client.get("/api/v1/curations/", headers=_h(admin_token)).json()
-    assert listed["curations"][0]["final_classification"] == "strong"
+    assert listed["curations"][0]["curator_classification"] == "strong"
+    assert listed["curations"][0]["final_classification"] is None
 
     # null clears it: the computed verdict is final again
     r = client.put(
@@ -91,7 +92,7 @@ def test_override_needs_a_rationale_at_submit_and_saves_keep_or_clear_it(
     assert r.status_code == 200, r.text
     body = _detail(client, admin_token, test_curation.id)
     assert body["curator_classification"] is None
-    assert body["final_classification"] == body["computed_verdict"]
+    assert body["final_classification"] is None
 
 
 def test_unknown_classification_is_refused_and_changes_nothing(
@@ -249,6 +250,7 @@ def _active(
         curator_classification=curator,
         curator_classification_rationale="Contradictory evidence" if curator else None,
         updated_at=at,
+        approved_at=at,  # #613: final once approved
     )
     db.add(c)
     db.flush()

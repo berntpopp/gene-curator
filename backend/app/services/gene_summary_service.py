@@ -120,7 +120,10 @@ class GeneSummaryService:
             "relationship_type": relationship_of_key(curation.entity_key),
             "stage": curation.workflow_stage.value,
             "in_progress": in_progress,
-            "classification": curation.final_classification,
+            # #613: in-progress work shows its proposal, active rows what was approved
+            "classification": curation.proposed_classification
+            if in_progress
+            else curation.final_classification,
             "genetic_score": section_total(scores, "genetic") or 0,
             "experimental_score": section_total(scores, "experimental") or 0,
             "total_score": scores.get("total_score", 0),

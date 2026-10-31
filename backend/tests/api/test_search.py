@@ -1,5 +1,6 @@
 """GET /search: command-palette hits, same visibility as the list endpoints (#273)."""
 
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -46,6 +47,7 @@ def _curation(db, scope, gene, wp, user) -> CurationNew:
         workflow_stage="curation",
         evidence_data={},
         created_by=user.id,
+        approved_at=datetime.now(UTC),  # #613: final once approved
     )
     db.add(c)
     db.commit()

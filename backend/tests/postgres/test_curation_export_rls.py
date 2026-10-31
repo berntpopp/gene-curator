@@ -76,8 +76,9 @@ def w() -> Generator[W, None, None]:
             cid = x.ids[name] = uuid4()
             cur.execute(
                 "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
-                "workflow_stage, computed_verdict, evidence_data) VALUES (%s, %s, %s, %s, "
-                "%s::curation_status, %s::workflow_stage, 'Strong', %s)",
+                "workflow_stage, computed_verdict, evidence_data, approved_at) VALUES "
+                "(%s, %s, %s, %s, %s::curation_status, %s::workflow_stage, 'Strong', %s, "
+                "CASE WHEN %s::text IN ('active', 'archived') THEN now() END)",
                 (
                     str(cid),
                     str(x.gene),
@@ -86,6 +87,7 @@ def w() -> Generator[W, None, None]:
                     status,
                     status,
                     f'{{"note": "{name}", "rows": [{{"pmid": "31558469"}}]}}',  # distinct record_hash
+                    status,  # approved once active (#613)
                 ),
             )
             cur.execute(

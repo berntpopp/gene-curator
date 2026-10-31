@@ -54,7 +54,7 @@ def _item(row: Any, kind: WorkKind, tab: WorkTab, verb: str, link: str) -> WorkI
         mode_of_inheritance=disease["mode_of_inheritance"],
         relationship_type=relationship_of_key(getattr(obj, "entity_key", None)),
         stage=getattr(stage, "value", stage),
-        classification=getattr(obj, "final_classification", None),
+        classification=getattr(obj, "proposed_classification", None),  # in progress
     )
 
 

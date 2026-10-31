@@ -17,6 +17,7 @@ from app.core.workflow_errors import transition_error
 from app.crud.activation import same_entity
 from app.crud.base import CRUDBase
 from app.crud.curator_classification import curator_call
+from app.crud.merge_patch import merge_patch
 from app.crud.optimistic_lock import update_if_version
 from app.crud.precuration_entity import refuse_entity_change, refuse_other_entity
 from app.crud.workflow_engine import workflow_engine
@@ -137,19 +138,6 @@ def get_disease_fields(
     return disease_fields(evidence, precuration_evidence)
 
 
-def merge_patch(target: Any, patch: Any) -> Any:
-    """RFC 7396 JSON merge patch: objects merge, null deletes, anything else replaces."""
-    if not isinstance(patch, dict):
-        return patch
-    out = dict(target) if isinstance(target, dict) else {}
-    for key, value in patch.items():
-        if value is None:
-            out.pop(key, None)
-        else:
-            out[key] = merge_patch(out.get(key), value)
-    return out
-
-
 def _patched(
     item: Any, sent: dict[str, Any], merge: bool | None
 ) -> tuple[dict[str, Any], list[EvidenceWarning]]:
@@ -170,6 +158,12 @@ def _computed(
     """Score with the row's pinned version (latest on create), persisted with the evidence.
     Rows with a malformed or unknown PMID score nothing; ID warnings join the scoring
     ones as "path: message". ``lookup=False`` checks formats only (no network)."""
+    if curation.clingen_adoption:  # #613: ClinGen's class, never points of ours
+        return {
+            "computed_scores": {},
+            "computed_verdict": None,
+            "computed_summary": None,
+        }
     if ids is None:
         ids = (
             check_ids(db, evidence_data)
@@ -359,6 +353,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         if verdict
                         else None
                     ),
+                    curator_classification=row.CurationNew.curator_classification,
                     final_classification=row.CurationNew.final_classification,
                     clingen_adoption=row.CurationNew.clingen_adoption,
                     computed_scores={

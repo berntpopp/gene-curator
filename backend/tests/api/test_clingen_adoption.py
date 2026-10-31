@@ -90,7 +90,7 @@ def test_adopt_creates_a_curation_in_review_with_the_marker_and_comment(
     assert c is not None
     assert (c.status.value, c.workflow_stage.value) == ("in_review", "review")
     assert c.created_by == c.submitted_by == test_user_curator.id
-    assert c.final_classification == "definitive"
+    assert (c.curator_classification, c.final_classification) == ("definitive", None)
     assert c.entity_key == "MONDO:0004691|AD"
     assert c.clingen_adoption == row["clingen"]
     comments = db_session.scalars(

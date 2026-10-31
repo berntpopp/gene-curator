@@ -30,4 +30,4 @@ def test_create_stores_the_curator_classification(client: TestClient, w: W) -> N
     body = client.get(f"/api/v1/curations/{r.json()['id']}", headers=h).json()
     assert body["curator_classification"] == "strong"
     assert body["curator_classification_rationale"] == "Expert panel call"
-    assert body["final_classification"] == "strong"
+    assert body["final_classification"] is None  # final once approved (#613)

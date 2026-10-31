@@ -25,6 +25,7 @@ function toSummary(c: Schema<'Curation'>): CurationRecord {
     status: c.status,
     workflow_stage: c.workflow_stage,
     computed_verdict: c.computed_verdict,
+    curator_classification: c.curator_classification,
     final_classification: c.final_classification,
     computed_scores: c.computed_scores,
     relationship_type: 'mendelian', // like the names: correct once the list is refetched
@@ -44,6 +45,7 @@ function refreshRow(row: CurationRecord, c: Schema<'Curation'>): CurationRecord 
     status: c.status,
     workflow_stage: c.workflow_stage,
     computed_verdict: c.computed_verdict,
+    curator_classification: c.curator_classification,
     final_classification: c.final_classification,
     computed_scores: c.computed_scores,
     is_draft: c.is_draft,
