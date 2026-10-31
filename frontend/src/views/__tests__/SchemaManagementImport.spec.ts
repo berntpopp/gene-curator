@@ -28,12 +28,9 @@ const plan = (errors: string[] = [], action = 'create') => ({
   items: [{ kind: 'schema', name: 'KGDB curation', version: '1.0.0', action }]
 })
 
-const fileEvent = (text: string | null) => {
-  const input = document.createElement('input')
-  const files = text === null ? [] : [{ name: 'kgdb.json', text: async () => text }]
-  Object.defineProperty(input, 'files', { value: files })
-  return { target: input } as unknown as Event
-}
+// What the house file input (v-file-input) emits: the picked file, or null when cleared
+const fileEvent = (text: string | null) =>
+  text === null ? null : ({ name: 'kgdb.json', text: async () => text } as unknown as File)
 
 async function mountView() {
   const schemas = useSchemasStore()
@@ -50,6 +47,21 @@ describe('SchemaManagement methodology import', () => {
   })
   afterEach(() => {
     document.body.innerHTML = ''
+  })
+
+  it('opens a picker that explains the bundle, with the house file input (#587)', async () => {
+    post.mockResolvedValueOnce(plan() as never)
+    const { w, vm } = await mountView()
+    const open = w.findAll('button').find(b => b.text().includes('Import methodology'))!
+    await open.trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('A methodology bundle is a JSON file')
+    const input = w.findComponent({ name: 'VFileInput' })
+    input.vm.$emit('update:modelValue', fileEvent(JSON.stringify(bundle)))
+    await flushPromises()
+    expect(post).toHaveBeenCalledWith(bundle, true)
+    expect(vm.importPicker).toBe(false)
+    expect(vm.importDialog).toBe(true)
   })
 
   it('shows the dry-run plan first and writes only on confirm', async () => {
