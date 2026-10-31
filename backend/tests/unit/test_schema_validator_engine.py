@@ -108,6 +108,7 @@ class TestTextField:
         ("config", "value", "message"),
         [
             ({"min_length": 5}, "abc", "Text must be at least 5 characters"),
+            ({"min_length": 5}, "  abc  ", "Text must be at least 5 characters"),
             ({"max_length": 3}, "abcdef", "Text must not exceed 3 characters"),
             ({"pattern": "^[A-Z]+$"}, "abc", "Text does not match required pattern"),
             ({}, 42, "Value must be a string"),

@@ -191,7 +191,7 @@ class SchemaValidator:
         min_length = config.get("min_length", 0)
         max_length = config.get("max_length")
 
-        if len(value) < min_length:
+        if len(value.strip()) < min_length:  # padding does not count toward a minimum
             result.add_error(
                 field_name, f"Text must be at least {min_length} characters", "length"
             )
