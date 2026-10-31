@@ -10,6 +10,7 @@ import { call, vmOf } from './vm'
 import SchemaManagement from '@/views/SchemaManagement.vue'
 import SchemaEditor from '@/views/SchemaEditor.vue'
 import { useSchemasStore } from '@/stores/schemas'
+import { useAuthStore } from '@/stores/auth'
 import AdvancedJson from '@/components/schema-editor/AdvancedJson.vue'
 import PointModelBuilder from '@/components/schema-editor/scoring/PointModelBuilder.vue'
 
@@ -82,6 +83,15 @@ describe('SchemaManagement', () => {
     return { wrapper, schemas, vm: vmOf(wrapper) }
   }
   const row = { id: 's1', name: 'ClinGen curation' }
+
+  it('offers Move curations to platform admins only (MUI-07)', async () => {
+    const move = '[aria-label="Move curations to the latest version"]'
+    const { wrapper } = await mountView()
+    expect(wrapper.find(move).exists()).toBe(false)
+    useAuthStore().user = { id: 'a', role: 'admin' } as never
+    await nextTick()
+    expect(wrapper.find(move).exists()).toBe(true)
+  })
 
   it('filters the table by type and status', async () => {
     const { wrapper, vm } = await mountView()

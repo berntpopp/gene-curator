@@ -132,7 +132,12 @@
               variant="text"
               @click="duplicateSchema(item)"
             />
-            <VersionMoveDialog :schema-id="item.id" :schema-name="item.name" />
+            <!-- Moving curations between versions is a platform-admin action (API: admin only) -->
+            <VersionMoveDialog
+              v-if="isPlatformAdmin"
+              :schema-id="item.id"
+              :schema-name="item.name"
+            />
             <v-btn
               v-if="canManage(item.owner_scope_id)"
               aria-label="Delete schema"
