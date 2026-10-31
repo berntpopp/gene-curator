@@ -102,6 +102,8 @@ def snapshot_at(db: Session, curation_id: UUID, when: datetime) -> AuditLogNew |
             AuditLogNew.entity_type == "curations",
             AuditLogNew.entity_id == curation_id,
             AuditLogNew.timestamp <= when,
+            # a D1 marker row (curation_access.record_edit_by_other) holds no evidence
+            AuditLogNew.change_type.is_distinct_from("draft_edit"),
         )
         .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
         .limit(1)

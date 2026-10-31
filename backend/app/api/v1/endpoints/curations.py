@@ -81,7 +81,8 @@ from app.services.curation_access import (
     _can_user_review_curation,
     _check_scope_access,
     _has_approved,
-    edits_others_work,
+    may_edit_curation,
+    record_edit_by_other,
 )
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.llm_runs import queue_on_submit
@@ -435,6 +436,7 @@ def update_curation(
         curation_in.evidence_data,
         curation.methodology_version_id,
     )
+    record_edit_by_other(db, current_user, curation)
     updated = curation_crud.update_with_lock(
         db,
         db_obj=curation,
@@ -495,12 +497,13 @@ def save_draft(
             detail="Only draft or rejected curations can be edited",
         )
 
-    if not edits_others_work(db, current_user, curation):
+    if not may_edit_curation(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the creator or a scope admin can save drafts",
         )
 
+    record_edit_by_other(db, current_user, curation)
     saved = curation_crud.save_draft(
         db, db_obj=curation, draft_data=draft_in, user_id=current_user.id
     )
@@ -541,7 +544,7 @@ def submit_curation(
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 
-    if not edits_others_work(db, current_user, curation):
+    if not may_edit_curation(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the creator or a scope admin can submit for review",

@@ -107,3 +107,22 @@ def test_scope_admin_saves_another_members_draft(client: TestClient, w: W) -> No
     saved = client.get(url, headers=_h(w.alice)).json()
     assert saved["evidence_data"]["summary"] == "fixed"
     assert saved["lock_version"] > lock
+    # D1 (#609 review): the edit is the admin's work too; app_user wrote the marker row
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT count(*) FROM audit_log WHERE entity_id = %s AND user_id = %s "
+            "AND change_type = 'draft_edit'",
+            (str(w.cur), str(w.sadmin)),
+        )
+        assert cur.fetchone()[0] == 1
+        cur.execute(
+            "UPDATE curations SET status = 'in_review', workflow_stage = 'review', "
+            "submitted_at = now() WHERE id = %s",
+            (str(w.cur),),
+        )
+    r = client.post(
+        f"/api/v1/workflow/curation/{w.cur}/transition",
+        json={"target_stage": "active"},
+        headers=_h(w.sadmin),
+    )
+    assert r.status_code == 403, r.text
