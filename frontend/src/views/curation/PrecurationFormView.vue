@@ -133,6 +133,20 @@
         <span class="sent-back">{{ sentBackReason }}</span>
       </v-alert>
 
+      <!-- The curator picks the methodology by hand (owner decision, Wave 10); fixed once saved -->
+      <v-select
+        v-if="!precurationId && pairs.length > 1"
+        v-model="pairId"
+        :items="pairs"
+        item-title="name"
+        item-value="id"
+        label="Workflow"
+        hint="Choose the methodology for this gene-disease entity, for example Mendelian or susceptibility. It is fixed once the draft is saved."
+        persistent-hint
+        data-testid="workflow-pair"
+        class="mb-4"
+      />
+
       <v-row>
         <v-col cols="12">
           <!-- Schema-driven form replaces hardcoded panels -->
@@ -215,6 +229,7 @@
 
   interface WorkflowPairRecord {
     id: string
+    name?: string
     precuration_schema_id?: string | null
   }
 
@@ -254,7 +269,16 @@
     { text: 'Precuration' }
   ])
   const formGene = computed(() => ({ symbol: gene.value?.approved_symbol }))
-  const precurationSchemaId = ref<string | undefined>(undefined)
+  // Pairs with a precuration schema; a saved precuration keeps the schema it was started with
+  const pairs = ref<WorkflowPairRecord[]>([])
+  const pairId = ref<string | null>(null)
+  const savedSchemaId = ref<string | undefined>(undefined)
+  const precurationSchemaId = computed(
+    () =>
+      savedSchemaId.value ??
+      pairs.value.find(wp => wp.id === pairId.value)?.precuration_schema_id ??
+      undefined
+  )
   const sentBackReason = ref<string | null>(null)
   /** Who sent it back and when, as on the curation feedback panel: " by Bob on 21 Oct 2026, 10:00". */
   const sentBackBy = ref('')
@@ -325,15 +349,9 @@
     try {
       scope.value = await scopesAPI.getScopeById(scopeId.value)
 
-      if (scope.value?.default_workflow_pair_id) {
-        const workflowPairs = (await schemasAPI.getWorkflowPairs()) as WorkflowPairRecord[]
-        const workflowPair = workflowPairs.find(
-          wp => wp.id === scope.value?.default_workflow_pair_id
-        )
-        if (workflowPair?.precuration_schema_id) {
-          precurationSchemaId.value = workflowPair.precuration_schema_id
-        }
-      }
+      const workflowPairs = (await schemasAPI.getWorkflowPairs()) as WorkflowPairRecord[]
+      pairs.value = workflowPairs.filter(wp => wp.precuration_schema_id)
+      pairId.value = scope.value?.default_workflow_pair_id ?? null
 
       logger.debug('Scope and schema loaded', {
         scope_id: scopeId.value,
@@ -420,6 +438,7 @@
       if (precurationId.value) {
         const precuration = await precurationsStore.fetchPrecurationById(precurationId.value)
         loadedGeneId.value = precuration.gene_id
+        savedSchemaId.value = precuration.precuration_schema_id ?? undefined
         // Editable only by its author, in this scope, while draft or sent back (rejected)
         const mine = precuration.created_by === (authStore.user as { id?: string } | null)?.id
         readonlyReason.value =
