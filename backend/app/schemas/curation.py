@@ -9,6 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.source_field import EvidenceIn
 from app.models import CurationStatus, WorkflowStage
 from app.schemas.review_comment import CurationDiff
 from app.schemas.workflow_engine import AssignedReviewer, WorkflowStateInfo
@@ -66,6 +67,10 @@ def class_key(value: str) -> str:
 class CurationCreate(CurationBase, CuratorClassificationIn):
     """Schema for creating a new curation; a re-curation carries the curator's call."""
 
+    evidence_data: EvidenceIn = Field(
+        default_factory=dict, description="Schema-agnostic evidence"
+    )
+
 
 CLASSIFICATION_KEYS = {
     "curator_classification",
@@ -76,9 +81,7 @@ CLASSIFICATION_KEYS = {
 class CurationUpdate(CuratorClassificationIn):
     """Schema for updating an existing curation."""
 
-    evidence_data: dict[str, Any] | None = Field(
-        None, description="Updated evidence data"
-    )
+    evidence_data: EvidenceIn | None = Field(None, description="Updated evidence data")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
     merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 
@@ -88,7 +91,7 @@ class CurationUpdate(CuratorClassificationIn):
 class CurationDraftSave(CuratorClassificationIn):
     """Schema for saving a curation as draft."""
 
-    evidence_data: dict[str, Any] = Field(..., description="Draft evidence data")
+    evidence_data: EvidenceIn = Field(..., description="Draft evidence data")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
     merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 

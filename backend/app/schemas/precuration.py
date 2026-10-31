@@ -9,6 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
+from app.core.source_field import EvidenceIn
 from app.models import CurationStatus, WorkflowStage
 from app.schemas.curation import (
     MERGE_DESCRIPTION,
@@ -40,7 +41,7 @@ class PrecurationCreate(BaseModel):
         None,
         description="Precuration schema UUID; default: the scope's workflow pair schema",
     )
-    evidence_data: dict[str, Any] = Field(
+    evidence_data: EvidenceIn = Field(
         default_factory=dict, description="Precuration evidence data"
     )
 
@@ -48,9 +49,7 @@ class PrecurationCreate(BaseModel):
 class PrecurationUpdate(BaseModel):
     """Schema for updating an existing precuration."""
 
-    evidence_data: dict[str, Any] | None = Field(
-        None, description="Updated evidence data"
-    )
+    evidence_data: EvidenceIn | None = Field(None, description="Updated evidence data")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
     merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 
@@ -60,7 +59,7 @@ class PrecurationUpdate(BaseModel):
 class PrecurationDraftSave(BaseModel):
     """Schema for saving a precuration as draft."""
 
-    evidence_data: dict[str, Any] = Field(..., description="Draft evidence data")
+    evidence_data: EvidenceIn = Field(..., description="Draft evidence data")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
     merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 

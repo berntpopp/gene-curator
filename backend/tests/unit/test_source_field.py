@@ -113,3 +113,51 @@ def test_table_cells_and_source_lists_are_validated_at_submit() -> None:
         "probands[0].sources[0].id",
         "references[1].id",
     ]
+
+
+def test_saved_evidence_keeps_bare_pmids() -> None:
+    """MUI-15: PMID:20414234 is accepted and saved as 20414234 (pmid cells and sources)."""
+    from app.schemas.curation import CurationCreate, CurationDraftSave, CurationUpdate
+    from app.schemas.precuration import (
+        PrecurationCreate,
+        PrecurationDraftSave,
+        PrecurationUpdate,
+    )
+
+    sent = {
+        "genetic": {
+            "probands": [
+                {
+                    "pmid": "PMID: 20414234",
+                    "sources": [
+                        {"kind": "pmid", "id": "pmid:9326933"},
+                        {"kind": "doi", "id": "10.1038/ng1097-149"},
+                    ],
+                }
+            ]
+        },
+        "pmids": ["PMID:1"],
+        "note": "PMID:5",
+    }
+    row = {
+        "pmid": "20414234",
+        "sources": [
+            {"kind": "pmid", "id": "9326933"},
+            {"kind": "doi", "id": "10.1038/ng1097-149"},
+        ],
+    }
+    ids = {"gene_id": "1" * 32, "scope_id": "2" * 32}
+    for model in (
+        CurationDraftSave(evidence_data=sent, lock_version=1),
+        CurationUpdate(evidence_data=sent, lock_version=1),
+        CurationCreate(**ids, workflow_pair_id="3" * 32, evidence_data=sent),
+        PrecurationDraftSave(evidence_data=sent, lock_version=1),
+        PrecurationUpdate(evidence_data=sent, lock_version=1),
+        PrecurationCreate(**ids, precuration_schema_id="3" * 32, evidence_data=sent),
+    ):
+        assert model.evidence_data == {
+            "genetic": {"probands": [row]},
+            "pmids": ["PMID:1"],  # only pmid fields and pmid sources are rewritten
+            "note": "PMID:5",
+        }
+    assert sent["genetic"]["probands"][0]["pmid"] == "PMID: 20414234"  # input untouched
