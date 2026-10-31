@@ -9,8 +9,8 @@ import re
 from datetime import datetime
 from typing import Any
 
-from app.core.schema_rules import valid_url
 from app.core.schema_validation_result import SchemaValidationResult
+from app.core.url_field import valid_url
 
 # kind -> identifier format (NCBI, Crossref and ClinGen identifier docs)
 ID_FORMATS: dict[str, tuple[re.Pattern[str], str]] = {

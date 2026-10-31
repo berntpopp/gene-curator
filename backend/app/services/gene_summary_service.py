@@ -106,6 +106,7 @@ class GeneSummaryService:
         items = scores.get("evidence_items", [])
         pre = curation.precuration.evidence_data if curation.precuration else None
         disease = disease_fields(curation.evidence_data, pre)
+        synopsis = None if in_progress else self._synopsis(curation)
         return {
             "scope_id": str(curation.scope_id),
             "scope_name": scope.name,
@@ -129,10 +130,10 @@ class GeneSummaryService:
             ),
             "evidence_count": len(items) if isinstance(items, list) else 0,
             # Members see the synopsis (get_full_summary); others when evidence is public
-            "_synopsis": None if in_progress else self._synopsis(curation),
-            "synopsis": None
-            if in_progress or not (scope.is_public and scope.export_evidence_public)
-            else self._synopsis(curation),
+            "_synopsis": synopsis,
+            "synopsis": synopsis
+            if scope.is_public and scope.export_evidence_public
+            else None,
         }
 
     def _synopsis(self, curation: CurationNew) -> str | None:

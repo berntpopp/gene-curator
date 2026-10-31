@@ -104,8 +104,10 @@ def curation_contributions(
     approver: str | None,
     approved_at: datetime | None,
     lines: list[EvidenceLine],
+    assessors: list[tuple[str | None, datetime | None]] | None = None,
 ) -> list[Contribution]:
-    """Curator and approver (persons), then each software agent that wrote rows."""
+    """Curator, each software agent that wrote rows, then the approving reviewers as
+    assessors and the approver (persons). An agent never assesses or approves."""
     out = [contribution("curator", Agent(name=curator, agentType="person"), created_at)]
     software: dict[str, Contribution] = {}
     for line in lines:
@@ -113,14 +115,15 @@ def curation_contributions(
             key = c.model_dump_json(exclude={"date"})
             last = software.get(key)
             if c.contributor.agentType == "software" and (
-                last is None or (c.date and last.date and c.date > last.date)
+                last is None or str(c.date or "") > str(last.date or "")
             ):
                 software[key] = c  # one per agent and person, at its latest write
     out += software.values()
-    if approved_at is not None:
-        out.append(
-            contribution(
-                "approver", Agent(name=approver, agentType="person"), approved_at
-            )
-        )
+    if approved_at is None:
+        return out
+    for name, at in assessors or [(approver, approved_at)]:
+        out.append(contribution("assessor", Agent(name=name, agentType="person"), at))
+    out.append(
+        contribution("approver", Agent(name=approver, agentType="person"), approved_at)
+    )
     return out

@@ -43,7 +43,9 @@ def _save(
     )
 
 
-def _export(client: TestClient, db: Session, c: CurationNew, token: str) -> dict:
+def _export(
+    client: TestClient, db: Session, c: CurationNew, token: str, anonymous: bool = False
+) -> dict:
     db.add(
         ActiveCuration(
             gene_id=c.gene_id,
@@ -55,9 +57,8 @@ def _export(client: TestClient, db: Session, c: CurationNew, token: str) -> dict
     )
     c.status = CurationStatus.ACTIVE
     db.commit()
-    r = client.get(
-        "/api/v1/export/curations", headers={"Authorization": f"Bearer {token}"}
-    )
+    headers = {} if anonymous else {"Authorization": f"Bearer {token}"}
+    r = client.get("/api/v1/export/curations", headers=headers)
     assert r.status_code == 200, r.text
     [item] = r.json()["items"]
     return dict(item)
@@ -214,3 +215,101 @@ def test_history_shows_the_agent_of_a_submission(
     assert status_of(result) == 200, result
     assert '"actedOnBehalfOf"' in result["content"][0]["text"]
     assert "claude-opus-5-5" in result["content"][0]["text"]
+
+
+def test_a_bad_source_id_warns_at_save_and_through_mcp(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    """Review #602 item 2: drafts never block, but a bad source id is named on save."""
+    bad = {**ROW, "sources": [{"kind": "clinvar", "id": "VCV1"}]}
+    token = pat(db_session, test_user_curator)
+    result = _save(
+        client,
+        token,
+        test_curation,
+        db_session,
+        evidence_data={"genetic": {"probands": [bad]}},
+    )
+    assert status_of(result) == 200, result
+    assert "genetic.probands[0].sources[0].id" in result["content"][0]["text"]
+    db_session.refresh(test_curation)
+    r = client.patch(
+        f"/api/v1/curations/{test_curation.id}/draft?detail=true",
+        json={
+            "evidence_data": {"genetic": {"probands": [bad]}},
+            "lock_version": test_curation.lock_version,
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 200, r.text
+    paths = [w["path"] for w in r.json()["warnings"]]
+    assert paths == ["genetic.probands[0].sources[0].id"]
+
+
+@pytest.mark.parametrize("public_evidence", [False, True])
+def test_anonymous_callers_get_agents_and_lines_only_with_public_evidence(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator: UserNew,
+    test_curation: CurationNew,
+    public_evidence: bool,
+) -> None:
+    """Review #602 item 8: evidence_lines and software agents follow the evidence rule."""
+    token = pat(db_session, test_user_curator)
+    evidence = {"genetic": {"probands": [ROW]}}
+    result = _save(
+        client, token, test_curation, db_session, evidence_data=evidence, agent=AGENT
+    )
+    assert status_of(result) == 200, result
+    scope = test_curation.scope
+    scope.is_public, scope.export_evidence_public = True, public_evidence
+    db_session.commit()
+    item = _export(client, db_session, test_curation, token, anonymous=True)
+    kinds = {c["contributor"]["agentType"] for c in item["contributions"]}
+    if public_evidence:
+        assert item["evidence_lines"] and kinds == {"person", "software"}
+    else:
+        assert item["evidence_lines"] is None and kinds == {"person"}
+
+
+def test_approving_reviewers_are_assessors_next_to_the_approver(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    """Review #602 item 4: SEPIO assessor (SEPIO:0000154) per approving reviewer."""
+    from app.models import Review, ReviewStatus
+
+    rita = make_user(db_session, role="user")
+    rita.name = "Rita Reviewer"
+    at = datetime(2026, 10, 3, tzinfo=UTC)
+    db_session.add(
+        Review(
+            curation_id=test_curation.id,
+            reviewer_id=rita.id,
+            status=ReviewStatus.APPROVED,
+            reviewed_at=at,
+        )
+    )
+    test_curation.approved_by, test_curation.approved_at = rita.id, at
+    db_session.commit()
+    item = _export(
+        client, db_session, test_curation, pat(db_session, test_user_curator)
+    )
+    roles = [
+        (
+            c["contributor"]["name"],
+            c["activityType"]["name"],
+            c["activityType"]["primaryCoding"]["code"],
+        )
+        for c in item["contributions"]
+    ]
+    assert roles == [
+        ("Curator User", "curator", "SEPIO:0000156"),
+        ("Rita Reviewer", "assessor", "SEPIO:0000154"),
+        ("Rita Reviewer", "approver", "SEPIO:0000155"),
+    ]

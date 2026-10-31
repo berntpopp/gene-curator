@@ -14,7 +14,15 @@
         <div v-else>
           <div v-for="(item, index) in arrayValue" :key="index" class="mb-4 pa-4 border rounded">
             <div class="d-flex justify-space-between align-center mb-2">
-              <h4 class="text-title-small">Item {{ index + 1 }}</h4>
+              <h4 class="text-title-small">
+                Item {{ index + 1 }}
+                <span
+                  v-if="authorship(item, index)"
+                  class="d-block text-body-small text-medium-emphasis font-weight-regular"
+                  data-testid="item-authorship"
+                  >{{ authorship(item, index) }}</span
+                >
+              </h4>
               <v-btn
                 v-if="!readonly"
                 aria-label="Remove item"
@@ -127,7 +135,7 @@
   import { generateUUID } from '@/utils/uuidPolyfill'
   import DynamicField from './DynamicField.vue'
   import { FORM_DATA, resolveField } from './conditions'
-  import { FIELD_PATH } from './rowAuthorship'
+  import { FIELD_PATH, ROW_PROVENANCE, rowAuthorship, stampOf } from './rowAuthorship'
   import type { ComponentFallbackEvent, FieldSchema } from './types'
 
   const props = defineProps<{
@@ -154,8 +162,13 @@
   // Condition paths start at the root of the form data (DynamicForm provides it)
   const root = inject(FORM_DATA, undefined)
   // Tables inside an object field are at "<object>.<table>" (row provenance keys)
+  const prefix = inject(FIELD_PATH, '')
   if (props.fieldSchema.type === 'object' && props.fieldName)
-    provide(FIELD_PATH, `${inject(FIELD_PATH, '')}${props.fieldName}.`)
+    provide(FIELD_PATH, `${prefix}${props.fieldName}.`)
+  // #593: who added and changed each list item, as on evidence table rows
+  const stamps = inject(ROW_PROVENANCE, null)
+  const authorship = (item: Item, index: number) =>
+    rowAuthorship(stampOf(stamps?.value, `${prefix}${props.fieldName ?? ''}`, item, index))
 
   /** Child fields as the form data shows them: hidden ones dropped, `required_when` resolved */
   const shown = (fields?: Record<string, FieldSchema>) =>

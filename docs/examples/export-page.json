@@ -190,6 +190,7 @@
       "archived_at": null,
       "archive_reason": null,
       "updated_at": "2026-10-04T12:00:00",
+      "adoption": null,
       "contributions": [
         {
           "contributor": {
@@ -232,7 +233,7 @@
               "code": "SEPIO:0000156"
             }
           },
-          "date": "2026-10-02T09:05:00Z",
+          "date": "2026-10-02T09:05:00+00:00",
           "actedOnBehalfOf": {
             "name": "Alice Curator",
             "agentType": "person",
@@ -240,6 +241,24 @@
             "description": null,
             "extensions": null
           }
+        },
+        {
+          "contributor": {
+            "name": "Bob Reviewer",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "assessor",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000154"
+            }
+          },
+          "date": "2026-10-04T12:00:00",
+          "actedOnBehalfOf": null
         },
         {
           "contributor": {
@@ -310,7 +329,7 @@
                   "code": "SEPIO:0000156"
                 }
               },
-              "date": "2026-10-02T09:05:00Z",
+              "date": "2026-10-02T09:05:00+00:00",
               "actedOnBehalfOf": null
             },
             {
@@ -336,7 +355,7 @@
                   "code": "SEPIO:0000156"
                 }
               },
-              "date": "2026-10-02T09:05:00Z",
+              "date": "2026-10-02T09:05:00+00:00",
               "actedOnBehalfOf": {
                 "name": "Alice Curator",
                 "agentType": "person",
@@ -360,7 +379,7 @@
                   "code": "SEPIO:0000156"
                 }
               },
-              "date": "2026-10-03T10:00:00Z",
+              "date": "2026-10-03T10:00:00+00:00",
               "actedOnBehalfOf": null
             }
           ]
@@ -425,6 +444,7 @@
       "archived_at": null,
       "archive_reason": null,
       "updated_at": "2026-10-05T12:00:00",
+      "adoption": null,
       "contributions": [
         {
           "contributor": {
@@ -442,6 +462,24 @@
             }
           },
           "date": "2026-10-02T12:00:00",
+          "actedOnBehalfOf": null
+        },
+        {
+          "contributor": {
+            "name": "Bob Reviewer",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "assessor",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000154"
+            }
+          },
+          "date": "2026-10-05T12:00:00",
           "actedOnBehalfOf": null
         },
         {
@@ -608,6 +646,7 @@
       "archived_at": "2026-10-09T12:00:00",
       "archive_reason": "Curation deleted",
       "updated_at": "2026-10-06T12:00:00",
+      "adoption": null,
       "contributions": [
         {
           "contributor": {
@@ -625,6 +664,24 @@
             }
           },
           "date": "2026-10-03T12:00:00",
+          "actedOnBehalfOf": null
+        },
+        {
+          "contributor": {
+            "name": "Bob Reviewer",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "assessor",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000154"
+            }
+          },
+          "date": "2026-10-06T12:00:00",
           "actedOnBehalfOf": null
         },
         {

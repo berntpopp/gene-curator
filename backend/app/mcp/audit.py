@@ -49,8 +49,7 @@ request_agent: ContextVar[dict[str, Any] | None] = ContextVar(
 _TEXT = {"type": "string", "maxLength": 200}
 AGENT_ARG: dict[str, Any] = {
     "type": "object",
-    "description": "The AI agent writing for you: recorded as a software contribution "
-    "on your behalf, never as an approver",
+    "description": "AI agent writing for you (provenance)",
     "properties": {
         "model": _TEXT,
         "agent": _TEXT,
@@ -64,7 +63,7 @@ AGENT_TOOLS = frozenset(
     {
         *("create_precuration", "update_precuration", "save_draft_precurations"),
         *("submit_precuration", "create_curation", "update_curation"),
-        *("save_draft_curations", "submit_curation"),
+        *("save_draft_curations", "submit_curation", "adopt_clingen_classifications"),
     }
 )
 

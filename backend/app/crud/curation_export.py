@@ -17,6 +17,8 @@ from app.models import (
     CurationSchema,
     CurationStatus,
     Gene,
+    Review,
+    ReviewStatus,
     Scope,
     UserNew,
     WorkflowPair,
@@ -112,7 +114,19 @@ def export_curations(
         .tuples()
         .all()
     )
-    items = [_item(members, uis, *row) for row in rows[:limit]]
+    # Approving reviewers (VA-Spec assessors), oldest first; RLS may hide reviews
+    assessors: dict[UUID, list[tuple[str | None, datetime | None]]] = {}
+    for cid, name, at in db.execute(
+        select(Review.curation_id, UserNew.name, Review.reviewed_at)
+        .join(UserNew, Review.reviewer_id == UserNew.id)
+        .where(
+            Review.curation_id.in_({row[1].id for row in rows}),
+            Review.status == ReviewStatus.APPROVED,
+        )
+        .order_by(Review.reviewed_at)
+    ):
+        assessors.setdefault(cid, []).append((name or None, at))
+    items = [_item(members, uis, assessors, *row) for row in rows[:limit]]
     last = rows[limit - 1] if len(rows) > limit else None
     return CurationExportPage(
         items=items,
@@ -123,6 +137,7 @@ def export_curations(
 def _item(
     members: set[UUID],
     uis: dict[UUID | None, dict[str, Any] | None],
+    assessors: dict[UUID, list[tuple[str | None, datetime | None]]],
     ac: ActiveCuration,
     c: CurationNew,
     gene: Gene,
@@ -176,7 +191,12 @@ def _item(
         updated_at=updated_at,
         adoption=adoption_statement(c, curator_name, reviewer_name),
         contributions=curation_contributions(
-            curator_name, c.created_at, reviewer_name, c.approved_at, lines or []
+            curator_name,
+            c.created_at,
+            reviewer_name,
+            c.approved_at,
+            lines or [],
+            assessors.get(c.id),
         ),
         evidence_lines=lines,
         synopsis=synopsis_of(c.evidence_data, uis.get(schema_id)) if detail else None,

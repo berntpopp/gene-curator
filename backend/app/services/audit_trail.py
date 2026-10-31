@@ -15,7 +15,7 @@ from app.services.evidence_diff import snapshot_at, submitted_snapshots
 
 def _name(db: Session, user_id: UUID | None) -> str | None:
     user = db.get(UserNew, user_id) if user_id else None
-    return (user.name or user.email) if user else None
+    return (user.name or None) if user else None  # never the email
 
 
 def audit_entries(

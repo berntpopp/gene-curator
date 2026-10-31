@@ -345,7 +345,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 # only on purpose. Bytes are the tools/list response as a client receives it.
 # +#533, #560 fields; W9: create_curation takes the curator's call; W11: #105 adopt tool,
 # #593 agent block
-SURFACE_BUDGET = {"curator": (48, 42_000), "admin": (48, 42_000)}
+SURFACE_BUDGET = {"curator": (48, 41_600), "admin": (48, 41_600)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)

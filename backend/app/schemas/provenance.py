@@ -9,7 +9,7 @@ the person whose token it used (W3C PROV-O). Shared with the ClinGen adoption ex
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 Role = Literal["curator", "assessor", "approver", "interpreter", "publisher"]
 # ClinGen contributory role value set
@@ -54,10 +54,16 @@ class Contribution(BaseModel):
 
     contributor: Agent
     activityType: ActivityType
-    date: datetime | None = None
+    date: datetime | str | None = Field(
+        None, description="ISO 8601; a source's own date (e.g. ClinGen) as given"
+    )
     actedOnBehalfOf: Agent | None = Field(
         None, description="PROV-O: the person a software agent acted for"
     )
+
+    @field_serializer("date")
+    def _iso(self, value: datetime | str | None) -> str | None:
+        return value.isoformat() if isinstance(value, datetime) else value
 
 
 def contribution(role: Role, contributor: Agent, date: Any, **kw: Any) -> Contribution:

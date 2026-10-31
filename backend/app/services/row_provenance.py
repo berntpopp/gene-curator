@@ -27,7 +27,7 @@ def actor(db: Session, user_id: UUID) -> dict[str, Any]:
     user = db.get(UserNew, user_id)
     out: dict[str, Any] = {
         "id": str(user_id),
-        "name": (user.name or user.email) if user else None,
+        "name": (user.name or None) if user else None,  # never the email
     }
     if agent := request_agent.get():
         out["agent"] = agent
