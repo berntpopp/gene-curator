@@ -3,42 +3,34 @@
     <span v-if="label" class="source-cell__label text-body-small text-medium-emphasis">{{
       label
     }}</span>
-    <span
+    <v-chip
       v-for="(source, i) in sources"
       :key="i"
-      class="source-cell__item"
+      size="small"
+      variant="tonal"
+      :href="sourceHref(source)"
+      :target="sourceHref(source) ? '_blank' : undefined"
+      rel="noopener noreferrer"
       :title="sourceDetail(source)"
+      :closable="!readonly && !disabled"
+      :close-label="`Remove ${sourceLabel(source)}`"
+      @click:close="remove(i)"
     >
-      <a
-        v-if="sourceHref(source)"
-        :href="sourceHref(source)"
-        target="_blank"
-        rel="noopener noreferrer"
-        >{{ sourceLabel(source) }}</a
-      >
-      <span v-else>{{ sourceLabel(source) }}</span>
-      <button
-        v-if="!readonly && !disabled"
-        type="button"
-        class="source-cell__remove"
-        :aria-label="`Remove ${sourceLabel(source)}`"
-        @click="remove(i)"
-      >
-        ×
-      </button>
-    </span>
+      {{ sourceLabel(source) }}
+    </v-chip>
     <span v-if="(readonly || disabled) && !sources.length">—</span>
     <div v-if="!readonly && !disabled" class="source-cell__add">
-      <select v-model="kind" :aria-label="`${ariaLabel ?? 'Source'} kind`">
-        <option v-for="k in SOURCE_KINDS" :key="k.value" :value="k.value">{{ k.title }}</option>
-      </select>
       <input
         v-model="ident"
-        :aria-label="`${ariaLabel ?? 'Source'} id`"
+        :aria-label="`${ariaLabel ?? 'Source'}: add an id`"
         :aria-invalid="!!error"
-        placeholder="id"
+        :aria-describedby="hintId"
+        placeholder="PMID, DOI, VCV, CA…"
         @keydown.enter.prevent="add"
       />
+      <span v-if="detected" :id="hintId" class="source-cell__kind text-body-small">{{
+        detected
+      }}</span>
       <button type="button" :disabled="!ident.trim()" @click="add">Add</button>
       <span v-if="error" class="source-cell__error" role="alert">{{ error }}</span>
     </div>
@@ -46,10 +38,11 @@
 </template>
 
 <script setup lang="ts">
-  /** `source` cell or list field (#593): sources as links, add by kind and id, remove each. */
-  import { computed, ref } from 'vue'
+  /** `source` cell or list field (#593): sources as link chips; type an id, its kind is read from it. */
+  import { computed, getCurrentInstance, ref } from 'vue'
   import {
     SOURCE_KINDS,
+    detectSource,
     sourceDetail,
     sourceError,
     sourceHref,
@@ -70,14 +63,21 @@
   const emit = defineEmits<{ 'update:model-value': [sources: Source[]] }>()
 
   const sources = computed(() => sourceList(props.modelValue))
-  const kind = ref('pmid')
   const ident = ref('')
   const error = ref('')
+  const hintId = `source-kind-${getCurrentInstance()?.uid}`
+  // The kind the typed id reads as, shown beside it before it is added
+  const detected = computed(() => {
+    if (!ident.value.trim()) return ''
+    const { kind } = detectSource(ident.value)
+    return SOURCE_KINDS.find(k => k.value === kind)?.title ?? kind
+  })
 
   function add() {
-    error.value = sourceError(kind.value, ident.value)
+    const source = detectSource(ident.value)
+    error.value = sourceError(source.kind, source.id)
     if (error.value) return
-    emit('update:model-value', [...sources.value, { kind: kind.value, id: ident.value.trim() }])
+    emit('update:model-value', [...sources.value, source])
     ident.value = ''
   }
 
@@ -104,15 +104,14 @@
     align-items: center;
   }
 
-  .source-cell__add input,
-  .source-cell__add select {
+  .source-cell__add input {
     border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     min-width: 0;
-    max-width: 9rem;
+    max-width: 11rem;
   }
 
-  .source-cell__remove {
-    margin-left: 2px;
+  .source-cell__kind {
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
   }
 
   .source-cell__error {
