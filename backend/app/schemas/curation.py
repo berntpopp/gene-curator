@@ -131,6 +131,9 @@ class CurationInDBBase(CurationBase):
     final_classification: str | None = Field(
         None, description="curator_classification if set, else computed_verdict"
     )
+    clingen_adoption: dict[str, Any] | None = Field(
+        None, description="ClinGen record this curation adopted (#105), else null"
+    )
 
     # Optimistic locking
     lock_version: int
@@ -325,6 +328,7 @@ class CurationDetail(CurationInDBBase):
             "curator_classification": curation.curator_classification,
             "curator_classification_rationale": curation.curator_classification_rationale,
             "final_classification": curation.final_classification,
+            "clingen_adoption": curation.clingen_adoption,
             "lock_version": curation.lock_version,
             "methodology_version_id": curation.methodology_version_id,
             "created_at": curation.created_at,
@@ -382,6 +386,7 @@ class CurationSummary(BaseModel):
     workflow_stage: WorkflowStage
     computed_verdict: str | None
     final_classification: str | None = None
+    clingen_adoption: dict[str, Any] | None = None  # adopted ClinGen record (#105)
     computed_scores: dict[str, Any] | None = None
     disease_name: str | None = None
     relationship_type: RelationshipType = "mendelian"

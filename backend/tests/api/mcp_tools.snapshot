@@ -1,6 +1,7 @@
 accept_invitation read_only=False destructive=False
 add_genes_to_scope read_only=False destructive=False
 add_member read_only=False destructive=False
+adopt_clingen_classifications read_only=False destructive=False
 approve_precuration read_only=False destructive=True
 assign_curator_to_gene read_only=False destructive=False
 assign_peer_reviewer read_only=False destructive=False

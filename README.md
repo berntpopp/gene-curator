@@ -191,32 +191,21 @@ updates now require `lock_version`. Details: [docs/releases/v0.5.0.md](docs/rele
 
 ## Adopting a ClinGen classification
 
-Genes that ClinGen has already curated can be curated here too. To take over a ClinGen
-classification instead of re-scoring it, add a marker and a link to the curation schema in the
-Schema Editor. Gene Curator does not fetch or check the ClinGen record; curators and agents look it
-up themselves (agents through GeneFoundry `clingen_get_gene_validity`).
-
-```json
-"classification_source": {
-  "type": "select",
-  "label": "Classification source",
-  "description": "Curation details were taken from ClinGen as available there, the individual point values must be re-scored manually.",
-  "options": [
-    {"value": "own", "label": "Own curation"},
-    {"value": "clingen", "label": "Adopted from ClinGen"}
-  ],
-  "required": true
-},
-"clingen_url": {
-  "type": "url",
-  "label": "ClinGen record (CGGV link)",
-  "show_when": {"classification_source": "clingen"},
-  "required": true
-}
-```
-
-Set the curator classification to the ClinGen class, with the link as the rationale; the reviewer
-confirms it by approving. The marker tells an adopted class apart from a curator override.
+Gene Curator also includes genes that ClinGen has already curated; an adopted curation shows an
+*Adopted from ClinGen* badge linking the ClinGen record. To adopt instead of re-scoring, a curator
+or agent sends one row per entity to `POST /api/v1/curations/clingen-adoptions` (MCP
+`adopt_clingen_classifications`, `dry_run=true` first): the gene, scope, workflow pair, MONDO id
+and MOI, plus the ClinGen record exactly as GeneFoundry `clingen_get_gene_validity` returns it
+(`perm_id` as `cggv_id`, `raw_sha256` as `record_sha256`, `recommended_citation` as `citation`,
+`provenance.retrieved_at` as `retrieved_at`, with `permalink`, `classification`, `moi`, `mondo`,
+`hgnc_id`, `expert_panel`, `classified_date`). Gene Curator never fetches the record; it checks
+that gene, MONDO id and MOI match the entity and that the class is one of the schema's. Any
+invalid row refuses the whole batch (422 listing each row's errors); an entity with an open
+curation is refused, and re-adopting the same record changes nothing. Each curation goes to
+review with the ClinGen class as the curator classification and the comment "Curation details
+were taken from ClinGen as available there, the individual point values must be re-scored
+manually." Another reviewer of the scope confirms it by approving (4-eyes). The export carries
+it as an `adoption` statement (see [docs/EXPORT.md](docs/EXPORT.md)).
 
 ## Backup and restore
 

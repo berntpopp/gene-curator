@@ -28,6 +28,7 @@ from app.schemas.curation_export import (
     ExportCuration,
     ExportMethodology,
 )
+from app.services.clingen_adoption import adoption_statement
 from app.services.publication_service import evidence_pmids
 
 _MOI_HPO = {abbr.upper(): hpo.upper() for abbr, (_, hpo) in _MOI_SYNONYMS.items()}
@@ -156,4 +157,5 @@ def _item(
         archived_at=ac.archived_at,
         archive_reason=ac.archive_reason,
         updated_at=updated_at,
+        adoption=adoption_statement(c, curator_name, reviewer_name),
     )
