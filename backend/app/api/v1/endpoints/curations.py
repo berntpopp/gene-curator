@@ -81,6 +81,7 @@ from app.services.curation_access import (
     _can_user_review_curation,
     _check_scope_access,
     _has_approved,
+    edits_others_work,
 )
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.llm_runs import queue_on_submit
@@ -494,11 +495,10 @@ def save_draft(
             detail="Only draft or rejected curations can be edited",
         )
 
-    # Only creator or admin can save drafts
-    if current_user.role != "admin" and curation.created_by != current_user.id:
+    if not edits_others_work(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the creator can save drafts",
+            detail="Only the creator or a scope admin can save drafts",
         )
 
     saved = curation_crud.save_draft(
@@ -541,11 +541,10 @@ def submit_curation(
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 
-    # Only creator or admin can submit
-    if current_user.role != "admin" and curation.created_by != current_user.id:
+    if not edits_others_work(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the creator can submit for review",
+            detail="Only the creator or a scope admin can submit for review",
         )
 
     # Point ranges and PMIDs: review_guards, in the transition into review

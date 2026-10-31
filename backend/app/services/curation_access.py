@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import MANAGE_SCOPE, holds
 from app.crud.review_round import (
     corrected_by,
     holds_review_capability,
@@ -37,17 +38,27 @@ def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | No
     return membership.role if membership else None
 
 
+def edits_others_work(db: Session, user: UserNew, curation: CurationNew) -> bool:
+    """The creator, a scope admin of its scope (#284 matrix) or a platform admin."""
+    return (
+        user.role == "admin"
+        or curation.created_by == user.id
+        or holds(db, user.id, curation.scope_id, MANAGE_SCOPE)
+    )
+
+
 def _can_user_edit_curation(
     db: Session, user: UserNew, curation: "CurationNew"
 ) -> bool:
-    """Same rule as save-draft and submit: the creator (curator or scope admin) or a platform admin."""
+    """Same rule as save-draft and submit: the creator (curator or scope admin), a scope
+    admin of its scope or a platform admin."""
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         return False
     if not curation.scope.is_active:
         return False
     if user.role == "admin":
         return True
-    if curation.created_by != user.id:
+    if not edits_others_work(db, user, curation):
         return False
     # Check scope-specific role (valid scope roles: admin, curator, reviewer, viewer)
     scope_role = _get_user_scope_role(db, user.id, curation.scope_id)

@@ -150,3 +150,25 @@ def test_members_get_409_and_non_members_403_in_inactive_scope(
     assert "inactive" in r.json()["detail"]
     r = client.patch(url, headers=auth_headers(stranger), json=body)
     assert r.status_code == 403, r.text
+
+
+def test_scope_admin_saves_and_submits_another_members_draft(
+    client: TestClient, db_session: Session, setup: tuple[CurationNew, dict[str, str]]
+) -> None:
+    """W11 A9, #284 matrix: a scope admin edits curations in their own scope; another
+    curator of the scope still cannot touch the author's draft."""
+    curation, _ = setup
+    curation.scope.is_active = True
+    sadmin, other = make_user(db_session), make_user(db_session)
+    make_member(db_session, curation.scope, sadmin, "admin")
+    make_member(db_session, curation.scope, other, "curator")
+    url = f"/api/v1/curations/{curation.id}"
+    body = {"evidence_data": {}, "merge": True, "lock_version": curation.lock_version}
+    assert (
+        client.patch(f"{url}/draft", headers=auth_headers(other), json=body).status_code
+        == 403
+    )
+    assert client.get(url, headers=auth_headers(other)).json()["can_edit"] is False
+    r = client.patch(f"{url}/draft", headers=auth_headers(sadmin), json=body)
+    assert r.status_code == 200, r.text
+    assert client.get(url, headers=auth_headers(sadmin)).json()["can_edit"] is True
