@@ -92,10 +92,10 @@ across papers), and KGDB's own sync (#437) absorbing the v0.11.0 contract change
 
 | Issue | Verdict | Size | Kidney |
 |---|---|---|---|
-| #466 epic MCP + LLM second view | done, closable (#462/#489/#464/#465 closed) | - | yes, shipped |
-| #278 curation workspace | done, closable | - | yes, shipped |
+| #466 epic MCP + LLM second view | done, closed 2026-10-30 (#462/#489/#464/#465 closed) | - | yes, shipped |
+| #278 curation workspace | done, closed 2026-10-30 | - | yes, shipped |
 | #374 UI leftovers | one gap: `views/AccessTokens.vue:5` h1 lacks `page-title` | S | no |
-| #104 instructions | `FAQ.vue` covers the flow; owner call | S | low |
+| #104 instructions | covered by `FAQ.vue`, closed 2026-10-30 | S | low |
 | #558 export evidence/scores/summary | not started; raw rows would be public for public scopes | S | high (KGDB #448) |
 | #559 reviewer flags | not started; pass model into `evidence_warnings` (`evidence_lint.py:102`) | M | yes (#439) |
 | #567 duplicate precurations | not started; helper in `crud/precuration_entity.py`, no migration | S | yes (integrity) |
@@ -125,7 +125,8 @@ Read first (only these): .planning/waves/wave9/WAVE9-REPORT.md (triage table, fo
 1. #558 export evidence: members only, anonymous rows keep today's fields (Recommended) / public for public scopes.
 2. #453 legacy disease gaps: scope admins correct the disease entity through an audited correction (Recommended) /
    close as won't fix (legacy only).
-3. Close #466, #278 now and #104 as covered by the FAQ (Recommended) / keep #104 open with named topics.
+3. #105 adopt ClinGen: a classification_source schema field plus guidance, agents look ClinGen up via GeneFoundry
+   (Recommended) / a native adopt action with an automatic comment (still no ClinGen fetch inside Gene Curator).
 4. Wave 10 also takes #276 small part, #216 and #218 (Recommended) / kidney items only.
 Record the answers at the top of WAVE10-REPORT.md. Ask nothing else.
 
