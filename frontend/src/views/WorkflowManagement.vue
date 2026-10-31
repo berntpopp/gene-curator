@@ -192,7 +192,8 @@
     <!-- Create Workflow Dialog -->
     <BaseDialog v-model="createWorkflowDialog" size="md">
       <template #title>Create new {{ TERMINOLOGY.WORKFLOW }}</template>
-      <v-form ref="createForm">
+      <!-- ga-3: an error or hint line stays clear of the next field's floating label -->
+      <v-form ref="createForm" class="d-flex flex-column ga-3">
         <v-text-field
           v-model="newWorkflow.name"
           label="Workflow Name"
