@@ -3,6 +3,7 @@ scope admin only, and nobody decides on their own work (D1, admins included)."""
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy.orm import Session
 
 from app.models.models import CurationStatus, Scope, UserNew, WorkflowStage as S
@@ -241,4 +242,41 @@ def test_curation_in_review_cannot_go_back_to_precuration(
     assert (curation.workflow_stage, curation.status) == (
         S.REVIEW,
         CurationStatus.IN_REVIEW,
+    )
+
+
+def test_precuration_reject_refuses_own_work_and_unsubmitted(
+    client: TestClient,
+    db_session: Session,
+    owner: UserNew,
+    curator: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    def reject(pre_id: object, user: UserNew) -> Response:
+        return client.post(
+            f"/api/v1/precurations/{pre_id}/reject",
+            json={"reason": "no"},
+            headers=auth_headers(user),
+        )
+
+    own = make_precuration(
+        db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=owner
+    )
+    own.status = CurationStatus.SUBMITTED
+    db_session.commit()
+    r = reject(own.id, owner)  # a scope admin holds the review role; D1 still applies
+    assert r.status_code == 403, r.text
+    assert "4-eyes" in r.json()["detail"]
+
+    draft = make_precuration(
+        db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=curator
+    )
+    r = reject(draft.id, reviewer)
+    assert r.status_code == 409, r.text
+    db_session.refresh(own)
+    db_session.refresh(draft)
+    assert (own.status, draft.status) == (
+        CurationStatus.SUBMITTED,
+        CurationStatus.DRAFT,
     )

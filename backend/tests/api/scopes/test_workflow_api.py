@@ -392,6 +392,35 @@ def test_submit_review_twice_is_409(
     assert "already been completed" in again.json()["detail"]
 
 
+@pytest.mark.parametrize("kind", ["curations", "precurations"])
+def test_submitting_an_item_already_in_review_is_409(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    scope_with_admin: Scope,
+    kind: str,
+) -> None:
+    make = make_curation if kind == "curations" else make_precuration
+    item = make(
+        db_session,
+        scope=scope_with_admin,
+        gene=make_gene(db_session),
+        creator=curator,
+        stage=S.REVIEW,
+    )
+    item.status = CurationStatus.SUBMITTED if kind == "precurations" else item.status
+    db_session.commit()
+
+    again = client.post(
+        f"/api/v1/{kind}/{item.id}/submit",
+        json={"lock_version": item.lock_version},
+        headers=auth_headers(curator),
+    )
+
+    assert again.status_code == 409, again.text
+    assert "Invalid transition" in again.json()["detail"]
+
+
 def test_submit_review_rejects_unknown_decision(
     client: TestClient,
     curator: UserNew,

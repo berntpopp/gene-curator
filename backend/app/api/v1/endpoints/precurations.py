@@ -590,7 +590,11 @@ def reject_precuration(
             detail="Precuration not found",
         )
 
-    # Verify scope access
+    if precuration.created_by == current_user.id:  # D1, as in approve
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot reject your own precuration (4-eyes principle)",
+        )
     require(db, current_user, precuration.scope_id, REVIEW)
 
     try:
@@ -604,6 +608,8 @@ def reject_precuration(
         db.rollback()
         raise_if_rls_denied(e, "Not authorized to reject this precuration")
         raise
+    except ValueError as e:
+        raise http_error(e) from e
 
     return Precuration.model_validate(rejected)
 

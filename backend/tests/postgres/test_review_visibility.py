@@ -199,7 +199,7 @@ def test_approver_sees_count_until_the_second_reviewer_completes(
     assert (
         client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.eve)).status_code == 404
     )
-    assert _move(client, w, w.eve, "active").status_code == 400
+    assert _move(client, w, w.eve, "active").status_code == 404
     assert _move(client, w, w.bob, "active").json()["to_stage"] == "review"
     assert _view(client, w, w.bob) == (True, True, 1)
     # approving again is not counted

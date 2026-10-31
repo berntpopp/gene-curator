@@ -11884,6 +11884,18 @@ export interface components {
              * @description Required fields still empty for review (dotted paths, pinned check)
              */
             missing_fields?: string[];
+            /**
+             * Denied
+             * @description Refused for who you are (role, 4-eyes): 403
+             * @default false
+             */
+            denied: boolean;
+            /**
+             * Conflict
+             * @description Refused for the item's stage/status: 409
+             * @default false
+             */
+            conflict: boolean;
         };
         /**
          * ValidationRequest

@@ -272,7 +272,7 @@ def test_non_member_is_denied_not_a_500(client: TestClient, w: W) -> None:
     r = client.post(approve, headers=_h(w.frank))
     assert r.status_code == 404, r.text
     r = client.post(move, json=body, headers=_h(w.frank))
-    assert r.status_code in (400, 403), r.text
+    assert r.status_code in (403, 404), r.text
     assert (
         _owner_scalar("SELECT status::text FROM precurations WHERE id = %s", str(w.pre))
         == "submitted"
@@ -429,7 +429,19 @@ def test_reviewer_rejects_a_precuration_but_not_a_draft(
             "UPDATE precurations SET status = 'draft' WHERE id = %s", (str(w.pre),)
         )
     r = client.post(url, json={"reason": "x"}, headers=_h(w.bob))
-    assert r.status_code == 403, r.text
+    assert r.status_code == 409, r.text
+
+
+def test_reviewer_cannot_reject_own_precuration(client: TestClient, w: W) -> None:
+    r = client.post(
+        f"/api/v1/precurations/{w.own_pre}/reject",
+        json={"reason": "mine"},
+        headers=_h(w.bob),
+    )
+    assert r.status_code == 403 and "4-eyes" in r.text, r.text
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute("SELECT status FROM precurations WHERE id = %s", (str(w.own_pre),))
+        assert cur.fetchone()[0] == "submitted"
 
 
 def test_peer_review_in_an_inactive_scope_is_409_not_500(

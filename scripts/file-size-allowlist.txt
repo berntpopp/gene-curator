@@ -1,6 +1,6 @@
 # Files over 700 lines: allowance may only go down (scripts/check_file_size.py)
 942 backend/app/core/schema_validator.py
 939 backend/app/crud/workflow_engine.py
-807 backend/tests/api/test_precurations.py
+803 backend/tests/api/test_precurations.py
 1158 frontend/src/components/dynamic/__tests__/DynamicField.spec.ts
 768 frontend/src/components/dynamic/__tests__/DynamicForm.tabs.spec.ts

@@ -262,7 +262,7 @@ def test_forbidden_edge_is_refused_and_changes_nothing(
 ) -> None:
     before = _row(w.locked)
     r = _submit(client, w, w.locked)
-    assert r.status_code == 400, r.text
+    assert r.status_code == 409, r.text
     assert "Invalid transition from curation to review" in r.text
     assert _row(w.locked) == before
 
