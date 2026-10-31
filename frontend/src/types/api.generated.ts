@@ -17045,7 +17045,7 @@ export interface operations {
             query?: {
                 skip?: number;
                 limit?: number;
-                /** @description Only show assigned genes */
+                /** @description Scope genes; false: all genes */
                 assigned_only?: boolean;
             };
             header?: never;

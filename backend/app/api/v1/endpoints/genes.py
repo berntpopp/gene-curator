@@ -22,7 +22,7 @@ from app.core.constants import (
 from app.core.database import get_db
 from app.core.logging import api_endpoint
 from app.crud.gene import gene_crud
-from app.models import UserNew
+from app.models import Scope, UserNew
 from app.schemas.gene import (
     Gene,
     GeneAssignmentStatus,
@@ -370,7 +370,7 @@ def get_scope_genes(
     scope_id: UUID,
     skip: int = Query(DEFAULT_SKIP, ge=0),
     limit: int = Query(GENES_DEFAULT_LIMIT, ge=1, le=GENES_MAX_LIMIT),
-    assigned_only: bool = Query(False, description="Only show assigned genes"),
+    assigned_only: bool = Query(True, description="Scope genes; false: all genes"),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> ScopeGeneListResponse:
     """
@@ -383,8 +383,8 @@ def get_scope_genes(
             detail="Not authorized to access this scope",
         )
 
-    # Get scope information (would need proper scope lookup in real implementation)
-    scope_name = "Unknown Scope"  # Would be populated from scope lookup
+    scope = db.get(Scope, scope_id)
+    scope_name = scope.name if scope else ""
 
     genes = gene_crud.get_genes_for_scope(
         db, scope_id=scope_id, skip=skip, limit=limit, assigned_only=assigned_only

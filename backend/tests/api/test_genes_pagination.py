@@ -33,12 +33,36 @@ def test_scope_gene_counts_cover_all_pages(
     _assign(db_session, genes[0], test_scope)
 
     body = client.get(
-        f"{BASE}/scope/{test_scope.id}?skip=0&limit=1", headers=_auth(admin_token)
+        f"{BASE}/scope/{test_scope.id}?skip=0&limit=1&assigned_only=false",
+        headers=_auth(admin_token),
     ).json()
 
     assert body["total"] == 3
     assert body["assigned"] == 1
     assert body["unassigned"] == 2
+
+
+def test_scope_genes_are_the_scopes_by_default_and_name_it(
+    client: TestClient,
+    db_session: Session,
+    test_user_admin: UserNew,
+    test_scope: Scope,
+    admin_token: str,
+) -> None:
+    """#615: get_scope_genes lists the scope's genes (as list_scopes counts them), not
+    the whole catalogue, and names the scope instead of "Unknown Scope"."""
+    genes = [
+        _gene(db_session, test_user_admin, f"HGNC:6{i}", f"SN{i}") for i in range(3)
+    ]
+    _assign(db_session, genes[0], test_scope)
+
+    body = client.get(
+        f"{BASE}/scope/{test_scope.id}", headers=_auth(admin_token)
+    ).json()
+
+    assert [g["approved_symbol"] for g in body["genes"]] == ["SN0"]
+    assert body["total"] == 1
+    assert body["scope_name"] == test_scope.name
 
 
 def test_search_count_ignores_paging_and_matches_filters(
