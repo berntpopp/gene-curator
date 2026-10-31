@@ -177,4 +177,24 @@ def review_flags(result: dict[str, Any]) -> list[str]:
                 f"review_flags.experimental_over_genetic: {pair[0]} scores {high:g} "
                 f"points, more than {pair[1]} ({low:g}); check the experimental evidence"
             )
+    return out + _segregation_overrides(result)
+
+
+def _segregation_overrides(result: dict[str, Any]) -> list[str]:
+    """A curator override of computed segregation points (#447, decision 11)."""
+    out = []
+    for rule in (result.get("trace") or {}).get("rules_applied", []):
+        if rule.get("rule") != "segregation_sop11" or "override" not in rule:
+            continue
+        override = rule["override"]
+        if override["applied"]:
+            out.append(
+                f"review_flags.segregation_override: {rule['path']}: the curator set "
+                f"{override['points']:g} points instead of the computed "
+                f"{rule['computed_points']:g} ({override['rationale']}); check the override"
+            )
+        else:
+            out.append(
+                f"{rule['path']}: segregation override ignored: {override['reason']}"
+            )
     return out

@@ -14,7 +14,9 @@ in the UI store their fields flat).
 a row's points from its own fields: a matching 0-point rule always wins, otherwise the first
 matching rule fills the points only when the curator left them blank (#576, #582).
 ``rule: "step"`` sums ``field`` over the type's rows and scores the highest
-``steps: [{min, points}]`` reached as one item. Both are listed in the trace's ``rules_applied``.
+``steps: [{min, points}]`` reached as one item. ``rule: "segregation_sop11"`` scores a
+segregation family table by SOP v11 pp.28-35 and Figure 6 (#447, docs/POINT-MODEL.md). All
+three are listed in the trace's ``rules_applied``.
 
 Under the neutral ``point_model`` engine a blank points cell (null, empty) scores the type's
 default, as a missing key does; ClinGen keeps scoring an explicit null as 0 (golden parity).
@@ -178,6 +180,224 @@ def _step_points(
     return [points]
 
 
+# --- rule: segregation_sop11 (#447; SOP v11 pp.28-35, Figure 6 p.34) ---
+
+LOG2 = math.log10(2)
+# Figure 6: (summed LOD min, label, candidate gene C, comprehensive D), half-open bands
+FIGURE_6 = [
+    (5.0, ">=5", 1.5, 3.0),
+    (3.0, "3-4.99", 1.0, 2.0),
+    (2.0, "2-2.99", 0.5, 1.0),
+    (-math.inf, "0-1.99", 0.0, 0.0),
+]
+SEGREGATION_MAX = 3.0  # Figure 2 p.17
+METHODS = {"candidate_gene": "candidate gene", "comprehensive": "comprehensive"}
+AR_BASES = {"ar_classic": (0.25, 0.75), "ar_one_parent_affected": (0.5, 0.5)}
+
+
+def _figure_6(total: float) -> tuple[float, str, float, float]:
+    return next(band for band in FIGURE_6 if total >= band[0])
+
+
+def _half_up(value: float) -> float:
+    """Round to 0.1, half up (decision OPEN-10); the epsilon absorbs float noise."""
+    return math.floor(value * 10 + 0.5 + 1e-9) / 10
+
+
+def _whole(value: Any) -> int | None:
+    n = _number(value)
+    return int(n) if n is not None and n >= 0 and n % 1 == 0 else None
+
+
+def _estimate(row: dict[str, Any]) -> tuple[float | None, str, str | None]:
+    """(eLOD, how it was computed, why the family is excluded) at theta = 0 (pp.28-32)."""
+    formula, inheritance = row.get("lod_formula"), row.get("inheritance")
+    if formula == "adjusted":  # an expert's formal LOD; no size minimum (decision 1)
+        lod = _number(row.get("adjusted_lod"))
+        if lod is None or lod < 0:
+            return None, "", "adjusted LOD must be a number >= 0 (SOP v11 p.30)"
+        if _blank(row.get("explanation")):
+            return (
+                lod,
+                "adjusted",
+                "an adjusted LOD needs notes explaining it (SOP v11 p.30)",
+            )
+        return lod, "adjusted", None
+    if formula == "ad_xl":
+        if inheritance not in ("AD", "XL"):
+            return (
+                None,
+                "",
+                "the ad_xl formula needs AD or XL inheritance (SOP v11 p.30)",
+            )
+        n = _whole(row.get("segregations_counted"))
+        if n is None:
+            return None, "", "segregations_counted must be a whole number >= 0"
+        why = None if n >= 4 else "AD/XL eLOD needs >= 4 segregations (SOP v11 p.28)"
+        return n * LOG2, f"from {n} segregations", why
+    if formula in AR_BASES:
+        return _ar_estimate(row, formula, inheritance)
+    reason = "LOD formula must be ad_xl, ar_classic, ar_one_parent_affected or adjusted"
+    return None, "", f"{reason} (SOP v11 p.30)"
+
+
+def _ar_estimate(
+    row: dict[str, Any], formula: str, inheritance: Any
+) -> tuple[float | None, str, str | None]:
+    """AR eLOD (Figure 5 p.31; one parent affected: Harel 2017, p.31)."""
+    if inheritance != "AR":
+        return (
+            None,
+            "",
+            f"the {formula} formula needs AR inheritance (SOP v11 p.31)",
+        )
+    a, u = _whole(row.get("affected_count")), _whole(row.get("unaffected_count"))
+    if not a or u is None:
+        return (
+            None,
+            "",
+            "affected_count >= 1 and unaffected_count must be whole numbers",
+        )
+    affected, unaffected = AR_BASES[formula]
+    lod = -((a - 1) * math.log10(affected) + u * math.log10(unaffected))
+    kind = "classic" if formula == "ar_classic" else "one parent affected"
+    how = f"from {a} affected, {u} unaffected (AR {kind})"
+    if a < 3:
+        why = "AR eLOD needs >= 3 affected individuals including the proband"
+    elif row.get("genotypes_complete") is not True:
+        why = "AR eLOD needs genotypes for every counted individual"
+    elif row.get("compound_het") is True and row.get("in_trans_shown") is not True:
+        why = "compound heterozygous variants not shown to be in trans"
+    else:
+        return lod, how, None
+    return lod, how, f"{why} (SOP v11 p.28)"
+
+
+def _family(
+    row: dict[str, Any], asserted: bool
+) -> tuple[float | None, str, str | None]:
+    """(LOD, how, exclusion reason): a published LOD stands as entered (p.28, decision 1)."""
+    source = row.get("lod_source")
+    if source == "published":
+        lod, how = _number(row.get("published_lod")), ""
+        why = (
+            None
+            if lod is not None and lod >= 0
+            else "published LOD must be a number >= 0"
+        )
+        if why is None and row.get("published_lod_disputed") is True:
+            why = "published LOD disputed; discuss with the expert reviewers"
+        why = why and f"{why} (SOP v11 p.28)"
+    elif source == "estimated":
+        lod, how, why = _estimate(row)
+        if not asserted:  # decision 2: asserted once per curation
+            why = (
+                "eLOD preconditions (rare, highly penetrant disorder; phenocopies rare) "
+                "not asserted (SOP v11 p.28)"
+            )
+    else:
+        return None, "", "LOD source must be published or estimated (SOP v11 p.28)"
+    if why is None and row.get("unexplained_non_segregation") is True:
+        why = "unexplained non-segregation (SOP v11 p.28)"
+    if why is None and row.get("sequencing_method") not in METHODS:
+        why = "sequencing method must be candidate_gene or comprehensive (SOP v11 p.33)"
+    if why is None and row.get("scored") is False:
+        why = "not scored by the curator (Score? unchecked, SOP v11 p.35)"
+    return lod, how, why
+
+
+def _rationale(row: dict[str, Any], i: int, family: dict[str, Any], how: str) -> str:
+    pmid = str(row.get("pmid") or "").strip()
+    head = f"{row.get('family_label') or f'Family {i + 1}'} "
+    head += f"(PMID {pmid})" if pmid else "(no PMID)"
+    kind = "pLOD" if row.get("lod_source") == "published" else "eLOD"
+    lod = family["lod"]
+    shown = f"{kind} {lod:.2f}" if lod is not None else f"{kind} n/a"
+    shown += f" {how}" if how else ""
+    method = METHODS.get(str(row.get("sequencing_method")), "method not given")
+    status = {
+        "included": "included",
+        "excluded": f"excluded: {family.get('why')}",
+        "omitted_lower": "omitted: lower-quality candidate evidence (SOP v11 p.35)",
+    }[family["status"]]
+    inheritance = row.get("inheritance") or "inheritance not given"
+    return f"{head}: {inheritance}, {shown}, {method}; {status}"
+
+
+def _override(assessment: dict[str, Any]) -> dict[str, Any] | None:
+    """The curator's override (decision 11): needs a rationale and 0-3 points."""
+    raw = assessment.get("override_points")
+    if _blank(raw):
+        return None
+    points, rationale = _number(raw), assessment.get("override_rationale")
+    if _blank(rationale):
+        return {"points": raw, "applied": False, "reason": "needs override_rationale"}
+    if points is None or not 0 <= points <= SEGREGATION_MAX:
+        return {"points": raw, "applied": False, "reason": "points must be 0-3"}
+    return {"points": points, "applied": True, "rationale": str(rationale)}
+
+
+def _segregation_points(
+    path: str,
+    type_def: dict[str, Any],
+    data: Any,
+    excluded: list[Any],
+    applied: list[Any],
+) -> list[float]:
+    """One item: Figure 6 over the summed LOD of the eligible families, the mixed-method
+    formula (p.34) or the comprehensive families alone if that scores more (p.35)."""
+    assessment = _at(data, type_def.get("assessment", ""))
+    assessment = assessment if isinstance(assessment, dict) else {}
+    asserted = all(
+        assessment.get(key) is True
+        for key in ("disorder_rare_highly_penetrant", "phenocopies_rare")
+    )
+    sums = dict.fromkeys(METHODS, 0.0)
+    families, notes = [], []
+    for i, row in indexed(_at(data, type_def["path"])):
+        if not has_content({k: v for k, v in row.items() if k not in ("id", "scored")}):
+            continue  # an untouched form row
+        lod, how, why = _family(row, asserted)
+        if why is None and (cite := uncited(row, False)):
+            excluded.append({"path": f"{path}[{i}]", **cite})
+            why = "no PMID (citation policy)"
+        method = row.get("sequencing_method")
+        if why is None and lod is not None:
+            sums[str(method)] += lod
+        status = "included" if why is None else "excluded"
+        families.append({"index": i, "lod": lod, "lod_source": row.get("lod_source")})
+        families[-1] |= {"method": method, "status": status, "why": why}
+        notes.append((row, i, how))
+    override = _override(assessment)
+    if not families and override is None:
+        return []
+    a, b = sums["candidate_gene"], sums["comprehensive"]
+    total = a + b
+    _, band, c, d = _figure_6(total)
+    formula = _half_up((a * c + b * d) / total) if total > 0 else 0.0
+    comprehensive_only = _figure_6(b)[3]
+    points = max(formula, comprehensive_only)
+    for family, (row, i, how) in zip(families, notes, strict=True):
+        if comprehensive_only > formula and family["method"] == "candidate_gene":
+            family["status"] = "omitted_lower" if family["why"] is None else "excluded"
+        family["rationale"] = _rationale(row, i, family, how)
+        del family["why"]
+    entry: dict[str, Any] = {"path": path, "rule": "segregation_sop11"}
+    entry |= {"families": families, "sum_candidate": a, "sum_comprehensive": b}
+    entry |= {"total": total, "band": band, "C": c, "D": d}
+    entry |= {
+        "formula_points": formula,
+        "comprehensive_only_points": comprehensive_only,
+    }
+    entry |= {"points": points, "max": SEGREGATION_MAX}
+    if override is not None:
+        entry |= {"computed_points": points, "override": override}
+        points = override["points"] if override["applied"] else points
+        entry["points"] = points
+    applied.append(entry)
+    return [points]
+
+
 def _category(
     category: dict[str, Any], points: dict[str, list[float]]
 ) -> dict[str, Any]:
@@ -326,8 +546,20 @@ def _section_points(
         for type_def in category["types"]:
             rule = rules.get(type_def.get("rule", ""), default_points)
             path = f"{base}{type_def['path']}"
-            out[category["key"]][type_def["path"]] = _type_points(
-                path, type_def, data, rule, flags, excluded, capped, variants, applied
+            out[category["key"]][type_def["path"]] = (
+                _segregation_points(path, type_def, data, excluded, applied)
+                if type_def.get("rule") == "segregation_sop11"
+                else _type_points(
+                    path,
+                    type_def,
+                    data,
+                    rule,
+                    flags,
+                    excluded,
+                    capped,
+                    variants,
+                    applied,
+                )
             )
     return out
 

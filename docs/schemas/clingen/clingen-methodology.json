@@ -46,10 +46,6 @@
           "rule": "all PMIDs must be numeric strings",
           "validator": "pubmed"
         },
-        "lod_score_consistency": {
-          "rule": "if segregation: lod_score >= 0",
-          "message": "LOD score must be non-negative for segregation evidence"
-        },
         "genetic_evidence_required": {
           "rule": "len(genetic_evidence) > 0",
           "message": "At least one genetic evidence item is required"
@@ -579,6 +575,11 @@
               "items": {
                 "type": "object",
                 "properties": {
+                  "family_label": {
+                    "type": "string",
+                    "label": "Family",
+                    "order": 1
+                  },
                   "pmid": {
                     "type": "string",
                     "label": "PMID",
@@ -587,39 +588,167 @@
                     "validation": "pmid_format",
                     "pattern_message": "PMID must be digits only"
                   },
-                  "points": {
-                    "max": 3,
-                    "min": 0,
-                    "step": 0.1,
-                    "type": "number",
-                    "label": "Points",
-                    "order": 5,
-                    "default": null
-                  },
-                  "lod_score": {
-                    "min": 0,
-                    "step": 0.1,
-                    "type": "number",
-                    "label": "LOD Score",
+                  "inheritance": {
+                    "type": "select",
+                    "label": "Inheritance",
                     "order": 3,
-                    "default": 0
+                    "options": [
+                      {
+                        "label": "AD",
+                        "value": "AD"
+                      },
+                      {
+                        "label": "XL",
+                        "value": "XL"
+                      },
+                      {
+                        "label": "AR",
+                        "value": "AR"
+                      },
+                      {
+                        "label": "Other (adjusted LOD only)",
+                        "value": "other"
+                      }
+                    ]
                   },
-                  "explanation": {
-                    "type": "string",
-                    "label": "Explanation",
-                    "order": 6
+                  "lod_source": {
+                    "type": "select",
+                    "label": "LOD source",
+                    "order": 4,
+                    "options": [
+                      {
+                        "label": "Published LOD",
+                        "value": "published"
+                      },
+                      {
+                        "label": "Estimated LOD",
+                        "value": "estimated"
+                      }
+                    ],
+                    "description": "Use the authors' LOD when given; never estimate a new one (SOP v11 p.28)"
                   },
-                  "family_label": {
-                    "type": "string",
-                    "label": "Family",
-                    "order": 1
+                  "published_lod": {
+                    "min": 0,
+                    "step": 0.01,
+                    "type": "number",
+                    "label": "Published LOD",
+                    "order": 5,
+                    "description": "The authors' LOD score (lod_source published)"
+                  },
+                  "published_lod_disputed": {
+                    "type": "boolean",
+                    "label": "Published LOD disputed",
+                    "order": 6,
+                    "description": "You do not agree with the published LOD: the family scores 0; discuss with the expert reviewers (p.28)",
+                    "default": false
+                  },
+                  "lod_formula": {
+                    "type": "select",
+                    "label": "LOD formula",
+                    "order": 7,
+                    "options": [
+                      {
+                        "label": "AD/XL: log10(1/0.5^segregations)",
+                        "value": "ad_xl"
+                      },
+                      {
+                        "label": "AR, both parents carriers",
+                        "value": "ar_classic"
+                      },
+                      {
+                        "label": "AR, one parent affected",
+                        "value": "ar_one_parent_affected"
+                      },
+                      {
+                        "label": "Adjusted (formal calculation, explain in Notes)",
+                        "value": "adjusted"
+                      }
+                    ],
+                    "description": "For an estimated LOD (SOP v11 pp.30-31)"
                   },
                   "segregations_counted": {
                     "min": 0,
                     "type": "number",
-                    "label": "Seg. Counted",
-                    "order": 4,
-                    "default": 0
+                    "label": "Segregations counted",
+                    "order": 8,
+                    "step": 1,
+                    "description": "AD/XL: affected genotype+ individuals and obligate carriers minus the proband; MZ twins once; daughters of an affected father do not count"
+                  },
+                  "affected_count": {
+                    "min": 0,
+                    "step": 1,
+                    "type": "number",
+                    "label": "Affected (AR)",
+                    "order": 9,
+                    "description": "AR: affected individuals including the proband"
+                  },
+                  "unaffected_count": {
+                    "min": 0,
+                    "step": 1,
+                    "type": "number",
+                    "label": "Unaffected (AR)",
+                    "order": 10,
+                    "description": "AR: at-risk unaffected siblings; parents are not counted"
+                  },
+                  "adjusted_lod": {
+                    "min": 0,
+                    "step": 0.01,
+                    "type": "number",
+                    "label": "Adjusted LOD",
+                    "order": 11,
+                    "description": "lod_formula adjusted: the formal LOD; explain it in Notes"
+                  },
+                  "genotypes_complete": {
+                    "type": "boolean",
+                    "label": "Genotypes complete (AR)",
+                    "order": 12,
+                    "description": "AR: every counted individual is genotyped"
+                  },
+                  "compound_het": {
+                    "type": "boolean",
+                    "label": "Compound heterozygous (AR)",
+                    "order": 13,
+                    "description": "AR: the proband is compound heterozygous"
+                  },
+                  "in_trans_shown": {
+                    "type": "boolean",
+                    "label": "In trans shown (AR)",
+                    "order": 14,
+                    "description": "Compound heterozygous: a parent genotyped or phase otherwise shown (p.28)"
+                  },
+                  "unexplained_non_segregation": {
+                    "type": "boolean",
+                    "label": "Unexplained non-segregation",
+                    "order": 15,
+                    "description": "A genotype-/phenotype+ (or other unexplained) individual: the family scores 0 (p.28)"
+                  },
+                  "sequencing_method": {
+                    "type": "select",
+                    "label": "Sequencing method",
+                    "order": 16,
+                    "options": [
+                      {
+                        "label": "Candidate gene (incl. panels, partial interval)",
+                        "value": "candidate_gene"
+                      },
+                      {
+                        "label": "Exome/genome or whole linkage interval",
+                        "value": "comprehensive"
+                      }
+                    ],
+                    "description": "SOP v11 p.33"
+                  },
+                  "scored": {
+                    "type": "boolean",
+                    "label": "Score?",
+                    "order": 17,
+                    "description": "Uncheck to list the family without counting it (GCI 'Score?', p.35)",
+                    "default": true
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "label": "Notes",
+                    "order": 18
                   },
                   "sources": {
                     "type": "source",
@@ -651,13 +780,13 @@
               },
               "label": "Segregation",
               "order": 2,
-              "description": "Enter curator-assigned segregation points after assessing all included families, eligibility and sequencing methods (category max 3). LOD and family counts do not generate automatic points. See ClinGen SOP v11 pp.28–35.",
+              "description": "One row per family. Points come from the summed LOD of the eligible families by sequencing method (SOP v11 pp.28-35, Figure 6; category max 3): each row's rationale in the score trace says whether it was included, excluded or omitted and why.",
               "ui_component": "EvidenceTable"
             },
             "case_control": {
               "type": "object",
               "label": "Case-Control Data",
-              "order": 3,
+              "order": 4,
               "properties": {
                 "single_variant_analysis": {
                   "type": "array",
@@ -893,6 +1022,43 @@
                 }
               },
               "description": "Case-control studies (single variant and aggregate analyses summed, max 12 points)"
+            },
+            "segregation_assessment": {
+              "type": "object",
+              "label": "Segregation assessment",
+              "order": 3,
+              "description": "Applies to every family: estimated LODs count only when both preconditions hold (SOP v11 p.28). An override replaces the computed points and is flagged for the reviewer.",
+              "properties": {
+                "disorder_rare_highly_penetrant": {
+                  "type": "boolean",
+                  "label": "Disorder rare and highly penetrant",
+                  "order": 1,
+                  "description": "Precondition for any estimated LOD (p.28)",
+                  "default": false
+                },
+                "phenocopies_rare": {
+                  "type": "boolean",
+                  "label": "Phenocopies rare or absent",
+                  "order": 2,
+                  "description": "Precondition for any estimated LOD (p.28)",
+                  "default": false
+                },
+                "override_points": {
+                  "min": 0,
+                  "max": 3,
+                  "step": 0.1,
+                  "type": "number",
+                  "label": "Override points",
+                  "order": 3,
+                  "description": "Leave blank to use the computed points (Figure 6 is a guide, p.35)"
+                },
+                "override_rationale": {
+                  "type": "string",
+                  "label": "Override rationale",
+                  "order": 4,
+                  "description": "Required for an override"
+                }
+              }
             }
           },
           "description": "Genetic evidence supporting the gene-disease relationship (max 12 points)"
@@ -2249,12 +2415,8 @@
                   "types": [
                     {
                       "path": "segregation",
-                      "rule": "explicit_points",
-                      "range": [
-                        0,
-                        3
-                      ],
-                      "default": 0
+                      "rule": "segregation_sop11",
+                      "assessment": "segregation_assessment"
                     }
                   ]
                 },
@@ -2453,7 +2615,110 @@
           "protein_function": {
             "max_score": 2
           }
-        }
+        },
+        "tests": [
+          {
+            "name": "SOP v11 p.35 Example 2: mixed methods, 1.7 segregation points",
+            "evidence_data": {
+              "genetic_evidence": {
+                "segregation": [
+                  {
+                    "family_label": "B",
+                    "pmid": "31000002",
+                    "inheritance": "AD",
+                    "lod_source": "published",
+                    "published_lod": 1.5,
+                    "sequencing_method": "comprehensive"
+                  },
+                  {
+                    "family_label": "C",
+                    "pmid": "31000002",
+                    "inheritance": "AD",
+                    "lod_source": "published",
+                    "published_lod": 1.3,
+                    "sequencing_method": "comprehensive"
+                  },
+                  {
+                    "family_label": "D",
+                    "pmid": "31000002",
+                    "inheritance": "AD",
+                    "lod_source": "published",
+                    "published_lod": 1.5,
+                    "sequencing_method": "candidate_gene"
+                  }
+                ],
+                "segregation_assessment": {
+                  "disorder_rare_highly_penetrant": true,
+                  "phenocopies_rare": true
+                }
+              }
+            },
+            "expect": {
+              "total": 1.7,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "SOP v11 p.35 additional logic: candidate family omitted, 2 points",
+            "evidence_data": {
+              "genetic_evidence": {
+                "segregation": [
+                  {
+                    "family_label": "F1",
+                    "pmid": "31000002",
+                    "inheritance": "AD",
+                    "lod_source": "published",
+                    "published_lod": 3.1,
+                    "sequencing_method": "comprehensive"
+                  },
+                  {
+                    "family_label": "F2",
+                    "pmid": "31000001",
+                    "inheritance": "AD",
+                    "lod_source": "estimated",
+                    "lod_formula": "ad_xl",
+                    "segregations_counted": 4,
+                    "sequencing_method": "candidate_gene"
+                  }
+                ],
+                "segregation_assessment": {
+                  "disorder_rare_highly_penetrant": true,
+                  "phenocopies_rare": true
+                }
+              }
+            },
+            "expect": {
+              "total": 2,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "AD 3 segregations is too few: 0 points",
+            "evidence_data": {
+              "genetic_evidence": {
+                "segregation": [
+                  {
+                    "family_label": "F",
+                    "pmid": "31000001",
+                    "inheritance": "AD",
+                    "lod_source": "estimated",
+                    "lod_formula": "ad_xl",
+                    "segregations_counted": 3,
+                    "sequencing_method": "comprehensive"
+                  }
+                ],
+                "segregation_assessment": {
+                  "disorder_rare_highly_penetrant": true,
+                  "phenocopies_rare": true
+                }
+              }
+            },
+            "expect": {
+              "total": 0,
+              "class": "no_known"
+            }
+          }
+        ]
       }
     },
     {
