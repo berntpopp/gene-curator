@@ -35,7 +35,7 @@ def test_scope_admin_cannot_send_back_own_curation(
         db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=owner
     )
     sent = _transition(client, owner, "curation", own.id, target_stage="curation")
-    assert sent.status_code == 400
+    assert sent.status_code == 403
     assert "4-eyes" in sent.json()["detail"]
 
 
@@ -61,7 +61,7 @@ def test_owner_cannot_approve_own_precuration_by_transition(
     db_session.commit()
 
     sent = _transition(client, author, "precuration", pre.id, target_stage="curation")
-    assert sent.status_code == 400, sent.text
+    assert sent.status_code == 403, sent.text
     db_session.refresh(pre)
     assert (pre.workflow_stage, pre.status) == (stage, CurationStatus.SUBMITTED)
 
@@ -119,7 +119,7 @@ def test_review_decision_refused_without_review_capability(
     )
     user = _refused_decider(who, db_session, scope_with_admin, curator)
     sent = _transition(client, user, "curation", curation.id, target_stage=target)
-    assert sent.status_code == 400, sent.text
+    assert sent.status_code == 403, sent.text
     db_session.refresh(curation)
     assert (curation.workflow_stage, curation.status) == (
         S.REVIEW,
@@ -148,7 +148,7 @@ def test_precuration_approval_refused_without_review_capability(
     db_session.commit()
     user = _refused_decider(who, db_session, scope_with_admin, curator)
     sent = _transition(client, user, "precuration", pre.id, target_stage="curation")
-    assert sent.status_code == 400, sent.text
+    assert sent.status_code == 403, sent.text
     db_session.refresh(pre)
     assert pre.status == CurationStatus.SUBMITTED
 
@@ -168,7 +168,7 @@ def test_reviewer_cannot_approve_an_unsubmitted_precuration(
     pre.status = status
     db_session.commit()
     sent = _transition(client, reviewer, "precuration", pre.id, target_stage="curation")
-    assert sent.status_code == 400
+    assert sent.status_code == 409
     assert "submitted" in sent.json()["detail"]
     db_session.refresh(pre)
     assert (pre.workflow_stage, pre.status) == (S.PRECURATION, status)

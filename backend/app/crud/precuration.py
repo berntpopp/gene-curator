@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
+from app.core.workflow_errors import WorkflowConflictError
 from app.crud.base import CRUDBase
 from app.crud.curation import _patched, open_conflict_message, open_curation_id
 from app.crud.optimistic_lock import claim_version
@@ -424,10 +425,12 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         """
         # Validate can be approved
         if db_obj.status not in [CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW]:
-            raise ValueError("Precuration must be submitted or in review to approve")
+            raise WorkflowConflictError(
+                "Precuration must be submitted or in review to approve"
+            )
         allowed = workflow_engine.transitions_for(db, db_obj)
         if WorkflowStage.CURATION not in allowed.get(db_obj.workflow_stage, []):
-            raise ValueError(
+            raise WorkflowConflictError(
                 f"Invalid transition from {db_obj.workflow_stage.value} to curation"
             )
 

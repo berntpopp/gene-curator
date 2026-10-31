@@ -12,6 +12,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
+from app.core import workflow_errors as wfe
 from app.core.capabilities import require_active_scope
 from app.core.database import raise_if_rls_denied
 from app.core.enums import ScopeRole
@@ -235,7 +236,7 @@ class WorkflowEngine:
             db, current_stage, target_stage, user_id, item_id, item_type
         )
         if not validation.is_valid:
-            raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
+            raise wfe.transition_error(validation.errors)
 
         try:
             if isinstance(item, CurationNew) and target_stage == WorkflowStage.REVIEW:
@@ -364,7 +365,7 @@ class WorkflowEngine:
         if not curation_result:
             raise ValueError(f"Curation {item_id} not found")
         if current_stage != WorkflowStage.REVIEW:
-            raise ValueError(
+            raise wfe.WorkflowConflictError(
                 f"Curation {item_id} is {curation_result.status.value}; submit it for "
                 f"review before assigning a reviewer: {APPROVERS}"
             )
@@ -422,17 +423,17 @@ class WorkflowEngine:
         )
         if not review:
             raise ValueError("Review not found")
-
         if review.reviewer_id != reviewer_id:
-            raise ValueError("Only assigned reviewer can submit this review")
+            raise wfe.ReviewForbiddenError(
+                "Only assigned reviewer can submit this review"
+            )
         require_active_scope(review.curation.scope)
 
         if review.status != ReviewStatus.PENDING:
-            raise ValueError("Review has already been completed")
+            raise wfe.WorkflowConflictError("Review has already been completed")
 
         check_review_open(db, review)
 
-        # Valid decisions
         valid_decisions = ["approve", "request_changes", "reject"]
         if decision not in valid_decisions:
             raise ValueError(f"Invalid decision. Must be one of: {valid_decisions}")

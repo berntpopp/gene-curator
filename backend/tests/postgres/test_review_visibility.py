@@ -194,7 +194,7 @@ def test_approver_sees_count_until_the_second_reviewer_completes(
     # D1: the review-capable author and a non-member platform admin never review
     for who in (w.alice, w.dave):
         assert _view(client, w, who) == (False, False, 2)
-        assert _move(client, w, who, "active").status_code == 400
+        assert _move(client, w, who, "active").status_code == 403
     # a pending invitation grants nothing: RLS hides the curation, approve is refused
     assert (
         client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.eve)).status_code == 404

@@ -23,6 +23,7 @@ from app.core.constants import (
 from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
+from app.core.workflow_errors import http_error
 from app.crud.curation import (
     EntityRequiredError,
     OpenCurationExistsError,
@@ -555,10 +556,7 @@ def submit_curation(
     except InvalidEvidenceError as e:
         raise unprocessable(e) from e
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
+        raise http_error(e) from e
 
     if submitted is None:
         raise _conflict(curation, submit_in.lock_version)

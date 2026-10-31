@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import EDIT, require
+from app.core.workflow_errors import ReviewForbiddenError, WorkflowConflictError
 from app.crud.review_round import (
     CORRECTED_OWN,
     REVIEW_ROLES,
@@ -49,14 +50,14 @@ def check_reviewer(
     """Same reviewer rules for curations and precurations (D1: never the author, nor
     who corrected a curation's disease entity)."""
     if reviewer == author:
-        raise ValueError(
+        raise ReviewForbiddenError(
             f"4-eyes principle violation: the author of {kind} {item_id} cannot review it; "
             f"{APPROVERS}"
         )
     if kind == "curation" and corrected_by(db, item_id, reviewer):
-        raise ValueError(f"{CORRECTED_OWN}; {APPROVERS}")
+        raise ReviewForbiddenError(f"{CORRECTED_OWN}; {APPROVERS}")
     if not holds_review_capability(db, reviewer, scope):
-        raise ValueError(
+        raise ReviewForbiddenError(
             f"User {reviewer} is not allowed to review {kind} {item_id}: {APPROVERS}"
         )
 
@@ -112,7 +113,7 @@ def stage_reviewer(
         if isinstance(item, CurationNew)
         else item.status == CurationStatus.SUBMITTED
     ):
-        raise ValueError(
+        raise WorkflowConflictError(
             f"{kind.capitalize()} {item.id} is {item.status.value}; only an item in review "
             f"is routed to a reviewer: {APPROVERS}"
         )
@@ -122,7 +123,7 @@ def stage_reviewer(
         if has_pending_review(db, item.id, reviewer_id):
             if on_submit:  # a resubmit already reassigned this earlier reviewer
                 return None
-            raise ValueError("Reviewer already has a pending review")
+            raise WorkflowConflictError("Reviewer already has a pending review")
         review = Review(
             curation_id=item.id,
             reviewer_id=reviewer_id,
@@ -166,7 +167,7 @@ def assign_precuration_reviewer(
     if p.created_by != user.id:
         require(db, user, p.scope_id, EDIT)
     if p.status != CurationStatus.SUBMITTED:
-        raise ValueError(
+        raise WorkflowConflictError(
             f"Precuration {p.id} is {p.status.value}; submit it before routing it to a "
             f"reviewer: {APPROVERS}"
         )

@@ -280,7 +280,7 @@ def test_a_scope_admin_corrects_a_legacy_disease_gap(
         json={"reviewer_id": str(dana)},
         headers=_h(w.alice),
     )
-    assert r.status_code == 400 and "4-eyes" in r.text, r.text
+    assert r.status_code == 403 and "4-eyes" in r.text, r.text
     rid = str(uuid4())
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
@@ -293,7 +293,7 @@ def test_a_scope_admin_corrects_a_legacy_disease_gap(
         json={"decision": "approve"},
         headers=_h(dana),
     )
-    assert r.status_code == 400 and "corrected" in r.text, r.text
+    assert r.status_code == 403 and "corrected" in r.text, r.text
     assert _rows("SELECT status::text FROM reviews WHERE id = %s", rid) == [
         ("pending",)
     ]

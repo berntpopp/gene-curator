@@ -211,7 +211,7 @@ def test_two_reviewers_activate_and_the_author_never_counts(
     assert submitted_at == datetime.fromisoformat(r.json()["submitted_at"])
 
     # D1: the author, a platform admin, cannot approve
-    assert _approve(client, w, w.alice).status_code == 400
+    assert _approve(client, w, w.alice).status_code == 403
     first = _approve(client, w, w.bob)
     assert first.status_code == 200, first.text
     assert first.json()["to_stage"] == "review"
