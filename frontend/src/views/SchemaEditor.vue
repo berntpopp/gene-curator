@@ -117,7 +117,7 @@
               <li v-for="e in validation.errors" :key="e">{{ e }}</li>
             </ul>
             <ul v-if="validation.warnings?.length" class="ps-4">
-              <li v-for="w in validation.warnings" :key="w">Warning: {{ w }}</li>
+              <li v-for="(w, i) in validation.warnings" :key="i">Warning: {{ w }}</li>
             </ul>
           </v-alert>
 

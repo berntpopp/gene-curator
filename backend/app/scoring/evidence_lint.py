@@ -155,8 +155,8 @@ def review_flags(result: dict[str, Any]) -> list[str]:
         if proband > 0 and recurs and top / proband >= hotspot["min_share"]:
             out.append(
                 f"review_flags.hotspot: {top:g} of {proband:g} proband points "
-                f"({top / proband:.0%}) come from {n} variants; check for a "
-                "recurrent-variant hotspot"
+                f"({top / proband:.0%}) come from {n} variant{'' if n == 1 else 's'}; "
+                "check for a recurrent-variant hotspot"
             )
     if pair := flags.get("experimental_over_genetic"):
         high, low = (result["sections"].get(key, 0) for key in pair)

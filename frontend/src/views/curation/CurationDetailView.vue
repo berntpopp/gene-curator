@@ -266,7 +266,7 @@
                 title="Scoring warnings to check"
               >
                 <ul class="pl-4">
-                  <li v-for="w in scoreWarnings" :key="w">{{ w }}</li>
+                  <li v-for="(w, i) in scoreWarnings" :key="i">{{ w }}</li>
                 </ul>
               </v-alert>
             </v-col>

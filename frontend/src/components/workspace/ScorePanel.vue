@@ -4,7 +4,9 @@
       <h2 class="panel__title">Calculated classification</h2>
       <v-skeleton-loader v-if="loading" type="article" />
       <ScoreTrace v-else-if="score" :scores="score" :classification="score.classification" />
-      <p v-else>Score preview unavailable.</p>
+      <p v-else class="text-medium-emphasis" data-testid="score-empty">
+        0 points so far. The classification appears here as you add evidence.
+      </p>
       <ul
         v-if="flags.length"
         data-testid="score-flags"

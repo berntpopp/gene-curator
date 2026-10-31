@@ -84,7 +84,7 @@ def test_hotspot_is_recurrence() -> None:
     the points are no hotspot however few they are (monkey M3, orchestrator decision)."""
     model = _model(hotspot={"max_variants": 2, "min_share": 0.5})
     assert _flags(model, _evidence(["c.1A>G"] * 6)) == [
-        "review_flags.hotspot: 6 of 6 proband points (100%) come from 1 variants; "
+        "review_flags.hotspot: 6 of 6 proband points (100%) come from 1 variant; "
         "check for a recurrent-variant hotspot"
     ]
     assert _flags(model, _evidence(_distinct(3))) == []
@@ -160,7 +160,7 @@ def test_band_margin_ignores_edges_at_or_below_zero() -> None:
 def test_hotspot_names_the_variants_there_are() -> None:
     model = _model(hotspot={"max_variants": 2, "min_share": 0.5})
     assert _flags(model, _evidence(["c.1A>G"] * 3)) == [
-        "review_flags.hotspot: 3 of 3 proband points (100%) come from 1 variants; "
+        "review_flags.hotspot: 3 of 3 proband points (100%) come from 1 variant; "
         "check for a recurrent-variant hotspot"
     ]
 

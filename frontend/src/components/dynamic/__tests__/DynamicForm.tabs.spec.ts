@@ -658,13 +658,8 @@ describe('DynamicForm Tab Rendering', () => {
       const wrapper = mountComponent()
       await wrapper.vm.$nextTick()
 
-      // No scores available - the template checks for !== undefined
-      // So badges should not render when calculateTabScore returns null
-      const chips = wrapper.findAll('.v-chip')
-      // The condition is: v-if="tab.show_score_badge && tabScores[tab.id] !== undefined"
-      // When score is null, it's still !== undefined, so badges might render
-      // Let's just check that the component renders without errors
-      expect(chips.length).toBeGreaterThanOrEqual(0)
+      // No score yet: no empty grey pill on the tab (Wave 10 polish)
+      expect(wrapper.findAll('.v-chip')).toHaveLength(0)
     })
 
     it('maps tab IDs to score fields using convention', async () => {
