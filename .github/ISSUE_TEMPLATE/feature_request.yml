@@ -123,6 +123,7 @@ body:
         - v0.13.1 (Production images and deployment)
         - v0.13.2 (ClinGen reference export and KGDB re-curation fixes)
         - v0.13.3 (fastmcp 4)
+        - v0.13.4 (KGDB smoke-test fixes)
         - Future (Post v1.0)
         - Not sure
 
