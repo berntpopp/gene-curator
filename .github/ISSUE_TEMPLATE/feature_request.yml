@@ -119,6 +119,7 @@ body:
         - v0.10.1 (Export, url fields and MOI options)
         - v0.11.0 (Final classification, relationship type and signed-in approvals)
         - v0.12.0 (KGDB readiness: schema builder, methodology import and native point-model rules)
+        - v0.13.0 (ClinGen adoption, provenance, capability matrix and SOP v11 segregation)
         - Future (Post v1.0)
         - Not sure
 
