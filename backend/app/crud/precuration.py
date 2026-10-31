@@ -47,7 +47,7 @@ from app.schemas.precuration import (
 )
 from app.services.evidence_ids import check_ids
 from app.services.review_assignment import submit_reviewer
-from app.services.review_guards import check_review_content
+from app.services.review_guards import check_review_content, save_warnings
 
 logger = get_logger(__name__)
 
@@ -353,7 +353,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         if not write_draft(db, db_obj, lock_version, values):
             return None
         db.refresh(db_obj)
-        return db_obj, warnings
+        return db_obj, save_warnings(db, db_obj, evidence_data, warnings)
 
     def _check_submittable(
         self, db: Session, db_obj: PrecurationNew, user_id: UUID

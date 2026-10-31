@@ -59,6 +59,23 @@ def item_definition(db: Session, item: CurationNew | PrecurationNew) -> dict[str
     }
 
 
+def save_warnings(
+    db: Session,
+    item: CurationNew | PrecurationNew,
+    evidence: Any,
+    warnings: list[EvidenceWarning],
+) -> list[EvidenceWarning]:
+    """`warnings` plus what submit will refuse (bad cells, sources; #611). Drafts never block."""
+    try:
+        definition = item_definition(db, item)
+    except ValueError:  # an unreadable pin is refused at submit, not at a draft save
+        return warnings
+    seen = {w.path for w in warnings}
+    return warnings + [
+        e for e in evidence_errors(evidence, definition) if e.path not in seen
+    ]
+
+
 def _curation_review_evidence(db: Session, item: CurationNew) -> dict[str, Any]:
     """Validate inherited disease fields without writing them into saved evidence."""
     evidence = item.evidence_data or {}
