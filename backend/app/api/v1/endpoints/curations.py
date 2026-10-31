@@ -456,19 +456,26 @@ def update_curation(
             detail="Only the creator or a scope admin can edit this curation",
         )
     record_edit_by_other(db, current_user, curation)
+    # an adoption's diagnostics (#613): the edit and its new review round, one commit
+    in_review = curation.status == CurationStatus.IN_REVIEW
     updated = curation_crud.update_with_lock(
         db,
         db_obj=curation,
         obj_in=curation_in,
         user_id=current_user.id,
+        commit=not in_review,
     )
 
     if updated is None:
         raise _conflict(
             curation, curation_in.lock_version, _mine(curation, curation_in)
         )
-    if updated.status == CurationStatus.IN_REVIEW:  # an adoption's diagnostics (#613)
-        restart_review_round(db, updated, current_user.id)
+    if in_review:
+        try:
+            restart_review_round(db, updated, current_user.id)  # commits both
+        except Exception:
+            db.rollback()
+            raise
 
     return (
         Curation.model_validate(updated) if detail else CurationWriteResult.of(updated)

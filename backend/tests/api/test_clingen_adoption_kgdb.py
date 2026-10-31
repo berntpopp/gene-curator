@@ -316,3 +316,31 @@ def test_a_diagnostics_edit_in_review_starts_a_new_review_round(
     approve(first)
     db_session.refresh(c)
     assert c.status == CurationStatus.ACTIVE
+
+
+def test_a_failed_new_review_round_rolls_the_edit_back(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    row: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The edit and its new review round are one transaction: no edited content that
+    old approvals still count for."""
+    from app.services import clingen_adoption
+
+    cid = _adopt(client, curator_token, row)
+    c = db_session.get(CurationNew, cid)
+    assert c is not None
+    before = (c.lock_version, c.evidence_data, c.submitted_at)
+
+    def boom(*args: Any, **kwargs: Any) -> list[Any]:
+        raise RuntimeError("crash between edit and new round")
+
+    monkeypatch.setattr(clingen_adoption, "reassign_earlier_reviewers", boom)
+    with pytest.raises(RuntimeError):
+        _put(client, curator_token, cid, evidence_data=DIAGNOSTICS, merge=True)
+    db_session.expire_all()
+    c = db_session.get(CurationNew, cid)
+    assert c is not None
+    assert (c.lock_version, c.evidence_data, c.submitted_at) == before

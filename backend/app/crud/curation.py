@@ -517,10 +517,12 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db_obj: CurationNew,
         obj_in: CurationUpdate,
         user_id: UUID,
+        commit: bool = True,
     ) -> CurationNew | None:
         """
         Update curation with optimistic locking.
-        Returns None if lock_version doesn't match (conflict).
+        Returns None if lock_version doesn't match (conflict). ``commit=False`` leaves
+        the transaction open for the caller's further writes.
         """
         values: dict[str, Any] = {"updated_by": user_id, "updated_at": _utc_now()}
         if obj_in.evidence_data is not None:
@@ -534,7 +536,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             values.update(_computed(db, db_obj, evidence, (shrunk + warnings, unknown)))
         values.update(curator_call(db, db_obj, obj_in))
         if not update_if_version(
-            db, CurationNew, db_obj.id, obj_in.lock_version, values
+            db, CurationNew, db_obj.id, obj_in.lock_version, values, commit=commit
         ):
             logger.warning(
                 "Optimistic lock conflict",

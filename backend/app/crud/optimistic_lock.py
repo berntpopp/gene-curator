@@ -28,10 +28,16 @@ def claim_version(
 
 
 def update_if_version(
-    db: Session, model: Any, pk: UUID, expected: int, values: dict[str, Any]
+    db: Session,
+    model: Any,
+    pk: UUID,
+    expected: int,
+    values: dict[str, Any],
+    commit: bool = True,
 ) -> bool:
-    """claim_version, then commit."""
+    """claim_version, then commit (unless the caller commits more writes with it)."""
     if not claim_version(db, model, pk, expected, **values):
         return False
-    db.commit()
+    if commit:
+        db.commit()
     return True
