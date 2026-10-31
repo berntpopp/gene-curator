@@ -7,14 +7,15 @@ import { useMethodologyImportStore } from '@/stores/methodologyImport'
 import { importMethodology } from '@/api/methodologyImport'
 import { call, vmOf } from './vm'
 
-const { logger, showError, showSuccess } = vi.hoisted(() => ({
+const { logger, showError, showSuccess, push } = vi.hoisted(() => ({
+  push: vi.fn(),
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   showError: vi.fn(),
   showSuccess: vi.fn()
 }))
 vi.mock('vue-router', async importOriginal => ({
   ...(await importOriginal<typeof import('vue-router')>()),
-  useRouter: () => ({ push: vi.fn() })
+  useRouter: () => ({ push })
 }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/composables/useNotifications', () => ({ showError, showSuccess }))
@@ -163,5 +164,49 @@ describe('SchemaManagement methodology import', () => {
     await call(vm, 'onImportFile', fileEvent(JSON.stringify(bundle)))
     expect(showError).toHaveBeenCalledWith(expect.stringContaining('at most 50 items'))
     expect(vm.importDialog).toBe(false)
+  })
+
+  it('shows per row what the file changes in the stored schema (#282)', async () => {
+    const changed = plan([], 'new_version')
+    changed.items[0] = { ...changed.items[0]!, id: 's1' } as never
+    changed.items.push({ kind: 'schema', name: 'gone', version: '1', action: 'update' })
+    ;(changed.items[1] as Record<string, unknown>).id = 's2'
+    post.mockResolvedValueOnce(changed as never)
+    const file = {
+      schemas: [
+        { name: 'KGDB curation', version: '0.9', field_definitions: { b: { type: 'text' } } },
+        { name: 'KGDB curation', version: '1.0.0', field_definitions: { a: { type: 'text' } } }
+      ],
+      workflow_pairs: []
+    }
+    const { vm } = await mountView()
+    const schemas = useSchemasStore()
+    vi.spyOn(schemas, 'fetchSchemaById').mockResolvedValue({
+      field_definitions: { b: { type: 'text' } }
+    } as never)
+    await call(vm, 'onImportFile', fileEvent(JSON.stringify(file)))
+    await flushPromises()
+    const changes = [...document.body.querySelectorAll('[data-testid="row-change"]')]
+    expect(changes.map(c => c.textContent?.trim())).toEqual([
+      'Fields added: a',
+      'Fields removed: b'
+    ])
+
+    vi.mocked(schemas.fetchSchemaById).mockRejectedValueOnce(new Error('gone'))
+    post.mockResolvedValueOnce(changed as never)
+    await call(vm, 'onImportFile', fileEvent(JSON.stringify(file)))
+    expect(vm.importChanges).toEqual({})
+    expect(logger.warn).toHaveBeenCalled()
+  })
+
+  it('opens a created schema in the editor (#282)', async () => {
+    const { vm } = await mountView()
+    const schemas = useSchemasStore()
+    vi.spyOn(schemas, 'createSchema').mockResolvedValue({ id: 'new1' } as never)
+    vm.createForm = { validate: async () => ({ valid: true }) }
+    ;(vm.newSchema as Record<string, unknown>).name = 'Mine'
+    ;(vm.newSchema as Record<string, unknown>).type = 'curation'
+    await call(vm, 'createSchema')
+    expect(push).toHaveBeenCalledWith({ name: 'SchemaEditor', params: { id: 'new1' } })
   })
 })

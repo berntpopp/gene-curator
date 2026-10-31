@@ -85,3 +85,20 @@ def test_a_required_url_of_only_spaces_fails() -> None:
         {"home": "   "}, {"field_definitions": fields}
     )
     assert result.errors and not result.is_valid
+
+
+def test_url_max_length_is_enforced() -> None:
+    fields = {"home": {"type": "url", "max_length": 20}}
+    schema = {"field_definitions": fields}
+    long_url = SchemaValidator().validate_evidence_data(
+        {"home": "https://example.org/a-long-path"}, schema
+    )
+    short = SchemaValidator().validate_evidence_data({"home": "https://a.org"}, schema)
+    assert [e["type"] for e in long_url.errors] == ["length"]
+    assert short.is_valid
+
+
+def test_a_boolean_max_length_is_no_limit() -> None:
+    schema = {"field_definitions": {"home": {"type": "url", "max_length": True}}}
+    result = SchemaValidator().validate_evidence_data({"home": "https://a.org"}, schema)
+    assert result.is_valid

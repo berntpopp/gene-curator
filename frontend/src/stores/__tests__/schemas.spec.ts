@@ -151,7 +151,7 @@ describe('useSchemasStore', () => {
       store.currentSchema = schema('a')
       api.updateSchema.mockResolvedValue(schema('a', { name: 'upd' }))
 
-      await store.updateSchema('a', {})
+      await store.updateSchema('a', { lock_version: 0 })
 
       expect(store.schemas[0]).toMatchObject({ name: 'upd' })
       expect(store.currentSchema).toMatchObject({ name: 'upd' })
@@ -164,7 +164,7 @@ describe('useSchemasStore', () => {
       api.updateSchema.mockResolvedValue(schema('a'))
       api.deleteSchema.mockResolvedValue(undefined as never)
 
-      await store.updateSchema('a', {})
+      await store.updateSchema('a', { lock_version: 0 })
       expect(validation.jsonSchemas).not.toHaveProperty('a')
       await store.deleteSchema('b')
       expect(validation.jsonSchemas).not.toHaveProperty('b')
@@ -174,7 +174,7 @@ describe('useSchemasStore', () => {
       const store = useSchemasStore()
       api.updateSchema.mockRejectedValue(new Error('locked'))
 
-      await expect(store.updateSchema('a', {})).rejects.toThrow('locked')
+      await expect(store.updateSchema('a', { lock_version: 0 })).rejects.toThrow('locked')
       expect(store.error).toBe('locked')
     })
 

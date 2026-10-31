@@ -139,7 +139,9 @@ def test_rename_onto_a_taken_name_is_400_and_changes_nothing(
         assert r.status_code == 200, r.text
         ids.append(r.json()["id"])
 
-    r = client.put(f"{BASE}/{ids[1]}", json={"name": tag}, headers=_h(admin))
+    r = client.put(
+        f"{BASE}/{ids[1]}", json={"name": tag, "lock_version": 0}, headers=_h(admin)
+    )
 
     assert r.status_code == 400, r.text
     assert r.json()["detail"] == DUPLICATE
@@ -158,11 +160,15 @@ def test_null_active_update_cannot_make_a_schema_unreadable(
     )
     assert created.status_code == 200, created.text
     url = f"{BASE}/{created.json()['id']}"
-    disabled = client.put(url, json={"is_active": False}, headers=_h(admin))
+    disabled = client.put(
+        url, json={"is_active": False, "lock_version": 0}, headers=_h(admin)
+    )
     assert disabled.status_code == 200, disabled.text
     assert disabled.json()["is_active"] is False
 
-    rejected = client.put(url, json={"is_active": None}, headers=_h(admin))
+    rejected = client.put(
+        url, json={"is_active": None, "lock_version": 1}, headers=_h(admin)
+    )
 
     assert rejected.status_code == 422, rejected.text
     kept = client.get(url, headers=_h(admin))

@@ -16,6 +16,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -104,6 +105,8 @@ class CurationSchema(Base):
 
     # Schema validation checksum
     schema_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Bumped by every editor save; a stale one is refused with 409 (081, #282)
+    lock_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     # Relationships
     creator: Mapped["UserNew | None"] = relationship(

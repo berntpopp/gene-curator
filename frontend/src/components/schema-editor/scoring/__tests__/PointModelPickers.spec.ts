@@ -6,6 +6,7 @@ import FieldPicker from '../FieldPicker.vue'
 import PointModelRowRules from '../PointModelRowRules.vue'
 import PointModelSections from '../PointModelSections.vue'
 import PointModelTypes from '../PointModelTypes.vue'
+import RuleCondition from '../RuleCondition.vue'
 import { readsInside, sectionOptions, tableOptions, topFields } from '../evidenceFields'
 import { call, vmOf } from '@/views/__tests__/vm'
 import type { ItemType, PointModel, PointsWhen } from '../pointModel'
@@ -115,7 +116,7 @@ describe('pickers in the point model', () => {
     })
     const columns = tableOptions(flat, '')[0]!.columns
     const w = mount(PointModelRowRules, { props: { item, base: 'b', diag: () => [], columns } })
-    const vm = vmOf(w)
+    const vm = vmOf(w.findComponent(RuleCondition))
     const cond = item.points_when![0]!
     expect((vm.choicesOf as (c: PointsWhen) => string[])(cond)).toEqual(['lof', 'missense'])
     await call(vm, 'setOp', cond, 'in', 'absent')
@@ -130,7 +131,8 @@ describe('pickers in the point model', () => {
       path: 'p',
       points_when: [{ field: 'af', gte: 0.1, lte: 0.5, points: 0 }]
     })
-    const vm = vmOf(mount(PointModelRowRules, { props: { item, base: 'b', diag: () => [] } }))
+    const w = mount(PointModelRowRules, { props: { item, base: 'b', diag: () => [] } })
+    const vm = vmOf(w.findComponent(RuleCondition))
     const cond = item.points_when![0]!
     await call(vm, 'setValue', cond, 'lte', '')
     expect(cond).toEqual({ field: 'af', gte: 0.1, points: 0 })

@@ -214,6 +214,14 @@
             <td>
               {{ item.name }}
               <div
+                v-for="c in importChanges[`${item.name}@${item.version}`] ?? []"
+                :key="c"
+                class="text-body-small text-medium-emphasis"
+                data-testid="row-change"
+              >
+                {{ c }}
+              </div>
+              <div
                 v-for="e in rowErrors(item)"
                 :key="e"
                 class="text-body-small text-error"
@@ -271,6 +279,7 @@
   import { storeToRefs } from 'pinia'
   import type { Schema } from '@/types/api'
   import { useMethodologyImportStore } from '@/stores/methodologyImport'
+  import { schemaChanges } from '@/components/schema-editor/importDiff'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -431,6 +440,28 @@
   const importFileName = ref('')
   const methodologyImport = useMethodologyImportStore()
   const { plan: importPlan, importing } = storeToRefs(methodologyImport)
+  // Per schema row (name@version, like the import's own match): what the file changes
+  const importChanges = ref<Record<string, string[]>>({})
+
+  const loadImportChanges = async (bundle: Schema<'MethodologyBundle'>, items: ImportItem[]) => {
+    importChanges.value = {}
+    const changed = items.filter(i => i.kind === 'schema' && i.id && i.action !== 'unchanged')
+    await Promise.all(
+      changed.map(async item => {
+        const incoming = bundle.schemas.find(
+          s => s.name === item.name && s.version === item.version
+        )
+        if (!incoming) return
+        try {
+          const current = await schemasStore.fetchSchemaById(String(item.id))
+          importChanges.value[`${item.name}@${item.version}`] = schemaChanges(current, incoming)
+        } catch (error) {
+          // the plan still shows the action; only its detail is missing
+          logger.warn('Import diff unavailable', { schema: item.name, error: String(error) })
+        }
+      })
+    )
+  }
 
   /** Read the chosen file and show the dry-run plan; nothing is written yet. */
   const onImportFile = async (event: Event) => {
@@ -442,7 +473,8 @@
       // the server validates the file (shape, list limits, publish gate)
       const bundle = JSON.parse(await file.text()) as Schema<'MethodologyBundle'>
       importFileName.value = file.name
-      await methodologyImport.dryRun(bundle)
+      const result = await methodologyImport.dryRun(bundle)
+      await loadImportChanges(bundle, result.items)
       importDialog.value = true
     } catch (error) {
       const message = error instanceof SyntaxError ? 'The file is not valid JSON' : null
@@ -505,7 +537,7 @@
     try {
       const { type, ...basics } = newSchema.value
       // Created as an inactive skeleton that passes backend validation; edit it in the schema editor
-      await schemasStore.createSchema({
+      const created = await schemasStore.createSchema({
         ...basics,
         schema_type: type as string,
         // Sectioned, so the editor offers Add section (monkey B7)
@@ -537,6 +569,8 @@
         type: null,
         version: '1.0.0'
       }
+      // Straight into the builders: the skeleton is only a start (#282)
+      router.push({ name: 'SchemaEditor', params: { id: created.id } })
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to create schema', {

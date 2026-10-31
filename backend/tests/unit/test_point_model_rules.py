@@ -357,6 +357,15 @@ class TestPathCrossChecks:
             "field_definitions.note.visible_when.knd",
         ]
 
+    def test_unknown_required_when_targets(self) -> None:
+        fields = {
+            **FIELDS,
+            "note": {"type": "text", "required_when": {"knd": "a"}},
+            "ok": {"type": "text", "required_when": {"note": "x"}},
+        }
+        found = errors(field_definitions=fields, validation_rules={})
+        assert [p for p, _ in found] == ["field_definitions.note.required_when.knd"]
+
     def test_seeded_precuration_targets_pass(self) -> None:
         fields = {
             "sections": [
