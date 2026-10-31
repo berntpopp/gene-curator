@@ -49,10 +49,16 @@ Step 0 is answered; do not ask again.
 | #284 capability matrix, scope-owned configuration, allowed pairs | #604 |
 | #276 catalogue column order, With results, saved view | #605 |
 | #447 SOP v11 segregation | #606 |
-| Re-check findings and remaining UX nits (fix/w11-final) | #TBD-final |
-| Release v0.13.0 | #607 (release/v0.13.0) |
 | UI monkey findings and UX polish (fix/w11-ui-polish) | #608 |
 | API/MCP monkey findings, polish queue, migration 086 (fix/w11-polish) | #609 |
+| #610 KGDB lumping/splitting decision could not be submitted | #616 |
+| #611 select, date and length validation in evidence-table cells | #616 (part), #619 |
+| #612 stale MCP instructions and tool help on the KGDB pairs | #616, #620 (auto reviewer pick skips correctors) |
+| #613 adoptions exported 0 points, lost agent credit, no diagnostics | #618, #621 (edit and new round in one transaction) |
+| #614 susceptibility risk allele, undetermined MOI, CI columns, association score | #619 |
+| #615 KGDB bundle at prompt iteration 8, README, `mondo_id` normalised | #619 |
+| Re-check findings and remaining UX nits (fix/w11-final) | #617 |
+| Release v0.13.0 | #607 (release/v0.13.0) |
 
 ## Migrations
 
@@ -67,6 +73,9 @@ Step 0 is answered; do not ask again.
 | 084_user_view_preferences | #605 | per-user saved views, own-row RLS, no DELETE |
 | 085_methodology_versions_public_read | #601 | anyone reads methodology versions (anonymous export `methodology.version`) |
 | 086 (allowed pairs backfill) | #609 | each scope's allowed pairs from its existing work: default, curations' pairs, active pairs of its precurations' schemas |
+| 087 | - | unused (#618 needed none) |
+| 088_susceptibility_allele_key | #619 | `risk_allele` joins the susceptibility entity key; UNDETERMINED / MULTIFACTORIAL MOI keys; stops on open precurations it would merge |
+| 089_review_comments_inactive_scope_read | #617 | members read an inactive scope's review comments (SELECT only) |
 
 ## Reviews
 
@@ -85,7 +94,7 @@ review notes; findings left for later were fixed in #608 and #609).
   re-import writes a changed description and plans it as `update`; `band_margin` respects
   `section_min`.
 - #604: frontend diff-cover 81% raised to 94%; scope-default step of `import_bundle` extracted
-  into its own function; audit-after-commit queued for polish.
+  into its own function; audit-after-commit queued for polish (fixed in #609).
 - #605: blank curator call counts as unclassified; saved view written by upsert; drop indicator
   for drag reorder.
 - #606: the MCP hint missed `segregation_assessment`; the field-id explanation was kept instead of
@@ -93,6 +102,13 @@ review notes; findings left for later were fixed in #608 and #609).
 - #608: removing a source chip hid the next one.
 - #609: scope-admin edits could approve their own edits (curation and precuration; fixed by
   `draft_edit` joining the correctors); 086 took inactive and foreign pairs.
+
+- #616: none blocking once #611 became Refs (its bundle part moved to #619).
+- #617: a review comment could be edited in a frozen (inactive) scope.
+- #618: a version move re-scored adoptions; old adoption rows exported 0 points.
+- #619: double halving of unknown-phase compound hets; functional sub-caps not enforced by the
+  engine; 088 could merge duplicates (now stops listing ids); the step check blocked ClinGen
+  LODs (now only scoring points keep their step).
 
 ## Monkey results
 
@@ -125,7 +141,7 @@ source chip accepts junk as `Database`.
 | Catalogue | 8 | 8 |
 
 The partials, the two new lows and the remaining UX nits go into the final fix PR
-(fix/w11-final, #TBD-final).
+(fix/w11-final, #617).
 
 ## KGDB readiness
 
@@ -143,9 +159,14 @@ Checked end to end on a fresh stack:
 - Export with `synopsis`, `contributions` and sources, validating against the JSON Schema
   snapshot and `docs/examples/export-page.json`.
 
+KGDB QA round (kidney-genetics-db#448): KGDB's own QA of this stack filed #610–#615
+(lumping/splitting submit, cell validators, MCP help, adoption export and diagnostics,
+susceptibility risk allele, bundle at prompt iteration 8). All six are closed by #616, #618 and
+#619, with follow-ups #620 and #621.
+
 ## Remaining follow-ups
 
-None after fix/w11-final (#TBD-final).
+None after fix/w11-final (#617) and #620.
 
 Orchestration notes:
 

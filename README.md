@@ -66,18 +66,21 @@ An existing database gets the role with `make db-migrate` before the backend res
 
 ### Upgrading to v0.13.0
 
-Run `make db-migrate` (078–082, 084–086; 083 is unused) before restarting the backend.
-Breaking: 4-eyes refusals are 403 and workflow-state refusals 409 (no longer 400); a scope with
-a default pair only accepts that pair and the ones listed under scope settings, *Other allowed
-workflows* (086 fills the list from each scope's existing work); schema saves need
-`lock_version`. KGDB: re-import
+Run `make db-migrate` (078–082, 084–086, 088, 089; 083 and 087 are unused) before restarting
+the backend. Breaking: 4-eyes refusals are 403 and workflow-state refusals 409 (no longer 400);
+a scope with a default pair only accepts that pair and the ones listed under scope settings,
+*Other allowed workflows* (086 fills the list from each scope's existing work); schema saves
+need `lock_version`; a `database` source needs `prefix:id`; a value off its points step is
+refused at submit; multifactorial MOI is HP:0010982. KGDB: re-import
 `docs/schemas/kidney-genetics/kgdb-methodology.json` (dry run first) for the approved
 susceptibility tiering. Details: [docs/releases/v0.13.0.md](docs/releases/v0.13.0.md#upgrading).
 ([#592](https://github.com/berntpopp/gene-curator/pull/592),
 [#599](https://github.com/berntpopp/gene-curator/pull/599),
 [#603](https://github.com/berntpopp/gene-curator/pull/603),
 [#604](https://github.com/berntpopp/gene-curator/pull/604),
-[#609](https://github.com/berntpopp/gene-curator/pull/609))
+[#609](https://github.com/berntpopp/gene-curator/pull/609),
+[#617](https://github.com/berntpopp/gene-curator/pull/617),
+[#619](https://github.com/berntpopp/gene-curator/pull/619))
 
 ### Upgrading to v0.12.0
 
