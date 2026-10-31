@@ -69,6 +69,11 @@ describe('SourceCell', () => {
       id: 'CGGV:assertion_x'
     })
     expect(detectSource('LOVD 1')).toEqual({ kind: 'database', id: 'LOVD 1' })
+    expect(detectSource('PMID 123')).toEqual({ kind: 'pmid', id: '123' })
+    expect(detectSource('pmid123')).toEqual({ kind: 'pmid', id: '123' })
+    expect(detectSource('DOI 10.1/x')).toEqual({ kind: 'doi', id: '10.1/x' })
+    expect(detectSource('vcv000012345')).toEqual({ kind: 'clinvar', id: 'VCV000012345' })
+    expect(detectSource('ca123')).toEqual({ kind: 'clingen_allele', id: 'CA123' })
   })
 
   it('adds sources as chips by Enter or Add and removes them', async () => {
@@ -87,6 +92,17 @@ describe('SourceCell', () => {
     expect((input.element as HTMLInputElement).value).toBe('')
     await wrapper.find('[aria-label="Remove ClinVar VCV000012345"]').trigger('click')
     expect(wrapper.emitted('update:model-value')![1]![0]).toEqual([])
+  })
+})
+
+describe('SourceCell removal', () => {
+  it('removing the first of two keeps the second visible (review #608)', async () => {
+    const PM = { kind: 'pmid', id: '42' }
+    const wrapper = mount(SourceCell, { props: { modelValue: [CLINVAR, PM] } })
+    await wrapper.find('[aria-label="Remove ClinVar VCV000012345"]').trigger('click')
+    await wrapper.setProps({ modelValue: wrapper.emitted('update:model-value')![0]![0] })
+    expect(wrapper.text()).toContain('PMID 42')
+    expect(wrapper.findAll('.v-chip')).toHaveLength(1)
   })
 })
 

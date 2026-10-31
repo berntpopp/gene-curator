@@ -42,13 +42,19 @@ export function sourceList(value: unknown): Source[] {
 
 /**
  * The kind an identifier is written in: `PMID:` and `doi:` prefixes are dropped, a bare number is
- * a PMID; text that fits no pattern is a database reference (the cell shows the kind it read).
+ * a PMID, so a numeric database id needs its prefix (OMIM:600123); text that fits no pattern is a
+ * database reference (the cell shows the kind it read).
  */
 export function detectSource(raw: string): Required<Pick<Source, 'kind' | 'id'>> {
   const text = raw.trim()
-  const prefixed = /^(pmid|doi):\s*(\S.*)$/i.exec(text)
+  const prefixed = /^(pmid|doi)\s*:?\s*(\S.*)$/i.exec(text)
   if (prefixed) return { kind: prefixed[1]!.toLowerCase(), id: prefixed[2]! }
-  return { kind: SOURCE_KINDS.find(k => k.pattern.test(text))?.value ?? 'database', id: text }
+  // ClinVar and ClinGen allele ids are upper case; a typed `vcv…` or `ca…` still reads as one
+  const upper = text.toUpperCase()
+  const kind = SOURCE_KINDS.find(k => k.pattern.test(text) || k.pattern.test(upper))?.value
+  return kind === 'clinvar' || kind === 'clingen_allele'
+    ? { kind, id: upper }
+    : { kind: kind ?? 'database', id: text }
 }
 
 /** Why an identifier is refused, or '' when it is fine */

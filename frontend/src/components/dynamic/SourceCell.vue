@@ -5,7 +5,7 @@
     }}</span>
     <v-chip
       v-for="(source, i) in sources"
-      :key="i"
+      :key="`${i}:${source.kind}:${source.id}`"
       size="small"
       variant="tonal"
       :href="sourceHref(source)"
@@ -25,10 +25,10 @@
         :aria-label="`${ariaLabel ?? 'Source'}: add an id`"
         :aria-invalid="!!error"
         :aria-describedby="hintId"
-        placeholder="PMID, DOI, VCV, CA…"
+        placeholder="PMID, DOI, VCV, CA, or OMIM:600123"
         @keydown.enter.prevent="add"
       />
-      <span v-if="detected" :id="hintId" class="source-cell__kind text-body-small">{{
+      <span :id="hintId" class="source-cell__kind text-body-small" aria-live="polite">{{
         detected
       }}</span>
       <button type="button" :disabled="!ident.trim()" @click="add">Add</button>
