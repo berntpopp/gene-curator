@@ -152,7 +152,8 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refresh_token')
-        if (refreshToken) {
+        // MUI-19: an anonymous request (no access token) has no session to refresh
+        if (refreshToken && originalRequest.headers.Authorization) {
           if (originalRequest._refreshFailed) throw new Error('Refresh token refused')
           logService.debug('Attempting token refresh', { originalUrl: originalRequest.url })
 

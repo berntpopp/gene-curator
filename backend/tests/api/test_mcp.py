@@ -393,8 +393,8 @@ def test_tool_acts_as_the_token_owner_and_read_only_tokens_cannot_write(
     assert result["isError"] is True
     assert result["content"][0]["text"] == (
         "forbidden: HTTP 403: This token is read-only\nnext: check your role with "
-        "list_scopes (user_role); nobody approves their own work"
-    )
+        "list_scopes (user_role)"
+    )  # the 4-eyes hint only for 4-eyes refusals (W11 A6)
 
 
 def test_not_found_maps_to_a_closed_error_code(

@@ -211,3 +211,65 @@ def test_ambiguous_pairs_without_default_refuse_and_change_nothing(
         _scalar("SELECT count(*) FROM curations WHERE precuration_id = %s", str(w.pre))
         == 0
     )
+
+
+def test_curation_follows_the_precurations_pair_not_another_default(
+    client: TestClient, w: W
+) -> None:
+    """MUI-03 as app_user: the scope default K belongs to another precuration schema; the
+    allowed pair B matches the precuration. Approval and Start curation both use B."""
+    pair_k = uuid4()
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO curation_schemas (name, version, schema_type, field_definitions, "
+            "validation_rules, scoring_configuration, workflow_states, ui_configuration, "
+            "schema_hash) SELECT %s, version, schema_type, field_definitions, "
+            "validation_rules, scoring_configuration, workflow_states, "
+            "ui_configuration, schema_hash FROM curation_schemas WHERE id = "
+            "(SELECT precuration_schema_id FROM workflow_pairs WHERE id = %s) "
+            "RETURNING id",
+            (f"k-{pair_k}", str(w.pair_b)),
+        )
+        k_pre = str(cur.fetchone()[0])
+        cur.execute(
+            "INSERT INTO workflow_pairs (id, name, version, precuration_schema_id, "
+            "curation_schema_id, is_active) VALUES (%s, %s, '1.0', %s, %s, true)",
+            (str(pair_k), f"K-{pair_k}", k_pre, w.c2),
+        )
+        cur.execute(
+            "UPDATE scopes SET default_workflow_pair_id = %s WHERE id = %s",
+            (str(pair_k), str(w.scope)),
+        )
+        cur.execute(
+            "INSERT INTO scope_workflow_pairs (scope_id, workflow_pair_id) "
+            "VALUES (%s, %s)",
+            (str(w.scope), str(w.pair_b)),
+        )
+    try:
+        r = client.post(f"/api/v1/precurations/{w.pre}/approve", headers=_h(w.bob))
+        assert r.status_code == 200, r.text
+        cid = r.json()["curation_id"]
+        pair_of = "SELECT workflow_pair_id::text FROM curations WHERE id = %s"
+        assert _scalar(pair_of, cid) == str(w.pair_b)
+        # Start curation sends the scope default; the curation still gets B
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM curations WHERE id = %s", (cid,))
+        body = {
+            "gene_id": str(w.gene),
+            "scope_id": str(w.scope),
+            "workflow_pair_id": str(pair_k),
+            "precuration_id": str(w.pre),
+            "evidence_data": {},
+        }
+        r = client.post("/api/v1/curations/", json=body, headers=_h(w.alice))
+        assert r.status_code == 201, r.text
+        assert r.json()["workflow_pair_id"] == str(w.pair_b)
+    finally:
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE scopes SET default_workflow_pair_id = NULL WHERE id = %s",
+                (str(w.scope),),
+            )
+            cur.execute("DELETE FROM curations WHERE scope_id = %s", (str(w.scope),))
+            cur.execute("DELETE FROM workflow_pairs WHERE id = %s", (str(pair_k),))
+            cur.execute("DELETE FROM curation_schemas WHERE id = %s", (k_pre,))

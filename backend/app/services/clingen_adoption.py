@@ -160,7 +160,11 @@ def adopt(
         errors.extend(f"rows[{i}].{e}" for e in row_errors)
         plan.append((row, key))
         items.append(
-            ClinGenAdoptionItem(row=i, cggv_id=row.clingen.cggv_id, action="create")
+            ClinGenAdoptionItem(
+                row=i,
+                cggv_id=row.clingen.cggv_id,
+                action="refused" if row_errors else "create",
+            )
         )
     result = ClinGenAdoptionResult(dry_run=dry_run, errors=errors, items=items)
     if errors or dry_run:

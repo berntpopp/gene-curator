@@ -8,6 +8,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import UserNew, UserViewPreference
+from tests.api.scopes.factories import make_scope
+
+
+def _public(db: Session, n: int) -> list[str]:
+    scopes = [make_scope(db) for _ in range(n)]
+    for scope in scopes:
+        scope.is_public = True
+    db.commit()
+    return [str(s.id) for s in scopes]
+
 
 pytestmark = pytest.mark.unit
 
@@ -19,10 +29,10 @@ def _bearer(token: str) -> dict[str, str]:
 
 
 def test_saves_and_restores_in_order_per_user(
-    client: TestClient, admin_token: str, curator_token: str
+    client: TestClient, db_session: Session, admin_token: str, curator_token: str
 ) -> None:
     assert client.get(URL, headers=_bearer(admin_token)).json() == {"scope_ids": []}
-    ids = [str(uuid4()) for _ in range(3)]
+    ids = _public(db_session, 3)
     r = client.put(URL, json={"scope_ids": ids}, headers=_bearer(admin_token))
     assert r.status_code == 200 and r.json()["scope_ids"] == ids
     reordered = ids[::-1]
@@ -63,11 +73,24 @@ def test_a_save_racing_the_first_one_updates_instead_of_failing(
     def blind_get(self: Session, entity: Any, *a: Any, **k: Any) -> Any:
         return None if entity is UserViewPreference else real_get(self, entity, *a, **k)
 
+    ids = _public(db_session, 1)
     monkeypatch.setattr(Session, "get", blind_get)
-    ids = [str(uuid4())]
     r = client.put(URL, json={"scope_ids": ids}, headers=_bearer(admin_token))
     assert r.status_code == 200, r.text
     monkeypatch.undo()
     db_session.expire_all()
     pref = db_session.get(UserViewPreference, (test_user_admin.id, "catalogue"))
     assert pref is not None and pref.value == {"scope_ids": ids}
+
+
+def test_unknown_hidden_and_duplicate_ids_are_dropped(
+    client: TestClient, db_session: Session, curator_token: str
+) -> None:
+    """W11 A7: only scopes you can see, each once, in your order."""
+    shown = _public(db_session, 2)
+    hidden = str(make_scope(db_session).id)  # private, not a member
+    body = {"scope_ids": [shown[1], str(uuid4()), hidden, shown[0], shown[1]]}
+    r = client.put(URL, json=body, headers=_bearer(curator_token))
+    assert r.status_code == 200, r.text
+    assert r.json()["scope_ids"] == [shown[1], shown[0]]
+    assert client.get(URL, headers=_bearer(curator_token)).json() == r.json()

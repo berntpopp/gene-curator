@@ -13,6 +13,7 @@ from tests.api.scopes.factories import (
     auth_headers,
     make_curation,
     make_gene,
+    make_member,
     make_scope,
     make_user,
     make_workflow_pair,
@@ -132,3 +133,61 @@ def test_scope_permissions_refuse_editing_in_inactive_scope(
     admin = db_session.get(UserNew, curation.created_by)
     assert admin is not None
     assert _can_user_edit_curation(db_session, admin, curation) is False
+
+
+def test_members_get_409_and_non_members_403_in_inactive_scope(
+    client: TestClient, db_session: Session, setup: tuple[CurationNew, dict[str, str]]
+) -> None:
+    """A1: a member's write gets the read-only reason, not the 403 of a stranger."""
+    curation, _ = setup
+    scope = curation.scope
+    curator, stranger = make_user(db_session), make_user(db_session)
+    make_member(db_session, scope, curator, "curator")
+    body = {"evidence_data": {}, "lock_version": 0}
+    url = f"/api/v1/curations/{curation.id}/draft"
+    r = client.patch(url, headers=auth_headers(curator), json=body)
+    assert r.status_code == 409, r.text
+    assert "inactive" in r.json()["detail"]
+    r = client.patch(url, headers=auth_headers(stranger), json=body)
+    assert r.status_code == 403, r.text
+
+
+def test_scope_admin_saves_and_submits_another_members_draft(
+    client: TestClient, db_session: Session, setup: tuple[CurationNew, dict[str, str]]
+) -> None:
+    """W11 A9, #284 matrix: a scope admin edits curations in their own scope; another
+    curator of the scope still cannot touch the author's draft."""
+    curation, _ = setup
+    curation.scope.is_active = True
+    sadmin, other = make_user(db_session), make_user(db_session)
+    make_member(db_session, curation.scope, sadmin, "admin")
+    make_member(db_session, curation.scope, other, "curator")
+    url = f"/api/v1/curations/{curation.id}"
+    body = {"evidence_data": {}, "merge": True, "lock_version": curation.lock_version}
+    assert (
+        client.patch(f"{url}/draft", headers=auth_headers(other), json=body).status_code
+        == 403
+    )
+    assert client.get(url, headers=auth_headers(other)).json()["can_edit"] is False
+    r = client.patch(f"{url}/draft", headers=auth_headers(sadmin), json=body)
+    assert r.status_code == 200, r.text
+    assert client.get(url, headers=auth_headers(sadmin)).json()["can_edit"] is True
+
+    # D1: the admin's edit is their work too, so they may not approve it (#609 review)
+    from datetime import UTC, datetime
+
+    from app.services.curation_access import _can_user_review_curation
+
+    curation.status, curation.workflow_stage = (
+        CurationStatus.IN_REVIEW,
+        WorkflowStage.REVIEW,
+    )
+    curation.submitted_at = datetime.now(UTC)
+    db_session.commit()
+    assert _can_user_review_curation(db_session, sadmin, curation) is False
+    r = client.post(
+        f"/api/v1/workflow/curation/{curation.id}/transition",
+        headers=auth_headers(sadmin),
+        json={"target_stage": "active"},
+    )
+    assert r.status_code == 403, r.text

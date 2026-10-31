@@ -112,9 +112,11 @@ def create_workflow_pair(
     _require_active_schemas(db, owner, precuration_schema.id, curation_schema.id)
 
     workflow_pair = workflow_pair_crud.create_with_owner(
-        db, obj_in=workflow_pair_in, owner_id=current_user.id
+        db, obj_in=workflow_pair_in, owner_id=current_user.id, commit=False
     )
     audit(db, current_user, WORKFLOW_CREATE, owner, ("workflow_pair", workflow_pair.id))
+    db.commit()
+    db.refresh(workflow_pair)
     return workflow_pair  # type: ignore[return-value]
 
 
@@ -158,10 +160,10 @@ def update_workflow_pair(
         workflow_pair_in.precuration_schema_id,
         workflow_pair_in.curation_schema_id,
     )
-    workflow_pair = workflow_pair_crud.update(
+    audit(db, current_user, WORKFLOW_CREATE, owner, ("workflow_pair", workflow_pair.id))
+    workflow_pair = workflow_pair_crud.update(  # its commit writes the audit row too
         db, db_obj=workflow_pair, obj_in=workflow_pair_in
     )
-    audit(db, current_user, WORKFLOW_CREATE, owner, ("workflow_pair", workflow_pair.id))
     return workflow_pair  # type: ignore[return-value]
 
 
@@ -190,6 +192,6 @@ def delete_workflow_pair(
             detail="Cannot delete workflow pair that is currently in use",
         )
 
-    workflow_pair_crud.remove(db, id=workflow_pair_id)
     audit(db, current_user, WORKFLOW_CREATE, owner, ("workflow_pair", workflow_pair_id))
+    workflow_pair_crud.remove(db, id=workflow_pair_id)  # its commit writes the audit
     return {"message": "Workflow pair deleted successfully"}

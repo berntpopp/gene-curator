@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
+from app.crud.scope_visibility import visible_scope_ids
 from app.models import UserNew
 from app.models.user_view_preference import UserViewPreference
 from app.schemas.user_view_preference import CatalogueView
@@ -33,7 +34,11 @@ def save_catalogue_view(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CatalogueView:
-    """Save your catalogue columns as your default view."""
+    """Save your catalogue columns as your default view: scopes you can see, each once."""
+    visible = set(db.scalars(visible_scope_ids(current_user.id)))
+    view = CatalogueView(
+        scope_ids=[i for i in dict.fromkeys(view.scope_ids) if i in visible]
+    )
     value = view.model_dump(mode="json")
     insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
     stmt = insert(UserViewPreference).values(

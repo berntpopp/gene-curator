@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user_optional
 from app.core.logging import api_endpoint
-from app.crud.curation_export import export_curations
+from app.crud.curation_export import decode_cursor, export_curations
 from app.crud.scope_visibility import scope_id_for
 from app.models import UserNew
 from app.schemas.curation_export import CurationExportPage
@@ -24,8 +24,7 @@ def _cursor(cursor: str | None) -> tuple[datetime, UUID] | None:
     if not cursor:
         return None
     try:
-        at, _, row_id = cursor.partition("|")
-        return datetime.fromisoformat(at), UUID(row_id)
+        return decode_cursor(cursor)
     except ValueError:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -43,7 +42,7 @@ def export_reviewed_curations(
         None, description="Only curations changed at or after this time (ISO 8601)"
     ),
     cursor: str | None = Query(
-        None, max_length=100, description="next_cursor of the previous page"
+        None, max_length=200, description="next_cursor of the previous page"
     ),
     limit: int = Query(100, ge=1, le=MAX_PAGE, description="Page size"),
     current_user: UserNew | None = Depends(get_current_user_optional),

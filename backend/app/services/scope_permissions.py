@@ -16,7 +16,7 @@ Reference: https://docs.sqlalchemy.org/en/20/orm/queryguide/query
 
 from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, ParamSpec, TypeVar, cast
+from typing import ParamSpec, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import and_, exists
@@ -30,9 +30,6 @@ from app.models.models import (
     ScopeMembership,
     UserNew,
 )
-
-if TYPE_CHECKING:
-    pass
 
 logger = get_logger(__name__)
 

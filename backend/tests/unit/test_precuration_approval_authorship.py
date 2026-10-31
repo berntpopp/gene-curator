@@ -19,7 +19,7 @@ from tests.api.scopes.factories import (
 pytestmark = pytest.mark.unit
 
 
-def _approve(db: Session, *, open_curation: bool = False):
+def _approve(db: Session, *, open_curation: bool = False, pair: bool = True):
     author, reviewer = make_user(db), make_user(db)
     scope = make_scope(db)
     make_member(db, scope, author, "curator")
@@ -40,14 +40,15 @@ def _approve(db: Session, *, open_curation: bool = False):
     pre.status = CurationStatus.SUBMITTED
     from app.models import WorkflowPair
 
-    db.add(
-        WorkflowPair(
-            name="wf-x",
-            version="1.0",
-            precuration_schema_id=pre.precuration_schema_id,
-            is_active=True,
+    if pair:
+        db.add(
+            WorkflowPair(
+                name="wf-x",
+                version="1.0",
+                precuration_schema_id=pre.precuration_schema_id,
+                is_active=True,
+            )
         )
-    )
     db.commit()
     result = precuration_crud.approve_and_create_curation(
         db, db_obj=pre, approver_id=reviewer.id
@@ -143,3 +144,10 @@ def test_other_integrity_errors_are_not_swallowed(db_session: Session):
             ),
             user_id=user.id,
         )
+
+
+def test_approval_without_a_usable_pair_says_why_no_curation(db_session: Session):
+    """MUI-03: no allowed pair uses the schema; approval said nothing about it."""
+    _, _, result = _approve(db_session, pair=False)
+    assert result.approved and not result.curation_created
+    assert "no workflow pair this scope allows" in result.message

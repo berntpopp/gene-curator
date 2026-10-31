@@ -16,7 +16,7 @@ export interface Source {
 }
 
 export const SOURCE_KINDS: Array<{ value: string; title: string; pattern: RegExp }> = [
-  { value: 'pmid', title: 'PMID', pattern: /^\d{1,10}$/ },
+  { value: 'pmid', title: 'PMID', pattern: /^(pmid:\s*)?\d{1,10}$/i },
   { value: 'doi', title: 'DOI', pattern: /^10\.\d{4,9}\/\S+$/ },
   { value: 'clinvar', title: 'ClinVar', pattern: /^(VCV|RCV|SCV)\d{9}(\.\d+)?$/ },
   { value: 'clingen_allele', title: 'ClinGen allele', pattern: /^CA\d+$/ },
@@ -26,7 +26,7 @@ export const SOURCE_KINDS: Array<{ value: string; title: string; pattern: RegExp
 ]
 
 const LINKS: Record<string, (id: string) => string> = {
-  pmid: id => `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
+  pmid: id => `https://pubmed.ncbi.nlm.nih.gov/${id.replace(/^pmid:\s*/i, '')}/`,
   doi: id => `https://doi.org/${id}`,
   clinvar: id => `https://www.ncbi.nlm.nih.gov/clinvar/?term=${encodeURIComponent(id)}`,
   clingen_allele: id =>

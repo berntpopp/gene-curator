@@ -14,7 +14,7 @@ from app.core.url_field import valid_url
 
 # kind -> identifier format (NCBI, Crossref and ClinGen identifier docs)
 ID_FORMATS: dict[str, tuple[re.Pattern[str], str]] = {
-    "pmid": (re.compile(r"\d{1,10}"), "a PMID is 1-10 digits"),
+    "pmid": (re.compile(r"\d{1,10}"), "a PMID is 1-10 digits (PMID: prefix optional)"),
     "doi": (re.compile(r"10\.\d{4,9}/\S+"), "a DOI looks like 10.1234/abc"),
     "clinvar": (
         re.compile(r"(VCV|RCV|SCV)\d{9}(\.\d+)?"),
@@ -34,6 +34,15 @@ KINDS = (*ID_FORMATS, "url")
 DIRECTIONS = ("supports", "disputes", "neutral")  # VA-Spec directionOfEvidenceProvided
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 TEXT_KEYS = ("title", "tool", "citation")
+
+
+_PMID_PREFIX = re.compile(r"^pmid:\s*", re.IGNORECASE)
+
+
+def source_id(kind: Any, ident: Any) -> str:
+    """The identifier as checked and exported: trimmed, a PMID without "PMID:" (MUI-15)."""
+    text = str(ident or "").strip()
+    return _PMID_PREFIX.sub("", text, count=1) if kind == "pmid" else text
 
 
 def _blank(value: Any) -> bool:
@@ -95,6 +104,8 @@ def source_errors(
     if not isinstance(value, dict):
         res.add_error(path, "A source is an object with kind and id", "type")
         return
-    bad = _id_error(value.get("kind"), str(value.get("id") or "").strip(), value)
+    bad = _id_error(
+        value.get("kind"), source_id(value.get("kind"), value.get("id")), value
+    )
     for part, message in ([bad] if bad else []) + _detail_errors(value):
         res.add_error(f"{path}.{part}", message, "format")
