@@ -6,7 +6,13 @@
     :title="info.label"
   >
     <span class="cls-mark__bars" aria-hidden="true">
-      <i v-for="n in 4" :key="n" :class="{ on: n <= info.bars }" />
+      <!-- Stepped like a signal meter: equal outlined boxes read as missing glyphs (MUI-10) -->
+      <i
+        v-for="n in 4"
+        :key="n"
+        :class="{ on: n <= info.bars }"
+        :style="{ height: `${0.3 + n * 0.15}em` }"
+      />
     </span>
     <span class="cls-mark__label">{{ info.label }}</span>
   </span>
@@ -44,10 +50,8 @@
 
   .cls-mark__bars i {
     width: 4px;
-    height: 0.9em;
     border-radius: 1px;
-    border: 1px solid rgb(var(--cls-color));
-    box-sizing: border-box;
+    background: rgba(var(--cls-color), 0.22);
   }
 
   .cls-mark__bars i.on {
