@@ -473,7 +473,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     cell.remove()
   })
 
-  it('Escape cancels only when it does not come from a field, cell or menu', async () => {
+  it('Escape never cancels the form; it closes dialogs only (monkey R2-6)', async () => {
     const wrapper = await mountForm({ geneId: 'g-1', workflowPairId: 'wp-1' })
     const vm = internals(wrapper)
     // Dispatch Escape from the innermost element of `html`, bubbling up to the form's handler
@@ -494,7 +494,8 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
 
     press('<button>Somewhere</button>')
     await flushPromises()
-    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+    expect(confirmMock).not.toHaveBeenCalled()
   })
 
   describe('workspace frame hook', () => {

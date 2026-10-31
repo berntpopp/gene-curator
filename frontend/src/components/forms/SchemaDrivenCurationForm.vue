@@ -460,7 +460,7 @@
    * Keyboard shortcuts - migrated from CurationForm
    */
   function handleKeydown(event: KeyboardEvent) {
-    if (props.readonly && event.key !== 'Escape') return
+    if (props.readonly) return
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's' && !frame) {
@@ -475,13 +475,8 @@
     } else if (ctrl && event.key === 'z' && event.shiftKey) {
       event.preventDefault()
       if (canRedo.value) redo()
-    } else if (event.key === 'Escape') {
-      // Escape inside a field, table cell or menu is that control's own (revert, close menu)
-      const target = event.target as HTMLElement | null
-      if (target?.closest?.('input, textarea, select, [role="combobox"], [aria-expanded="true"]'))
-        return
-      handleCancel()
     }
+    // No Escape here: it closes dialogs and menus only, never the form (monkey R2-6)
   }
 
   /**
