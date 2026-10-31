@@ -9,7 +9,8 @@
     <!-- Flex column: the content grows, so the footer sits at the bottom on short pages -->
     <v-main id="main-content" tabindex="-1" class="d-flex flex-column">
       <v-container fluid class="flex-grow-1">
-        <ErrorBoundary :key="$route.fullPath">
+        <!-- Per page, not per query: filters and table state live in the query (MUI-21) -->
+        <ErrorBoundary :key="$route.path">
           <router-view />
         </ErrorBoundary>
       </v-container>
