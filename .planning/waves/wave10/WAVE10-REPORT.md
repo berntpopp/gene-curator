@@ -144,71 +144,101 @@ This wave:
   scope; phone empty state off-screen in the catalogue.
 - #105, #276, #284, #282 and #447 remainders.
 
-## Open issue triage (2026-10-31, master ab07af6a)
+## Open issue triage (2026-10-31, after v0.12.0 and #592)
 
-| Issue | Verdict | Size | Kidney |
-|---|---|---|---|
-| #282 admin builders | partial; point-model builder done; form layout/workflow builders and canvas remain | L | low |
-| #284 granular permissions | partial; delete slice done; allowed-pairs list and capability checks remain | M+L | medium (allowed pairs) |
-| #105 adopt ClinGen | partial; schema guidance only; native take-over marker (no fetch, GeneFoundry rule) | S/M | yes (#439 step 0) |
-| #276 catalogue matrix | partial; drag reorder and server-saved view remain | S/M | low |
-| #447 segregation by family/method | step rule shipped; clinical design (SOP v11 pp.28-35) still needed | L | medium |
+All 7 open issues are in Wave 11; the goal is zero open feature issues and an empty follow-up list (v1.0.0).
+
+| Issue | State | Wave 11 | Size | Kidney |
+|---|---|---|---|---|
+| #591 move curations to a new methodology version | none yet | W11A | M | yes (#439 changes) |
+| #105 adopt ClinGen | schema guidance only | W11B: adopted marker + bulk adopt, no fetch | M | yes (#439 step 0, ~60% of top tier) |
+| #593 provenance (sources, agent attribution) | humans and LLM runs covered; agents and sources not | W11C | M | yes (export) |
+| #282 admin builders | point model and fields done | W11D: table builders incl. workflow stages, nested groups, and-conditions, import diff; canvas per Step 0 | L | low |
+| #284 granular permissions | delete slice, review roles done | W11E: allowed pairs + capability matrix per Step 0 | L | medium |
+| #447 segregation by family/method | step rule only | W11F per Step 0 | L | low (KGDB uses LOD step) |
+| #276 catalogue matrix | sticky column, Disagreements done | W11G: drag reorder, With results, server-saved view | S/M | low |
+
+KGDB side (berntpopp/kidney-genetics-db, not this wave): #472 key fix, #448 import, #473 susceptibility, #474 diagnostics.
 
 ## Wave 11 prompt
 
 ```text
 You are the Wave 11 orchestrator for Gene Curator (/home/bernt-popp/development/gene-curator, GitHub
-berntpopp/gene-curator, master at v0.12.0). Ponytail full for you and every agent: smallest complete change, deletion
-beats addition. Orchestrate only: dispatch, review, merge, release; agents report in 15 lines; you do not pull source
-files or full diffs into your context.
+berntpopp/gene-curator, master at v0.12.0 plus #592). Goal: finish development. Every open issue ends closed by a
+merged PR or an owner won't-do, every follow-up below is fixed or ticketed, and the wave ships v1.0.0 (or v0.13.0 per
+Step 0). Ponytail full for you and every agent: smallest complete change, deletion beats addition. Orchestrate only:
+dispatch, review, merge, release; agents report in 15 lines; you do not pull source files or full diffs into your
+context. Do not park fixable items as "owner decision" when the right answer is clear; fix them in this wave.
 
-Read first (only these): .planning/waves/wave10/WAVE10-REPORT.md (triage table, follow-ups),
-.planning/waves/wave10/MONKEY-R2.md, docs/releases/v0.12.0.md, .planning/orchestration/rules.md.
+Read first (only these): .planning/waves/wave10/WAVE10-REPORT.md (triage, follow-ups), docs/releases/v0.12.0.md,
+.planning/orchestration/rules.md, issues #591 #105 #593 #282 #284 #447 #276 (gh issue view).
 
-## Step 0: owner decisions (one AskUserQuestion, max 3 questions, recommended option first)
-1. Allowed pairs: a per-scope list of allowed workflow pairs; create refuses others (Recommended) / keep any pair.
-2. #105 take-over: a marker field and help text in the KGDB/ClinGen schemas, no fetch (Recommended) / leave open.
-3. Per-row import diff: build it in W11C (Recommended) / drop it.
-Record the answers at the top of WAVE11-REPORT.md. Ask nothing else.
+## Step 0: owner decisions (one AskUserQuestion, max 4 questions, recommended option first)
+1. Release: v1.0.0 feature-complete (Recommended) / v0.13.0.
+2. #284: allowed pairs plus the full capability matrix with scope-owned methodologies and workflows (Recommended) /
+   allowed pairs only, close the rest won't-do.
+3. #282 canvas: drop it; close #282 after the table builders (Recommended) / build the canvas too.
+4. #447: build SOP v11 family/method-aware segregation (pp.28-35, Figure 6) with a clinical spec agent reading the
+   PDF first (Recommended) / close won't-do (the step rule stays).
+Already decided, do not ask: L6 done (#592); allowed pairs yes; #105 = adopted marker + bulk adopt, no fetch
+(GeneFoundry rule); #591 and #593 as their issues say; per-row import diff yes. Record answers at the top of
+WAVE11-REPORT.md. Ask nothing else.
 
-## Step 1: workstreams (parallel, disjoint files, migration numbers fixed up front; next free is 078)
-| WS | Scope | Owns | Migration | Review |
+## Step 1: workstreams (two batches; migrations fixed up front, an unused number stays unused)
+Batch 1 (start together):
+| WS | Scope | Owns | Mig | Review |
 |---|---|---|---|---|
-| W11A pairs | allowed-pairs list per Step 0; picker lists only allowed pairs; precuration create refuses another schema id | scope model/schemas/endpoint for the list, crud/precuration.py create check, PrecurationFormView pair picker | 078 | full Opus, Postgres test as app_user |
-| W11B schema editor safety | schema save conflict (lock_version or updated_at check, 409), validate-unsaved-draft endpoint used by the editor, required_when cross-check, URL max_length enforced | crud/schema_repository.py, endpoints/validation.py, core/schema_rules.py, SchemaEditor.vue save path | 079 if lock_version | full Opus |
-| W11C builder rest | nested groups and plain objects in the field editor, and-conditions in the row-rule UI, per-row import diff, Tests from the Preview widgets | components/schema-editor/*, SchemaManagement.vue import dialog | none | full Opus |
-| W11D small | B20 reviewer-visible LLM flag, B21 auth bootstrap 401s, due_date in My work rows, removed-user invite message, trimmed-length messages, test-order flake, corrector plus real reviewer test, hotspot group_by docs | those files only | none | quick delta |
+| W11A version move #591 | admin Move to version per schema: dry run (fields kept/dropped, new required empty, old->new score/class), apply in one transaction, rescore, audit per row, active curation whose class changes or misses a required field goes back to review; REST, /mcp/full, Schema Management dialog | new services/version_move.py, endpoint, MCP tool, dialog component | 078 | full Opus, Postgres test as app_user |
+| W11B ClinGen adoption #105 | adopted marker on a curation (source clingen, CGGV url, ClinGen class, adopted_at); bulk adopt API + MCP (rows: gene, mondo, moi, relationship, cggv_url, class) creating curations in review with the auto comment from #105, reviewer confirms (4-eyes); UI badge "Adopted from ClinGen" and help text; export field additive; never fetch | new services/clingen_adoption.py, endpoint, MCP tool, badge component, export additive | 079 | full Opus, Postgres test |
+| W11C provenance #593 | `source` field type (kind, validated id, url, retrieved_at, tool) as cell and list; MCP write tools accept optional agent {model, agent, tools_used} into audit change_metadata (client-reported); row added/changed by in UI; export additive; new KGDB and ClinGen bundle versions adding source cells (frozen ids untouched) | core field-type validator, mcp/audit.py additive, history UI, bundle files, docs/EXPORT.md | 080 | full Opus, Postgres test |
+| W11D builders #282 | workflow-stage builder (table view), nested groups and plain objects, and-conditions in the row-rule UI, per-row import diff, Tests from Preview widgets, schema save conflict (409 on stale lock_version) and validate-unsaved-draft endpoint, required_when cross-check, URL max_length enforced, Text/String and Choice duplicates merged | components/schema-editor/*, SchemaManagement.vue import dialog, crud/schema_repository.py, endpoints/validation.py, core/schema_rules.py | 081 | full Opus |
+| W11H follow-ups | every "This wave" and carried item in WAVE10-REPORT.md Follow-ups not owned above: B20, B21, R3-1, R3-2, due_date in My work, removed-user invite message, trimmed-length messages, test-order flake, corrector plus real reviewer test, hotspot group_by, point_model.py docstring, matrix labels from the pinned version, signed-out gene 404, anonymous export methodology.version, MCP instructions under 4096, #587 skipped polish (import file chooser, resolve flags genes already in scope, phone empty state) | those files only; one commit per item | none | quick delta |
+Batch 2 (start each as soon as batch 1 merges free the files; B2 rebases on batch 1):
+| W11E permissions #284 | allowed pairs per scope (picker lists only allowed, create refuses others); per Step 0 the capability matrix as data, owner_scope_id on methodologies, versions and workflows, every write endpoint via require(...), capability x role API tests, RLS matches the matrix | core/capabilities.py, deps, scope schemas, endpoints (additive require lines), RLS migration | 082 | full Opus, Postgres lane |
+| W11F segregation #447 (if yes) | first a clinical spec agent writes .planning/waves/wave11/SEGREGATION-SPEC.md from the SOP v11 PDF (eligibility, inheritance, methods, published vs estimated LOD, summed eligible-family LOD, method weighting, worked examples); orchestrator checks it; then the engine rule, family table in the ClinGen bundle as a new version, per-family rationale, save/preview parity; old pins never rescored | scoring/point_model.py rule, ClinGen bundle, tests | 083 | full Opus + clinical check against the PDF |
+| W11G catalogue #276 | drag reorder columns, With results preset, server-saved view per user | catalogue view/store, user prefs endpoint | 084 | quick delta |
 
-Rules for agents (put them in every brief via setup.sh): as in Wave 10. One worktree each via
-.planning/orchestration/setup.sh, run setups one after another, no backticks in double-quoted notes. Backend gates
-need SECRET_KEY=x DATABASE_URL=postgresql://u:p@localhost/x. Failing test first. Any change to RLS, triggers,
-workflow transitions, saves or permissions adds a backend/tests/postgres/ test of the real API flow as app_user.
-make ci (includes test-postgres, unique PGTEST_PORT per agent) and make diff-cover before ready; pgrep -c -f
-'^make (ci|test-postgres)' under 2 first. Draft PRs; never continue-on-error, || true, .skip; make api-types after
-schema changes. D1: nobody approves their own work. Stay in owned files; shared files get additive edits only.
+Rules for agents (in every brief via setup.sh): as in Wave 10. One worktree each via .planning/orchestration/setup.sh,
+setups one after another, no backticks in double-quoted notes, local npm ci (never symlink node_modules). Backend gates
+need SECRET_KEY=x DATABASE_URL=postgresql://u:p@localhost/x. Failing test first. Any change to RLS, triggers, workflow
+transitions, saves or permissions adds a backend/tests/postgres/ test of the real API flow as app_user. make ci
+(unique PGTEST_PORT per agent) and make diff-cover before ready; pgrep -c -f '^make (ci|test-postgres)' under 2 first.
+Draft PRs; never continue-on-error, || true, .skip; make api-types after schema changes. D1: nobody approves their own
+work; 4-eyes refusals are 403 (actor) / 409 (state). Stay in owned files; shared files get additive edits only.
+Literature, variant and ClinGen lookups stay in GeneFoundry; Gene Curator records and checks, never fetches.
 
 ## Step 2: machine safety
-At most 4 implementers, at most 2 heavy gates at once. Poll at 60 s.
+At most 5 implementers, at most 2 heavy gates at once. Poll at 60 s.
 
 ## Step 3: review and merge
-ponytail:ponytail-review on every PR (full Opus for A-C, quick delta for D and fix rounds); must-fix goes back to the
-same agent. One serial merge loop (.planning/orchestration/merge.sh N). If merge.sh reports no CI run on the head,
-watch the run and merge by hand when green and behind_by is 0 (it missed one on #570). Checkpoint make ci on fresh
-master in its own worktree after the last feature merge.
+ponytail:ponytail-review on every PR (full Opus for A-G, quick delta for H and fix rounds); must-fix goes back to the
+same agent. One serial merge loop (.planning/orchestration/merge.sh N); if it reports no CI run on the head, watch the
+run and merge by hand when green and behind_by is 0. Stop the loop on a must-fix (TaskStop + gh pr ready --undo).
+Checkpoint make ci on fresh master after each batch.
 
-## Step 4: verify end to end
-Fresh-stack monkey test (.planning/orchestration/monkey-stack.sh up origin/master; 5455/8052/5190), UI and API/MCP
-testers in parallel: allowed pairs, concurrent schema edits (two admins), validate unsaved draft, builder nested groups
-and and-conditions, import diff, B20, approvals_require_session and review through MCP (not tested in
-Wave 10), forms at 390 px. One fix PR per tester, then a narrow re-check of exactly those findings.
+## Step 4: verify end to end (finish line)
+Fresh stack (.planning/orchestration/monkey-stack.sh up origin/master; 5455/8052/5190; never 5454/8051/5193). UI tester
+and API/MCP tester in parallel, findings via Bash heredoc:
+- KGDB journey: import bundle, intake 10 genes, bulk adopt 5 ClinGen-curated kidney genes (tester looks them up with
+  GeneFoundry clingen_get_gene_validity), curate 3 Mendelian and 1 Susceptibility with source cells (ClinVar, PMID,
+  DOI), an MCP-written curation with an agent block visible in history, two-reviewer approval, version move with an
+  active curation, export checked against docs/schemas/kidney-genetics/README.md.
+- Permissions: viewer, curator, reviewer, scope admin of own and other scope, platform admin on the key writes.
+- Builders: workflow-stage builder, nested groups, and-conditions, import diff, two admins editing one schema (409).
+- Segregation (if built): the SOP worked examples score as the spec says.
+- Forms at 390 px; second approval activating a curation; review through MCP.
+UI tester also rates UX as a senior product designer per flow (score, top friction); then one impeccable polish PR
+from the findings and reviews; then a narrow re-check of exactly those findings. Repeat fix + re-check until no
+critical/high/medium remains.
 
-## Step 5: release v0.13.0 and report
-release/v0.13.0: notes (every claim cites a merged PR, fact-checked), README upgrade, version bump in every file holding
-0.12.0 (not history), docs/EXPORT.md current. Merge, then git pull and confirm HEAD is the release merge before the
-signed tag; gh release create --verify-tag. Cleanup worktrees and branches (GitHub API). WAVE11-REPORT.md as in Wave
-10, carrying the follow-ups listed in WAVE10-REPORT.md that remain open.
+## Step 5: release and report
+release/v1.0.0 (or v0.13.0): notes (every claim cites a merged PR, fact-checked), README and docs current (EXPORT.md,
+METHODOLOGY-IMPORT.md, POINT-MODEL.md, a short curator and admin guide), version bump in every file holding 0.12.0
+(not history). Merge, git pull, confirm HEAD is the release merge, signed tag, gh release create --verify-tag. Cleanup
+worktrees and branches (GitHub API). WAVE11-REPORT.md: owner decisions, issues, migrations, reviews, monkey and UX
+scores, KGDB readiness, remaining follow-ups (target: none), and a maintenance-mode prompt if anything is left.
+Comment the release on kidney-genetics-db #448 with the export changes (adoption, sources, agent).
 
-Out of scope unless the owner says otherwise: #447 clinical design, #284 capability checks beyond allowed pairs, #282
-canvas, KGDB repo work (#448 runs there in parallel).
+Out of scope: KGDB repo work (#472, #448, #473, #474 run there), GeneFoundry ops.
 End every reply with what you skipped or did not check, in one line.
 ```
