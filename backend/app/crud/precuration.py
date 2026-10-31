@@ -504,6 +504,11 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             message += f" and curation {curation.id} created"
         elif create_curation and blocking:
             message += "; no curation created: " + open_conflict_message(db, blocking)
+        elif create_curation:  # MUI-03: say why, instead of a silent approval
+            message += (
+                "; no curation created: no workflow pair this scope allows uses the "
+                "precuration's schema (a scope admin can add it under allowed workflows)"
+            )
         return PrecurationApprovalResult(
             precuration_id=db_obj.id,
             approved=True,
@@ -595,6 +600,24 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
     # ========================================
     # HELPER METHODS
     # ========================================
+
+    def pair_for(
+        self, db: Session, pre: PrecurationNew | None, sent: WorkflowPair
+    ) -> WorkflowPair:
+        """The pair a curation of this precuration uses: the sent one if it matches the
+        precuration's schema (or has none), else the precuration's own pair (MUI-03)."""
+        if pre is None or sent.precuration_schema_id in (
+            None,
+            pre.precuration_schema_id,
+        ):
+            return sent
+        pair = self._get_workflow_pair_for_precuration(db, pre)
+        if pair is None:
+            raise ValueError(
+                "No workflow pair this scope allows uses the precuration's schema; a "
+                "scope admin can add it under scope settings (allowed workflows)"
+            )
+        return pair
 
     def _get_workflow_pair_for_precuration(
         self, db: Session, precuration: PrecurationNew

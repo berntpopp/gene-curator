@@ -8,7 +8,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import CurationStatus, WorkflowStage
-from app.models.models import Gene, PrecurationNew, Scope, UserNew, WorkflowPair
+from app.models.models import (
+    CurationSchema,
+    Gene,
+    PrecurationNew,
+    Scope,
+    UserNew,
+    WorkflowPair,
+)
 from tests.api.scopes.factories import (
     auth_headers,
     make_curation,
@@ -233,3 +240,41 @@ def test_create_keeps_the_curator_classification(
     body = {**body, "curator_classification": "nonsense"}
     bad = client.post("/api/v1/curations/", json=body, headers=headers)
     assert bad.status_code == 422, bad.text  # refused before the open-curation check
+
+
+def test_curation_uses_the_precurations_pair_not_the_scope_default(
+    client: TestClient,
+    db_session: Session,
+    test_user_admin: UserNew,
+    test_scope: Scope,
+    test_gene: Gene,
+    approved_precuration: PrecurationNew,
+) -> None:
+    """MUI-03: Start curation sent the scope default (another methodology's pair)."""
+    from uuid import uuid4
+
+    from tests.api.schema_api_support import insert_pair, insert_schema
+
+    pre_schema = db_session.get_one(
+        CurationSchema, approved_precuration.precuration_schema_id
+    )
+    cur = insert_schema(db_session, name=f"c-{uuid4()}")
+    other_pre = insert_schema(
+        db_session, name=f"k-{uuid4()}", schema_type="precuration"
+    )
+    default = insert_pair(db_session, other_pre, cur, name=f"k-{uuid4()}")
+    own = insert_pair(db_session, pre_schema, cur, name=f"c-{uuid4()}")
+    test_scope.default_workflow_pair_id = default.id
+    test_scope.allowed_workflow_pairs = [own]
+    db_session.commit()
+    body = {
+        "gene_id": str(test_gene.id),
+        "scope_id": str(test_scope.id),
+        "workflow_pair_id": str(default.id),
+        "precuration_id": str(approved_precuration.id),
+        "evidence_data": {},
+    }
+    h = auth_headers(test_user_admin)
+    r = client.post("/api/v1/curations/", json=body, headers=h)
+    assert r.status_code == 201, r.text
+    assert r.json()["workflow_pair_id"] == str(own.id)
