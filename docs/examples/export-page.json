@@ -516,13 +516,13 @@
       "moi_hpo_id": null,
       "relationship_type": "mendelian",
       "risk_allele": null,
-      "computed_verdict": "strong",
+      "computed_verdict": null,
       "final_classification": "strong",
       "curator_classification_rationale": null,
       "genetic_score": null,
       "experimental_score": null,
       "association_score": null,
-      "total_score": 14.0,
+      "total_score": null,
       "methodology": {
         "schema_name": "KGDB Mendelian Curation",
         "version": null,
@@ -646,9 +646,7 @@
         },
         "replicated_over_time": false
       },
-      "scores": {
-        "total_score": 14
-      },
+      "scores": null,
       "summary": null,
       "curator_name": "Alice Curator",
       "reviewer_name": "Bob Reviewer",
