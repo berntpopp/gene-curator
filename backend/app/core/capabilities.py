@@ -118,6 +118,14 @@ def require(
     if user.role == "admin":
         return
     if scope_id is None or not holds(db, user.id, scope_id, capability, active_only):
+        # A1: a member of an inactive scope gets the read-only reason, a stranger the 403
+        if (
+            scope_id is not None
+            and active_only
+            and capability != VIEW
+            and holds(db, user.id, scope_id, capability, active_only=False)
+        ):
+            require_active_scope(db.get(Scope, scope_id))
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Needs a platform admin (global configuration or data)"
