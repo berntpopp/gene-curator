@@ -118,7 +118,7 @@ describe('PointModelRowRules', () => {
     await call(vm, 'remove', 'points_when', 0)
     expect(item).toEqual({ path: 'segregation', rule: 'step' })
     await nextTick()
-    expect(w.text()).toContain('Step field')
+    expect(w.text()).toContain('Step column')
   })
 })
 
@@ -154,7 +154,10 @@ describe('PointModelRowRules comparisons', () => {
     expect(cond).toEqual({ field: 'allele_frequency', present: true, points: 0, and: cond.and })
     expect((vm.listOp as (c: unknown) => string)(cond)).toBe('present')
     await nextTick()
-    expect(w.findAllComponents({ name: 'VCombobox' })).toHaveLength(0) // no values to list
+    const lists = w
+      .findAllComponents({ name: 'VCombobox' })
+      .filter(c => c.props('label') === 'Values')
+    expect(lists).toHaveLength(0) // no values to list
     expect(w.text()).toContain('0 points always wins')
     await call(vm, 'setOp', cond, 'present', 'gte')
     expect(cond).toMatchObject({ gte: 0 })
@@ -172,7 +175,9 @@ describe('value lists keep their option types', () => {
       points_when: [{ field: 'n', in: [2, true, 'AD'], points: 0 }]
     })
     const w = mount(PointModelRowRules, { props: { item, base: 'b', diag: () => [] } })
-    const list = w.findAllComponents({ name: 'VCombobox' })[0]!
+    const list = w
+      .findAllComponents({ name: 'VCombobox' })
+      .find(c => c.props('label') === 'Values')!
     list.vm.$emit('update:modelValue', ['2', 'true', 'AD', 'XL'])
     expect(item.points_when![0]!.in).toEqual([2, true, 'AD', 'XL'])
 

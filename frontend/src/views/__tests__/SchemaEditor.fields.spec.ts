@@ -7,6 +7,7 @@ import { call, vmOf } from './vm'
 import SchemaEditor from '@/views/SchemaEditor.vue'
 import FieldDialog from '@/components/schema-editor/FieldDialog.vue'
 import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+import PointModelBuilder from '@/components/schema-editor/scoring/PointModelBuilder.vue'
 import { useSchemasStore } from '@/stores/schemas'
 import clingen from '@/components/forms/__tests__/clingenV1Snapshot.json'
 import { precurationSeed } from '@/components/dynamic/__tests__/precurationSeed'
@@ -173,6 +174,28 @@ describe('SchemaEditor sidebar and rename warning (monkey B16, B17)', () => {
     const wrapper = mount(SchemaEditor, opts())
     await flushPromises()
     expect(vmOf(wrapper).published).toBe(published)
+  })
+
+  it('warns on rename before the versions answer (Wave 10 polish)', async () => {
+    const schemas = useSchemasStore()
+    vi.spyOn(schemas, 'fetchVersions').mockReturnValue(new Promise(() => {}) as never)
+    vi.spyOn(schemas, 'fetchSchemaById').mockResolvedValue(curationSchema as never)
+    const wrapper = mount(SchemaEditor, opts())
+    await flushPromises()
+    expect(vmOf(wrapper).published).toBe(true)
+  })
+
+  it('blocks Save while the scoring code view holds invalid JSON (Wave 10 polish)', async () => {
+    const { wrapper, vm } = await mountView()
+    vm.isEditing = true
+    await nextTick()
+    wrapper.findComponent(PointModelBuilder).vm.$emit('error', 'Not a JSON object')
+    await nextTick()
+    expect(vm.hasJsonErrors).toBe(true)
+    expect(vm.advancedErrors).toBe(false)
+    wrapper.findComponent(PointModelBuilder).vm.$emit('error', '')
+    await nextTick()
+    expect(vm.hasJsonErrors).toBe(false)
   })
 
   it('counts the fields being edited', async () => {

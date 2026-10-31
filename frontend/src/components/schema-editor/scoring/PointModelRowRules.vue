@@ -2,11 +2,11 @@
   <div class="py-2">
     <v-row dense>
       <v-col cols="12" sm="4">
-        <v-text-field
+        <FieldPicker
           :model-value="item.points_key ?? ''"
+          :items="columns"
           label="Points column"
           placeholder="points"
-          density="compact"
           variant="outlined"
           hint="Row column holding entered points"
           :error-messages="diag(`${base}.points_key`)"
@@ -14,11 +14,11 @@
         />
       </v-col>
       <v-col v-if="item.rule === 'step'" cols="12" sm="4">
-        <v-text-field
+        <FieldPicker
           :model-value="item.field ?? ''"
-          label="Step field"
+          :items="columns"
+          label="Step column"
           placeholder="summed_lod"
-          density="compact"
           variant="outlined"
           hint="Summed over the rows; the highest step reached scores once"
           :error-messages="diag(`${base}.field`)"
@@ -65,10 +65,10 @@
       fills rows where the curator left the points blank.
     </p>
     <div v-for="(cond, c) in item.points_when ?? []" :key="c" class="d-flex ga-2 align-start">
-      <v-text-field
+      <FieldPicker
         v-model="cond.field"
-        label="Field"
-        density="compact"
+        :items="columns"
+        label="Column"
         variant="outlined"
         :error-messages="diag(`${base}.points_when[${c}].field`)"
       />
@@ -85,6 +85,7 @@
         <v-combobox
           v-if="listOp(cond) === 'in'"
           :model-value="(cond.in ?? []).map(String)"
+          :items="choicesOf(cond)"
           label="Values"
           multiple
           chips
@@ -149,14 +150,20 @@
 </template>
 
 <script setup lang="ts">
+  import FieldPicker from './FieldPicker.vue'
+  import type { ColumnOption } from './evidenceFields'
   import { keepTypes, setText, type DiagFn, type ItemType, type PointsWhen } from './pointModel'
 
-  defineProps<{ base: string; diag: DiagFn }>()
+  const props = withDefaults(
+    defineProps<{ base: string; diag: DiagFn; columns?: ColumnOption[] }>(),
+    { columns: () => [] }
+  )
   const item = defineModel<ItemType>('item', { required: true })
 
   const OPS = [
     { title: 'is one of', value: 'in' },
     { title: 'is filled in', value: 'present' },
+    { title: 'is blank', value: 'absent' },
     { title: '>', value: 'gt' },
     { title: '≥', value: 'gte' },
     { title: '<', value: 'lt' },
@@ -169,20 +176,25 @@
   /** The numeric bounds a condition holds (gte + lte is a range); none means a value list. */
   const bounds = (cond: PointsWhen): Bound[] => NUMERIC.filter(op => op in cond)
 
-  /** A condition without bounds tests a value list or that the field is filled in. */
-  const listOp = (cond: PointsWhen): Op => (cond.present === true ? 'present' : 'in')
+  /** A condition without bounds tests a value list, or that the field is filled in or blank. */
+  const listOp = (cond: PointsWhen): Op =>
+    'present' in cond ? (cond.present ? 'present' : 'absent') : 'in'
+
+  /** The picked column's choice values, so "is one of" offers what the form stores. */
+  const choicesOf = (cond: PointsWhen) =>
+    props.columns.find(c => c.value === cond.field)?.options ?? []
 
   /** Change one test; a bound keeps its value and the other bound stays. */
   const setOp = (cond: PointsWhen, from: Op, picked: string) => {
     const to = picked as Op // one of OPS: the select offers nothing else
     if (from === to) return
-    if (to === 'in' || to === 'present') {
+    if (to === 'in' || to === 'present' || to === 'absent') {
       for (const key of [...NUMERIC, 'in', 'present']) delete cond[key]
       if (to === 'in') cond.in = []
-      else cond.present = true
+      else cond.present = to === 'present'
       return
     }
-    const bound = from !== 'in' && from !== 'present'
+    const bound = from !== 'in' && from !== 'present' && from !== 'absent'
     const value = bound ? (cond[from] ?? 0) : 0
     delete cond[bound ? from : 'in']
     delete cond.present
@@ -194,8 +206,10 @@
     cond[only === 'gt' || only === 'gte' ? 'lte' : 'gte'] = 0
   }
 
+  // A cleared value removes that bound; it never turns into 0
   const setValue = (cond: PointsWhen, op: Bound, value: unknown) => {
-    cond[op] = Number(value)
+    if (value === '' || value === null || value === undefined) delete cond[op]
+    else cond[op] = Number(value)
   }
 
   const addCondition = () => {

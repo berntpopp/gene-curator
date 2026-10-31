@@ -16,7 +16,8 @@
         <v-expansion-panel-title>
           <span class="font-weight-medium">{{ section.key || 'New section' }}</span>
           <span class="text-medium-emphasis ml-3">
-            {{ section.categories.length }} categories
+            {{ section.categories.length }}
+            {{ section.categories.length === 1 ? 'category' : 'categories' }}
             <template v-if="section.cap !== undefined"> · cap {{ section.cap }}</template>
           </span>
           <v-badge
@@ -29,12 +30,18 @@
         </v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="d-flex ga-3 align-start">
-            <v-text-field
+            <FieldPicker
               v-model="section.key"
+              :items="sections"
               label="Section key"
-              density="compact"
               variant="outlined"
-              hint="The evidence object this section reads"
+              :hint="
+                sections.some(o => o.value === section.key)
+                  ? 'Types read the tables inside this form field'
+                  : 'Types read the form\'s tables from the top level'
+              "
+              persistent-hint
+              empty-text="No grouped field; any name works, tables are read from the top level"
               :error-messages="diag(`${MODEL_PATH}.sections[${i}].key`)"
             />
             <v-text-field
@@ -96,7 +103,12 @@
                   @click="section.categories.splice(j, 1)"
                 />
               </div>
-              <PointModelTypes v-model="category.types" :base="`${cat(i, j)}.types`" :diag="diag" />
+              <PointModelTypes
+                v-model="category.types"
+                :base="`${cat(i, j)}.types`"
+                :diag="diag"
+                :tables="tableOptions(fieldDefinitions, section.key)"
+              />
             </v-card-text>
           </v-card>
           <v-btn
@@ -115,12 +127,19 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { computed, ref } from 'vue'
+  import FieldPicker from './FieldPicker.vue'
   import PointModelTypes from './PointModelTypes.vue'
+  import { sectionOptions, tableOptions } from './evidenceFields'
   import { MODEL_PATH, setNumber, type Category, type DiagFn, type PointModel } from './pointModel'
 
-  defineProps<{ diag: DiagFn; count: (...prefixes: string[]) => number }>()
+  const props = defineProps<{
+    diag: DiagFn
+    count: (...prefixes: string[]) => number
+    fieldDefinitions?: Record<string, unknown>
+  }>()
   const model = defineModel<PointModel>({ required: true })
+  const sections = computed(() => sectionOptions(props.fieldDefinitions))
   const openSections = ref<number[]>([])
 
   const COMBINE = [

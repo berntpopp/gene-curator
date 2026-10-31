@@ -3,7 +3,7 @@
     <v-table density="compact" class="point-types">
       <thead>
         <tr>
-          <th>Evidence path</th>
+          <th class="path">Evidence table</th>
           <th>Rule</th>
           <th class="num">Default</th>
           <th class="num">Min</th>
@@ -18,12 +18,13 @@
         <template v-for="(item, k) in types" :key="k">
           <tr>
             <td>
-              <v-text-field
+              <FieldPicker
                 v-model="item.path"
-                aria-label="Evidence path"
-                density="compact"
-                variant="plain"
-                placeholder="table.path"
+                :items="tables"
+                aria-label="Evidence table"
+                variant="underlined"
+                placeholder="Choose a table"
+                empty-text="This schema has no evidence table here yet"
                 :error-messages="diag(`${base}[${k}].path`)"
                 :hide-details="!diag(`${base}[${k}].path`).length"
               />
@@ -34,7 +35,7 @@
                 :items="RULES"
                 aria-label="Rule"
                 density="compact"
-                variant="plain"
+                variant="underlined"
                 hide-details
                 @update:model-value="v => setText(item, 'rule', v)"
               />
@@ -45,19 +46,19 @@
                 :aria-label="col.label"
                 type="number"
                 density="compact"
-                variant="plain"
+                variant="underlined"
                 :error-messages="diag(`${base}[${k}].${col.key(item)}`)"
                 :hide-details="!diag(`${base}[${k}].${col.key(item)}`).length"
                 @update:model-value="v => col.set(item, v)"
               />
             </td>
             <td>
-              <v-text-field
+              <FieldPicker
                 :model-value="item.group_by ?? ''"
-                aria-label="Group by field"
-                density="compact"
-                variant="plain"
-                placeholder="variant"
+                :items="columnsOf(item)"
+                aria-label="Group by column"
+                variant="underlined"
+                placeholder="None"
                 :error-messages="diag(`${base}[${k}].group_by`)"
                 :hide-details="!diag(`${base}[${k}].group_by`).length"
                 @update:model-value="v => setText(item, 'group_by', v)"
@@ -69,7 +70,7 @@
                 aria-label="Group cap"
                 type="number"
                 density="compact"
-                variant="plain"
+                variant="underlined"
                 :error-messages="diag(`${base}[${k}].group_cap`)"
                 :hide-details="!diag(`${base}[${k}].group_cap`).length"
                 @update:model-value="v => setNumber(item, 'group_cap', v)"
@@ -102,7 +103,12 @@
           </tr>
           <tr v-if="open[k]">
             <td colspan="9" class="bg-surface-light">
-              <PointModelRowRules :item="item" :base="`${base}[${k}]`" :diag="diag" />
+              <PointModelRowRules
+                :item="item"
+                :base="`${base}[${k}]`"
+                :diag="diag"
+                :columns="columnsOf(item)"
+              />
             </td>
           </tr>
         </template>
@@ -116,16 +122,26 @@
 
 <script setup lang="ts">
   import { reactive } from 'vue'
+  import FieldPicker from './FieldPicker.vue'
   import PointModelRowRules from './PointModelRowRules.vue'
+  import type { ColumnOption, TableOption } from './evidenceFields'
   import { setNumber, setText, type DiagFn, type ItemType } from './pointModel'
 
-  defineProps<{ base: string; diag: DiagFn }>()
+  const props = withDefaults(
+    defineProps<{ base: string; diag: DiagFn; tables?: TableOption[] }>(),
+    {
+      tables: () => []
+    }
+  )
+  /** Columns of the table a type reads; empty while its path names no known table. */
+  const columnsOf = (item: ItemType): ColumnOption[] =>
+    props.tables.find(t => t.value === item.path)?.columns ?? []
   const types = defineModel<ItemType[]>({ required: true })
   const open = reactive<Record<number, boolean>>({})
 
   // '' is the default rule: the row's points (or the type default)
   const RULES = [
-    { title: 'Points entered', value: '' },
+    { title: 'Entered, else default', value: '' },
     { title: 'Case row', value: 'case_row' },
     { title: 'Segregation (LOD)', value: 'segregation' },
     { title: 'Explicit points', value: 'explicit_points' },
@@ -176,5 +192,8 @@
   }
   .num {
     width: 88px;
+  }
+  .path {
+    min-width: 200px;
   }
 </style>
