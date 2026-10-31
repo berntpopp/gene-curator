@@ -21,7 +21,8 @@ GOOD = [
     ("clingen_allele", "CA123456"),
     ("clingen_validity", "CGGV:assertion_6c4f6a5e-4b59-4b0f-8b55-7c1b2a7c6a10"),
     ("url", "https://example.org/record/1"),
-    ("database", "LOVD #0001234"),
+    ("database", "LOVD:0001234"),
+    ("database", "OMIM:600123"),
 ]
 BAD = [
     ("pmid", "PMID12"),
@@ -32,6 +33,8 @@ BAD = [
     ("clingen_allele", "CAX12"),
     ("clingen_validity", "CGGV:12345"),
     ("url", "javascript:alert(1)"),
+    ("database", "garbage!!"),  # a database record is prefix:id
+    ("database", "LOVD 1"),
 ]
 
 

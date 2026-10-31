@@ -30,7 +30,10 @@ ID_FORMATS: dict[str, tuple[re.Pattern[str], str]] = {
         re.compile(r"CGGV:assertion_\S+"),
         "a ClinGen gene validity id looks like CGGV:assertion_<uuid>",
     ),
-    "database": (re.compile(r"\S.*"), "name the database record"),
+    "database": (
+        re.compile(r"[A-Za-z][\w.-]*:\S+"),
+        "a database record is prefix:id, e.g. OMIM:600123",
+    ),
 }
 KINDS = (*ID_FORMATS, "url")
 DIRECTIONS = ("supports", "disputes", "neutral")  # VA-Spec directionOfEvidenceProvided
