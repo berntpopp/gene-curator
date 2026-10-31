@@ -151,6 +151,18 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).not.toContain('No actions available')
   })
 
+  it('says why nothing is available: the corrector, or the approvals still needed (monkey R2-5)', async () => {
+    useAuthStore().user = { id: 'sadmin' } as never
+    let wrapper = await load({ created_by: 'alice', corrected_disease: true })
+    expect(wrapper.text()).toContain('You corrected the disease entity')
+    expect(wrapper.text()).not.toContain('No actions available')
+    wrapper = await load({ created_by: 'alice', approvals_remaining: 2 })
+    expect(wrapper.text()).toContain('Waiting for 2 more approvals')
+    // The first reviewer learns before approving that two approvals are required
+    wrapper = await load({ can_review: true, created_by: 'alice', approvals_remaining: 2 })
+    expect(wrapper.text()).toContain('Needs 2 approvals')
+  })
+
   it('links a reviewer to the AI second view, nobody else (#530)', async () => {
     const link = (w: Awaited<ReturnType<typeof load>>) =>
       w.findAllComponents({ name: 'VBtn' }).find(b => b.text() === 'AI second view')

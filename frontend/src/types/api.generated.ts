@@ -4895,6 +4895,11 @@ export interface components {
             /** Approvals Remaining */
             approvals_remaining?: number | null;
             /**
+             * Corrected Disease
+             * @default false
+             */
+            corrected_disease: boolean;
+            /**
              * Assigned Reviewers
              * @description In review: who still has to review it
              */
