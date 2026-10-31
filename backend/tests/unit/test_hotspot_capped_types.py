@@ -64,3 +64,19 @@ def test_groups_are_normalised_like_the_cap() -> None:
         },
     )
     assert result["variant_points"] == {"c.1a>g": 2.0}
+
+
+def test_a_group_by_other_than_the_variant_still_keys_the_flag_by_variant() -> None:
+    by_family = {**PROBANDS, "group_by": "family"}
+    model = {
+        **MODEL,
+        "sections": [
+            {
+                "key": "genetic",
+                "categories": [{"key": "probands", "types": [by_family]}],
+            }
+        ],
+    }
+    rows = [{"variant": "c.1A>G", "family": f"F{i}", "pmid": PMID} for i in range(3)]
+    result = score(model, {"genetic": {"probands": rows}})
+    assert result["variant_points"] == {"c.1a>g": 3.0}  # not one key per family
