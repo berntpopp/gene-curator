@@ -86,7 +86,8 @@ def _plan_schema(
     published = latest.snapshot if latest else None
     wanted, current = _snapshot(spec.model_dump()), _snapshot(row)
     if published == wanted and current == wanted:
-        item.action = "unchanged"
+        # description is not versioned content: written in place, no new version
+        item.action = "update" if row.description != spec.description else "unchanged"
         item.methodology_version = latest.version if latest else None
         return item, row, None
     if current not in (published, wanted):  # never overwrite unpublished UI edits
@@ -163,7 +164,7 @@ def _write_schema(
             )
         )
         version = (latest or 0) + 1
-        for key in (*SNAPSHOT_KEYS, "schema_hash"):
+        for key in (*SNAPSHOT_KEYS, "schema_hash", "description"):
             setattr(row, key, data[key])
         # in SQL: the loaded row may predate an editor's save; their copy is stale now (#282)
         row.lock_version = CurationSchema.lock_version + 1
@@ -256,10 +257,16 @@ def import_bundle(
 
     ids: dict[str, UUID | None] = {}
     for spec, item, row in planned:
-        if write and item.action != "unchanged":
+        if write and item.action in ("create", "new_version"):
             assert item.methodology_version is not None
             row = _write_schema(db, spec, row, item.methodology_version, user_id)
             item.id = row.id
+        elif write and item.action == "update":
+            assert row is not None
+            row.description = spec.description
+            row.lock_version = (
+                CurationSchema.lock_version + 1
+            )  # as _write_schema (#282)
         ids[spec.name] = item.id
 
     items = [item for _, item, _ in planned]

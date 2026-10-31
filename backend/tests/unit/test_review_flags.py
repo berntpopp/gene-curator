@@ -174,3 +174,24 @@ def test_hotspot_names_the_variants_there_are() -> None:
 )
 def test_more_invalid_review_flags(flags: Any, paths: list[str]) -> None:
     assert _flag_errors(flags) == paths
+
+
+def _kgdb_susceptibility_flags(cases: int) -> list[str]:
+    from tests.unit.test_kgdb_methodology import SCHEMAS
+
+    config = SCHEMAS["KGDB Susceptibility Curation"]["scoring_configuration"]
+    study = {"pmid": PMID, "study_label": "A", "variant": "rs1", "cases_total": cases}
+    study |= {"controls_total": cases, "significant_after_correction": True}
+    functional = [{"pmid": PMID, "assay": "a"}, {"pmid": PMID, "assay": "b"}]
+    evidence = {"association": {"studies": [study]}}
+    evidence["experimental"] = {"functional": functional}
+    return _flags(config["point_model"], evidence)
+
+
+def test_band_margin_measures_a_section_min_band_by_its_section() -> None:
+    """Functional points never reach a band with section_min (association >= 4)."""
+    assert _kgdb_susceptibility_flags(30) == []  # association 1 + functional 2
+    assert _kgdb_susceptibility_flags(600) == [  # association 3 + functional 2
+        "review_flags.band_margin: the total of 5 points is within 1 points of the "
+        "likely band edge at 4 (association 3 of 4); check the evidence near the boundary"
+    ]

@@ -9,7 +9,7 @@ as one import bundle ([docs/METHODOLOGY-IMPORT.md](../../METHODOLOGY-IMPORT.md))
 | Precuration schema | `KGDB Mendelian Precuration` | `alpha` |
 | Precuration schema | `KGDB Susceptibility Precuration` | `alpha` |
 | Curation schema | `KGDB Mendelian Curation` (point model) | `alpha` |
-| Curation schema | `KGDB Susceptibility Curation` (Established / Likely / Uncertain; **provisional, not approved by KGDB**) | `alpha` |
+| Curation schema | `KGDB Susceptibility Curation` (Established / Likely / Uncertain / Refuted; approved by KGDB on 2026-10-31, [kidney-genetics-db#473](https://github.com/berntpopp/kidney-genetics-db/issues/473)) | `alpha` |
 | Workflow pair | `KGDB Mendelian` (default of scope `kidney-genetics`) | `alpha` |
 | Workflow pair | `KGDB Susceptibility` | `alpha` |
 
@@ -30,7 +30,8 @@ the entity key (`MONDO|MOI|SUSCEPTIBILITY`).
 ## Import
 
 Platform admins only. The import is idempotent: the same file again changes nothing; changed
-content publishes the next methodology version, and existing curations keep theirs. Every
+content publishes the next methodology version, and existing curations keep theirs. A changed
+schema `description` is written without a new version. Every
 schema runs the publish gate, including the scoring tests embedded below.
 
 - **UI:** Schema Management, *Import methodology*, with a dry run first.
@@ -76,15 +77,33 @@ Reviewer flags: total within 2 points of a band edge, experimental above genetic
 (the top 2 variants carry >= 50% of proband points and one of them is in 2 or more scoring
 probands; single-proband variants never raise it; the hotspot pilot case raises it).
 
-Susceptibility (**provisional, not approved by KGDB**; the tiering is a Gene Curator draft):
-significant association studies score 2 points each (cap 6). A study scores 0 without a p
-value, with p > 0.05, or with a protective odds ratio (< 1; protective alleles do not count
-toward a risk-allele tier unless KGDB decides otherwise). Functional data score 1 each (cap
-2). Established needs association >= 4 and `replicated_over_time`; Likely association >= 2;
-otherwise Uncertain. Disputed or refuted contradictory evidence sets Uncertain, because KGDB's
-susceptibility vocabulary (`Established association`, `Likely association`, `Uncertain
-association`) has no Disputed or Refuted class; the trace's `classification_rule` names the
-override. Open KGDB question: should a refuted risk allele get its own class?
+Susceptibility (approved by KGDB in
+[kidney-genetics-db#473](https://github.com/berntpopp/kidney-genetics-db/issues/473); ClinGen
+LP/RA WG tiers, Schmidt 2024, PMID 38054408, put into point-model form). One entity is gene +
+disease + one named risk allele, haplotype or genotype; studies of different alleles do not add up.
+
+| Category | Row | Default | Cap |
+| --- | --- | --- | --- |
+| `association.studies` | significant study of the named allele, OR and 95% CI oriented to it | 1; 2 if >= 50 cases and >= 50 controls; 3 if >= 500 and >= 500 or `design` `meta_analysis` | 9 |
+| `experimental.functional` | assay, expression/eQTL or model supporting the allele | 1 | 2 |
+
+Total 11. A study row scores 0 when `significant_after_correction` is false or blank,
+`included_in` names a meta-analysis row (so a cohort is not counted twice), or
+`effect_direction` is `protective` (protective alleles are recorded, not scored). Effect size is
+recorded, not scored (`p_value` is stored only; a blank one does not change the points); an OR
+< 1 for the curated risk allele is contradictory evidence. The size tier is only the default: the
+form accepts any entered value from 0 to 3 (e.g. fewer for bias or poor ancestry matching), and
+an entered value stands. The reviewer must check, in the score trace, any entered value above the
+row's size tier.
+
+Bands use the association section only, so functional data never move the class: Established
+>= 6 and `meets_very_strong` (ClinGen Very Strong: > 1000 individuals, extensive replication,
+little inconsistency, bias excluded); Likely >= 4; otherwise Uncertain. A curation with 0
+association points also falls back to Uncertain; KGDB does not publish it (open question Q3 of kidney-genetics-db#473).
+`replicated_over_time` is kept (frozen id) but no longer sets a susceptibility class.
+Contradictory evidence with impact `refuted` sets `refuted` (Refuted association); `disputed`
+sets Uncertain, because ClinGen puts conflicting risk-allele evidence under Uncertain. The trace's
+`classification_rule` names the override.
 
 Embedded `scoring_configuration.tests` (run at every publish and import):
 
@@ -98,7 +117,18 @@ Embedded `scoring_configuration.tests` (run at every publish and import):
 | Compound het without a phase | 1 | limited |
 | Proband without zygosity (AF cutoff) | 1 | limited |
 | Row rules (de novo, zero rules, AF caps, models 1) | 4.5 | limited |
-| Susceptibility: established, likely, non-significant, no p value / protective OR, refuted, functional only | 4, 4, 0, 0, 4, 1 | established, likely, uncertain x4 |
+| Susceptibility: established (600/700 + 800/900, Very Strong) | 6 | established |
+| Susceptibility: likely (600/700 + 120/150, not Very Strong) | 5 | likely |
+| Susceptibility: small study; not significant after correction, or blank, scores 0 | 1 | uncertain |
+| Susceptibility: refuted overrides an established score | 6 | refuted |
+| Susceptibility: meta-analysis, its included cohorts not counted again | 3 | uncertain |
+| Susceptibility: protective study recorded, not scored | 0 | uncertain |
+| Susceptibility: functional only | 2 | uncertain |
+| Susceptibility: three 600/700 studies, not Very Strong | 9 | likely |
+| Susceptibility: one 600/700 study + two functional rows (`section_min`) | 5 | uncertain |
+| Susceptibility: disputed overrides an established score | 6 | uncertain |
+| Susceptibility: size tiers (blank p value 120/150 = 2, 50/50 = 2, 500/500 = 3, 600/40 = 1) | 8 | likely |
+| Susceptibility: Very Strong, 5 association + 2 functional (`section_min`) | 7 | likely |
 
 ## LLM sharing
 
@@ -133,8 +163,8 @@ unless the scope exports evidence publicly).
 
 Class keys: `definitive`, `strong`, `moderate`, `limited`, `no_known`, `disputed`,
 `refuted` (KGDB `Definitive` ... `No Known Disease Relationship`); susceptibility
-`established`, `likely`, `uncertain` (KGDB `Established association`, `Likely association`,
-`Uncertain association`).
+`established`, `likely`, `uncertain`, `refuted` (KGDB `Established association`, `Likely
+association`, `Uncertain association`, `Refuted association`).
 
 ### Diagnostics: GC evidence -> KGDB `Diagnostics`
 
@@ -338,6 +368,9 @@ association.studies[].controls_total
 association.studies[].odds_ratio
 association.studies[].p_value
 association.studies[].pmid
+association.studies[].significant_after_correction
+association.studies[].effect_direction
+association.studies[].included_in
 association.studies[].points
 association.studies[].sources
 association.studies[].direction
@@ -356,6 +389,7 @@ contradictory_evidence[].source
 contradictory_evidence[].pmid
 contradictory_evidence[].sources
 contradictory_evidence[].direction
+meets_very_strong
 replicated_over_time
 reported_not_scored
 context_notes

@@ -184,7 +184,7 @@ def _page(db: Session) -> dict[str, Any]:
         (41, "CLDN16", "MONDO:0009461|HP:0000007", _cldn16(), 16, "definitive",
          CurationStatus.ACTIVE, None),
         (42, "APOL1", "MONDO:0011308|HP:0000007|SUSCEPTIBILITY",
-         TESTS["Established:"], 4, "established", CurationStatus.ACTIVE, None),
+         TESTS["Established:"], 6, "established", CurationStatus.ACTIVE, None),
         (43, "NEK8", "MONDO:0013727|HP:0000006", TESTS["NEK8"], 14, "strong",
          CurationStatus.ARCHIVED, "Curation deleted"),
     ]  # fmt: skip

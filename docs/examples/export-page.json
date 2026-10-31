@@ -386,7 +386,7 @@
       "curator_classification_rationale": null,
       "genetic_score": null,
       "experimental_score": null,
-      "total_score": 4.0,
+      "total_score": 6.0,
       "methodology": {
         "schema_name": "KGDB Mendelian Curation",
         "version": null,
@@ -403,20 +403,28 @@
               "pmid": "31000080",
               "study_label": "Cohort A",
               "variant": "rs4844573",
-              "p_value": 0.001
+              "p_value": 1e-09,
+              "significant_after_correction": true,
+              "effect_direction": "risk",
+              "cases_total": 600,
+              "controls_total": 700
             },
             {
               "pmid": "31000081",
               "study_label": "Cohort B",
               "variant": "rs4844573",
-              "p_value": 0.01
+              "p_value": 1e-09,
+              "significant_after_correction": true,
+              "effect_direction": "risk",
+              "cases_total": 800,
+              "controls_total": 900
             }
           ]
         },
-        "replicated_over_time": true
+        "meets_very_strong": true
       },
       "scores": {
-        "total_score": 4
+        "total_score": 6
       },
       "summary": null,
       "curator_name": "Alice Curator",
