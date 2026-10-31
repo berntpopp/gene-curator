@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="text-title-small mb-2">Table columns</div>
+    <div class="text-title-small mb-2">{{ title }}</div>
     <div
       v-for="(row, i) in rows"
       :key="i"
@@ -9,7 +9,7 @@
     >
       <v-text-field
         v-model="row.key"
-        label="Column id"
+        :label="`${Noun} id`"
         density="compact"
         variant="outlined"
         hide-details="auto"
@@ -19,7 +19,7 @@
       />
       <v-text-field
         :model-value="String(row.def.label ?? '')"
-        label="Column label"
+        :label="`${Noun} label`"
         density="compact"
         variant="outlined"
         hide-details
@@ -27,9 +27,9 @@
         @update:model-value="v => set(row, 'label', v)"
       />
       <v-select
-        :model-value="row.def.type"
+        :model-value="pickerType(row.def.type)"
         :items="FIELD_TYPES"
-        label="Column type"
+        :label="`${Noun} type`"
         density="compact"
         variant="outlined"
         hide-details
@@ -57,17 +57,28 @@
         icon="mdi-delete"
         variant="text"
         size="small"
-        :aria-label="`Remove column ${row.key || i + 1}`"
+        :aria-label="`Remove ${noun} ${row.key || i + 1}`"
         @click="remove(i)"
       />
+      <!-- A group inside a group: its own fields, edited the same way -->
+      <ColumnsEditor
+        v-if="row.def.type === 'object'"
+        class="nested"
+        :model-value="childrenOf(row)"
+        :title="`Fields in ${row.key || 'this group'}`"
+        noun="field"
+        @update:model-value="v => set(row, 'properties', v)"
+      />
     </div>
-    <v-btn variant="tonal" size="small" prepend-icon="mdi-plus" @click="add"> Add column </v-btn>
+    <v-btn variant="tonal" size="small" prepend-icon="mdi-plus" @click="add">
+      Add {{ noun }}
+    </v-btn>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue'
-  import { CHOICE_TYPES, FIELD_TYPES, clone } from './fieldModel'
+  import { computed, ref } from 'vue'
+  import { CHOICE_TYPES, FIELD_TYPES, clone, pickerType } from './fieldModel'
 
   type Def = Record<string, unknown>
   interface Row {
@@ -75,8 +86,13 @@
     def: Def
   }
 
-  // Evidence-table columns ({ key: field }); keys the editor does not show are kept per column
-  const props = defineProps<{ modelValue: Record<string, Def> | undefined }>()
+  // Evidence-table columns or a group's properties ({ key: field }); keys the editor does not
+  // show are kept per entry
+  const props = withDefaults(
+    defineProps<{ modelValue: Record<string, Def> | undefined; title?: string; noun?: string }>(),
+    { title: 'Table columns', noun: 'column' }
+  )
+  const Noun = computed(() => props.noun[0]!.toUpperCase() + props.noun.slice(1))
   const emit = defineEmits<{ 'update:modelValue': [value: Record<string, Def>] }>()
 
   // jsonb does not keep key order: each column carries its `order` (monkey B10)
@@ -95,6 +111,8 @@
           .map((r, i) => [r.key.trim(), Object.assign(r.def, { order: i + 1 })])
       )
     )
+
+  const childrenOf = (row: Row) => row.def.properties as Record<string, Def> | undefined
 
   const set = (row: Row, key: string, value: unknown) => {
     row.def[key] = value
@@ -119,14 +137,17 @@
   }
 
   const keyRule = (i: number) => (v: string) => {
-    if (!v.trim()) return 'Column id is required'
+    if (!v.trim()) return `${Noun.value} id is required`
     return rows.value.some((r, j) => j !== i && r.key.trim() === v.trim())
-      ? 'Column ids must be unique'
+      ? `${Noun.value} ids must be unique`
       : true
   }
 
   const add = () => {
-    rows.value.push({ key: `column_${rows.value.length + 1}`, def: { type: 'text', label: '' } })
+    rows.value.push({
+      key: `${props.noun}_${rows.value.length + 1}`,
+      def: { type: 'text', label: '' }
+    })
     sync()
   }
 
@@ -145,5 +166,10 @@
   }
   .col-type {
     flex: 1 1 160px;
+  }
+  .nested {
+    flex: 1 1 100%;
+    padding-left: 24px;
+    border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
   }
 </style>

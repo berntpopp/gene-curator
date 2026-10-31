@@ -165,6 +165,8 @@ def _write_schema(
         version = (latest or 0) + 1
         for key in (*SNAPSHOT_KEYS, "schema_hash"):
             setattr(row, key, data[key])
+        # in SQL: the loaded row may predate an editor's save; their copy is stale now (#282)
+        row.lock_version = CurationSchema.lock_version + 1
     db.add(
         MethodologyVersion(
             schema_id=row.id,

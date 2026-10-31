@@ -78,7 +78,7 @@ def test_put_on_schema_leaves_published_snapshot_unchanged(
     v1 = client.post(f"{BASE}/{schema.id}/versions", headers=auth(admin_token)).json()
     r = client.put(
         f"{BASE}/{schema.id}",
-        json={"field_definitions": {"other": {"type": "text"}}},
+        json={"field_definitions": {"other": {"type": "text"}}, "lock_version": 0},
         headers=auth(admin_token),
     )
     assert r.status_code == 200, r.text

@@ -59,7 +59,9 @@ export const useValidationStore = defineStore('validation', {
       evidenceData: Record<string, unknown>,
       schemaId: string,
       key: string = 'default',
-      methodologyVersionId?: string
+      methodologyVersionId?: string,
+      /** An unsaved definition (the schema editor's draft): validated instead of the saved one */
+      schemaDefinition?: Record<string, unknown>
     ) {
       const request = nextRequest(key)
       this.loading = true
@@ -69,7 +71,8 @@ export const useValidationStore = defineStore('validation', {
           evidence_data: evidenceData,
           schema_id: schemaId,
           // Validate against the version the form renders (a pinned record's, not the latest)
-          ...(methodologyVersionId && { methodology_version_id: methodologyVersionId })
+          ...(methodologyVersionId && { methodology_version_id: methodologyVersionId }),
+          ...(schemaDefinition && { schema_definition: schemaDefinition })
         }
         const result = await validationAPI.validateEvidence(validationData)
         // Replies can land out of order: only the latest request for the key may store its result

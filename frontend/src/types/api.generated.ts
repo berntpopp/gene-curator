@@ -5230,6 +5230,11 @@ export interface components {
             updated_at?: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Lock Version
+             * @default 0
+             */
+            lock_version: number;
         };
         /**
          * CurationSchemaCreate
@@ -5402,6 +5407,11 @@ export interface components {
             is_active?: boolean | null;
             /** Use Dynamic Form */
             use_dynamic_form?: boolean | null;
+            /**
+             * Lock Version
+             * @description The lock_version the writer loaded; a stale one is 409
+             */
+            lock_version: number;
         };
         /**
          * CurationScoreResponse

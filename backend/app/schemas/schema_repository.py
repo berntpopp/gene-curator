@@ -64,6 +64,9 @@ class CurationSchemaUpdate(BaseModel):
     scoring_configuration: dict[str, Any] | None = None
     is_active: bool | None = None
     use_dynamic_form: bool | None = None
+    lock_version: int = Field(
+        ..., description="The lock_version the writer loaded; a stale one is 409"
+    )
 
     @field_validator(
         "name",
@@ -90,6 +93,7 @@ class CurationSchemaInDBBase(CurationSchemaBase):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     created_by: UUID | None = None
+    lock_version: int = 0
 
     model_config = ConfigDict(
         from_attributes=True,

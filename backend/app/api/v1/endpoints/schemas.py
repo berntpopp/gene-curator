@@ -16,13 +16,14 @@ from app.core import deps
 from app.core.database import get_db
 from app.core.enum_options import flatten_sections
 from app.core.schema_compact import compact_field, ranges_for, rules_for, subtree
+from app.crud.optimistic_lock import claim_version
 from app.crud.schema_repository import (
     SNAPSHOT_KEYS,
     publish_errors,
     schema_crud,
     workflow_pair_crud,
 )
-from app.models import UserNew
+from app.models import CurationSchema as CurationSchemaModel, UserNew
 from app.models.methodology import MethodologyVersion as MethodologyVersionModel
 from app.schemas.schema_repository import (
     CurationSchema,
@@ -314,7 +315,16 @@ def update_curation_schema(
         raise HTTPException(status_code=404, detail="Schema not found")
 
     with _unique_name_version(db):
-        schema = schema_crud.update(db, db_obj=schema, obj_in=schema_in)
+        if not claim_version(
+            db, CurationSchemaModel, schema_id, schema_in.lock_version
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="This schema was saved by someone else since you opened it. "
+                "Reload it and apply your changes again.",
+            )
+        values = schema_in.model_dump(exclude_unset=True, exclude={"lock_version"})
+        schema = schema_crud.update(db, db_obj=schema, obj_in=values)
     return schema  # type: ignore[return-value]
 
 

@@ -45,7 +45,31 @@
             @click="remove(i)"
           />
         </div>
+        <!-- Evidence is entered in the form curators use; JSON stays for what the form lacks -->
+        <v-btn-toggle
+          v-if="definition"
+          :model-value="formOpen === i ? 'form' : 'json'"
+          mandatory
+          density="compact"
+          variant="outlined"
+          class="mb-3"
+          @update:model-value="v => openForm(v === 'form' ? i : null)"
+        >
+          <v-btn value="form" prepend-icon="mdi-form-select">Form</v-btn>
+          <v-btn value="json" prepend-icon="mdi-code-json">JSON</v-btn>
+        </v-btn-toggle>
+        <DynamicForm
+          v-if="definition && formOpen === i"
+          :schema-id="schemaId ?? ''"
+          :definition="definition"
+          :initial-data="test.evidence_data"
+          title=""
+          hide-actions
+          hide-scoring
+          @update:model-value="data => setFromForm(i, data)"
+        />
         <v-textarea
+          v-else
           :model-value="evidenceText(i, test.evidence_data)"
           label="Evidence (JSON, as a curation stores it)"
           rows="4"
@@ -78,17 +102,51 @@
 </template>
 
 <script setup lang="ts">
-  import { reactive } from 'vue'
+  import { reactive, ref } from 'vue'
+  import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import { normalizeDefinition } from '@/components/dynamic/normalizeDefinition'
+  import { withDeclaredDefaults } from '@/components/dynamic/formDefaults'
   import { setNumber, setText, type ScoringTest } from './pointModel'
   import type { TestResult } from './usePointModelChecks'
 
-  defineProps<{ results: TestResult[]; running: boolean; classKeys: string[] }>()
+  const props = defineProps<{
+    results: TestResult[]
+    running: boolean
+    classKeys: string[]
+    /** The draft schema: test evidence is filled in its form (Preview) instead of as JSON */
+    definition?: Record<string, unknown>
+    schemaId?: string
+  }>()
   const emit = defineEmits<{ run: [] }>()
   const tests = defineModel<ScoringTest[] | undefined>()
 
   // Text being typed that is not JSON yet stays in the box with its error
   const drafts = reactive<Record<number, string>>({})
   const parseErrors = reactive<Record<number, string>>({})
+
+  // One form at a time: every form validates through the same store slot
+  const formOpen = ref<number | null>(null)
+  // What the form shows on opening: the test's evidence plus the declared defaults
+  let opening = ''
+
+  const openForm = (i: number | null) => {
+    formOpen.value = i
+    const test = i === null ? undefined : tests.value?.[i]
+    if (!test || !props.definition) return
+    const fields = normalizeDefinition(props.definition).properties
+    opening = JSON.stringify(withDeclaredDefaults(test.evidence_data ?? {}, fields))
+  }
+
+  /** Only an edit writes: opening the form never adds its default values to a test */
+  const setFromForm = (i: number, data: Record<string, unknown>) => {
+    const test = tests.value?.[i]
+    const json = JSON.stringify(data)
+    if (!test || json === opening || json === JSON.stringify(test.evidence_data)) return
+    opening = ''
+    test.evidence_data = data
+    delete drafts[i]
+    delete parseErrors[i]
+  }
 
   const evidenceText = (i: number, data: unknown) => drafts[i] ?? JSON.stringify(data, null, 2)
 
@@ -112,6 +170,7 @@
     const rest = (tests.value ?? []).filter((_, k) => k !== i)
     for (const box of [drafts, parseErrors])
       for (const key of Object.keys(box)) delete box[Number(key)]
+    formOpen.value = null
     tests.value = rest.length ? rest : undefined
   }
 </script>
