@@ -41,14 +41,14 @@ from app.models import (
     WorkflowPair,
     WorkflowStage,
 )
-from app.models.curation import _MOI_SYNONYMS
 from app.models.model_enums import NotificationType
 from app.schemas.clingen_adoption import (
     ClinGenAdoptionItem,
     ClinGenAdoptionResult,
     ClinGenAdoptionRow,
+    entity_errors,
 )
-from app.schemas.curation import CurationUpdate, class_key
+from app.schemas.curation import CLASSIFICATION_KEYS, CurationUpdate, class_key
 from app.schemas.provenance import Agent, Contribution, contribution
 from app.scoring.point_limits import scoring_configuration
 from app.services.evidence_diff import NEW_REVIEW_ROUND
@@ -62,36 +62,13 @@ ADOPTION_COMMENT = (
 )
 
 
-def _moi(value: str) -> str:
-    """AD, 'Autosomal dominant inheritance' and HP:0000006 alike, as the entity key squashes."""
-    squashed = "".join(c for c in value.lower() if c not in " _-").replace(
-        "inheritance", ""
-    )
-    for abbr, synonyms in _MOI_SYNONYMS.items():
-        if squashed == abbr or squashed in synonyms:
-            return abbr.upper()
-    return squashed.upper()
-
-
-def _mondo(value: str) -> str:
-    return value.strip().upper().replace("_", ":")
-
-
 def _row_errors(db: Session, row: ClinGenAdoptionRow, gene: Gene | None) -> list[str]:
     record = row.clingen
-    errors = []
     if gene is None:
         return ["gene_id: gene not found"]
-    if gene.hgnc_id != record.hgnc_id:
-        errors.append(f"clingen.hgnc_id: {record.hgnc_id} is not {gene.hgnc_id}")
-    if _mondo(record.mondo) != _mondo(row.mondo_id):
-        errors.append(
-            f"clingen.mondo: {record.mondo} is not the entity's {row.mondo_id}"
-        )
-    if _moi(record.moi) != _moi(row.mode_of_inheritance):
-        errors.append(
-            f"clingen.moi: {record.moi} is not the entity's {row.mode_of_inheritance}"
-        )
+    errors = entity_errors(
+        record, gene.hgnc_id, row.mondo_id, row.mode_of_inheritance, "clingen"
+    )
     if db.get(WorkflowPair, row.workflow_pair_id) is None:
         return [*errors, "workflow_pair_id: workflow pair not found"]
     allowed = allowed_classifications(scoring_configuration(db, row.workflow_pair_id))
@@ -253,14 +230,16 @@ def adopted_edit_allowed(curation: CurationNew, update: CurationUpdate) -> bool:
     ClinGen's. False for anything else, which the draft-only rule refuses."""
     if not (curation.clingen_adoption and curation.status == CurationStatus.IN_REVIEW):
         return False
-    called = {"curator_classification", "curator_classification_rationale"}
     entity = (curation.evidence_data or {}).get("entity_definition")
     after = (
         _patched(curation, update.evidence_data, update.merge)[0]
         if update.evidence_data is not None
         else curation.evidence_data or {}
     )
-    if called & update.model_fields_set or after.get("entity_definition") != entity:
+    if (
+        CLASSIFICATION_KEYS & update.model_fields_set
+        or after.get("entity_definition") != entity
+    ):
         raise HTTPException(
             409, "An adopted curation keeps ClinGen's entity and classification"
         )
@@ -329,11 +308,6 @@ def adoption_statement(
     # No contributor id: the export is public and user ids are not (names already are)
     made = [
         contribution(
-            "interpreter",
-            Agent(name=record["expert_panel"], agentType="organization"),
-            record["classified_date"],
-        ),
-        contribution(
             "curator", Agent(name=curator_name, agentType="person"), curation.created_at
         ),
     ]
@@ -345,6 +319,25 @@ def adoption_statement(
                 curation.approved_at,
             )
         )
+    return clingen_statement(record, made)
+
+
+def clingen_statement(
+    record: dict[str, Any] | None, ours: list[Contribution] | None = None
+) -> dict[str, Any] | None:
+    """A stored ClinGen record as a VA-Spec-style statement: the GCEP as interpreter, then
+    `ours` (who adopted and approved it); None without a record. Also the export's
+    clingen_reference, which KGDB parses with the adoption."""
+    if not record:
+        return None
+    made = [
+        contribution(
+            "interpreter",
+            Agent(name=record["expert_panel"], agentType="organization"),
+            record["classified_date"],
+        ),
+        *(ours or []),
+    ]
     contributions = [c.model_dump(mode="json", exclude_none=True) for c in made]
     return {
         "type": "Statement",

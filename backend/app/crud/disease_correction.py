@@ -78,6 +78,8 @@ def correct_disease(
             evidence_data=evidence,
             entity_key=key,
             updated_by=user.id,
+            # ClinGen's record named the old entity
+            **({"clingen_reference": None} if key != curation.entity_key else {}),
         ):
             return False
     except IntegrityError:  # a concurrent curation of this entity won the open index

@@ -13,7 +13,12 @@ from app.crud.precuration_required import (
 )
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
-from app.schemas.curation import EvidenceWarning, class_key, disease_fields
+from app.schemas.curation import (
+    EvidenceWarning,
+    class_key,
+    disease_fields,
+    relationship_of_key,
+)
 from app.scoring.base import ScoringResult
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
@@ -114,6 +119,18 @@ def _unexplained_override(item: CurationNew, verdict: str | None) -> bool:
     )
 
 
+def _unexplained_departure(item: CurationNew, verdict: str | None) -> str | None:
+    """ClinGen's class when ours differs from the ClinGen reference (or ours is a
+    susceptibility, which ClinGen does not curate) without a rationale."""
+    reference = (item.clingen_reference or {}).get("classification")
+    ours = class_key(item.curator_classification or verdict or "")
+    if not reference or (item.curator_classification_rationale or "").strip():
+        return None
+    differs = ours != class_key(reference)
+    susceptibility = relationship_of_key(item.entity_key) == "susceptibility"
+    return str(reference) if differs or susceptibility else None
+
+
 def _score(db: Session, item: CurationNew, evidence: dict[str, Any]) -> ScoringResult:
     """The pinned engine's result, as submit will compute it."""
     config = scoring_configuration(
@@ -136,6 +153,19 @@ def _uncited_rows(result: ScoringResult) -> list[EvidenceWarning]:
 def _check_curation_score(item: CurationNew, result: ScoringResult) -> None:
     if uncited := _uncited_rows(result):
         raise InvalidEvidenceError(uncited)
+    if clingen := _unexplained_departure(item, result.verdict):
+        ours = class_label(
+            class_key(item.curator_classification or result.verdict or "")
+        )
+        raise InvalidEvidenceError(
+            [
+                EvidenceWarning(
+                    path="curator_classification_rationale",
+                    message="A rationale is required when the classification "
+                    f"({ours or 'none'}) departs from ClinGen's ({clingen})",
+                )
+            ]
+        )
     if _unexplained_override(item, result.verdict):
         proposed = class_label(item.curator_classification or "")
         raise InvalidEvidenceError(

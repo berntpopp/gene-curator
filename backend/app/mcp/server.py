@@ -89,7 +89,8 @@ MONDO id + mode of inheritance, each curated on its own.
    false means curation_id is the open one blocking it. create_curation needs an
    approved precuration and no open curation of that entity; pass precuration_id
    for a split gene. In ClinGen: adopt_clingen_classifications
-   (GeneFoundry clingen_get_gene_validity rows). Evidence that scores
+   (GeneFoundry clingen_get_gene_validity rows), or curate and cite one as
+   clingen_reference (update_curation). Evidence that scores
    lives in evidence_data (save_draft_curations or update_curation with
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.

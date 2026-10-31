@@ -325,3 +325,14 @@ def test_the_detail_tells_the_corrector_why_they_cannot_review(
     assert detail(admin)["corrected_disease"] is True
     assert detail(admin)["can_review"] is False
     assert detail(world.reviewer)["corrected_disease"] is False
+
+
+def test_a_new_entity_drops_the_clingen_reference_of_the_old_one(
+    db_session: Session, client: TestClient
+) -> None:
+    world = World(db_session)
+    c = _legacy(world, entity_key="MONDO:0000002|AD", clingen_reference={"x": 1})
+    r = _correct(client, c, _admin(world))
+    assert r.status_code == 200, r.text
+    db_session.refresh(c)
+    assert (c.entity_key, c.clingen_reference) == ("MONDO:0000001|AD", None)

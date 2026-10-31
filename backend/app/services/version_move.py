@@ -201,6 +201,7 @@ def _open_copy(
         curator_classification=row.curator_classification,
         curator_classification_rationale=row.curator_classification_rationale,
         clingen_adoption=row.clingen_adoption,
+        clingen_reference=row.clingen_reference,
         created_by=row.created_by,  # the curator's work: they may not approve it
         status=CurationStatus.IN_REVIEW if review else CurationStatus.DRAFT,
         workflow_stage=WorkflowStage.REVIEW if review else WorkflowStage.CURATION,

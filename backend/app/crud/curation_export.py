@@ -32,7 +32,11 @@ from app.schemas.curation_export import (
     ExportCuration,
     ExportMethodology,
 )
-from app.services.clingen_adoption import adoption_agent, adoption_statement
+from app.services.clingen_adoption import (
+    adoption_agent,
+    adoption_statement,
+    clingen_statement,
+)
 from app.services.export_provenance import curation_contributions, evidence_lines
 from app.services.publication_service import evidence_pmids
 
@@ -228,6 +232,7 @@ def _item(
         archive_reason=ac.archive_reason,
         updated_at=updated_at,
         adoption=adoption_statement(c, curator_name, reviewer_name),
+        clingen_reference=clingen_statement(c.clingen_reference),
         contributions=made,
         evidence_lines=lines,
         synopsis=synopsis_of(c.evidence_data, uis.get(schema_id)) if detail else None,

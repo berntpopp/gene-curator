@@ -20,8 +20,9 @@ from app.models import (
     UserNew,
     WorkflowPair,
 )
+from app.schemas.clingen_adoption import _moi
 from app.services import clingen_adoption
-from app.services.clingen_adoption import ADOPTION_COMMENT, _moi
+from app.services.clingen_adoption import ADOPTION_COMMENT
 
 pytestmark = pytest.mark.unit
 URL = "/api/v1/curations/clingen-adoptions"

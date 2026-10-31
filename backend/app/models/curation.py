@@ -315,6 +315,8 @@ class CurationNew(Base):
     curator_classification_rationale: Mapped[str | None] = mapped_column(Text)
     # Adopted ClinGen record, verbatim from GeneFoundry (#105, migration 079)
     clingen_adoption: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
+    # ClinGen record cited beside our own classification (migration 092)
+    clingen_reference: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
 
     @property
     def proposed_classification(self) -> str | None:

@@ -19,8 +19,17 @@ pick the *With results* preset. Your column choice is saved to your account.
 2. **Curation.** Enter evidence in the form. Fields show errors only after you edit or submit;
    the score panel updates as you type. Evidence tables cite their sources (PMID, DOI, ClinVar,
    ClinGen, URL, database) and say whether a row supports, disputes or is neutral.
+   A case-level variant is HGVS, an rsID or a coordinate; a CNV or a repeat-region insertion
+   the paper describes only in words counts when the text names its extent ("deletion of exons
+   2-29", "whole-gene deletion", "C insertion in the VNTR"). Vague text ("large deletion")
+   scores 0. A save warns when a row scores 0 because a field its rule needs (such as
+   `evidence_quote`) is blank.
 3. **Submit for review** and pick a reviewer. A save that clashes with someone else's newer
    save is refused; reload, then re-apply your change.
+
+To revise an active curation, create a new curation of the entity: it starts empty (re-enter or
+copy the rows you keep) and is pinned to the latest version of its methodology, which can be
+newer than the active one's. The active curation stays published until the new one is approved.
 
 The curation's History panel shows who added or changed each evidence row, including an AI
 agent working through MCP on someone's behalf.
@@ -42,6 +51,15 @@ ClinGen class and a comment that point values must be re-scored manually; anothe
 confirms it. It shows an *Adopted from ClinGen* badge. Gene Curator never fetches ClinGen,
 PubMed or ClinVar records itself: use GeneFoundry and record what it returns. Details in the
 [README](../README.md#adopting-a-clingen-classification).
+
+## Cite ClinGen beside your own curation
+
+To curate a ClinGen-covered entity yourself and show ClinGen's class next to yours, set
+`clingen_reference` on the curation to the GeneFoundry `clingen_get_gene_validity` record (`PUT`,
+MCP `update_curation`). It must name the curation's gene, MONDO id and MOI, or
+the save is refused with 422; `null` removes it. If your class differs from ClinGen's (or the
+entity is a susceptibility), submit asks for `curator_classification_rationale`. The export
+cites it as `clingen_reference` ([EXPORT](EXPORT.md)).
 
 ## Working with an AI agent
 

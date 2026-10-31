@@ -214,6 +214,48 @@
       "archive_reason": null,
       "updated_at": "2026-10-04T12:00:00",
       "adoption": null,
+      "clingen_reference": {
+        "type": "Statement",
+        "id": "CGGV:assertion_00000000-0000-0000-0000-000000000041-2020-05-01T120000.000Z",
+        "classification": "Definitive",
+        "moi": "AR",
+        "mondo": "MONDO:0009461",
+        "reportedIn": [
+          {
+            "documentType": "ClinGen gene-disease validity curation",
+            "title": "ClinGen Gene-Disease Validity: CLDN16 - Definitive (AR)",
+            "urls": [
+              "https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_00000000-0000-0000-0000-000000000041-2020-05-01T120000.000Z"
+            ]
+          }
+        ],
+        "contributions": [
+          {
+            "contributor": {
+              "name": "Tubulopathy GCEP",
+              "agentType": "organization"
+            },
+            "activityType": {
+              "name": "interpreter",
+              "primaryCoding": {
+                "system": "SEPIO",
+                "code": "SEPIO:0000331"
+              }
+            },
+            "date": "2020-05-01T12:00:00Z"
+          }
+        ],
+        "extensions": [
+          {
+            "name": "retrieved_at",
+            "value": "2026-10-02T09:00:00Z"
+          },
+          {
+            "name": "record_sha256",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ]
+      },
       "contributions": [
         {
           "contributor": {
@@ -463,6 +505,7 @@
       "archive_reason": null,
       "updated_at": "2026-10-05T12:00:00",
       "adoption": null,
+      "clingen_reference": null,
       "contributions": [
         {
           "contributor": {
@@ -728,6 +771,7 @@
           }
         ]
       },
+      "clingen_reference": null,
       "contributions": [
         {
           "contributor": {
