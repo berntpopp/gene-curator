@@ -285,6 +285,23 @@ describe('groupDiff, readable names', () => {
   })
 })
 
+describe('nested source items (MUI-05)', () => {
+  it('names a source by kind and id under its parent record', () => {
+    const items: Item[] = [
+      {
+        path: 'genetic.probands[p1]',
+        change: 'added',
+        before: null,
+        after: { id: 'p1', label: 'P1', sources: [{ id: '20414234', kind: 'pmid' }] }
+      }
+    ]
+    const groups = groupDiff(items)
+    const source = groups.find(g => g.key.endsWith('sources[20414234]'))!
+    expect(source.label).toBe('Sources · PMID 20414234')
+    expect(source.context).toBe('Genetic › Probands · P1')
+  })
+})
+
 describe('evidence table options (monkey R2-7)', () => {
   it('offers an evidence table column its option labels', () => {
     const fields = {
