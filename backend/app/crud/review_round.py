@@ -48,17 +48,19 @@ in_current_round: Any = and_(
 
 
 CORRECTED_OWN = (
-    "4-eyes principle violation: you corrected this curation's disease entity "
-    "or moved it to a new methodology version"
+    "4-eyes principle violation: you corrected this curation's disease entity, "
+    "edited it for its author or moved it to a new methodology version"
 )
 
 
 def correctors(curation_id: Any) -> Any:
-    """Who corrected the disease (#453) or moved the curation to a new methodology
-    version (#591): their work too (D1)."""
+    """Who corrected the disease (#453), moved the curation to a new methodology
+    version (#591) or saved it for its author (draft_edit): their work too (D1)."""
     return select(AuditLogNew.user_id).where(
         AuditLogNew.entity_id == curation_id,
-        AuditLogNew.change_type.in_(("disease_correction", "version_move")),
+        AuditLogNew.change_type.in_(
+            ("disease_correction", "version_move", "draft_edit")
+        ),
         AuditLogNew.user_id.isnot(None),
     )
 

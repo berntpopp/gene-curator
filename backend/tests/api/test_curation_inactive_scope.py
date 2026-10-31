@@ -172,3 +172,22 @@ def test_scope_admin_saves_and_submits_another_members_draft(
     r = client.patch(f"{url}/draft", headers=auth_headers(sadmin), json=body)
     assert r.status_code == 200, r.text
     assert client.get(url, headers=auth_headers(sadmin)).json()["can_edit"] is True
+
+    # D1: the admin's edit is their work too, so they may not approve it (#609 review)
+    from datetime import UTC, datetime
+
+    from app.services.curation_access import _can_user_review_curation
+
+    curation.status, curation.workflow_stage = (
+        CurationStatus.IN_REVIEW,
+        WorkflowStage.REVIEW,
+    )
+    curation.submitted_at = datetime.now(UTC)
+    db_session.commit()
+    assert _can_user_review_curation(db_session, sadmin, curation) is False
+    r = client.post(
+        f"/api/v1/workflow/curation/{curation.id}/transition",
+        headers=auth_headers(sadmin),
+        json={"target_stage": "active"},
+    )
+    assert r.status_code == 403, r.text
