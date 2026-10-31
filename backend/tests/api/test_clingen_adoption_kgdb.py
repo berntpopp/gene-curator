@@ -365,3 +365,38 @@ def test_can_edit_matches_what_update_curation_allows_in_review(
         client.get(f"/api/v1/curations/{cid}", headers=_h(token)).json()["can_edit"]
         is False
     )
+
+
+def test_an_agent_that_adopts_and_adds_diagnostics_is_credited_once(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator: UserNew,
+    test_scope: Scope,
+    row: dict,
+) -> None:
+    token = pat(db_session, test_user_curator)
+    result = call(
+        client, token, "adopt_clingen_classifications", rows=[row], agent=AGENT
+    )
+    cid = json.loads(result["content"][0]["text"])["items"][0]["curation_id"]
+    lock = db_session.get(CurationNew, cid)
+    assert lock is not None
+    rows = {"detectability": [{"id": "d1", "challenge": "copy_number_variants"}]}
+    saved = call(
+        client,
+        token,
+        "update_curation",
+        curation_id=cid,
+        lock_version=lock.lock_version,
+        evidence_data={"diagnostics": rows},
+        merge=True,
+        agent=AGENT,
+    )
+    assert status_of(saved) == 200, saved
+    _approve(client, db_session, test_scope, cid)
+    jwt = create_access_token(data={"sub": str(test_user_curator.id)})
+    [item] = client.get("/api/v1/export/curations", headers=_h(jwt)).json()["items"]
+    software = [
+        c for c in item["contributions"] if c["contributor"]["agentType"] == "software"
+    ]
+    assert [c["contributor"]["name"] for c in software] == [AGENT["model"]]

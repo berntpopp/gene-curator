@@ -178,7 +178,15 @@ def _item(
         lines or [],
         assessors.get(c.id),
     )
-    made[1:1] = adoption_agent(c, curator_name)  # after the curator, as row agents are
+    # after the curator, as row agents are; once per agent (its row writes win)
+    made[1:1] = [
+        a
+        for a in adoption_agent(c, curator_name)
+        if all(
+            a.model_dump(exclude={"date"}) != m.model_dump(exclude={"date"})
+            for m in made
+        )
+    ]
     return ExportCuration(
         curation_id=c.id,
         entity_key=ac.entity_key,
