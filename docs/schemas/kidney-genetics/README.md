@@ -225,7 +225,7 @@ on the fields (`legacy_transcript` <= 50, `numbering_conversion` <= 500, `share_
 `detectability_note` <= 500); `evidence_summary` is limited to 2000; the server does not check evidence-table cells, so the
 importer checks them too. Importer-only limits: resource `url` <= 2000, `methods` <= 20 entries of <= 50
 characters, `tools` <= 10 entries with a non-empty name <= 100 (drop an entry whose name part
-is blank), `pmid_or_doi` <= 100, `sources` <= 10 entries (`max_items` in the bundle) of <= 300, `audiences` <= 10 entries
+is blank), `pmid_or_doi` <= 100, `sources` <= 10 entries (`max_items`, checked at submit) of <= 300, `audiences` <= 10 entries
 of <= 50, at most 20 detectability rows and 50 resources; `challenge` (<= 300) is one of the
 GC select values. RefSeq (`^NM_\d+\.\d+$`) and Ensembl (`^ENST\d{11}\.\d+$`) formats are
 checked by GC. KGDB's `Diagnostics` has `recommended_transcript.verified_via`,

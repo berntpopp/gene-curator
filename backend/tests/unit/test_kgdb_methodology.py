@@ -150,15 +150,12 @@ def test_kgdb_text_and_list_limits_are_refused(name: str) -> None:
         }
 
     assert paths(evidence(0, 10)) == set()
-    assert {
+    assert paths(evidence(1, 11)) == {
         "evidence_summary",
         "diagnostics_notes.transcript_verified_via",
         "diagnostics_notes.detectability_note",
-    } <= paths(evidence(1, 11))
-    # ponytail: table cells honour max_items once #616's validator lands; then add
-    # "diagnostics.detectability[0].sources" to the set above
-    detectability = SCHEMAS[name]["field_definitions"]["diagnostics"]["properties"]
-    assert detectability["detectability"]["columns"]["sources"]["max_items"] == 10
+        "diagnostics.detectability[0].sources",
+    }
 
 
 def test_proband_help_says_enter_the_full_allele_sum() -> None:
