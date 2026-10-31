@@ -59,7 +59,7 @@
         </template>
 
         <template #item.created_at="{ item }">
-          {{ formatDate(item.created_at) }}
+          <span class="text-no-wrap">{{ formatDate(item.created_at) }}</span>
         </template>
 
         <template #item.actions="{ item }">
@@ -210,7 +210,12 @@
           v-model="newWorkflow.version"
           label="Version"
           variant="outlined"
-          :rules="[v => !!v || 'Version is required']"
+          hint="Free text, for example 1.0.0 or SOP v11"
+          persistent-hint
+          :rules="[
+            v => !!v?.trim() || 'Version is required',
+            v => v.length <= 20 || 'At most 20 characters'
+          ]"
           required
         />
 
@@ -374,10 +379,14 @@
     return iconMap[stageType] || 'mdi-circle'
   }
 
+  // Pickers list active schemas only; a pair may still link one that was deactivated later
   const getSchemaName = (schemaId: string | null | undefined, type: string) => {
     const schemas = type === 'precuration' ? precurationSchemas.value : curationSchemas.value
     const schema = schemas.find((s: { id: string }) => s.id === schemaId)
-    return schema ? schema.title : schemaId || '—'
+    if (schema) return schema.title
+    const any = (schemasStore.schemas || []).find((s: { id: string }) => s.id === schemaId)
+    if (any) return `${any.name} · ${formatVersion(any.version)} (inactive)`
+    return schemaId ? 'Unknown schema' : '—'
   }
 
   const viewWorkflow = (workflow: WorkflowRow) => {
@@ -509,5 +518,9 @@
 <style scoped>
   .v-data-table {
     border-radius: 8px;
+  }
+  .v-data-table a {
+    color: rgb(var(--v-theme-primary));
+    text-underline-offset: 2px;
   }
 </style>

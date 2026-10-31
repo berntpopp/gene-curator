@@ -15,7 +15,6 @@ export interface WorkflowStage {
   stage_type: string
   name: string
   description: string
-  required_roles: string[]
   order: number
 }
 
@@ -25,7 +24,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     stage_type: 'entry',
     name: 'Entry',
     description: 'Initial gene entry into the curation pipeline',
-    required_roles: ['curator', 'scope_admin', 'admin'],
     order: 1
   },
   {
@@ -33,7 +31,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     stage_type: 'precuration',
     name: 'Precuration',
     description: 'Preliminary data gathering and evidence collection',
-    required_roles: ['curator', 'scope_admin', 'admin'],
     order: 2
   },
   {
@@ -41,7 +38,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     stage_type: 'curation',
     name: 'Curation',
     description: 'Full curation with classification and scoring',
-    required_roles: ['curator', 'scope_admin', 'admin'],
     order: 3
   },
   {
@@ -49,7 +45,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     stage_type: 'review',
     name: 'Peer Review',
     description: 'Four-eyes principle review by another curator',
-    required_roles: ['reviewer', 'scope_admin', 'admin'],
     order: 4
   },
   {
@@ -57,7 +52,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     stage_type: 'active',
     name: 'Active',
     description: 'Approved and active curation record',
-    required_roles: ['admin'],
     order: 5
   },
   {
@@ -65,7 +59,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     stage_type: 'archived',
     name: 'Archived',
     description: 'Superseded or deleted; terminal',
-    required_roles: ['admin'],
     order: 6
   }
 ]
