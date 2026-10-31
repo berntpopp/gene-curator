@@ -181,10 +181,23 @@ describe('api client', () => {
     it('falls through to the normal 401 handling when the pre-refresh fails', async () => {
       localStorage.setItem('access_token', past())
       localStorage.setItem('refresh_token', 'refresh-1')
-      vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh down'))
+      const refreshSpy = vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh down'))
       handler = config => fail(config, 401)
 
       await expect(apiClient.get('/me/work')).rejects.toBeDefined()
+      // B21: a refresh token the API just refused is not sent again by the 401 path
+      expect(refreshSpy).toHaveBeenCalledTimes(1)
+      expect(window.location.href).toContain('/login?reason=expired')
+    })
+
+    it('sends no refresh for an expired refresh token (B21 stale session)', async () => {
+      localStorage.setItem('access_token', past())
+      localStorage.setItem('refresh_token', past())
+      const refreshSpy = vi.spyOn(axios, 'post')
+      handler = config => fail(config, 401)
+
+      await expect(apiClient.get('/me/work')).rejects.toBeDefined()
+      expect(refreshSpy).not.toHaveBeenCalled()
     })
   })
 
