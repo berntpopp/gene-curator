@@ -62,6 +62,14 @@ describe('VersionMoveDialog', () => {
     expect(showSuccess).toHaveBeenCalledWith('1 moved to version 2; 1 need review again')
   })
 
+  it('shows status labels, not stored values (MUI-18)', async () => {
+    post.mockResolvedValueOnce({ ...plan(), items: [{ ...item, status: 'in_review' }] } as never)
+    await openDialog()
+    const cells = [...document.body.querySelectorAll('td')].map(td => td.textContent?.trim())
+    expect(cells).toContain('In review')
+    expect(cells).not.toContain('in_review')
+  })
+
   it('counts skipped rows apart from moved ones (MUI-11)', async () => {
     post.mockResolvedValueOnce(plan() as never)
     await openDialog()

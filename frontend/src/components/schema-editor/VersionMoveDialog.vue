@@ -32,7 +32,7 @@
           <td>
             {{ item.gene ?? '' }} <span class="text-medium-emphasis">{{ item.kind }}</span>
           </td>
-          <td>{{ item.status }}</td>
+          <td>{{ curationStatusLabel(item.status) }}</td>
           <td>v{{ item.from_version }} → v{{ item.to_version }}</td>
           <td>
             <template v-if="item.kind === 'curation'">
@@ -78,6 +78,7 @@
   import { storeToRefs } from 'pinia'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { getClassification } from '@/config/classification'
+  import { curationStatusLabel } from '@/config/status'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
   import { errorMessage } from '@/stores/apiError'
