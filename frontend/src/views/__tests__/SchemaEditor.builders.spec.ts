@@ -1,6 +1,7 @@
 /** SchemaEditor builders (#282): draft diagnostics, workflow stages and the stale-save lock */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { confirmState } from '@/composables/useConfirm'
 import { createPinia, setActivePinia } from 'pinia'
 import { vmOf, call } from './vm'
 import SchemaEditor from '@/views/SchemaEditor.vue'
@@ -157,7 +158,9 @@ describe('SchemaEditor builders (#282)', () => {
     } as never)
     await call(vm, 'saveSchema')
     await flushPromises()
-    await call(vm, 'cancelEdit')
+    const cancelled = call(vm, 'cancelEdit')
+    confirmState.settle(true) // discarding the draft asks first (MUI-08)
+    await cancelled
     expect((vm.editableSchema as Record<string, unknown>).description).toBe('theirs')
   })
 })

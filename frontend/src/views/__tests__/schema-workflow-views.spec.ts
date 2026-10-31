@@ -366,12 +366,27 @@ describe('SchemaEditor', () => {
     expect(text.replace(/\s+/g, ' ')).toContain('Last Modified:—')
   })
 
+  it('cancels without asking when nothing changed', async () => {
+    const { vm } = await mountView()
+    vm.isEditing = true
+    await call(vm, 'cancelEdit')
+    expect(confirmMock).not.toHaveBeenCalled()
+    expect(vm.isEditing).toBe(false)
+  })
+
   it('restores the original values on cancel', async () => {
     const { vm } = await mountView()
     vm.isEditing = true
     vm.editableSchema = { name: 'Changed' }
     call(vm, 'setBlock', 'field_definitions', { junk: { type: 'text' } })
-    call(vm, 'cancelEdit')
+    confirmMock.mockResolvedValueOnce(false)
+    await call(vm, 'cancelEdit')
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Discard your edits?' })
+    )
+    expect(vm.isEditing).toBe(true) // MUI-08: unsaved edits are not dropped without asking
+    confirmMock.mockResolvedValueOnce(true)
+    await call(vm, 'cancelEdit')
     expect(vm.isEditing).toBe(false)
     expect((vm.editableSchema as { name: string }).name).toBe('ClinGen curation')
     expect((vm.draft as Record<string, unknown>).field_definitions).toEqual(

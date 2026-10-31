@@ -439,7 +439,12 @@
     ) as Blocks
     draft.value.field_definitions ??= {}
     jsonErrors.value = {}
+    pristine = snapshot()
   }
+
+  // The loaded state, to tell whether Cancel would drop edits (MUI-08)
+  const snapshot = () => JSON.stringify([editableSchema.value, draft.value])
+  let pristine = ''
 
   const saveSchema = async () => {
     if (!basicForm.value) return
@@ -480,7 +485,16 @@
     }
   }
 
-  const cancelEdit = () => {
+  const cancelEdit = async () => {
+    const keep =
+      snapshot() !== pristine &&
+      !(await confirm({
+        title: 'Discard your edits?',
+        text: 'Your unsaved changes to this schema are lost.',
+        confirmText: 'Discard',
+        destructive: true
+      }))
+    if (keep) return
     if (schema.value) resetEditor(schema.value)
     isEditing.value = false
   }
