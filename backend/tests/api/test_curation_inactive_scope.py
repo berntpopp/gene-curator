@@ -13,6 +13,7 @@ from tests.api.scopes.factories import (
     auth_headers,
     make_curation,
     make_gene,
+    make_member,
     make_scope,
     make_user,
     make_workflow_pair,
@@ -132,3 +133,20 @@ def test_scope_permissions_refuse_editing_in_inactive_scope(
     admin = db_session.get(UserNew, curation.created_by)
     assert admin is not None
     assert _can_user_edit_curation(db_session, admin, curation) is False
+
+
+def test_members_get_409_and_non_members_403_in_inactive_scope(
+    client: TestClient, db_session: Session, setup: tuple[CurationNew, dict[str, str]]
+) -> None:
+    """A1: a member's write gets the read-only reason, not the 403 of a stranger."""
+    curation, _ = setup
+    scope = curation.scope
+    curator, stranger = make_user(db_session), make_user(db_session)
+    make_member(db_session, scope, curator, "curator")
+    body = {"evidence_data": {}, "lock_version": 0}
+    url = f"/api/v1/curations/{curation.id}/draft"
+    r = client.patch(url, headers=auth_headers(curator), json=body)
+    assert r.status_code == 409, r.text
+    assert "inactive" in r.json()["detail"]
+    r = client.patch(url, headers=auth_headers(stranger), json=body)
+    assert r.status_code == 403, r.text

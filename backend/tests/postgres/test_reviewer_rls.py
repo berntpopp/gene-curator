@@ -494,8 +494,9 @@ def test_admins_cannot_approve_their_own_work(
     assert r.status_code == 403, r.text
 
 
-# pending invitee: RLS hides the private scope's work (404); inactive scope: 403
-@pytest.mark.parametrize(("who", "code"), [("pete", 404), ("bob", 403)])
+# pending invitee: RLS hides the private scope's work (404); a member of an inactive
+# scope gets the read-only reason (409, W11 A1)
+@pytest.mark.parametrize(("who", "code"), [("pete", 404), ("bob", 409)])
 def test_pending_invitation_and_inactive_scope_get_nothing(
     client: TestClient, w: W, who: str, code: int
 ) -> None:
