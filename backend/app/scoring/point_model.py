@@ -10,8 +10,9 @@ review_flags?: {band_margin?, hotspot?: {max_variants, min_share}, experimental_
 the evidence has nothing under the section key, it is read from the top level (forms built
 in the UI store their fields flat).
 
-``points_when: [{field, in?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets a row's
-points from its own fields; the first rule whose conditions all hold wins (#576).
+``points_when: [{field, in?, present?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets
+a row's points from its own fields: a matching 0-point rule always wins, otherwise the first
+matching rule fills the points only when the curator left them blank (#576, #582).
 ``rule: "step"`` sums ``field`` over the type's rows and scores the highest
 ``steps: [{min, points}]`` reached as one item. Both are listed in the trace's ``rules_applied``.
 
