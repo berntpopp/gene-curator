@@ -27,6 +27,8 @@ from mcp.types import ToolAnnotations
 from app.api.v1.endpoints.logs import require_admin, require_admin_or_reviewer
 from app.core.deps import PAT_BLOCKED_OPERATIONS, get_current_admin_user
 from app.mcp.audit import (
+    AGENT_ARG,
+    AGENT_TOOLS,
     CHANNEL_HEADER,
     CLIENT_HEADER,
     ToolAuditMiddleware,
@@ -328,6 +330,8 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     tool.parameters["properties"].update(MCP_ONLY_ARGS.get(tool.name, {}))
     for arg in MCP_HIDDEN_ARGS.get(tool.name, ()):
         tool.parameters["properties"].pop(arg, None)
+    if tool.name in AGENT_TOOLS:
+        tool.parameters["properties"]["agent"] = AGENT_ARG
     for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
         tool.parameters["properties"][arg]["default"] = value
     read_only = route.method == "GET"

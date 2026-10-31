@@ -1,0 +1,2714 @@
+{
+  "schemas": [
+    {
+      "name": "ClinGen Gene-Disease Validity SOP",
+      "version": "11.0",
+      "description": "ClinGen Standard Operating Procedures for Gene-Disease Clinical Validity Curation (September 2024)",
+      "institution": "ClinGen",
+      "schema_type": "curation",
+      "workflow_states": {
+        "entry": {
+          "color": "grey",
+          "label": "Entry"
+        },
+        "active": {
+          "color": "green",
+          "label": "Active"
+        },
+        "review": {
+          "color": "purple",
+          "label": "Review"
+        },
+        "curation": {
+          "color": "orange",
+          "label": "Curation"
+        },
+        "precuration": {
+          "color": "blue",
+          "label": "Precuration"
+        }
+      },
+      "ui_configuration": {
+        "tabs": [
+          "Genetic Evidence",
+          "Experimental Evidence",
+          "Scoring Summary"
+        ],
+        "form_layout": "tabbed",
+        "enable_auto_save": true,
+        "show_score_preview": true,
+        "validation_on_blur": true,
+        "synopsis_field": "evidence_summary"
+      },
+      "use_dynamic_form": false,
+      "validation_rules": {
+        "pmid_format": {
+          "rule": "all PMIDs must be numeric strings",
+          "validator": "pubmed"
+        },
+        "lod_score_consistency": {
+          "rule": "if segregation: lod_score >= 0",
+          "message": "LOD score must be non-negative for segregation evidence"
+        },
+        "genetic_evidence_required": {
+          "rule": "len(genetic_evidence) > 0",
+          "message": "At least one genetic evidence item is required"
+        }
+      },
+      "field_definitions": {
+        "genetic_evidence": {
+          "type": "object",
+          "label": "Genetic Evidence",
+          "properties": {
+            "case_level": {
+              "type": "object",
+              "label": "Case-Level Data",
+              "order": 1,
+              "properties": {
+                "autosomal_recessive": {
+                  "type": "object",
+                  "label": "Autosomal Recessive",
+                  "order": 2,
+                  "properties": {
+                    "other_variant_type": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pmid": {
+                            "type": "string",
+                            "label": "PMID",
+                            "order": 5,
+                            "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                            "validation": "pmid_format",
+                            "pattern_message": "PMID must be digits only"
+                          },
+                          "variant_1": {
+                            "type": "string",
+                            "label": "Variant 1",
+                            "order": 3
+                          },
+                          "variant_2": {
+                            "type": "string",
+                            "label": "Variant 2",
+                            "order": 4
+                          },
+                          "explanation": {
+                            "type": "string",
+                            "label": "Explanation",
+                            "order": 8
+                          },
+                          "score_status": {
+                            "type": "select",
+                            "label": "Status",
+                            "order": 6,
+                            "default": "score",
+                            "options": [
+                              {
+                                "label": "Score",
+                                "value": "score"
+                              },
+                              {
+                                "label": "Review",
+                                "value": "review"
+                              },
+                              {
+                                "label": "Contradicts",
+                                "value": "contradicts"
+                              }
+                            ]
+                          },
+                          "variant_type": {
+                            "type": "select",
+                            "label": "Type",
+                            "order": 2,
+                            "default": "null_and_other",
+                            "options": [
+                              {
+                                "label": "Null + Other",
+                                "value": "null_and_other"
+                              },
+                              {
+                                "label": "Two other variants",
+                                "value": "two_other"
+                              },
+                              {
+                                "label": "Homozygous other",
+                                "value": "homozygous_other"
+                              }
+                            ]
+                          },
+                          "proband_label": {
+                            "type": "string",
+                            "label": "Proband",
+                            "order": 1
+                          },
+                          "proband_counted_points": {
+                            "max": 3,
+                            "min": 0,
+                            "step": 0.1,
+                            "type": "number",
+                            "label": "Points",
+                            "order": 7,
+                            "default": 1.5,
+                            "default_by": {
+                              "field": "variant_type",
+                              "values": {
+                                "two_other": 0.2,
+                                "null_and_other": 1.5,
+                                "homozygous_other": 0.2
+                              }
+                            }
+                          },
+                          "sources": {
+                            "type": "source",
+                            "label": "Sources",
+                            "order": 90,
+                            "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                          },
+                          "direction": {
+                            "type": "select",
+                            "label": "Direction",
+                            "order": 91,
+                            "options": [
+                              {
+                                "label": "Supports",
+                                "value": "supports"
+                              },
+                              {
+                                "label": "Disputes",
+                                "value": "disputes"
+                              },
+                              {
+                                "label": "Neutral",
+                                "value": "neutral"
+                              }
+                            ],
+                            "description": "VA-Spec directionOfEvidenceProvided"
+                          }
+                        }
+                      },
+                      "label": "Other Variant Type",
+                      "order": 2,
+                      "description": "Null + Other starts at 1.5 (SOP v11 GCI-rounded example); two other or homozygous other starts at 0.2 (0–3 per proband). Starting suggestions assume qualifying biallelic evidence. Reassess the score for the case; loaded or manually edited scores stay unchanged when the variant type changes.",
+                      "ui_component": "EvidenceTable"
+                    },
+                    "predicted_or_proven_null": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pmid": {
+                            "type": "string",
+                            "label": "PMID",
+                            "order": 5,
+                            "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                            "validation": "pmid_format",
+                            "pattern_message": "PMID must be digits only"
+                          },
+                          "variant_1": {
+                            "type": "string",
+                            "label": "Variant 1",
+                            "order": 3
+                          },
+                          "variant_2": {
+                            "type": "string",
+                            "label": "Variant 2",
+                            "order": 4
+                          },
+                          "explanation": {
+                            "type": "string",
+                            "label": "Explanation",
+                            "order": 8
+                          },
+                          "score_status": {
+                            "type": "select",
+                            "label": "Status",
+                            "order": 6,
+                            "default": "score",
+                            "options": [
+                              {
+                                "label": "Score",
+                                "value": "score"
+                              },
+                              {
+                                "label": "Review",
+                                "value": "review"
+                              },
+                              {
+                                "label": "Contradicts",
+                                "value": "contradicts"
+                              }
+                            ]
+                          },
+                          "variant_type": {
+                            "type": "select",
+                            "label": "Type",
+                            "order": 2,
+                            "default": "two_null",
+                            "options": [
+                              {
+                                "label": "Two null variants",
+                                "value": "two_null"
+                              },
+                              {
+                                "label": "Homozygous null",
+                                "value": "null_and_null"
+                              }
+                            ]
+                          },
+                          "proband_label": {
+                            "type": "string",
+                            "label": "Proband",
+                            "order": 1
+                          },
+                          "proband_counted_points": {
+                            "max": 3,
+                            "min": 0,
+                            "step": 0.1,
+                            "type": "number",
+                            "label": "Points",
+                            "order": 7,
+                            "default": 3
+                          },
+                          "sources": {
+                            "type": "source",
+                            "label": "Sources",
+                            "order": 90,
+                            "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                          },
+                          "direction": {
+                            "type": "select",
+                            "label": "Direction",
+                            "order": 91,
+                            "options": [
+                              {
+                                "label": "Supports",
+                                "value": "supports"
+                              },
+                              {
+                                "label": "Disputes",
+                                "value": "disputes"
+                              },
+                              {
+                                "label": "Neutral",
+                                "value": "neutral"
+                              }
+                            ],
+                            "description": "VA-Spec directionOfEvidenceProvided"
+                          }
+                        }
+                      },
+                      "label": "Predicted or Proven Null",
+                      "order": 1,
+                      "description": "Two null variants or homozygous null: starting suggestion 3 points (0–3 per proband). Starting suggestions assume qualifying biallelic evidence. Reassess the score for the case; loaded or manually edited scores stay unchanged when the variant type changes.",
+                      "ui_component": "EvidenceTable"
+                    }
+                  },
+                  "description": "Evidence for autosomal recessive inheritance"
+                },
+                "autosomal_dominant_or_x_linked": {
+                  "type": "object",
+                  "label": "Autosomal Dominant or X-linked",
+                  "order": 1,
+                  "properties": {
+                    "other_variant_type": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pmid": {
+                            "type": "string",
+                            "label": "PMID",
+                            "order": 4,
+                            "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                            "validation": "pmid_format",
+                            "pattern_message": "PMID must be digits only"
+                          },
+                          "variant": {
+                            "type": "string",
+                            "label": "Variant (HGVS)",
+                            "order": 3
+                          },
+                          "explanation": {
+                            "type": "string",
+                            "label": "Explanation",
+                            "order": 7
+                          },
+                          "score_status": {
+                            "type": "select",
+                            "label": "Status",
+                            "order": 5,
+                            "default": "score",
+                            "options": [
+                              {
+                                "label": "Score",
+                                "value": "score"
+                              },
+                              {
+                                "label": "Review",
+                                "value": "review"
+                              },
+                              {
+                                "label": "Contradicts",
+                                "value": "contradicts"
+                              }
+                            ]
+                          },
+                          "variant_type": {
+                            "type": "select",
+                            "label": "Type",
+                            "order": 2,
+                            "default": "missense",
+                            "options": [
+                              {
+                                "label": "Missense",
+                                "value": "missense"
+                              },
+                              {
+                                "label": "In-frame indel",
+                                "value": "in_frame_indel"
+                              },
+                              {
+                                "label": "Cryptic splice",
+                                "value": "cryptic_splice"
+                              },
+                              {
+                                "label": "Synonymous",
+                                "value": "synonymous"
+                              },
+                              {
+                                "label": "5' UTR",
+                                "value": "5_utr"
+                              },
+                              {
+                                "label": "3' UTR",
+                                "value": "3_utr"
+                              },
+                              {
+                                "label": "Intronic",
+                                "value": "intronic"
+                              },
+                              {
+                                "label": "Other",
+                                "value": "other"
+                              }
+                            ]
+                          },
+                          "proband_label": {
+                            "type": "string",
+                            "label": "Proband",
+                            "order": 1
+                          },
+                          "proband_counted_points": {
+                            "max": 1.5,
+                            "min": 0,
+                            "step": 0.1,
+                            "type": "number",
+                            "label": "Points",
+                            "order": 6,
+                            "default": 0.1
+                          },
+                          "sources": {
+                            "type": "source",
+                            "label": "Sources",
+                            "order": 90,
+                            "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                          },
+                          "direction": {
+                            "type": "select",
+                            "label": "Direction",
+                            "order": 91,
+                            "options": [
+                              {
+                                "label": "Supports",
+                                "value": "supports"
+                              },
+                              {
+                                "label": "Disputes",
+                                "value": "disputes"
+                              },
+                              {
+                                "label": "Neutral",
+                                "value": "neutral"
+                              }
+                            ],
+                            "description": "VA-Spec directionOfEvidenceProvided"
+                          }
+                        }
+                      },
+                      "label": "Other Variant Type",
+                      "order": 2,
+                      "description": "Other variant types (default 0.1, 0-1.5 points)",
+                      "ui_component": "EvidenceTable"
+                    },
+                    "predicted_or_proven_null": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "pmid": {
+                            "type": "string",
+                            "label": "PMID",
+                            "order": 4,
+                            "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                            "validation": "pmid_format",
+                            "pattern_message": "PMID must be digits only"
+                          },
+                          "variant": {
+                            "type": "string",
+                            "label": "Variant (HGVS)",
+                            "order": 3
+                          },
+                          "explanation": {
+                            "type": "string",
+                            "label": "Explanation",
+                            "order": 7
+                          },
+                          "score_status": {
+                            "type": "select",
+                            "label": "Status",
+                            "order": 5,
+                            "default": "score",
+                            "options": [
+                              {
+                                "label": "Score",
+                                "value": "score"
+                              },
+                              {
+                                "label": "Review",
+                                "value": "review"
+                              },
+                              {
+                                "label": "Contradicts",
+                                "value": "contradicts"
+                              }
+                            ]
+                          },
+                          "variant_type": {
+                            "type": "select",
+                            "label": "Type",
+                            "order": 2,
+                            "default": "nonsense",
+                            "options": [
+                              {
+                                "label": "Nonsense",
+                                "value": "nonsense"
+                              },
+                              {
+                                "label": "Frameshift",
+                                "value": "frameshift"
+                              },
+                              {
+                                "label": "Splice (+/-1,2)",
+                                "value": "canonical_splice"
+                              },
+                              {
+                                "label": "Init codon",
+                                "value": "initiation_codon"
+                              },
+                              {
+                                "label": "Single exon del",
+                                "value": "single_exon_deletion"
+                              },
+                              {
+                                "label": "Multi-exon del",
+                                "value": "multi_exon_deletion"
+                              },
+                              {
+                                "label": "Whole gene del",
+                                "value": "whole_gene_deletion"
+                              }
+                            ]
+                          },
+                          "proband_label": {
+                            "type": "string",
+                            "label": "Proband",
+                            "order": 1
+                          },
+                          "proband_counted_points": {
+                            "max": 3,
+                            "min": 0,
+                            "step": 0.1,
+                            "type": "number",
+                            "label": "Points",
+                            "order": 6,
+                            "default": 1.5
+                          },
+                          "sources": {
+                            "type": "source",
+                            "label": "Sources",
+                            "order": 90,
+                            "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                          },
+                          "direction": {
+                            "type": "select",
+                            "label": "Direction",
+                            "order": 91,
+                            "options": [
+                              {
+                                "label": "Supports",
+                                "value": "supports"
+                              },
+                              {
+                                "label": "Disputes",
+                                "value": "disputes"
+                              },
+                              {
+                                "label": "Neutral",
+                                "value": "neutral"
+                              }
+                            ],
+                            "description": "VA-Spec directionOfEvidenceProvided"
+                          }
+                        }
+                      },
+                      "label": "Predicted or Proven Null",
+                      "order": 1,
+                      "description": "Predicted or proven null variants (default 1.5, 0-3 points)",
+                      "ui_component": "EvidenceTable"
+                    }
+                  },
+                  "description": "Evidence for AD or X-linked inheritance"
+                }
+              },
+              "description": "Case-level variant evidence by inheritance pattern and variant type"
+            },
+            "segregation": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "points": {
+                    "max": 3,
+                    "min": 0,
+                    "step": 0.1,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 5,
+                    "default": null
+                  },
+                  "lod_score": {
+                    "min": 0,
+                    "step": 0.1,
+                    "type": "number",
+                    "label": "LOD Score",
+                    "order": 3,
+                    "default": 0
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "label": "Explanation",
+                    "order": 6
+                  },
+                  "family_label": {
+                    "type": "string",
+                    "label": "Family",
+                    "order": 1
+                  },
+                  "segregations_counted": {
+                    "min": 0,
+                    "type": "number",
+                    "label": "Seg. Counted",
+                    "order": 4,
+                    "default": 0
+                  },
+                  "sources": {
+                    "type": "source",
+                    "label": "Sources",
+                    "order": 90,
+                    "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                  },
+                  "direction": {
+                    "type": "select",
+                    "label": "Direction",
+                    "order": 91,
+                    "options": [
+                      {
+                        "label": "Supports",
+                        "value": "supports"
+                      },
+                      {
+                        "label": "Disputes",
+                        "value": "disputes"
+                      },
+                      {
+                        "label": "Neutral",
+                        "value": "neutral"
+                      }
+                    ],
+                    "description": "VA-Spec directionOfEvidenceProvided"
+                  }
+                }
+              },
+              "label": "Segregation",
+              "order": 2,
+              "description": "Enter curator-assigned segregation points after assessing all included families, eligibility and sequencing methods (category max 3). LOD and family counts do not generate automatic points. See ClinGen SOP v11 pp.28–35.",
+              "ui_component": "EvidenceTable"
+            },
+            "case_control": {
+              "type": "object",
+              "label": "Case-Control Data",
+              "order": 3,
+              "properties": {
+                "single_variant_analysis": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "points": {
+                        "max": 6,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 10,
+                        "default": 0
+                      },
+                      "p_value": {
+                        "max": 1,
+                        "min": 0,
+                        "type": "number",
+                        "label": "P-value",
+                        "order": 9,
+                        "default": 1
+                      },
+                      "variant": {
+                        "type": "string",
+                        "label": "Variant",
+                        "order": 3
+                      },
+                      "odds_ratio": {
+                        "min": 0,
+                        "type": "number",
+                        "label": "OR",
+                        "order": 8,
+                        "default": 0
+                      },
+                      "cases_total": {
+                        "min": 1,
+                        "type": "number",
+                        "label": "Cases",
+                        "order": 5,
+                        "default": 1
+                      },
+                      "study_label": {
+                        "type": "string",
+                        "label": "Study",
+                        "order": 1
+                      },
+                      "controls_total": {
+                        "min": 1,
+                        "type": "number",
+                        "label": "Ctrl",
+                        "order": 7,
+                        "default": 1
+                      },
+                      "cases_with_variant": {
+                        "min": 0,
+                        "type": "number",
+                        "label": "Cases+",
+                        "order": 4,
+                        "default": 0
+                      },
+                      "controls_with_variant": {
+                        "min": 0,
+                        "type": "number",
+                        "label": "Ctrl+",
+                        "order": 6,
+                        "default": 0
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Single Variant Analysis",
+                  "order": 1,
+                  "description": "Single variant analysis (0-6 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "aggregate_variant_analysis": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "points": {
+                        "max": 6,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 9,
+                        "default": 0
+                      },
+                      "p_value": {
+                        "max": 1,
+                        "min": 0,
+                        "type": "number",
+                        "label": "P-value",
+                        "order": 8,
+                        "default": 1
+                      },
+                      "cases_total": {
+                        "min": 1,
+                        "type": "number",
+                        "label": "Cases",
+                        "order": 5,
+                        "default": 1
+                      },
+                      "study_label": {
+                        "type": "string",
+                        "label": "Study",
+                        "order": 1
+                      },
+                      "analysis_type": {
+                        "type": "select",
+                        "label": "Analysis",
+                        "order": 3,
+                        "default": "burden",
+                        "options": [
+                          {
+                            "label": "Burden test",
+                            "value": "burden"
+                          },
+                          {
+                            "label": "Collapsing",
+                            "value": "collapsing"
+                          },
+                          {
+                            "label": "SKAT",
+                            "value": "skat"
+                          },
+                          {
+                            "label": "SKAT-O",
+                            "value": "skat_o"
+                          },
+                          {
+                            "label": "Other",
+                            "value": "other"
+                          }
+                        ]
+                      },
+                      "controls_total": {
+                        "min": 1,
+                        "type": "number",
+                        "label": "Ctrl",
+                        "order": 7,
+                        "default": 1
+                      },
+                      "cases_with_variants": {
+                        "min": 0,
+                        "type": "number",
+                        "label": "Cases+",
+                        "order": 4,
+                        "default": 0
+                      },
+                      "controls_with_variants": {
+                        "min": 0,
+                        "type": "number",
+                        "label": "Ctrl+",
+                        "order": 6,
+                        "default": 0
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Aggregate Variant Analysis",
+                  "order": 2,
+                  "description": "Aggregate variant analysis (0-6 points)",
+                  "ui_component": "EvidenceTable"
+                }
+              },
+              "description": "Case-control studies (single variant and aggregate analyses summed, max 12 points)"
+            }
+          },
+          "description": "Genetic evidence supporting the gene-disease relationship (max 12 points)"
+        },
+        "replicated_over_time": {
+          "type": "boolean",
+          "label": "Replicated over time (≥2 independent publications, >3 years)",
+          "default": false
+        },
+        "experimental_evidence": {
+          "type": "object",
+          "label": "Experimental Evidence",
+          "properties": {
+            "models": {
+              "type": "object",
+              "label": "Models",
+              "order": 3,
+              "properties": {
+                "cell_culture_model": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 2,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 1
+                      },
+                      "cell_type": {
+                        "type": "select",
+                        "label": "Cell Type",
+                        "order": 3,
+                        "default": "ipsc",
+                        "options": [
+                          {
+                            "label": "iPSC-derived",
+                            "value": "ipsc"
+                          },
+                          {
+                            "label": "Organoid",
+                            "value": "organoid"
+                          },
+                          {
+                            "label": "Primary cells",
+                            "value": "primary"
+                          },
+                          {
+                            "label": "Cell line",
+                            "value": "cell_line"
+                          },
+                          {
+                            "label": "Other",
+                            "value": "other"
+                          }
+                        ]
+                      },
+                      "modification": {
+                        "type": "string",
+                        "label": "Modification",
+                        "order": 4
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "phenotype_observed": {
+                        "type": "string",
+                        "label": "Phenotype",
+                        "order": 5
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Cell Culture Model",
+                  "order": 2,
+                  "description": "Cell culture model recapitulates the phenotype (default 1, 0-2 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "non_human_model_organism": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 4,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 8,
+                        "default": 2
+                      },
+                      "organism": {
+                        "type": "select",
+                        "label": "Organism",
+                        "order": 3,
+                        "default": "mouse",
+                        "options": [
+                          {
+                            "label": "Mouse",
+                            "value": "mouse"
+                          },
+                          {
+                            "label": "Rat",
+                            "value": "rat"
+                          },
+                          {
+                            "label": "Zebrafish",
+                            "value": "zebrafish"
+                          },
+                          {
+                            "label": "Drosophila",
+                            "value": "drosophila"
+                          },
+                          {
+                            "label": "C. elegans",
+                            "value": "c_elegans"
+                          },
+                          {
+                            "label": "Xenopus",
+                            "value": "xenopus"
+                          },
+                          {
+                            "label": "Yeast",
+                            "value": "yeast"
+                          },
+                          {
+                            "label": "Other",
+                            "value": "other"
+                          }
+                        ]
+                      },
+                      "model_type": {
+                        "type": "select",
+                        "label": "Type",
+                        "order": 4,
+                        "default": "knockout",
+                        "options": [
+                          {
+                            "label": "Knockout",
+                            "value": "knockout"
+                          },
+                          {
+                            "label": "Knockin",
+                            "value": "knockin"
+                          },
+                          {
+                            "label": "Transgenic",
+                            "value": "transgenic"
+                          },
+                          {
+                            "label": "Morpholino",
+                            "value": "morpholino"
+                          },
+                          {
+                            "label": "CRISPR",
+                            "value": "crispr"
+                          },
+                          {
+                            "label": "Other",
+                            "value": "other"
+                          }
+                        ]
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 7,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "phenotype_observed": {
+                        "type": "string",
+                        "label": "Phenotype",
+                        "order": 5
+                      },
+                      "human_phenotype_match": {
+                        "type": "string",
+                        "label": "Human Match",
+                        "order": 6
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Non-human Model Organism",
+                  "order": 1,
+                  "description": "Non-human model organism recapitulates the phenotype (default 2, 0-4 points)",
+                  "ui_component": "EvidenceTable"
+                }
+              },
+              "description": "Models; one Models & Rescue category with rescue (max 4 points combined)"
+            },
+            "rescue": {
+              "type": "object",
+              "label": "Rescue",
+              "order": 4,
+              "properties": {
+                "human": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 4,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 2
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "rescue_extent": {
+                        "type": "string",
+                        "label": "Rescue Extent",
+                        "order": 5
+                      },
+                      "rescue_method": {
+                        "type": "string",
+                        "label": "Method",
+                        "order": 3
+                      },
+                      "phenotype_rescued": {
+                        "type": "string",
+                        "label": "Phenotype Rescued",
+                        "order": 4
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Rescue in Human",
+                  "order": 1,
+                  "description": "Rescue in human (default 2, 0-4 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "cell_culture": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 2,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 1
+                      },
+                      "cell_type": {
+                        "type": "string",
+                        "label": "Cell Type",
+                        "order": 3
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "rescue_method": {
+                        "type": "string",
+                        "label": "Method",
+                        "order": 4
+                      },
+                      "phenotype_rescued": {
+                        "type": "string",
+                        "label": "Phenotype Rescued",
+                        "order": 5
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Rescue in Cell Culture Model",
+                  "order": 3,
+                  "description": "Rescue in cell culture model (default 1, 0-2 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "patient_cells": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 2,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 1
+                      },
+                      "cell_type": {
+                        "type": "string",
+                        "label": "Cell Type",
+                        "order": 3
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "rescue_method": {
+                        "type": "string",
+                        "label": "Method",
+                        "order": 4
+                      },
+                      "phenotype_rescued": {
+                        "type": "string",
+                        "label": "Phenotype Rescued",
+                        "order": 5
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Rescue in Patient Cells",
+                  "order": 4,
+                  "description": "Rescue in patient cells (default 1, 0-2 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "non_human_model_organism": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 4,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 2
+                      },
+                      "organism": {
+                        "type": "string",
+                        "label": "Organism",
+                        "order": 3
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "rescue_method": {
+                        "type": "string",
+                        "label": "Method",
+                        "order": 4
+                      },
+                      "phenotype_rescued": {
+                        "type": "string",
+                        "label": "Phenotype Rescued",
+                        "order": 5
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Rescue in Non-human Model Organism",
+                  "order": 2,
+                  "description": "Rescue in non-human model organism (default 2, 0-4 points)",
+                  "ui_component": "EvidenceTable"
+                }
+              },
+              "description": "Rescue; one Models & Rescue category with models (max 4 points combined)"
+            },
+            "function": {
+              "type": "object",
+              "label": "Function",
+              "order": 1,
+              "properties": {
+                "expression": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 2,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 0.5
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "tissue_organ": {
+                        "type": "string",
+                        "label": "Tissue/Organ",
+                        "order": 3
+                      },
+                      "expression_method": {
+                        "type": "string",
+                        "label": "Method",
+                        "order": 4
+                      },
+                      "disease_tissue_relevance": {
+                        "type": "string",
+                        "label": "Relevance",
+                        "order": 5
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Expression",
+                  "order": 3,
+                  "description": "Gene is expressed in tissues relevant to the disease (default 0.5, 0-2 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "protein_interaction": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 2,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 0.5
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "disease_relevance": {
+                        "type": "string",
+                        "label": "Disease Relevance",
+                        "order": 5
+                      },
+                      "interaction_method": {
+                        "type": "string",
+                        "label": "Method",
+                        "order": 4
+                      },
+                      "interacting_protein": {
+                        "type": "string",
+                        "label": "Interacting Protein",
+                        "order": 3
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Protein Interaction",
+                  "order": 2,
+                  "description": "Gene product interacts with proteins implicated in the disease (default 0.5, 0-2 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "biochemical_function": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 2,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 6,
+                        "default": 0.5
+                      },
+                      "explanation": {
+                        "type": "string",
+                        "label": "Explanation",
+                        "order": 7
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 5,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "gene_function_description": {
+                        "type": "string",
+                        "label": "Function Description",
+                        "order": 3
+                      },
+                      "disease_mechanism_relevance": {
+                        "type": "string",
+                        "label": "Disease Relevance",
+                        "order": 4
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Biochemical Function",
+                  "order": 1,
+                  "description": "Gene product performs a biochemical function shared with other known disease genes (default 0.5, 0-2 points)",
+                  "ui_component": "EvidenceTable"
+                }
+              },
+              "description": "Function (max 2 points)"
+            },
+            "functional_alteration": {
+              "type": "object",
+              "label": "Functional Alteration",
+              "order": 2,
+              "properties": {
+                "patient_cells": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 2,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 8,
+                        "default": 1
+                      },
+                      "cell_type": {
+                        "type": "string",
+                        "label": "Cell Type",
+                        "order": 3
+                      },
+                      "assay_method": {
+                        "type": "string",
+                        "label": "Assay",
+                        "order": 6
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 7,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "variant_tested": {
+                        "type": "string",
+                        "label": "Variant",
+                        "order": 4
+                      },
+                      "functional_effect": {
+                        "type": "string",
+                        "label": "Effect",
+                        "order": 5
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Patient Cells",
+                  "order": 1,
+                  "description": "Functional alteration in patient cells (default 1, 0-2 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "non_patient_cells": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 2,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "label": {
+                        "type": "string",
+                        "label": "Label",
+                        "order": 1
+                      },
+                      "points": {
+                        "max": 1,
+                        "min": 0,
+                        "step": 0.5,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 8,
+                        "default": 0.5
+                      },
+                      "cell_line": {
+                        "type": "string",
+                        "label": "Cell Line",
+                        "order": 3
+                      },
+                      "assay_method": {
+                        "type": "string",
+                        "label": "Assay",
+                        "order": 6
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 7,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          }
+                        ]
+                      },
+                      "functional_effect": {
+                        "type": "string",
+                        "label": "Effect",
+                        "order": 5
+                      },
+                      "variant_engineered": {
+                        "type": "string",
+                        "label": "Variant",
+                        "order": 4
+                      },
+                      "sources": {
+                        "type": "source",
+                        "label": "Sources",
+                        "order": 90,
+                        "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+                      },
+                      "direction": {
+                        "type": "select",
+                        "label": "Direction",
+                        "order": 91,
+                        "options": [
+                          {
+                            "label": "Supports",
+                            "value": "supports"
+                          },
+                          {
+                            "label": "Disputes",
+                            "value": "disputes"
+                          },
+                          {
+                            "label": "Neutral",
+                            "value": "neutral"
+                          }
+                        ],
+                        "description": "VA-Spec directionOfEvidenceProvided"
+                      }
+                    }
+                  },
+                  "label": "Non-patient Cells",
+                  "order": 2,
+                  "description": "Functional alteration in non-patient cells (default 0.5, 0-1 points)",
+                  "ui_component": "EvidenceTable"
+                }
+              },
+              "description": "Functional alteration (max 2 points)"
+            }
+          },
+          "description": "Experimental evidence supporting the gene-disease relationship (max 6 points)"
+        },
+        "contradictory_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pmid": {
+                "type": "string",
+                "label": "PMID",
+                "order": 2,
+                "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                "validation": "pmid_format",
+                "pattern_message": "PMID must be digits only"
+              },
+              "label": {
+                "type": "string",
+                "label": "Label",
+                "order": 1
+              },
+              "impact": {
+                "type": "select",
+                "label": "Impact",
+                "order": 5,
+                "default": "note",
+                "options": [
+                  {
+                    "label": "Disputed",
+                    "value": "disputed"
+                  },
+                  {
+                    "label": "Note only",
+                    "value": "note"
+                  },
+                  {
+                    "label": "Review needed",
+                    "value": "requires_review"
+                  }
+                ]
+              },
+              "description": {
+                "type": "string",
+                "label": "Description",
+                "order": 4
+              },
+              "evidence_type": {
+                "type": "select",
+                "label": "Type",
+                "order": 3,
+                "default": "population",
+                "options": [
+                  {
+                    "label": "Population/control data",
+                    "value": "population"
+                  },
+                  {
+                    "label": "Non-segregation",
+                    "value": "segregation"
+                  },
+                  {
+                    "label": "Contradictory functional data",
+                    "value": "functional"
+                  },
+                  {
+                    "label": "Phenotype mismatch",
+                    "value": "phenotype"
+                  },
+                  {
+                    "label": "Other",
+                    "value": "other"
+                  }
+                ]
+              },
+              "sources": {
+                "type": "source",
+                "label": "Sources",
+                "order": 90,
+                "description": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)"
+              },
+              "direction": {
+                "type": "select",
+                "label": "Direction",
+                "order": 91,
+                "options": [
+                  {
+                    "label": "Supports",
+                    "value": "supports"
+                  },
+                  {
+                    "label": "Disputes",
+                    "value": "disputes"
+                  },
+                  {
+                    "label": "Neutral",
+                    "value": "neutral"
+                  }
+                ],
+                "description": "VA-Spec directionOfEvidenceProvided"
+              }
+            }
+          },
+          "label": "Contradictory Evidence",
+          "description": "Evidence that contradicts the gene-disease relationship (may result in Disputed)",
+          "ui_component": "EvidenceTable"
+        },
+        "evidence_summary": {
+          "type": "textarea",
+          "label": "Evidence summary",
+          "description": "Free-text summary of the curation (never scored); the entity's synopsis on the gene page and in the export"
+        }
+      },
+      "scoring_configuration": {
+        "engine": "clingen_sop_v11",
+        "point_model": {
+          "name": "ClinGen SOP v11",
+          "bands": [
+            {
+              "min": 12,
+              "class": "definitive",
+              "requires": "replicated_over_time",
+              "description": "Total score 12-18 points (Strong) with replication over time supports a DEFINITIVE gene-disease relationship."
+            },
+            {
+              "min": 12,
+              "class": "strong",
+              "description": "Total score 12-18 points supports STRONG gene-disease relationship."
+            },
+            {
+              "min": 7,
+              "class": "moderate",
+              "description": "Total score 7-11 points supports MODERATE gene-disease relationship."
+            },
+            {
+              "min": 0.1,
+              "class": "limited",
+              "description": "Total score 1-6 points supports LIMITED gene-disease relationship."
+            },
+            {
+              "min": 0,
+              "class": "no_known",
+              "description": "No evidence supporting a gene-disease relationship."
+            },
+            {
+              "min": -1,
+              "class": "disputed",
+              "description": "Conflicting or contradictory evidence present, resulting in DISPUTED classification."
+            },
+            {
+              "class": "refuted",
+              "description": "Evidence refutes the gene-disease relationship."
+            }
+          ],
+          "sections": [
+            {
+              "cap": 12,
+              "key": "genetic_evidence",
+              "categories": [
+                {
+                  "cap": 12,
+                  "key": "case_level",
+                  "types": [
+                    {
+                      "path": "case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null",
+                      "rule": "case_row",
+                      "range": [
+                        0,
+                        3
+                      ],
+                      "blank_at": 1.5,
+                      "points_key": "proband_counted_points"
+                    },
+                    {
+                      "path": "case_level.autosomal_dominant_or_x_linked.other_variant_type",
+                      "rule": "case_row",
+                      "range": [
+                        0,
+                        1.5
+                      ],
+                      "blank_at": 0.1,
+                      "points_key": "proband_counted_points"
+                    },
+                    {
+                      "path": "case_level.autosomal_recessive.predicted_or_proven_null",
+                      "rule": "case_row",
+                      "range": [
+                        0,
+                        3
+                      ],
+                      "blank_at": null,
+                      "points_key": "proband_counted_points"
+                    },
+                    {
+                      "path": "case_level.autosomal_recessive.other_variant_type",
+                      "rule": "case_row",
+                      "range": [
+                        0,
+                        3
+                      ],
+                      "blank_at": null,
+                      "points_key": "proband_counted_points"
+                    }
+                  ]
+                },
+                {
+                  "cap": 3,
+                  "key": "segregation",
+                  "types": [
+                    {
+                      "path": "segregation",
+                      "rule": "explicit_points",
+                      "range": [
+                        0,
+                        3
+                      ],
+                      "default": 0
+                    }
+                  ]
+                },
+                {
+                  "cap": 12,
+                  "key": "case_control",
+                  "types": [
+                    {
+                      "path": "case_control.single_variant_analysis",
+                      "range": [
+                        0,
+                        6
+                      ],
+                      "default": 0
+                    },
+                    {
+                      "path": "case_control.aggregate_variant_analysis",
+                      "range": [
+                        0,
+                        6
+                      ],
+                      "default": 0
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "cap": 6,
+              "key": "experimental_evidence",
+              "categories": [
+                {
+                  "cap": 2,
+                  "key": "function",
+                  "types": [
+                    {
+                      "path": "function.biochemical_function",
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "default": 0.5
+                    },
+                    {
+                      "path": "function.protein_interaction",
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "default": 0.5
+                    },
+                    {
+                      "path": "function.expression",
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "default": 0.5
+                    }
+                  ]
+                },
+                {
+                  "cap": 2,
+                  "key": "functional_alteration",
+                  "types": [
+                    {
+                      "path": "functional_alteration.patient_cells",
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "default": 1
+                    },
+                    {
+                      "path": "functional_alteration.non_patient_cells",
+                      "range": [
+                        0,
+                        1
+                      ],
+                      "default": 0.5
+                    }
+                  ]
+                },
+                {
+                  "cap": 4,
+                  "key": "models_and_rescue",
+                  "types": [
+                    {
+                      "path": "models.non_human_model_organism",
+                      "range": [
+                        0,
+                        4
+                      ],
+                      "default": 2
+                    },
+                    {
+                      "path": "models.cell_culture_model",
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "default": 1
+                    },
+                    {
+                      "path": "rescue.human",
+                      "range": [
+                        0,
+                        4
+                      ],
+                      "default": 2
+                    },
+                    {
+                      "path": "rescue.non_human_model_organism",
+                      "range": [
+                        0,
+                        4
+                      ],
+                      "default": 2
+                    },
+                    {
+                      "path": "rescue.cell_culture",
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "default": 1
+                    },
+                    {
+                      "path": "rescue.patient_cells",
+                      "range": [
+                        0,
+                        2
+                      ],
+                      "default": 1
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "overrides": [
+            {
+              "in": [
+                "disputed"
+              ],
+              "when": "contradictory_evidence",
+              "class": "disputed",
+              "field": "impact",
+              "description": "Contradictory evidence with impact Disputed present, resulting in DISPUTED classification."
+            }
+          ],
+          "total_cap": 18
+        },
+        "genetic_evidence_rules": {
+          "segregation": {
+            "max_score": 7,
+            "lod_scoring": true,
+            "family_limit": 7
+          },
+          "case_control": {
+            "max_score": 6
+          },
+          "case_level_missense": {
+            "max_score": 2,
+            "base_score": 0.1,
+            "de_novo_bonus": 0.4,
+            "functional_alteration_bonus": 0.4
+          },
+          "case_level_predicted_null": {
+            "max_score": 12,
+            "base_score": 1.5,
+            "de_novo_bonus": 0.5,
+            "functional_alteration_bonus": 0.4
+          }
+        },
+        "classification_thresholds": {
+          "strong": 7,
+          "limited": 0.1,
+          "refuted": -2,
+          "disputed": -1,
+          "moderate": 2,
+          "no_known": 0,
+          "definitive": 12
+        },
+        "experimental_evidence_rules": {
+          "models": {
+            "max_score": 4
+          },
+          "rescue": {
+            "max_score": 2
+          },
+          "expression": {
+            "max_score": 2
+          },
+          "max_total_score": 6,
+          "protein_function": {
+            "max_score": 2
+          }
+        }
+      }
+    },
+    {
+      "name": "ClinGen Precuration",
+      "version": "SOP v11",
+      "description": "ClinGen Gene-Disease Validity Precuration Schema per SOP version 11",
+      "institution": "ClinGen",
+      "schema_type": "precuration",
+      "workflow_states": {
+        "entry": {
+          "allowed_transitions": [
+            "precuration"
+          ]
+        },
+        "review": {
+          "allowed_transitions": [
+            "precuration",
+            "approved"
+          ]
+        },
+        "approved": {
+          "allowed_transitions": [
+            "curation"
+          ]
+        },
+        "precuration": {
+          "allowed_transitions": [
+            "review"
+          ]
+        }
+      },
+      "ui_configuration": {
+        "form_layout": "wizard",
+        "show_progress_bar": true,
+        "sections_collapsible": false,
+        "auto_save_interval_seconds": 30
+      },
+      "use_dynamic_form": false,
+      "validation_rules": {
+        "required_fields": [
+          "mondo_id",
+          "disease_name",
+          "mode_of_inheritance",
+          "affiliation"
+        ],
+        "custom_validators": [
+          {
+            "type": "mondo_id_format",
+            "field": "mondo_id",
+            "comment": "Mondo IDs have 6-9 digits (e.g., MONDO:0000001 to MONDO:012345678)",
+            "pattern": "^MONDO:\\d{6,9}$"
+          }
+        ],
+        "conditional_required": {
+          "lumping_splitting_decision": {
+            "when": {
+              "lumping_splitting_applicable": true
+            }
+          },
+          "lumping_splitting_rationale": {
+            "when": {
+              "lumping_splitting_applicable": true
+            }
+          }
+        }
+      },
+      "field_definitions": {
+        "sections": [
+          {
+            "id": "disease_entity",
+            "label": "Disease Entity Definition",
+            "fields": [
+              {
+                "id": "mondo_id",
+                "type": "external_reference",
+                "label": "Mondo Disease ID",
+                "required": true,
+                "help_text": "Search for disease using Mondo Disease Ontology",
+                "placeholder": "MONDO:0000001",
+                "external_source": "mondo"
+              },
+              {
+                "id": "disease_name",
+                "type": "text",
+                "label": "Disease Name",
+                "required": true,
+                "help_text": "Use dyadic naming: Gene-associated phenotype (e.g., SCN1A-related seizure disorder)"
+              },
+              {
+                "id": "disease_phenotypes",
+                "type": "array",
+                "label": "Key Phenotypes",
+                "required": false,
+                "help_text": "Add relevant HPO terms describing the phenotype",
+                "item_type": "external_reference",
+                "external_source": "hpo"
+              }
+            ],
+            "description": "Establish the gene-disease pair to be curated"
+          },
+          {
+            "id": "inheritance",
+            "label": "Mode of Inheritance",
+            "fields": [
+              {
+                "id": "mode_of_inheritance",
+                "type": "select",
+                "label": "Mode of Inheritance",
+                "options": [
+                  {
+                    "label": "Autosomal Dominant (HP:0000006)",
+                    "value": "AD"
+                  },
+                  {
+                    "label": "Autosomal Recessive (HP:0000007)",
+                    "value": "AR"
+                  },
+                  {
+                    "label": "X-linked (HP:0001417)",
+                    "value": "XL"
+                  },
+                  {
+                    "label": "X-linked Dominant (HP:0001423)",
+                    "value": "XLD"
+                  },
+                  {
+                    "label": "X-linked Recessive (HP:0001419)",
+                    "value": "XLR"
+                  },
+                  {
+                    "label": "Semidominant (HP:0032113)",
+                    "value": "SD"
+                  },
+                  {
+                    "label": "Mitochondrial (HP:0001427)",
+                    "value": "MT"
+                  },
+                  {
+                    "label": "Undetermined (HP:0000005)",
+                    "value": "Undetermined"
+                  },
+                  {
+                    "label": "Other (specify)",
+                    "value": "Other"
+                  }
+                ],
+                "required": true
+              },
+              {
+                "id": "relationship_type",
+                "type": "select",
+                "label": "Relationship type",
+                "default": "mendelian",
+                "options": [
+                  {
+                    "label": "Mendelian",
+                    "value": "mendelian"
+                  },
+                  {
+                    "label": "Susceptibility (risk allele)",
+                    "value": "susceptibility"
+                  }
+                ],
+                "required": false,
+                "help_text": "Susceptibility: a low-penetrance or risk relationship (\"disease, susceptibility to\")"
+              },
+              {
+                "id": "moi_notes",
+                "type": "textarea",
+                "label": "MOI Notes",
+                "required": false,
+                "help_text": "Provide details for Other inheritance pattern",
+                "show_when": {
+                  "mode_of_inheritance": "Other"
+                }
+              }
+            ],
+            "description": "Specify the inheritance pattern for this gene-disease pair"
+          },
+          {
+            "id": "lumping_splitting",
+            "label": "Lumping & Splitting",
+            "fields": [
+              {
+                "id": "lumping_splitting_applicable",
+                "type": "boolean",
+                "label": "Lumping/Splitting Applicable?",
+                "default": false,
+                "required": true,
+                "help_text": "Does this curation involve combining or separating disease entities?"
+              },
+              {
+                "id": "lumping_splitting_decision",
+                "type": "select",
+                "label": "Decision",
+                "options": [
+                  {
+                    "label": "Lump - Combine disease entities",
+                    "value": "LUMP"
+                  },
+                  {
+                    "label": "Split - Separate disease entities",
+                    "value": "SPLIT"
+                  }
+                ],
+                "required": true,
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              },
+              {
+                "id": "lumping_splitting_rationale",
+                "type": "textarea",
+                "label": "Rationale",
+                "required": true,
+                "help_text": "Explain the rationale for lumping or splitting per ClinGen guidelines",
+                "show_when": {
+                  "lumping_splitting_applicable": true
+                }
+              }
+            ],
+            "description": "Document any lumping or splitting decisions per ClinGen guidelines"
+          },
+          {
+            "id": "metadata",
+            "label": "Precuration Metadata",
+            "fields": [
+              {
+                "id": "affiliation",
+                "type": "text",
+                "label": "Expert Panel / Affiliation",
+                "required": true,
+                "help_text": "Your ClinGen Expert Panel or curation group"
+              },
+              {
+                "id": "curator_notes",
+                "type": "textarea",
+                "label": "Curator Notes",
+                "required": false,
+                "help_text": "Any additional notes for the precuration record"
+              }
+            ]
+          }
+        ]
+      },
+      "scoring_configuration": null
+    }
+  ],
+  "workflow_pairs": [
+    {
+      "name": "ClinGen Gene-Disease Validity",
+      "version": "SOP v11",
+      "description": "ClinGen Gene-Disease Validity workflow combining precuration and curation per SOP v11",
+      "curation_schema": "ClinGen Gene-Disease Validity SOP",
+      "precuration_schema": "ClinGen Precuration"
+    }
+  ]
+}

@@ -10,6 +10,13 @@ GET /api/v1/export/curations?scope_name=kidney-genetics&updated_since=2026-01-01
 The response schema is `CurationExportPage` in the OpenAPI document (`/openapi.json`); pin it
 and drift-check against it.
 
+A real example page, written by the export serializer in the test suite, is
+[docs/examples/export-page.json](examples/export-page.json) (a Mendelian and a
+susceptibility curation, one with clinical diagnostics, one archived row). It validates
+against the JSON Schema snapshot [docs/examples/export-page.schema.json](examples/export-page.schema.json);
+`backend/tests/api/test_export_example.py` fails when either is stale. Pin both by commit
+for importer fixtures.
+
 ## Who sees what
 
 The same visibility rule as the Gene Catalogue, enforced again by row-level security:
@@ -54,7 +61,13 @@ harmless).
 `experimental_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
 (every PMID under a `pmid` key in the evidence, deduplicated, numerically sorted),
 `curator_name`, `reviewer_name` (who approved), `approved_at`, `activated_at`, `archived_at`,
-`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`.
+`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`,
+`synopsis`, `contributions`, `evidence_lines` (see Provenance).
+
+- **Synopsis:** `synopsis` is the entity's synopsis (like SysNDD's clinical synopsis): the
+  text of the field the methodology names in `ui_configuration.synopsis_field` (the KGDB and
+  ClinGen bundles name `evidence_summary`), trimmed. `null` when the schema names none, the
+  field is blank, or `evidence` is hidden from the caller (same rule).
 
 - **Entity:** `entity_key` is `MONDO|MOI`, plus `|SUSCEPTIBILITY` for susceptibility entities,
   and `''` without a MONDO id. Treat it as an opaque match key; do not split it on `|`. Use
@@ -96,6 +109,40 @@ harmless).
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
   `"Curation deleted"`; `null` on active rows.
 
+## Provenance (GA4GH VA-Spec 1.0, ClinGen SEPIO roles)
+
+`contributions` (per curation) and `evidence_lines` (per evidence row) use VA-Spec 1.0
+field names. `evidence_lines` is `null` where `evidence` is (see Who sees what).
+
+| Gene Curator | Export field | VA-Spec / standard |
+| --- | --- | --- |
+| Curation author (`curator_name`, created) | `contributions[]` with `activityType.name: curator` | `Contribution`, SEPIO:0000156 |
+| Each approving review the caller may see | `contributions[]` with `activityType.name: assessor` | SEPIO:0000154 |
+| Approving reviewer (`reviewer_name`, `approved_at`) | `contributions[]` with `activityType.name: approver` | SEPIO:0000155 |
+| AI agent of an MCP write (`agent` block) | `contributions[]` with `contributor.agentType: software`, `actedOnBehalfOf` the person | PROV-O `SoftwareAgent`, `actedOnBehalfOf` |
+| Model, agent, tools used | `contributor.name`, `contributor.description`, `contributor.extensions[{name: tools_used}]` | `Agent`, `Entity.extensions` |
+| Evidence table row | `evidence_lines[]` with `path` (e.g. `genetic.probands[0]`) and `row_id` | `EvidenceLine` |
+| Row direction cell `direction` | `directionOfEvidenceProvided` (`supports`, `disputes`, `neutral`) | `EvidenceLine.directionOfEvidenceProvided` |
+| Row `source` cells | `evidence_lines[].sources[]`: `documentType` (kind), `id`, `title`, `urls`, `pmid`, `doi`, `citation`, `retrieved_at`, `tool`, `record_sha256` | `Document` (`reportedIn`), plus GeneFoundry provenance |
+| Row added / last changed by | `evidence_lines[].contributions[]` (`curator`, date of the write) | `Contribution` |
+
+`activityType` is `{name, primaryCoding: {system: "SEPIO", code}}`: curator SEPIO:0000156,
+assessor SEPIO:0000154, approver SEPIO:0000155, interpreter SEPIO:0000331, publisher
+SEPIO-CG:97010. `date` is an ISO 8601 date-time in UTC with a `Z` suffix, like the other
+export timestamps (a bare source date such as ClinGen's classified date is midnight UTC).
+An assessor is listed only for an approving review the caller may see, so adopted
+curations and anonymous callers get none. Software contributions are always `curator`, never `approver`: the approver
+is the person who approved (4-eyes). Persons carry no `id`.
+
+The `source` field type (schema-driven, a table cell or a list) checks the identifier per
+kind: PMID digits; DOI `10.\d{4,9}/\S+`; ClinVar `(VCV|RCV|SCV)\d{9}(\.\d+)?`; ClinGen allele
+`CA\d+`; ClinGen validity `CGGV:assertion_…`; `url` an http(s) URL; `database` any record
+name. Gene Curator never fetches the record: store GeneFoundry's `provenance`, `raw_sha256`,
+permalink and `recommended_citation` as `retrieved_at`, `record_sha256`, `url` and
+`citation`. Row authorship (`added_by`, `added_at`, `changed_by`, `changed_at`; an MCP
+agent under `agent`) is computed by the server and kept beside the evidence (the curation's
+`row_provenance`), so `evidence` stays exactly what was entered.
+
 ## Changes
 
 - **Re-curation:** the new curation appears as a new `active` row; the replaced one gets
@@ -112,6 +159,7 @@ harmless).
 
 `export_version` is `"1"`. Fields may be added within v1 (v0.11.0 added `relationship_type`,
 `final_classification` and `curator_classification_rationale`; v0.12.0 added `evidence`, `scores`
-and `summary`; #105 added `adoption`); consumers must ignore unknown
+and `summary`; #105 added `adoption`; #593 added `contributions`, `evidence_lines` and
+`synopsis`); consumers must ignore unknown
 fields. Renaming, removing or changing the meaning of a
 field publishes a new version at a new path.

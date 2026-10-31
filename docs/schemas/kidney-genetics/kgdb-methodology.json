@@ -888,6 +888,31 @@
                 "explanation": {
                   "type": "textarea",
                   "label": "Explanation"
+                },
+                "sources": {
+                  "type": "source",
+                  "label": "Sources",
+                  "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+                  "llm_share": true
+                },
+                "direction": {
+                  "type": "select",
+                  "label": "Direction",
+                  "options": [
+                    {
+                      "value": "supports",
+                      "label": "Supports"
+                    },
+                    {
+                      "value": "disputes",
+                      "label": "Disputes"
+                    },
+                    {
+                      "value": "neutral",
+                      "label": "Neutral"
+                    }
+                  ],
+                  "help_text": "VA-Spec directionOfEvidenceProvided"
                 }
               }
             },
@@ -918,6 +943,31 @@
                   "label": "PMID",
                   "required": true,
                   "validation": "pmid_format"
+                },
+                "sources": {
+                  "type": "source",
+                  "label": "Sources",
+                  "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+                  "llm_share": true
+                },
+                "direction": {
+                  "type": "select",
+                  "label": "Direction",
+                  "options": [
+                    {
+                      "value": "supports",
+                      "label": "Supports"
+                    },
+                    {
+                      "value": "disputes",
+                      "label": "Disputes"
+                    },
+                    {
+                      "value": "neutral",
+                      "label": "Neutral"
+                    }
+                  ],
+                  "help_text": "VA-Spec directionOfEvidenceProvided"
                 }
               }
             },
@@ -975,6 +1025,31 @@
                   "max": 2,
                   "step": 0.5,
                   "help_text": "Leave blank for the default (2) or the row rules"
+                },
+                "sources": {
+                  "type": "source",
+                  "label": "Sources",
+                  "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+                  "llm_share": true
+                },
+                "direction": {
+                  "type": "select",
+                  "label": "Direction",
+                  "options": [
+                    {
+                      "value": "supports",
+                      "label": "Supports"
+                    },
+                    {
+                      "value": "disputes",
+                      "label": "Disputes"
+                    },
+                    {
+                      "value": "neutral",
+                      "label": "Neutral"
+                    }
+                  ],
+                  "help_text": "VA-Spec directionOfEvidenceProvided"
                 }
               }
             }
@@ -1037,6 +1112,31 @@
                   "max": 2,
                   "step": 0.5,
                   "help_text": "Leave blank for the default (2) or the row rules"
+                },
+                "sources": {
+                  "type": "source",
+                  "label": "Sources",
+                  "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+                  "llm_share": true
+                },
+                "direction": {
+                  "type": "select",
+                  "label": "Direction",
+                  "options": [
+                    {
+                      "value": "supports",
+                      "label": "Supports"
+                    },
+                    {
+                      "value": "disputes",
+                      "label": "Disputes"
+                    },
+                    {
+                      "value": "neutral",
+                      "label": "Neutral"
+                    }
+                  ],
+                  "help_text": "VA-Spec directionOfEvidenceProvided"
                 }
               }
             },
@@ -1069,6 +1169,31 @@
                   "max": 1,
                   "step": 0.5,
                   "help_text": "Leave blank for the default (1) or the row rules"
+                },
+                "sources": {
+                  "type": "source",
+                  "label": "Sources",
+                  "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+                  "llm_share": true
+                },
+                "direction": {
+                  "type": "select",
+                  "label": "Direction",
+                  "options": [
+                    {
+                      "value": "supports",
+                      "label": "Supports"
+                    },
+                    {
+                      "value": "disputes",
+                      "label": "Disputes"
+                    },
+                    {
+                      "value": "neutral",
+                      "label": "Neutral"
+                    }
+                  ],
+                  "help_text": "VA-Spec directionOfEvidenceProvided"
                 }
               }
             }
@@ -1128,6 +1253,31 @@
               "label": "PMID",
               "required": true,
               "validation": "pmid_format"
+            },
+            "sources": {
+              "type": "source",
+              "label": "Sources",
+              "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+              "llm_share": true
+            },
+            "direction": {
+              "type": "select",
+              "label": "Direction",
+              "options": [
+                {
+                  "value": "supports",
+                  "label": "Supports"
+                },
+                {
+                  "value": "disputes",
+                  "label": "Disputes"
+                },
+                {
+                  "value": "neutral",
+                  "label": "Neutral"
+                }
+              ],
+              "help_text": "VA-Spec directionOfEvidenceProvided"
             }
           }
         },
@@ -1618,7 +1768,8 @@
               ]
             }
           ]
-        }
+        },
+        "synopsis_field": "evidence_summary"
       },
       "scoring_configuration": {
         "engine": "point_model",
@@ -2522,6 +2673,31 @@
                   "max": 3,
                   "step": 0.5,
                   "help_text": "Leave blank for the default (1; 2 if >=50 cases and >=50 controls; 3 if >=500 and >=500 or a meta-analysis); enter fewer for bias or poor ancestry matching"
+                },
+                "sources": {
+                  "type": "source",
+                  "label": "Sources",
+                  "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+                  "llm_share": true
+                },
+                "direction": {
+                  "type": "select",
+                  "label": "Direction",
+                  "options": [
+                    {
+                      "value": "supports",
+                      "label": "Supports"
+                    },
+                    {
+                      "value": "disputes",
+                      "label": "Disputes"
+                    },
+                    {
+                      "value": "neutral",
+                      "label": "Neutral"
+                    }
+                  ],
+                  "help_text": "VA-Spec directionOfEvidenceProvided"
                 }
               }
             }
@@ -2560,6 +2736,31 @@
                   "max": 1,
                   "step": 0.5,
                   "help_text": "Leave blank for the default (1) or the row rules"
+                },
+                "sources": {
+                  "type": "source",
+                  "label": "Sources",
+                  "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+                  "llm_share": true
+                },
+                "direction": {
+                  "type": "select",
+                  "label": "Direction",
+                  "options": [
+                    {
+                      "value": "supports",
+                      "label": "Supports"
+                    },
+                    {
+                      "value": "disputes",
+                      "label": "Disputes"
+                    },
+                    {
+                      "value": "neutral",
+                      "label": "Neutral"
+                    }
+                  ],
+                  "help_text": "VA-Spec directionOfEvidenceProvided"
                 }
               }
             }
@@ -2619,6 +2820,31 @@
               "label": "PMID",
               "required": true,
               "validation": "pmid_format"
+            },
+            "sources": {
+              "type": "source",
+              "label": "Sources",
+              "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+              "llm_share": true
+            },
+            "direction": {
+              "type": "select",
+              "label": "Direction",
+              "options": [
+                {
+                  "value": "supports",
+                  "label": "Supports"
+                },
+                {
+                  "value": "disputes",
+                  "label": "Disputes"
+                },
+                {
+                  "value": "neutral",
+                  "label": "Neutral"
+                }
+              ],
+              "help_text": "VA-Spec directionOfEvidenceProvided"
             }
           }
         },
@@ -3086,7 +3312,8 @@
               ]
             }
           ]
-        }
+        },
+        "synopsis_field": "evidence_summary"
       },
       "scoring_configuration": {
         "engine": "point_model",

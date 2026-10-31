@@ -43,6 +43,7 @@ export const FIELD_TYPES = [
   { value: 'boolean', title: 'Yes / no' },
   { value: 'date', title: 'Date' },
   { value: 'url', title: 'Link (URL)' },
+  { value: 'source', title: 'Source (PMID, DOI, ClinVar, ...)' },
   { value: 'select', title: 'Single choice' },
   { value: 'multiselect', title: 'Multiple choice' },
   { value: 'external_reference', title: 'Ontology reference' },

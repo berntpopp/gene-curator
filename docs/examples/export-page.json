@@ -1,0 +1,665 @@
+{
+  "export_version": "1",
+  "items": [
+    {
+      "curation_id": "00000000-0000-0000-0000-000000000029",
+      "entity_key": "MONDO:0009461|HP:0000007",
+      "url": "https://curator.example/scopes/00000000-0000-0000-0000-000000000001/curations/00000000-0000-0000-0000-000000000029",
+      "status": "active",
+      "scope_name": "kidney-genetics",
+      "hgnc_id": "HGNC:2037",
+      "approved_symbol": "CLDN16",
+      "disease_name": null,
+      "mondo_id": null,
+      "mode_of_inheritance": null,
+      "moi_hpo_id": null,
+      "relationship_type": "mendelian",
+      "computed_verdict": "definitive",
+      "final_classification": "definitive",
+      "curator_classification_rationale": null,
+      "genetic_score": null,
+      "experimental_score": null,
+      "total_score": 16.0,
+      "methodology": {
+        "schema_name": "KGDB Mendelian Curation",
+        "version": null,
+        "version_id": null
+      },
+      "pmids": [
+        "31000001",
+        "31000002",
+        "31000003",
+        "31000004",
+        "31000005",
+        "31000006",
+        "31000007",
+        "31000008",
+        "31000009",
+        "31000010",
+        "31000020",
+        "31000021",
+        "31000022",
+        "31000023"
+      ],
+      "evidence": {
+        "genetic": {
+          "probands": [
+            {
+              "pmid": "31000001",
+              "proband_label": "P1",
+              "variant": "c.101G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary",
+              "id": "row-p1",
+              "direction": "supports",
+              "sources": [
+                {
+                  "kind": "pmid",
+                  "id": "31000001",
+                  "title": "Paracellin-1 mutations in HOMG3",
+                  "tool": "genefoundry:pubtator_search_literature",
+                  "retrieved_at": "2026-10-02T09:00:00Z"
+                },
+                {
+                  "kind": "clinvar",
+                  "id": "VCV000012345",
+                  "url": "https://www.ncbi.nlm.nih.gov/clinvar/variation/12345/",
+                  "tool": "genefoundry:clinvar_get_variant",
+                  "retrieved_at": "2026-10-02T09:01:00Z",
+                  "record_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+                  "citation": "ClinVar VCV000012345 (accessed 2026-10-02)"
+                }
+              ]
+            },
+            {
+              "pmid": "31000002",
+              "proband_label": "P2",
+              "variant": "c.102G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000003",
+              "proband_label": "P3",
+              "variant": "c.103G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000004",
+              "proband_label": "P4",
+              "variant": "c.104G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000005",
+              "proband_label": "P5",
+              "variant": "c.105G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000006",
+              "proband_label": "P6",
+              "variant": "c.106G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000007",
+              "proband_label": "P7",
+              "variant": "c.107G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000008",
+              "proband_label": "P8",
+              "variant": "c.108G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000009",
+              "proband_label": "P9",
+              "variant": "c.109G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000010",
+              "proband_label": "P10",
+              "variant": "c.110G>A",
+              "zygosity": "homozygous",
+              "variant_source": "primary"
+            }
+          ]
+        },
+        "experimental": {
+          "models": [
+            {
+              "pmid": "31000020",
+              "organism": "mouse",
+              "mechanism_fit": "yes"
+            },
+            {
+              "pmid": "31000021",
+              "organism": "zebrafish",
+              "mechanism_fit": "yes"
+            }
+          ],
+          "functional": [
+            {
+              "pmid": "31000022",
+              "assay": "paracellular Mg2+ flux"
+            },
+            {
+              "pmid": "31000023",
+              "assay": "tight junction localisation"
+            }
+          ]
+        },
+        "replicated_over_time": true,
+        "evidence_summary": "Autosomal recessive familial hypomagnesemia with hypercalciuria and nephrocalcinosis (HOMG3); 10 probands, mouse and zebrafish models.",
+        "diagnostics": {
+          "recommended_transcript": {
+            "refseq": "NM_006580.4",
+            "mane_status": "select"
+          },
+          "detectability": [
+            {
+              "challenge": "copy_number_variants",
+              "methods": [
+                "MLPA"
+              ],
+              "sources": []
+            }
+          ],
+          "resources": []
+        }
+      },
+      "scores": {
+        "total_score": 16
+      },
+      "summary": null,
+      "curator_name": "Alice Curator",
+      "reviewer_name": "Bob Reviewer",
+      "approved_at": "2026-10-04T12:00:00",
+      "activated_at": "2026-10-04T12:00:00",
+      "archived_at": null,
+      "archive_reason": null,
+      "updated_at": "2026-10-04T12:00:00",
+      "adoption": null,
+      "contributions": [
+        {
+          "contributor": {
+            "name": "Alice Curator",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "curator",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000156"
+            }
+          },
+          "date": "2026-10-01T12:00:00Z",
+          "actedOnBehalfOf": null
+        },
+        {
+          "contributor": {
+            "name": "claude-opus-5-5",
+            "agentType": "software",
+            "id": null,
+            "description": "Claude Code",
+            "extensions": [
+              {
+                "name": "tools_used",
+                "value": [
+                  "genefoundry:pubtator_search_literature",
+                  "genefoundry:clinvar_get_variant"
+                ]
+              }
+            ]
+          },
+          "activityType": {
+            "name": "curator",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000156"
+            }
+          },
+          "date": "2026-10-02T09:05:00Z",
+          "actedOnBehalfOf": {
+            "name": "Alice Curator",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          }
+        },
+        {
+          "contributor": {
+            "name": "Bob Reviewer",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "approver",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000155"
+            }
+          },
+          "date": "2026-10-04T12:00:00Z",
+          "actedOnBehalfOf": null
+        }
+      ],
+      "synopsis": "Autosomal recessive familial hypomagnesemia with hypercalciuria and nephrocalcinosis (HOMG3); 10 probands, mouse and zebrafish models.",
+      "evidence_lines": [
+        {
+          "path": "genetic.probands[0]",
+          "row_id": "row-p1",
+          "directionOfEvidenceProvided": "supports",
+          "sources": [
+            {
+              "documentType": "pmid",
+              "id": "31000001",
+              "title": "Paracellin-1 mutations in HOMG3",
+              "urls": [],
+              "pmid": "31000001",
+              "doi": null,
+              "citation": null,
+              "retrieved_at": "2026-10-02T09:00:00Z",
+              "tool": "genefoundry:pubtator_search_literature",
+              "record_sha256": null
+            },
+            {
+              "documentType": "clinvar",
+              "id": "VCV000012345",
+              "title": null,
+              "urls": [
+                "https://www.ncbi.nlm.nih.gov/clinvar/variation/12345/"
+              ],
+              "pmid": null,
+              "doi": null,
+              "citation": "ClinVar VCV000012345 (accessed 2026-10-02)",
+              "retrieved_at": "2026-10-02T09:01:00Z",
+              "tool": "genefoundry:clinvar_get_variant",
+              "record_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+            }
+          ],
+          "contributions": [
+            {
+              "contributor": {
+                "name": "Alice Curator",
+                "agentType": "person",
+                "id": null,
+                "description": null,
+                "extensions": null
+              },
+              "activityType": {
+                "name": "curator",
+                "primaryCoding": {
+                  "system": "SEPIO",
+                  "code": "SEPIO:0000156"
+                }
+              },
+              "date": "2026-10-02T09:05:00Z",
+              "actedOnBehalfOf": null
+            },
+            {
+              "contributor": {
+                "name": "claude-opus-5-5",
+                "agentType": "software",
+                "id": null,
+                "description": "Claude Code",
+                "extensions": [
+                  {
+                    "name": "tools_used",
+                    "value": [
+                      "genefoundry:pubtator_search_literature",
+                      "genefoundry:clinvar_get_variant"
+                    ]
+                  }
+                ]
+              },
+              "activityType": {
+                "name": "curator",
+                "primaryCoding": {
+                  "system": "SEPIO",
+                  "code": "SEPIO:0000156"
+                }
+              },
+              "date": "2026-10-02T09:05:00Z",
+              "actedOnBehalfOf": {
+                "name": "Alice Curator",
+                "agentType": "person",
+                "id": null,
+                "description": null,
+                "extensions": null
+              }
+            },
+            {
+              "contributor": {
+                "name": "Alice Curator",
+                "agentType": "person",
+                "id": null,
+                "description": null,
+                "extensions": null
+              },
+              "activityType": {
+                "name": "curator",
+                "primaryCoding": {
+                  "system": "SEPIO",
+                  "code": "SEPIO:0000156"
+                }
+              },
+              "date": "2026-10-03T10:00:00Z",
+              "actedOnBehalfOf": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "curation_id": "00000000-0000-0000-0000-00000000002a",
+      "entity_key": "MONDO:0011308|HP:0000007|SUSCEPTIBILITY",
+      "url": "https://curator.example/scopes/00000000-0000-0000-0000-000000000001/curations/00000000-0000-0000-0000-00000000002a",
+      "status": "active",
+      "scope_name": "kidney-genetics",
+      "hgnc_id": "HGNC:618",
+      "approved_symbol": "APOL1",
+      "disease_name": null,
+      "mondo_id": null,
+      "mode_of_inheritance": null,
+      "moi_hpo_id": null,
+      "relationship_type": "susceptibility",
+      "computed_verdict": "established",
+      "final_classification": "established",
+      "curator_classification_rationale": null,
+      "genetic_score": null,
+      "experimental_score": null,
+      "total_score": 6.0,
+      "methodology": {
+        "schema_name": "KGDB Mendelian Curation",
+        "version": null,
+        "version_id": null
+      },
+      "pmids": [
+        "31000080",
+        "31000081"
+      ],
+      "evidence": {
+        "association": {
+          "studies": [
+            {
+              "pmid": "31000080",
+              "study_label": "Cohort A",
+              "variant": "rs4844573",
+              "p_value": 1e-09,
+              "significant_after_correction": true,
+              "effect_direction": "risk",
+              "cases_total": 600,
+              "controls_total": 700
+            },
+            {
+              "pmid": "31000081",
+              "study_label": "Cohort B",
+              "variant": "rs4844573",
+              "p_value": 1e-09,
+              "significant_after_correction": true,
+              "effect_direction": "risk",
+              "cases_total": 800,
+              "controls_total": 900
+            }
+          ]
+        },
+        "meets_very_strong": true
+      },
+      "scores": {
+        "total_score": 6
+      },
+      "summary": null,
+      "curator_name": "Alice Curator",
+      "reviewer_name": "Bob Reviewer",
+      "approved_at": "2026-10-05T12:00:00",
+      "activated_at": "2026-10-05T12:00:00",
+      "archived_at": null,
+      "archive_reason": null,
+      "updated_at": "2026-10-05T12:00:00",
+      "adoption": null,
+      "contributions": [
+        {
+          "contributor": {
+            "name": "Alice Curator",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "curator",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000156"
+            }
+          },
+          "date": "2026-10-02T12:00:00Z",
+          "actedOnBehalfOf": null
+        },
+        {
+          "contributor": {
+            "name": "Bob Reviewer",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "approver",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000155"
+            }
+          },
+          "date": "2026-10-05T12:00:00Z",
+          "actedOnBehalfOf": null
+        }
+      ],
+      "synopsis": null,
+      "evidence_lines": []
+    },
+    {
+      "curation_id": "00000000-0000-0000-0000-00000000002b",
+      "entity_key": "MONDO:0013727|HP:0000006",
+      "url": "https://curator.example/scopes/00000000-0000-0000-0000-000000000001/curations/00000000-0000-0000-0000-00000000002b",
+      "status": "archived",
+      "scope_name": "kidney-genetics",
+      "hgnc_id": "HGNC:13387",
+      "approved_symbol": "NEK8",
+      "disease_name": null,
+      "mondo_id": null,
+      "mode_of_inheritance": null,
+      "moi_hpo_id": null,
+      "relationship_type": "mendelian",
+      "computed_verdict": "strong",
+      "final_classification": "strong",
+      "curator_classification_rationale": null,
+      "genetic_score": null,
+      "experimental_score": null,
+      "total_score": 14.0,
+      "methodology": {
+        "schema_name": "KGDB Mendelian Curation",
+        "version": null,
+        "version_id": null
+      },
+      "pmids": [
+        "31000001",
+        "31000002",
+        "31000003",
+        "31000004",
+        "31000005",
+        "31000006",
+        "31000007",
+        "31000008",
+        "31000009",
+        "31000010",
+        "31000030",
+        "31000031"
+      ],
+      "evidence": {
+        "genetic": {
+          "probands": [
+            {
+              "pmid": "31000001",
+              "proband_label": "P1",
+              "variant": "c.201C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000002",
+              "proband_label": "P2",
+              "variant": "c.202C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000003",
+              "proband_label": "P3",
+              "variant": "c.203C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000004",
+              "proband_label": "P4",
+              "variant": "c.204C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000005",
+              "proband_label": "P5",
+              "variant": "c.205C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000006",
+              "proband_label": "P6",
+              "variant": "c.206C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000007",
+              "proband_label": "P7",
+              "variant": "c.207C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000008",
+              "proband_label": "P8",
+              "variant": "c.208C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000009",
+              "proband_label": "P9",
+              "variant": "c.209C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            },
+            {
+              "pmid": "31000010",
+              "proband_label": "P10",
+              "variant": "c.210C>T",
+              "zygosity": "heterozygous",
+              "variant_source": "primary"
+            }
+          ],
+          "segregation": [
+            {
+              "pmid": "31000030",
+              "families": 2,
+              "summed_lod": 3.2
+            }
+          ]
+        },
+        "experimental": {
+          "models": [
+            {
+              "pmid": "31000031",
+              "organism": "mouse",
+              "mechanism_fit": "yes"
+            }
+          ]
+        },
+        "replicated_over_time": false
+      },
+      "scores": {
+        "total_score": 14
+      },
+      "summary": null,
+      "curator_name": "Alice Curator",
+      "reviewer_name": "Bob Reviewer",
+      "approved_at": "2026-10-06T12:00:00",
+      "activated_at": "2026-10-06T12:00:00",
+      "archived_at": "2026-10-09T12:00:00",
+      "archive_reason": "Curation deleted",
+      "updated_at": "2026-10-06T12:00:00",
+      "adoption": null,
+      "contributions": [
+        {
+          "contributor": {
+            "name": "Alice Curator",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "curator",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000156"
+            }
+          },
+          "date": "2026-10-03T12:00:00Z",
+          "actedOnBehalfOf": null
+        },
+        {
+          "contributor": {
+            "name": "Bob Reviewer",
+            "agentType": "person",
+            "id": null,
+            "description": null,
+            "extensions": null
+          },
+          "activityType": {
+            "name": "approver",
+            "primaryCoding": {
+              "system": "SEPIO",
+              "code": "SEPIO:0000155"
+            }
+          },
+          "date": "2026-10-06T12:00:00Z",
+          "actedOnBehalfOf": null
+        }
+      ],
+      "synopsis": null,
+      "evidence_lines": []
+    }
+  ],
+  "next_cursor": null
+}

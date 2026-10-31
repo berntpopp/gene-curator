@@ -901,6 +901,7 @@ dependencies = [
 dev = [
     { name = "bandit" },
     { name = "httpx2" },
+    { name = "jsonschema" },
     { name = "mypy" },
     { name = "pip-audit" },
     { name = "pytest" },
@@ -921,6 +922,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=3.4.7,<4.0.0" },
     { name = "httpx", specifier = ">=0.25.2" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.16.0" },
+    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "mcp", specifier = ">=1.30.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.7.1" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.6.0" },

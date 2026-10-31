@@ -281,45 +281,18 @@
               <v-card variant="outlined">
                 <v-card-title> Evidence details </v-card-title>
                 <v-card-text>
-                  <!-- From the pinned version's snapshot: the server JSON schema flattens tables (monkey B1) -->
                   <CurationEvidenceReadonly
                     :evidence="evidence"
                     :schema-id="curationSchemaId"
                     :version-id="curation.methodology_version_id"
+                    :row-provenance="curation.row_provenance"
                   />
                 </v-card-text>
               </v-card>
             </v-col>
           </v-row>
 
-          <!-- Metadata -->
-          <v-row>
-            <v-col cols="12">
-              <v-card variant="outlined">
-                <v-card-title> Metadata </v-card-title>
-                <v-card-text>
-                  <v-row>
-                    <v-col cols="12" md="3">
-                      <div class="text-body-small text-medium-emphasis">Created At</div>
-                      <div class="text-body-large">{{ formatDateTime(curation.created_at) }}</div>
-                    </v-col>
-                    <v-col cols="12" md="3">
-                      <div class="text-body-small text-medium-emphasis">Updated At</div>
-                      <div class="text-body-large">{{ formatDateTime(curation.updated_at) }}</div>
-                    </v-col>
-                    <v-col cols="12" md="3">
-                      <div class="text-body-small text-medium-emphasis">Workflow Stage</div>
-                      <div class="text-body-large">{{ curation.workflow_stage }}</div>
-                    </v-col>
-                    <v-col cols="12" md="3">
-                      <div class="text-body-small text-medium-emphasis">Version</div>
-                      <div class="text-body-large">{{ curation.lock_version }}</div>
-                    </v-col>
-                  </v-row>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
+          <CurationMetadata :curation="curation" :curation-id="curationId" />
         </div>
       </v-col>
     </v-row>
@@ -424,6 +397,7 @@
   import { formatScore } from './curationScores'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
+  import CurationMetadata from '@/components/curation/CurationMetadata.vue'
   import ApproveChecklistDialog from '@/components/review/ApproveChecklistDialog.vue'
   import RequestChangesDialog from '@/components/review/RequestChangesDialog.vue'
   import ReviewDiff from '@/components/review/ReviewDiff.vue'
@@ -445,6 +419,7 @@
     workflow_pair_id?: string
     methodology_version_id?: string | null
     evidence_data?: Record<string, unknown> | null
+    row_provenance?: Record<string, unknown> | null
     gene_symbol?: string | null
     hgnc_id?: string | null
     disease_name?: string | null

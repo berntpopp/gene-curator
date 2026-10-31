@@ -41,6 +41,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=9.0.3",
+    "jsonschema>=4.0.0",  # export JSON Schema snapshot test (#596)
     "pytest-asyncio>=0.21.1",
     "pytest-cov>=4.1.0",
     "ruff>=0.1.6",

@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.curation import RelationshipType
+from app.schemas.provenance import Contribution, EvidenceLine
 
 
 class ExportMethodology(BaseModel):
@@ -73,6 +74,22 @@ class ExportCuration(BaseModel):
         description="Adopted ClinGen classification (#105) as a VA-Spec statement: id "
         "(CGGV), reportedIn [Document], contributions [GCEP interpreter, curator, "
         "approver]; null for a curation of our own",
+    )
+    # #593: VA-Spec provenance; evidence_lines is null where evidence is
+    contributions: list[Contribution] = Field(
+        default_factory=list,
+        description="VA-Spec Contribution[]: curator and approver (persons) and any "
+        "software agent that wrote evidence rows",
+    )
+    synopsis: str | None = Field(
+        None,
+        description="The entity's synopsis: the text field the schema names in "
+        "ui_configuration.synopsis_field; null like evidence",
+    )
+    evidence_lines: list[EvidenceLine] | None = Field(
+        None,
+        description="VA-Spec EvidenceLine per evidence row with sources (reportedIn), "
+        "directionOfEvidenceProvided or contributions",
     )
 
 

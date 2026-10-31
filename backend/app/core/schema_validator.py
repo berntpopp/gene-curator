@@ -17,6 +17,7 @@ from app.core.schema_rules import (
     resolve_named_rules,
 )
 from app.core.schema_validation_result import SchemaValidationResult
+from app.core.source_field import source_errors
 from app.core.table_cells import cell_errors
 from app.core.url_field import url_errors
 from app.crud.precuration_required import visible_when as _when
@@ -52,6 +53,7 @@ class SchemaValidator:
             "hgnc_id": self._validate_hgnc_id_field,
             "score": self._validate_score_field,
             "evidence_table": self._validate_cells,
+            "source": source_errors,
             # Seeded aliases (VALID_FIELD_TYPES)
             "textarea": self._validate_text_field,
             "external_reference": self._validate_text_field,
@@ -257,7 +259,6 @@ class SchemaValidator:
         config: dict[str, Any],
         result: SchemaValidationResult,
     ) -> None:
-        """Validate boolean field."""
         if not isinstance(value, bool):
             result.add_error(field_name, "Value must be true or false", "type")
 
@@ -268,7 +269,6 @@ class SchemaValidator:
         config: dict[str, Any],
         result: SchemaValidationResult,
     ) -> None:
-        """Validate array field."""
         if not isinstance(value, list):
             result.add_error(field_name, "Value must be an array", "type")
             return

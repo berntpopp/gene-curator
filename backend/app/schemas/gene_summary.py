@@ -22,6 +22,11 @@ class ScopeSummary(BaseModel):
         description="Classification key of the schema (ClinGen: definitive, strong, moderate, limited, no_known, disputed, refuted)",
     )
     curation_id: UUID | None = Field(None, description="Curation this row links to")
+    synopsis: str | None = Field(
+        None,
+        description="Synopsis of the active curation (schema synopsis_field); members, "
+        "or anyone when the scope exports evidence publicly",
+    )
     disease_name: str | None = Field(None, description="Disease of the curation")
     mondo_id: str | None = Field(None, description="MONDO id of the disease")
     mode_of_inheritance: str | None = Field(None, description="Mode of inheritance")
