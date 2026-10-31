@@ -162,7 +162,8 @@ def _item(
     schema_id: UUID | None,
     updated_at: datetime,
 ) -> ExportCuration:
-    scores: dict[str, Any] = c.computed_scores or {}
+    # #613: an adoption has no points of ours, also one scored before the fix
+    scores: dict[str, Any] = {} if c.clingen_adoption else (c.computed_scores or {})
     # #558: members always; others only when the public scope opted in
     detail = scope.id in members or (scope.is_public and scope.export_evidence_public)
     parts = ac.entity_key.split("|")  # MONDO|MOI[|SUSCEPTIBILITY]
@@ -189,7 +190,7 @@ def _item(
         **get_disease_fields(c.evidence_data, pre),
         moi_hpo_id=_MOI_HPO.get(moi),
         relationship_type=relationship_of_key(ac.entity_key),
-        computed_verdict=c.computed_verdict,
+        computed_verdict=None if c.clingen_adoption else c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,
         genetic_score=section_total(scores, "genetic"),

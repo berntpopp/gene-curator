@@ -135,7 +135,9 @@ def recompute_all_scores(db: Session) -> int:
             *pin,
             Gene.approved_symbol,
             CurationNew.status,
-        ).outerjoin(Gene, Gene.id == CurationNew.gene_id)
+        )
+        .outerjoin(Gene, Gene.id == CurationNew.gene_id)
+        .where(CurationNew.clingen_adoption.is_(None))  # never scored (#613)
     ).all()
     # One bounded lookup for all PMIDs, as saves do: unknown ones score nothing
     pmids = set().union(*(evidence_pmids(row[1]) for row in curations))

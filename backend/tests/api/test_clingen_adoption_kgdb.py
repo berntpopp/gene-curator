@@ -225,3 +225,28 @@ def test_export_keeps_every_field_kgdb_reads(
     assert panel["contributor"]["name"] == row["clingen"]["expert_panel"]
     assert panel["date"].startswith("2021-02-26")
     assert "computed_verdict" in adopted and "scores" in adopted
+
+
+def test_an_adoption_scored_before_613_exports_no_points(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_scope: Scope,
+    row: dict,
+) -> None:
+    """Rows adopted before the fix kept no_known and 0 points in the database."""
+    cid = _adopt(client, curator_token, row)
+    c = db_session.get(CurationNew, cid)
+    assert c is not None
+    c.computed_verdict = "no_known"
+    c.computed_scores = {"genetic_total": 0, "experimental_total": 0, "total_score": 0}
+    db_session.commit()
+    _approve(client, db_session, test_scope, cid)
+    [item] = client.get("/api/v1/export/curations", headers=_h(curator_token)).json()[
+        "items"
+    ]
+    assert item["computed_verdict"] is None
+    assert [
+        item[k] for k in ("genetic_score", "experimental_score", "total_score")
+    ] == [None] * 3
+    assert (item["scores"], item["final_classification"]) == (None, "definitive")
