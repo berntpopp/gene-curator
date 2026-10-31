@@ -57,6 +57,24 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.12.0
+
+Before upgrading production, run the duplicate query printed by migration 077 (also in
+[docs/releases/v0.12.0.md](docs/releases/v0.12.0.md#upgrading)) and archive all but one open
+precuration per gene, scope and disease entity; 077 stops with the list otherwise. Then run
+`make db-migrate` (076 `export_evidence_public`, off by default; 077 one open precuration per
+entity) before restarting the backend. Breaking: publishing a point model whose paths name
+missing fields now fails; fix them in the schema editor before the next publish. Schemas and
+point models are now built and published in the UI. The KGDB methodology bundle
+`docs/schemas/kidney-genetics/kgdb-methodology.json` imports as a platform admin through
+Schema Management, *Import methodology* (dry run first), or
+`POST /api/v1/schemas/methodologies/import` (see its
+[README](docs/schemas/kidney-genetics/README.md)).
+([#570](https://github.com/berntpopp/gene-curator/pull/570),
+[#582](https://github.com/berntpopp/gene-curator/pull/582),
+[#583](https://github.com/berntpopp/gene-curator/pull/583),
+[#585](https://github.com/berntpopp/gene-curator/pull/585))
+
 ### Upgrading to v0.11.0
 
 Run `make db-migrate` (071–075, applied in order) before restarting the backend. New are a
