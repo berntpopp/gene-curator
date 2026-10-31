@@ -581,7 +581,12 @@ def submit_curation(
     # Point ranges and PMIDs: review_guards, in the transition into review
     try:
         reviewer_id = submit_reviewer(
-            db, curation.scope_id, submit_in, curation.created_by
+            db,
+            curation.scope_id,
+            submit_in,
+            curation.created_by,
+            item_id=curation.id,
+            submitter=current_user.id,
         )
         submitted = curation_crud.submit_for_review(
             db,

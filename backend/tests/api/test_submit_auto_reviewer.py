@@ -2,11 +2,13 @@
 several it is refused, naming reviewer_email and the candidates (KGDB QA: nothing
 reaches review unassigned)."""
 
+from uuid import uuid4
+
 import pytest
 from sqlalchemy.orm import Session
 
 from app.mcp.audit import request_channel
-from app.models import Scope, UserNew
+from app.models import AuditLogNew, Scope, UserNew
 from app.schemas.precuration import PrecurationSubmit
 from app.services.review_assignment import submit_reviewer
 from tests.api.test_clingen_adoption import _member
@@ -70,3 +72,37 @@ def test_a_named_reviewer_is_kept(
     assert submit_reviewer(db_session, test_scope.id, named, test_user_curator.id) == (
         bob.id
     )
+
+
+def test_a_corrector_is_skipped(
+    db_session: Session, test_scope: Scope, test_user_curator: UserNew
+) -> None:
+    """D1: who corrected the item is never picked (it would fail with CORRECTED_OWN)."""
+    item = uuid4()
+    bob = _member(db_session, test_scope, "reviewer", "Bob")
+    corrector = _member(db_session, test_scope, "admin", "Ann")
+    db_session.add(
+        AuditLogNew(
+            entity_type="curation",
+            entity_id=item,
+            operation="UPDATE",
+            change_type="disease_correction",
+            user_id=corrector.id,
+        )
+    )
+    db_session.commit()
+    picked = submit_reviewer(
+        db_session, test_scope.id, UNNAMED, test_user_curator.id, item_id=item
+    )
+    assert picked == bob.id
+
+
+def test_a_scope_admin_submitter_is_skipped(
+    db_session: Session, test_scope: Scope, test_user_curator: UserNew
+) -> None:
+    bob = _member(db_session, test_scope, "reviewer", "Bob")
+    admin = _member(db_session, test_scope, "admin", "Ann")
+    picked = submit_reviewer(
+        db_session, test_scope.id, UNNAMED, test_user_curator.id, submitter=admin.id
+    )
+    assert picked == bob.id
