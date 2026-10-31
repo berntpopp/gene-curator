@@ -14,7 +14,7 @@ container=${POSTGRES_CONTAINER:-gene_curator_postgres}
 
 mkdir -p "$dir"
 file="$dir/backup_$(date +%Y%m%d_%H%M%S).dump"
-partial=$(mktemp "$file.XXXXXX.partial")  # own file: runs in the same second can overlap
+partial=$(mktemp "$file.partial.XXXXXX")  # own file per run; trailing X: BSD mktemp too
 trap 'rm -f "$partial"' EXIT
 
 docker exec "$container" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -F c > "$partial"
