@@ -434,24 +434,21 @@ def _check_model_paths(
     model: dict[str, Any], path: str, fields: dict[str, Any]
 ) -> list[Diagnostic]:
     """Evidence paths the model reads must name fields, or they silently score 0 (#576).
-    When no section key is a field, paths are read from the top level, as the scorer does
+    A section whose key is no field reads its paths from the top level, as the scorer does
     for forms built in the UI (B3); a flat-list section is scored by the legacy rule.
     ponytail: skipped when the fields describe no evidence (no section key is a field and
     no top-level evidence table)."""
     top = _top_fields(fields)
     sections = _dicts(_as(list, model.get("sections")))
     tables = any(_as(dict, cfg).get("type") == "evidence_table" for cfg in top.values())
-    nested = any(section.get("key") in top for _, section in sections)
-    if not tables and not nested:
+    if not tables and not any(section.get("key") in top for _, section in sections):
         return []
     found: list[tuple[str, str]] = []  # (JSON path, data path)
     for i, section in sections:
         key = str(section.get("key"))
-        if nested:
-            found.append((f"{path}.sections[{i}].key", key))
         if _as(dict, top.get(key)).get("type") == "array":
             continue
-        base = f"{key}." if nested else ""
+        base = f"{key}." if key in top else ""  # per section, as the scorer reads it
         for j, cat in _dicts(_as(list, section.get("categories"))):
             for k, item in _dicts(_as(list, cat.get("types"))):
                 at = f"{path}.sections[{i}].categories[{j}].types[{k}]"

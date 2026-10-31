@@ -80,3 +80,24 @@ def test_flat_paths_are_checked_against_the_form_fields() -> None:
     rule = {"field": "pmd", "present": True, "points": 1}
     model = _model({"path": "probands", "points_when": [rule]})
     assert _path_errors(model, SECTIONED) == [f"{types}[0].points_when[0].field"]
+
+
+def test_a_mixed_model_checks_each_section_where_the_scorer_reads_it() -> None:
+    """One section nested under a field, one read from the top level (review of B3)."""
+    fields = {
+        "genetic": {"type": "object", "properties": {"probands": TABLE}},
+        "models": TABLE,
+    }
+    model = {
+        "sections": [
+            {
+                "key": key,
+                "categories": [{"key": "c", "types": [{"path": p, "default": 1}]}],
+            }
+            for key, p in (("genetic", "probands"), ("experimental", "models"))
+        ],
+        "bands": [{"class": "any"}],
+    }
+    assert _path_errors(model, fields) == []
+    flat = {"genetic": {"probands": [{"pmid": PMID}]}, "models": [{"pmid": PMID}]}
+    assert score(model, flat)["total"] == 2

@@ -322,8 +322,7 @@ class TestPathCrossChecks:
         }
         types = ".sections[0].categories[0].types"
         assert sorted(_scoring_errors(model, FIELDS)) == sorted(
-            [
-                ".sections[1].key",
+            [  # a section key that is no field reads from the top level (B3)
                 f"{types}[0].path",
                 f"{types}[1].points_when[0].field",
                 f"{types}[1].points_when[0].and[0].field",
