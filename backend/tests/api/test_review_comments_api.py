@@ -196,6 +196,25 @@ def test_only_the_author_edits_the_text(
     assert edited.json()["body"] == "Better question"
 
 
+def test_an_inactive_scope_s_comments_are_read_only(
+    client: TestClient,
+    db_session: Session,
+    test_scope: Scope,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    """Members still list them (VIEW holds), but no edit or resolve: 409, read-only."""
+    made = _comment(client, reviewer, test_curation)
+    test_scope.is_active = False
+    db_session.commit()
+    assert client.get(_url(test_curation), headers=_auth(reviewer)).status_code == 200
+    url = _url(test_curation, f"/{made['id']}")
+    for change in ({"body": "late edit"}, {"status": "resolved"}):
+        r = client.patch(url, json=change, headers=_auth(reviewer))
+        assert r.status_code == 409, r.text
+        assert "inactive" in r.json()["detail"]
+
+
 def test_curator_or_reviewer_resolves_but_a_viewer_cannot(
     client: TestClient,
     reviewer: UserNew,

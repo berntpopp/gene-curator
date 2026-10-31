@@ -672,3 +672,7 @@ def test_api_inactive_scope_reads_are_allowed_for_members(
         assert client.get(url, headers=_auth(world.outsider)).status_code in (403, 404)
     listed = client.get(urls[0], headers=_auth(getattr(world, who))).json()
     assert [c["id"] for c in listed] == [comment]  # 089: not an empty list
+    edit = client.patch(  # the author's edit: read-only scope, 409 before RLS
+        f"{urls[0]}/{comment}", json={"body": "late"}, headers=_auth(world.reviewer)
+    )
+    assert edit.status_code == 409, edit.text

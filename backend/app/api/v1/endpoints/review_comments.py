@@ -15,7 +15,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.core.capabilities import EDIT, REVIEW, VIEW, require
+from app.core.capabilities import EDIT, REVIEW, VIEW, require, require_active_scope
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint
@@ -25,6 +25,7 @@ from app.models import (
     CurationNew,
     Review,
     ReviewItemComment,
+    Scope,
     UserNew,
 )
 from app.schemas.review_comment import (
@@ -138,6 +139,8 @@ def update_review_comment(
 ) -> ReviewItemComment:
     curation = _curation(db, curation_id)
     require(db, current_user, curation.scope_id, VIEW)
+    # VIEW holds in an inactive scope too: its comments are read-only (409)
+    require_active_scope(db.get(Scope, curation.scope_id))
     comment = db.get(ReviewItemComment, comment_id)
     if comment is None or comment.curation_id != curation_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Comment not found")
