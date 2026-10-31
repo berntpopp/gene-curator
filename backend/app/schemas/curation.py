@@ -9,6 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.risk_allele import canonical_allele
 from app.core.source_field import EvidenceIn
 from app.models import CurationStatus, WorkflowStage
 from app.schemas.review_comment import CurationDiff
@@ -274,7 +275,8 @@ def risk_allele(
 ) -> str | None:
     """The susceptibility entity's risk allele (#614), evidence before precuration."""
     named = (str(_pick(s, "risk_allele") or "") for s in (evidence, precuration))
-    return next((a for a in named if a.strip()), None)  # blank is no allele
+    # blank is no allele; canonical also for rows saved before 091
+    return next((canonical_allele(a) for a in named if a.strip()), None)
 
 
 class ClassificationChoice(BaseModel):

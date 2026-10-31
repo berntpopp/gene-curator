@@ -11,6 +11,7 @@ from typing import Annotated, Any
 
 from pydantic import AfterValidator
 
+from app.core.risk_allele import canonical_risk_alleles
 from app.core.schema_validation_result import SchemaValidationResult
 from app.core.url_field import valid_url
 
@@ -65,7 +66,9 @@ def bare_pmids(node: Any) -> Any:
 
 
 # evidence_data in a create, update or draft save body
-EvidenceIn = Annotated[dict[str, Any], AfterValidator(bare_pmids)]
+EvidenceIn = Annotated[
+    dict[str, Any], AfterValidator(bare_pmids), AfterValidator(canonical_risk_alleles)
+]
 
 
 def _blank(value: Any) -> bool:

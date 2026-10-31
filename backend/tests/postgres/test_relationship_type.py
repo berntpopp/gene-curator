@@ -406,3 +406,91 @@ def test_088_stops_on_open_precurations_the_new_key_merges(
     message = str(refused.value)
     assert "088: open precurations would share a disease entity" in message
     assert all(str(i) in message for i in ids)
+
+
+def _sus_precuration(s: Session, gene: object, allele: object, status: str) -> object:
+    scope = s.scalars(select(Scope)).first()
+    user = s.scalars(select(UserNew)).first()
+    pair = s.scalars(select(WorkflowPair)).first()
+    assert scope and user and pair
+    evidence = {**ENTITY, "relationship_type": "susceptibility", **allele}  # type: ignore[dict-item]
+    return s.scalar(
+        text(
+            "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id, "
+            "status, evidence_data, created_by) VALUES "
+            "(:g, :s, :ps, :st, CAST(:e AS jsonb), :u) RETURNING id"
+        ),
+        {
+            "g": gene,
+            "s": scope.id,
+            "ps": pair.precuration_schema_id,
+            "st": status,
+            "e": json.dumps(evidence),
+            "u": user.id,
+        },
+    )
+
+
+def _gene(s: Session, n: int) -> object:
+    gene = uuid4()
+    s.execute(
+        text(
+            "INSERT INTO genes (id, hgnc_id, approved_symbol, record_hash) "
+            "VALUES (:g, :h, :sym, :r)"
+        ),
+        {"g": gene, "h": f"HGNC:99{n}", "sym": f"RA{n}", "r": (str(n) * 64)[:64]},
+    )
+    return gene
+
+
+def test_091_stores_risk_alleles_canonically_and_is_idempotent(
+    owner_session: Session,
+) -> None:
+    gene = _gene(owner_session, 9101)
+    flat = _sus_precuration(
+        owner_session, gene, {"risk_allele": "RS17831251c"}, "approved"
+    )
+    nested = _sus_precuration(
+        owner_session,
+        gene,
+        {"entity_definition": {"risk_allele": "  APOL1   G1 "}},
+        "approved",
+    )
+    for _ in range(2):
+        owner_session.execute(text((SQL / "091_canonical_risk_allele.sql").read_text()))
+    rows = dict(
+        owner_session.execute(
+            text(
+                "SELECT id, COALESCE(evidence_data ->> 'risk_allele', "
+                "evidence_data -> 'entity_definition' ->> 'risk_allele') "
+                "FROM precurations WHERE id IN (:a, :b)"
+            ),
+            {"a": flat, "b": nested},
+        ).all()
+    )
+    assert rows == {flat: "rs17831251 C", nested: "APOL1 G1"}
+    key = owner_session.scalar(
+        text("SELECT entity_key FROM precurations WHERE id = :i"), {"i": flat}
+    )
+    assert key == f"{KEY}|SUSCEPTIBILITY|RS17831251C"
+    assert owner_session.scalar(
+        text(
+            "SELECT count(*) FROM schema_migrations "
+            "WHERE filename = '091_canonical_risk_allele.sql'"
+        )
+    )
+
+
+def test_091_stops_on_open_precurations_the_rewrite_merges(
+    owner_session: Session,
+) -> None:
+    gene = _gene(owner_session, 9102)
+    ids = [
+        _sus_precuration(owner_session, gene, {"risk_allele": a}, "submitted")
+        for a in ("rs1\tC", "rs1 C")
+    ]
+    with pytest.raises(DBAPIError) as refused:
+        owner_session.execute(text((SQL / "091_canonical_risk_allele.sql").read_text()))
+    message = str(refused.value)
+    assert "091: open precurations would share a disease entity" in message
+    assert all(str(i) in message for i in ids)
