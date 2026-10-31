@@ -27,6 +27,10 @@ from app.schemas.gene_assignment import (
 from app.services.scope_permissions import ScopePermissionService
 
 
+class AlreadyAssignedError(ValueError):
+    """The gene already has an active assignment in the scope (409)."""
+
+
 class CRUDGeneScopeAssignment(
     CRUDBase[GeneScopeAssignment, GeneScopeAssignmentCreate, GeneScopeAssignmentUpdate]
 ):
@@ -265,7 +269,7 @@ class CRUDGeneScopeAssignment(
             db, gene_id=obj_in.gene_id, scope_id=obj_in.scope_id
         )
         if existing and existing.is_active:
-            raise ValueError("Gene is already assigned to this scope")
+            raise AlreadyAssignedError("Gene is already assigned to this scope")
 
         obj_in_data = obj_in.model_dump()
         obj_in_data["assigned_by"] = assigned_by
