@@ -208,7 +208,12 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         stats = self.get_detailed_statistics(db, scope_id=scope_id)
 
-        return {**scope.__dict__, "statistics": stats}
+        # __dict__ holds columns only; properties the response reads are added by name
+        return {
+            **scope.__dict__,
+            "allowed_workflow_pair_ids": scope.allowed_workflow_pair_ids,
+            "statistics": stats,
+        }
 
     def get_detailed_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
         """Get detailed statistics for a scope."""
