@@ -49,9 +49,12 @@ describe('PrecurationFormView workflow pair', () => {
     expect(formSchema(wrapper)).toBe('s-men')
     const select = wrapper.findComponent({ name: 'VSelect' })
     expect(select.props('items')).toHaveLength(2)
+    const before = wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).vm
     select.vm.$emit('update:modelValue', 'sus')
     await flushPromises()
     expect(formSchema(wrapper)).toBe('s-sus')
+    // A fresh form: the new pair's schema and defaults (relationship type), nothing of the old one
+    expect(wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).vm).not.toBe(before)
   })
 
   it('opens a saved precuration with its own schema and no picker', async () => {

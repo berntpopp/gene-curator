@@ -150,8 +150,10 @@
       <v-row>
         <v-col cols="12">
           <!-- Schema-driven form replaces hardcoded panels -->
+          <!-- Keyed: a picked pair mounts its own schema, version and defaults -->
           <SchemaDrivenPrecurationForm
             v-if="precurationSchemaId"
+            :key="precurationSchemaId"
             :schema-id="precurationSchemaId"
             :scope-id="scopeId"
             :precuration-id="precurationId"
