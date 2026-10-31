@@ -143,7 +143,8 @@ describe('fieldTypes', () => {
       ...chips,
       items: [{ title: 'a', value: 'a' }]
     })
-    expect(cellFor({ type: 'array' }).props).toEqual(chips)
+    // Typed or pasted "1, 2" becomes two entries (monkey B15)
+    expect(cellFor({ type: 'array' }).props).toEqual({ ...chips, delimiters: [',', ';'] })
     expect(cellFor({ type: 'array' }).lazy).toBeFalsy()
     expect(emptyValue({ type: 'multiselect' })).toEqual([])
   })
