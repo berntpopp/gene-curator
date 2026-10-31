@@ -272,3 +272,43 @@ def test_invalid_tokens_are_never_looked_up_at_hgnc(
 ) -> None:
     _post(client, curator_token, ["ÄÖÜ", "%_"])
     hgnc_offline.assert_not_called()
+
+
+def test_scope_id_flags_candidates_already_in_the_scope(
+    client: TestClient, db_session: Session, genes: dict[str, Gene]
+) -> None:
+    """#587 polish: the intake resolve step names genes already in the scope and their
+    curator, in the same call; a non-member of the scope is refused."""
+    from app.models.models import GeneScopeAssignment
+    from tests.api.scopes.factories import (
+        auth_headers,
+        make_member,
+        make_scope,
+        make_user,
+    )
+
+    scope, alice, outsider = (
+        make_scope(db_session),
+        make_user(db_session),
+        make_user(db_session),
+    )
+    alice.name = "Alice Smith"
+    make_member(db_session, scope, alice, "curator")
+    for gene, curator in ((genes["PKD1"], alice.id), (genes["BRCA1"], None)):
+        db_session.add(
+            GeneScopeAssignment(
+                gene_id=gene.id, scope_id=scope.id, assigned_curator_id=curator,
+                is_active=True,
+            )
+        )  # fmt: skip
+    db_session.commit()
+    body = {"symbols": ["PKD1", "BRCA1", "NEWA"], "scope_id": str(scope.id)}
+
+    items = client.post(URL, json=body, headers=auth_headers(alice)).json()["items"]
+    flags = [
+        (c["in_scope"], c["in_scope_curator"]) for i in items for c in i["candidates"]
+    ]
+    assert flags == [(True, "Alice Smith"), (True, None), (False, None)]
+    assert (
+        client.post(URL, json=body, headers=auth_headers(outsider)).status_code == 403
+    )

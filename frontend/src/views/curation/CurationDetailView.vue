@@ -533,13 +533,11 @@
   const canReview = computed(() => (curation.value?.can_review ?? false) && !isCreator.value)
   const secondView = computed(() => ({ name: 'llm-second-view', params: route.params }))
   const aiOn = computed(() => scopeRow.value?.llm_second_view === true) // B20: no dead link
-
   const reviewStore = useReviewStore()
   const scopeRow = computed(() => useScopesStore().scopes.find(x => x.id === scopeId.value))
-  const scopeName = computed(() => {
-    const sc = scopeRow.value
-    return sc?.display_name || sc?.name || 'this scope'
-  })
+  const scopeName = computed(
+    () => scopeRow.value?.display_name || scopeRow.value?.name || 'this scope'
+  )
   const showReviewDiff = computed(
     () => curation.value.status === 'in_review' || curation.value.status === 'draft'
   )

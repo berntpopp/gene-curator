@@ -6275,6 +6275,16 @@ export interface components {
              * @description Local gene row, null if only in HGNC
              */
             gene_id?: string | null;
+            /**
+             * In Scope
+             * @description Already in the request's scope_id
+             */
+            in_scope?: boolean | null;
+            /**
+             * In Scope Curator
+             * @description Its assigned curator there, if any (kept on add)
+             */
+            in_scope_curator?: string | null;
         };
         /**
          * GeneCatalogueEntry
@@ -6596,6 +6606,11 @@ export interface components {
         GeneResolveRequest: {
             /** Symbols */
             symbols: string[];
+            /**
+             * Scope Id
+             * @description Flag candidates already in this scope (caller must see it)
+             */
+            scope_id?: string | null;
         };
         /** GeneResolveResponse */
         GeneResolveResponse: {

@@ -155,6 +155,8 @@ _NARROWING = {"skip", "limit", "compact"}
 
 # MCP-only argument defaults; the REST defaults stay as they are
 MCP_DEFAULTS: dict[str, dict[str, Any]] = {"get_curation_schema": {"compact": True}}
+# UI-only arguments: the intake dialog's in-scope flags; agents get them from add_genes_to_scope
+MCP_HIDDEN_ARGS: dict[str, tuple[str, ...]] = {"resolve_genes": ("scope_id",)}
 
 # Where scored evidence lives, so agents need no example curation (token plan 6)
 # variant_type options of the seeded ClinGen schema (046), per case-level table
@@ -323,6 +325,8 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
         if arg in tool.parameters.get("properties", {}):
             tool.parameters["properties"][arg]["description"] = text
     tool.parameters["properties"].update(MCP_ONLY_ARGS.get(tool.name, {}))
+    for arg in MCP_HIDDEN_ARGS.get(tool.name, ()):
+        tool.parameters["properties"].pop(arg, None)
     for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
         tool.parameters["properties"][arg]["default"] = value
     read_only = route.method == "GET"

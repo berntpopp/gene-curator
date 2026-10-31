@@ -13,14 +13,11 @@ vi.mock('@/composables/useLogger', () => ({
 }))
 vi.mock('@/api/geneResolve', () => ({ geneResolveAPI: { resolve: vi.fn() } }))
 vi.mock('@/api/genes', () => ({ genesAPI: { bulkCreateGenes: vi.fn(), searchGenes: vi.fn() } }))
-vi.mock('@/api/assignments', () => ({
-  assignmentsAPI: { bulkAssignGenes: vi.fn(), getAssignments: vi.fn() }
-}))
+vi.mock('@/api/assignments', () => ({ assignmentsAPI: { bulkAssignGenes: vi.fn() } }))
 vi.mock('@/services/scopeService', () => ({ scopeService: { fetchMembers: vi.fn() } }))
 
 const resolve = vi.mocked(geneResolveAPI.resolve)
 const bulkAssign = vi.mocked(assignmentsAPI.bulkAssignGenes)
-const getAssignments = vi.mocked(assignmentsAPI.getAssignments)
 const fetchMembers = vi.mocked(scopeService.fetchMembers)
 const member = (user_id: string, role: string) => ({ user_id, role, user_full_name: user_id })
 const local = (n: number) => ({
@@ -86,8 +83,6 @@ describe('PasteGenesDialog', () => {
   beforeEach(() => {
     ;[resolve, bulkAssign].forEach(m => m.mockReset())
     fetchMembers.mockResolvedValue([] as never)
-    getAssignments.mockReset()
-    getAssignments.mockResolvedValue({ assignments: [] } as never)
     addToast.mockReset()
   })
 
@@ -104,21 +99,27 @@ describe('PasteGenesDialog', () => {
   })
 
   it('flags resolved genes already in the scope, naming the kept curator (#587)', async () => {
-    getAssignments.mockResolvedValue({
-      assignments: [
-        { gene_id: 'g2', curator_name: 'Alice Smith' },
-        { gene_id: 'g1', curator_name: null }
+    const [g1, g2, ...rest] = response.items
+    resolve.mockResolvedValue({
+      ...response,
+      items: [
+        { ...g1!, candidates: [{ ...local(1), in_scope: true, in_scope_curator: null }] },
+        { ...g2!, candidates: [{ ...local(2), in_scope: true, in_scope_curator: 'Alice Smith' }] },
+        ...rest
       ]
     } as never)
-    const w = await resolved()
-    expect(getAssignments).toHaveBeenCalledWith({ scope_id: 's1', skip: 0, limit: 1000 })
+    const w = mountDialog()
+    await w.find('textarea').setValue('G1 old')
+    await w.find('[data-testid=resolve]').trigger('click')
+    await flushPromises()
+    expect(resolve).toHaveBeenCalledWith(['G1', 'old'], 's1')
     const flags = w.findAll('[data-testid=in-scope]').map(f => f.text())
     expect(flags).toEqual(['Already in scope', 'Already in scope (curator: Alice Smith, kept)'])
   })
 
   it('sends the parsed symbols and summarises the outcome', async () => {
     const w = await resolved()
-    expect(resolve).toHaveBeenCalledWith(['G1', 'old', 'g1', 'AMB', 'NOPE'])
+    expect(resolve).toHaveBeenCalledWith(['G1', 'old', 'g1', 'AMB', 'NOPE'], 's1')
     expect(w.find('[data-testid=summary]').attributes('role')).toBe('status')
     // Repeats count once, so the summary matches the Add button (#393)
     expect(w.find('[data-testid=summary]').text()).toContain(
