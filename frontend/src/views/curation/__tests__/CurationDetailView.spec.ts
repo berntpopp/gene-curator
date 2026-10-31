@@ -79,6 +79,7 @@ describe('CurationDetailView', () => {
       curation_schema_id: 's1'
     } as never)
     vi.mocked(schemasAPI.getSchemaById).mockResolvedValue({
+      name: 'KGDB Mendelian Curation',
       scoring_configuration: { engine }
     } as never)
     vi.mocked(curationsAPI.getCuration).mockResolvedValue({
@@ -236,6 +237,14 @@ describe('CurationDetailView', () => {
       '2'
     ])
     expect(wrapper.text()).not.toContain('/ 6')
+  })
+
+  it.each([
+    ['point_model', 'KGDB Mendelian Curation'],
+    ['clingen_sop_v11', 'SOP v11']
+  ])('names the %s methodology in the approve checklist (monkey R2-4)', async (engine, name) => {
+    const wrapper = await load({ can_review: true }, engine)
+    expect(wrapper.findComponent(ApproveChecklistDialog).props('methodology')).toBe(name)
   })
 
   it('leads with the final classification and gives the reviewer both (#533)', async () => {

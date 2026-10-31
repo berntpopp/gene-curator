@@ -42,7 +42,9 @@
     </p>
 
     <fieldset class="checks">
-      <legend class="text-body-small font-weight-medium mb-1">Checked against SOP v11</legend>
+      <legend class="text-body-small font-weight-medium mb-1">
+        Checked against {{ methodology || 'the methodology' }}
+      </legend>
       <v-checkbox
         v-for="item in items"
         :key="item.id"
@@ -118,6 +120,8 @@
     replaces?: boolean
     total: number | string
     curator?: string | null
+    /** What the checklist is checked against, e.g. "SOP v11" or the schema's name */
+    methodology?: string | null
     blockers: { key: string; label: string; queried?: boolean }[]
     busy: boolean
     error: string | null

@@ -387,6 +387,7 @@
       :replaces="replaces"
       :total="formatScore(scores.total)"
       :curator="curation?.curator_name"
+      :methodology="methodology"
       :blockers="blockers"
       :busy="review.busy.value"
       :error="review.error.value"
@@ -545,6 +546,7 @@
     queryTodos(curation.value?.created_by ?? '', reviewStore.comments, reviewContext.value)
   )
 
+  const methodology = ref<string | null>(null)
   async function loadCurationSchema() {
     if (!curation.value?.workflow_pair_id) return
     try {
@@ -553,6 +555,9 @@
       if (curationSchemaId.value) {
         const schema = await schemasAPI.getSchemaById(curationSchemaId.value)
         registerClassifications(schema.scoring_configuration?.classifications)
+        // ClinGen's engine is SOP v11; any other methodology goes by its schema's name (R2-4)
+        methodology.value =
+          schema.scoring_configuration?.engine === 'clingen_sop_v11' ? 'SOP v11' : schema.name
         schemaFields.value = schema.field_definitions
       }
       logger.debug('Curation schema loaded', {
