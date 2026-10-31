@@ -14,7 +14,7 @@ from contextvars import ContextVar
 from typing import Any
 from urllib.parse import unquote
 
-import httpx
+import httpx2
 from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_http_request
 from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
@@ -203,7 +203,7 @@ def _not_found_hint(detail: Any) -> str | None:
     return None
 
 
-def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
+def _tool_error(cause: httpx2.HTTPStatusError, tool: str) -> ToolError:
     status = cause.response.status_code
     message = f"{error_code(status)}: HTTP {status}"
     detail: Any = None
@@ -490,7 +490,7 @@ class ToolAuditMiddleware(Middleware):
             if outcome != "ok":  # our own refusal, already a ToolError
                 raise
             cause: BaseException | None = exc
-            while cause is not None and not isinstance(cause, httpx.HTTPStatusError):
+            while cause is not None and not isinstance(cause, httpx2.HTTPStatusError):
                 cause = cause.__cause__
             if cause is None:
                 outcome = "error"

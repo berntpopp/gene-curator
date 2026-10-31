@@ -30,12 +30,13 @@ dependencies = [
     "bcrypt>=4.0",
     "python-multipart>=0.0.31",
     "httpx>=0.25.2",
+    "httpx2>=2.16.0",  # fastmcp 4 OpenAPI client (app/mcp)
     "pyyaml>=6.0.1",
     "defusedxml>=0.7.1",
     # "jsonschema>=4.0.0",  # temporarily disabled
     "cryptography>=44.0.0",
-    "fastmcp>=3.4.7,<5.0.0",  # MCP server over the existing routes (#462)
-    "mcp>=1.30.0",  # transitive via fastmcp; floor pins the CVE fix outside the lock
+    "fastmcp>=4.1.3,<5.0.0",  # MCP server over the existing routes (#462)
+    "mcp>=2.3.0",  # transitive via fastmcp 4 (snake_case ToolAnnotations); CVE floor
 ]
 
 [project.optional-dependencies]
