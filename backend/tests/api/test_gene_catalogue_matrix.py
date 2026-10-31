@@ -557,3 +557,20 @@ def test_labels_come_from_the_pinned_version_not_the_live_schema(
         ("kidney_candidate", "Kidney candidate"),
         ("new", "New"),
     ]
+
+
+def test_a_blank_verdict_is_no_classification_in_filter_and_column(
+    client: TestClient, world: World
+) -> None:
+    """#276: the agreement filter and the agreement column read a blank verdict alike."""
+    world.cur(world.pkd1, world.pub, "Strong")
+    world.cur(world.pkd1, world.other, " ")
+    alice, headers = _user(world.db, "alice")
+    _member(world.db, world.other, alice)
+    params = world.ids(world.pub, world.other)
+    row = client.get(URL, params=params, headers=headers).json()["rows"][0]
+    assert row["agreement"] == "single"
+    dis = client.get(
+        URL, params=[*params, ("agreement", "disagree")], headers=headers
+    ).json()
+    assert dis["total"] == 0

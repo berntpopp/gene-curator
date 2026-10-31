@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const get = vi.hoisted(() => vi.fn())
-vi.mock('../client', () => ({ default: { get } }))
+const put = vi.hoisted(() => vi.fn())
+vi.mock('../client', () => ({ default: { get, put } }))
 
 import { catalogueMatrixAPI } from '../catalogueMatrix'
 
@@ -27,5 +28,16 @@ describe('catalogueMatrixAPI', () => {
     get.mockResolvedValue({ data: ['strong'] })
     expect(await catalogueMatrixAPI.getClassifications()).toEqual(['strong'])
     expect(get).toHaveBeenCalledWith('/gene-catalogue/filters/classifications')
+  })
+
+  it("reads and saves the user's catalogue view (#276)", async () => {
+    get.mockResolvedValue({ data: { scope_ids: ['b', 'a'] } })
+    expect(await catalogueMatrixAPI.getSavedView()).toEqual(['b', 'a'])
+    expect(get).toHaveBeenCalledWith('/me/views/catalogue')
+    get.mockResolvedValue({ data: {} })
+    expect(await catalogueMatrixAPI.getSavedView()).toEqual([])
+    put.mockResolvedValue({ data: {} })
+    await catalogueMatrixAPI.saveView(['a'])
+    expect(put).toHaveBeenCalledWith('/me/views/catalogue', { scope_ids: ['a'] })
   })
 })

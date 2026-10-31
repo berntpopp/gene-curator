@@ -6,7 +6,9 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 const api = vi.hoisted(() => ({
   getMatrix: vi.fn(),
   getScopes: vi.fn(),
-  getClassifications: vi.fn()
+  getClassifications: vi.fn(),
+  getSavedView: vi.fn(),
+  saveView: vi.fn()
 }))
 vi.mock('@/api/catalogueMatrix', () => ({ catalogueMatrixAPI: api }))
 const scopesApi = vi.hoisted(() => ({ fetchUserScopes: vi.fn() }))
@@ -96,6 +98,8 @@ describe('GeneCatalogueView', () => {
     api.getScopes.mockReset().mockResolvedValue(scopes)
     api.getMatrix.mockReset().mockResolvedValue(response)
     api.getClassifications.mockReset().mockResolvedValue(['limited', 'definitive'])
+    api.getSavedView.mockReset().mockResolvedValue([])
+    api.saveView.mockReset().mockResolvedValue(undefined)
     userScopes.list = []
     scopesApi.fetchUserScopes.mockReset().mockResolvedValue([])
   })
@@ -268,6 +272,44 @@ describe('GeneCatalogueView', () => {
     useAuthStore().isAuthenticated = true
     await flushPromises()
     expect(scopesApi.fetchUserScopes).toHaveBeenCalledTimes(1)
+  })
+
+  it("restores the signed-in user's saved column order from the server (#276)", async () => {
+    api.getSavedView.mockResolvedValue(['s2', 's1'])
+    await mountView()
+    useAuthStore().isAuthenticated = true
+    await vi.waitFor(() =>
+      expect(api.getMatrix.mock.calls.at(-1)![0].scope_ids).toEqual(['s2', 's1'])
+    )
+  })
+
+  it('saves a signed-in scope change on the server, an anonymous one only locally (#276)', async () => {
+    const { wrapper } = await mountView()
+    const pick = async (id: string) => {
+      await wrapper.find('[data-testid="scope-picker"]').trigger('click')
+      await new Promise(r => setTimeout(r, 50))
+      ;(
+        document.body.querySelector(`[data-testid="scope-${id}"] input`) as HTMLInputElement
+      ).click()
+      await flushPromises()
+    }
+    await pick('s2')
+    expect(api.saveView).not.toHaveBeenCalled()
+    useAuthStore().isAuthenticated = true
+    await flushPromises()
+    await pick('s2')
+    expect(api.saveView).toHaveBeenCalledWith(['s1', 's2'])
+  })
+
+  it('offers the scopes with active curations as the With results preset (#276)', async () => {
+    userScopes.list = [{ id: 'p1', display_name: 'Private', user_role: 'curator' }]
+    const { wrapper } = await mountView()
+    await wrapper.find('[data-testid="scope-picker"]').trigger('click')
+    await new Promise(r => setTimeout(r, 50))
+    ;(document.body.querySelector('[data-testid="preset-results"]') as HTMLElement).click()
+    await vi.waitFor(() =>
+      expect(api.getMatrix.mock.calls.at(-1)![0].scope_ids).toEqual(['s1', 's2'])
+    )
   })
 
   it('drops unknown scope ids and caps the URL scopes at 50', async () => {

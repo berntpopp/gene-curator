@@ -37,6 +37,7 @@
           :scopes="store.allScopes"
           :model-value="shownIds"
           :mine="mineIds"
+          :with-results="withResultsIds"
           @update:model-value="setScopes"
           @disagreements="filters = { ...filters, agreement: 'disagree' }"
         />
@@ -153,6 +154,8 @@
     const valid = Array.isArray(urlScopes) ? urlScopes.filter(id => known.has(id)).slice(0, 50) : []
     return valid.length ? valid : store.defaultShownIds
   })
+  // the public scopes list holds only scopes with an active curation
+  const withResultsIds = computed(() => store.availableScopes.map(s => s.id))
   const mineIds = computed(() => scopesStore.userScopes.filter(s => s.user_role).map(s => s.id))
 
   const headers = computed(() => [
@@ -178,7 +181,7 @@
     row.cells?.filter(c => c.scope_id === scopeId) ?? []
 
   function setScopes(ids: string[]) {
-    store.saveDefault(ids)
+    store.saveDefault(ids, { remote: auth.isAuthenticated })
     filters.value = { ...filters.value, scopes: ids }
   }
 
@@ -223,7 +226,11 @@
   // Authentication settles after mount (/me), so follow it instead of reading it once.
   watch(
     () => auth.isAuthenticated,
-    signedIn => signedIn && scopesStore.fetchUserScopes().catch(() => []),
+    signedIn => {
+      if (!signedIn) return
+      scopesStore.fetchUserScopes().catch(() => [])
+      void store.loadSavedView()
+    },
     { immediate: true }
   )
 

@@ -28,6 +28,15 @@
             My scopes
           </v-chip>
           <v-chip
+            v-if="withResults.length"
+            data-testid="preset-results"
+            size="small"
+            variant="outlined"
+            @click="emit('update:modelValue', withResults.slice(0, MAX))"
+          >
+            With results
+          </v-chip>
+          <v-chip
             data-testid="preset-disagreements"
             size="small"
             variant="outlined"
@@ -45,6 +54,40 @@
           </v-chip>
         </div>
       </div>
+      <v-divider />
+      <v-list density="compact" class="scope-picker__order" aria-label="Column order">
+        <v-list-subheader>Column order</v-list-subheader>
+        <v-list-item
+          v-for="(id, i) in modelValue"
+          :key="id"
+          :data-testid="`order-${id}`"
+          class="py-0 scope-picker__drag"
+          draggable="true"
+          @dragstart="dragFrom = i"
+          @dragover.prevent
+          @drop.prevent="dragFrom !== null && move(dragFrom, i)"
+        >
+          <v-list-item-title class="text-body-medium">{{ nameOf(id) }}</v-list-item-title>
+          <template #append>
+            <v-btn
+              icon="mdi-chevron-up"
+              size="x-small"
+              variant="text"
+              :disabled="i === 0"
+              :aria-label="`Move ${nameOf(id)} left`"
+              @click="move(i, i - 1)"
+            />
+            <v-btn
+              icon="mdi-chevron-down"
+              size="x-small"
+              variant="text"
+              :disabled="i === modelValue.length - 1"
+              :aria-label="`Move ${nameOf(id)} right`"
+              @click="move(i, i + 1)"
+            />
+          </template>
+        </v-list-item>
+      </v-list>
       <v-divider />
       <v-list density="compact" class="scope-picker__list">
         <v-list-item v-for="s in visible" :key="s.id" :data-testid="`scope-${s.id}`" class="py-0">
@@ -65,7 +108,8 @@
       </v-list>
       <v-divider />
       <p class="text-body-small text-medium-emphasis pa-3">
-        Up to {{ MAX }} columns. Your choice is saved as your default view.
+        Up to {{ MAX }} columns. Drag or use the arrows to reorder. Your choice is saved as your
+        default view.
       </p>
     </v-card>
   </v-menu>
@@ -82,7 +126,16 @@
   /** The matrix endpoint accepts at most this many scopes. */
   const MAX = 50
 
-  const props = defineProps<{ scopes: PickerScope[]; modelValue: string[]; mine: string[] }>()
+  const props = withDefaults(
+    defineProps<{
+      scopes: PickerScope[]
+      modelValue: string[]
+      mine: string[]
+      /** Scopes with at least one active curation. */
+      withResults?: string[]
+    }>(),
+    { withResults: () => [] }
+  )
   const emit = defineEmits<{ 'update:modelValue': [string[]]; disagreements: [] }>()
 
   const query = ref('')
@@ -92,14 +145,22 @@
     return props.scopes.filter(s => s.display_name.toLowerCase().includes(q))
   })
 
-  // Emit in list order so columns do not jump around as boxes are ticked.
+  const names = computed(() => new Map(props.scopes.map(s => [s.id, s.display_name])))
+  const nameOf = (id: string) => names.value.get(id) ?? id
+
+  // Keep the user's column order: a ticked scope joins at the end.
   function toggle(id: string) {
-    const next = new Set(props.modelValue)
-    if (!next.delete(id)) next.add(id)
-    emit(
-      'update:modelValue',
-      all.value.filter(i => next.has(i))
-    )
+    const shown = props.modelValue
+    emit('update:modelValue', shown.includes(id) ? shown.filter(i => i !== id) : [...shown, id])
+  }
+
+  const dragFrom = ref<number | null>(null)
+  function move(from: number, to: number) {
+    dragFrom.value = null
+    if (from === to) return
+    const next = [...props.modelValue]
+    next.splice(to, 0, ...next.splice(from, 1))
+    emit('update:modelValue', next)
   }
 </script>
 
@@ -107,5 +168,14 @@
   .scope-picker__list {
     max-height: 320px;
     overflow-y: auto;
+  }
+
+  .scope-picker__order {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .scope-picker__drag {
+    cursor: grab;
   }
 </style>

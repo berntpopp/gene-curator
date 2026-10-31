@@ -750,6 +750,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/views/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Catalogue View
+         * @description Your saved catalogue columns; empty when you have not chosen any.
+         */
+        get: operations["get_catalogue_view_api_v1_me_views_catalogue_get"];
+        /**
+         * Save Catalogue View
+         * @description Save your catalogue columns as your default view.
+         */
+        put: operations["save_catalogue_view_api_v1_me_views_catalogue_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/oauth/authorizations/{request_id}": {
         parameters: {
             query?: never;
@@ -4668,6 +4692,14 @@ export interface components {
              * @description Name of a bundle schema
              */
             curation_schema: string;
+        };
+        /**
+         * CatalogueView
+         * @description The catalogue's shown scope columns, in display order; empty means the defaults.
+         */
+        CatalogueView: {
+            /** Scope Ids */
+            scope_ids?: string[];
         };
         /** ClassificationChoice */
         ClassificationChoice: {
@@ -13393,6 +13425,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_catalogue_view_api_v1_me_views_catalogue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueView"];
+                };
+            };
+        };
+    };
+    save_catalogue_view_api_v1_me_views_catalogue_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueView"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueView"];
+                };
             };
             /** @description Validation Error */
             422: {
