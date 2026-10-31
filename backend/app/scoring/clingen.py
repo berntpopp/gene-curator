@@ -416,6 +416,7 @@ class ClinGenEngine(ScoringEngine):
                     "lod_score" in seg_item
                     or "points" in seg_item
                     or "segregations_counted" in seg_item
+                    or "lod_source" in seg_item  # #447 rows score from their LOD source
                 )
                 if not has_score:
                     warnings.append(
