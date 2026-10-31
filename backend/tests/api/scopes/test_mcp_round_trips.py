@@ -276,3 +276,40 @@ def test_submit_names_the_reviewer_by_email(
         assert r.status_code == 200, r.text
         assert r.json()["assigned_reviewer"]["id"] == str(reviewer.id)
     assert _reviews(db_session, c.id) == [reviewer.id]
+
+
+def test_mcp_submit_without_reviewer_routes_or_asks(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    """KGDB QA: over MCP nothing reaches review unassigned; the web UI is unchanged."""
+    from tests.api.scopes.factories import make_member
+    from tests.api.test_mcp import call, pat
+
+    token = pat(db_session, curator)
+    several = _draft_curation(db_session, scope_with_admin, curator)
+    asked = call(
+        client, token, "submit_curation", curation_id=str(several.id),
+        lock_version=several.lock_version,
+    )  # fmt: skip
+    assert asked.get("isError") and "reviewer_email" in asked["content"][0]["text"]
+    web = client.post(
+        f"/api/v1/curations/{several.id}/submit",
+        json={"lock_version": several.lock_version},
+        headers=auth_headers(curator),
+    )
+    assert web.status_code == 200 and _reviews(db_session, several.id) == []
+
+    alone = make_scope(db_session, created_by=curator.id)
+    make_member(db_session, alone, curator, "curator")
+    make_member(db_session, alone, reviewer, "reviewer")
+    one = _draft_curation(db_session, alone, curator)
+    routed = call(
+        client, token, "submit_curation", curation_id=str(one.id),
+        lock_version=one.lock_version,
+    )  # fmt: skip
+    assert not routed.get("isError"), routed
+    assert _reviews(db_session, one.id) == [reviewer.id]

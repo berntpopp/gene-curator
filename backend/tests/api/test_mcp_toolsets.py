@@ -201,6 +201,7 @@ def test_curation_schema_is_compact_by_default_on_mcp(
 
     assert read()["ui_configuration"] == {}
     assert read(compact=False)["ui_configuration"] == {"layout": "tabs"}
+    assert read(scoring=True)["field_definitions"] == {}  # #612: fits a result
 
 
 def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
@@ -215,6 +216,10 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     assert "evidence_summary: free-text summary and notes" in text
     assert "frameshift, canonical" in text and "missense" in text
     assert "get_curation_schema(schema_id,\npath=" in text
+    # #612: other methodologies' paths and the source cell shape
+    assert "genetic.probands[]" in text and "A source cell is {kind, id}" in text
+    assert "pmid|doi|clinvar" in text
+    assert "assign_peer_reviewer" in tools["get_my_review_assignments"]["description"]
     for name in ("update_curation", "create_curation"):  # said once (list size)
         assert "see save_draft_curations" in tools[name]["description"], name
         assert "One row per proband" in tools[name]["description"], name
@@ -334,7 +339,11 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
     assert "false means curation_id is the open one blocking it" in INSTRUCTIONS
     # Round 5: literature from a literature MCP, which ClinGen pair, diff baselines
     assert "a literature MCP such as GeneFoundry;" in INSTRUCTIONS
-    assert '"ClinGen\nGene-Disease Validity" is_default' in INSTRUCTIONS
+    # #612: no pair is named default; the methodology picks the pair
+    assert (
+        "is_default" not in INSTRUCTIONS
+        and "the methodology says which" in INSTRUCTIONS
+    )
     assert "previous_submission the one before it" in INSTRUCTIONS
     # W11 polish: the full closed error-code list and both queues (trimmed in #601)
     assert "Queue: read_my_work and get_my_review_assignments." in INSTRUCTIONS

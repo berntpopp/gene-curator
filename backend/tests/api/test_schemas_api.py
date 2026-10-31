@@ -257,6 +257,24 @@ class TestCurationSchemaRead:
         )
         assert "single field" in get(path="other.x").json()["detail"]
 
+    def test_get_scoring_returns_only_the_scoring_configuration(
+        self,
+        client: TestClient,
+        db_session: Session,
+        owned_schema: CurationSchema,
+        viewer_token: str,
+    ):
+        """#612: the full schema is too large for MCP; the scoring part fits."""
+        owned_schema.scoring_configuration = {"engine": "point_model", "tests": []}
+        db_session.commit()
+        body = client.get(
+            f"{BASE}/curation-schemas/{owned_schema.id}",
+            params={"scoring": True},
+            headers=auth(viewer_token),
+        ).json()
+        assert body["scoring_configuration"] == {"engine": "point_model", "tests": []}
+        assert body["field_definitions"] == {} and body["ui_configuration"] == {}
+
     def test_get_unknown_id_is_404(self, client: TestClient, viewer_token: str):
         response = client.get(
             f"{BASE}/curation-schemas/{uuid4()}", headers=auth(viewer_token)

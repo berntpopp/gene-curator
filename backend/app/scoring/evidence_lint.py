@@ -35,19 +35,25 @@ _CLAIM = re.compile(
 )
 
 
-def _texts(node: Any, path: str = "") -> Iterator[tuple[str, str]]:
-    """(path, text) of every free-text string under ``node``."""
+def _texts(node: Any, path: str = "", row: bool = False) -> Iterator[tuple[str, str]]:
+    """(path, text) of every free-text string in an evidence row under ``node``; notes,
+    source citations and diagnostics cite papers by design (#612)."""
     if isinstance(node, dict):
         for key, value in node.items():
             sub = f"{path}.{key}" if path else str(key)
             if isinstance(value, str):
-                if key not in NOT_TEXT and not key.endswith(("_id", "_ids")):
+                if row and key not in NOT_TEXT and not key.endswith(("_id", "_ids")):
                     yield sub, value
             else:
                 yield from _texts(value, sub)
     elif isinstance(node, list):
         for i, value in enumerate(node):
-            yield from _texts(value, f"{path}[{i}]")
+            scoring = (
+                isinstance(value, dict)
+                and "kind" not in value  # a source object
+                and not path.startswith("diagnostics")
+            )
+            yield from _texts(value, f"{path}[{i}]", scoring)
 
 
 def _rows(node: Any, path: str) -> Iterator[tuple[str, dict[str, Any]]]:
@@ -115,8 +121,7 @@ def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[
     warnings += [
         f"{at}: mentions a PMID in free text; record each paper in a row's pmid field"
         for at, text in _texts(evidence)
-        # the summary cites papers by design (MCP study round 5: the warning was ignored)
-        if at != "evidence_summary" and PMID_TEXT.search(text)
+        if PMID_TEXT.search(text)
     ]
     summary = evidence.get("evidence_summary")
     claim = _CLAIM.search(summary) if isinstance(summary, str) else None

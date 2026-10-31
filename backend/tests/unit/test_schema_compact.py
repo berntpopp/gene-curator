@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.core.schema_compact import ranges_for
+from app.core.schema_compact import ranges_for, subtree
 from app.scoring.point_model import template
 
 pytestmark = pytest.mark.unit
@@ -27,3 +27,19 @@ def test_ranges_cover_the_types_at_under_and_above_the_path() -> None:
         "category_cap": 12,
     }
     assert ranges_for(model, "genetic_evidence.case") == []  # no prefix matches
+
+
+def test_subtree_reaches_an_evidence_table_column() -> None:
+    """#612: genetic.probands.sources is a column, not "none, it is a single field"."""
+    source = {"type": "source"}
+    fields = {
+        "genetic": {
+            "type": "object",
+            "properties": {
+                "probands": {"type": "evidence_table", "columns": {"sources": source}},
+                "rows": {"type": "evidence_table", "columns": [{"id": "pmid"}]},
+            },
+        }
+    }
+    assert subtree(fields, "genetic.probands.sources") == source
+    assert subtree(fields, "genetic.rows.pmid") == {"id": "pmid"}

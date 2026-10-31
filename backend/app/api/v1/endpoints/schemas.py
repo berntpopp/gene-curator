@@ -169,6 +169,10 @@ def get_curation_schema(
         "autosomal_recessive.predicted_or_proven_null: only that field, its "
         "validation rules and point ranges, without the schema envelope",
     ),
+    scoring: bool = Query(
+        False,
+        description="Only the scoring_configuration",
+    ),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema | CurationSchemaSubtree:
     """
@@ -178,6 +182,10 @@ def get_curation_schema(
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
+    if scoring:  # the whole schema is too large for an MCP result (#612)
+        return CurationSchema.model_validate(schema).model_copy(
+            update={"field_definitions": {}, "ui_configuration": {}}
+        )
     if not compact and not path:
         return schema  # type: ignore[return-value]
 
