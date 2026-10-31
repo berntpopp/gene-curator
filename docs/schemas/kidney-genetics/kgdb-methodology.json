@@ -776,8 +776,8 @@
                   "label": "Variant class",
                   "options": [
                     {
-                      "value": "lof",
-                      "label": "Loss of function"
+                      "value": "null",
+                      "label": "Null (LoF: nonsense, frameshift, canonical splice, start loss, deletion)"
                     },
                     {
                       "value": "missense",
@@ -788,15 +788,24 @@
                       "label": "In-frame"
                     },
                     {
-                      "value": "splice",
-                      "label": "Splice"
+                      "value": "splice_other",
+                      "label": "Splice, other than canonical"
                     },
                     {
                       "value": "other",
                       "label": "Other"
+                    },
+                    {
+                      "value": "lof",
+                      "label": "Loss of function (older rows; use Null)"
+                    },
+                    {
+                      "value": "splice",
+                      "label": "Splice (older rows; use Null or Splice, other)"
                     }
                   ],
-                  "llm_share": true
+                  "llm_share": true,
+                  "help_text": "The prompt's allele classes; lof and splice are kept for rows entered before iteration 8"
                 },
                 "alleles": {
                   "type": "array",
