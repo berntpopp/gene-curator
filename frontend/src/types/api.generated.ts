@@ -1115,6 +1115,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schemas/curation-schemas/{schema_id}/move-to-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move To Version
+         * @description Move every curation and precuration of the schema to its latest methodology version.
+         *
+         *     A dry run (the default) lists per row the fields kept and dropped, new required fields
+         *     now empty and old -> new score and class. Apply re-pins, drops the gone fields,
+         *     rescores and audit-logs every row in one transaction. An active curation whose class
+         *     changes, or that misses a new required field, stays active: an open copy on the new
+         *     version goes to review (its earlier reviewers are asked again) or to draft and
+         *     replaces it once approved (4-eyes). Running it twice changes nothing. ``version``
+         *     (the planned target) must still be the latest, else 409.
+         */
+        post: operations["move_to_version_api_v1_schemas_curation_schemas__schema_id__move_to_version_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/validation/validate-evidence": {
         parameters: {
             query?: never;
@@ -11433,6 +11461,76 @@ export interface components {
             /** Few Shot Examples Changed */
             few_shot_examples_changed: boolean;
         };
+        /**
+         * VersionMoveItem
+         * @description What the move does (or, on a dry run, would do) to one curation or precuration.
+         */
+        VersionMoveItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "curation" | "precuration";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Gene */
+            gene?: string | null;
+            /** Status */
+            status: string;
+            /** From Version */
+            from_version: number;
+            /** To Version */
+            to_version: number;
+            /**
+             * Kept
+             * @default []
+             */
+            kept: string[];
+            /**
+             * Dropped
+             * @default []
+             */
+            dropped: string[];
+            /**
+             * Missing Required
+             * @default []
+             */
+            missing_required: string[];
+            /** Old Score */
+            old_score?: number | null;
+            /** New Score */
+            new_score?: number | null;
+            /** Old Class */
+            old_class?: string | null;
+            /** New Class */
+            new_class?: string | null;
+            /** Back To */
+            back_to?: ("review" | "draft") | null;
+            /** Copy Id */
+            copy_id?: string | null;
+            /** Skipped */
+            skipped?: string | null;
+        };
+        /** VersionMoveResult */
+        VersionMoveResult: {
+            /** Dry Run */
+            dry_run: boolean;
+            /**
+             * Schema Id
+             * Format: uuid
+             */
+            schema_id: string;
+            /** To Version */
+            to_version: number;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["VersionMoveItem"][];
+        };
         /** VersionOut */
         VersionOut: {
             /**
@@ -13933,6 +14031,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MethodologyImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_to_version_api_v1_schemas_curation_schemas__schema_id__move_to_version_post: {
+        parameters: {
+            query?: {
+                /** @description The planned target; refused unless still the latest */
+                version?: number | null;
+                /** @description Return the plan; write nothing */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                schema_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionMoveResult"];
                 };
             };
             /** @description Validation Error */

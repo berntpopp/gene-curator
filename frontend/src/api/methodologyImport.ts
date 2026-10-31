@@ -15,3 +15,19 @@ export async function importMethodology(
   )
   return response.data
 }
+
+export type VersionMoveResult = Schema<'VersionMoveResult'>
+
+/** Move a schema's curations to a later methodology version (#591); a dry run writes nothing. */
+export async function moveToVersion(
+  schemaId: string,
+  dryRun: boolean,
+  version?: number
+): Promise<VersionMoveResult> {
+  const response = await apiClient.post<VersionMoveResult>(
+    `/schemas/curation-schemas/${schemaId}/move-to-version`,
+    null,
+    { params: { dry_run: dryRun, version } }
+  )
+  return response.data
+}

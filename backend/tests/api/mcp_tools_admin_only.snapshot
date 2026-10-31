@@ -25,6 +25,7 @@ list_llm_providers
 list_llm_runs
 list_prompt_templates
 list_prompt_versions
+move_to_version
 ping_llm_provider
 publish_methodology_version
 publish_prompt_version

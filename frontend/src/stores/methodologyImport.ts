@@ -4,7 +4,12 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { importMethodology, type MethodologyImportResult } from '@/api/methodologyImport'
+import {
+  importMethodology,
+  moveToVersion,
+  type MethodologyImportResult,
+  type VersionMoveResult
+} from '@/api/methodologyImport'
 import type { Schema } from '@/types/api'
 
 type Bundle = Schema<'MethodologyBundle'>
@@ -43,5 +48,30 @@ export const useMethodologyImportStore = defineStore('methodologyImport', () => 
     }
   }
 
-  return { plan, importing, dryRun, confirm }
+  /** Move to version (#591): the dry-run plan of one schema, then the same move applied. */
+  const movePlan = ref<VersionMoveResult | null>(null)
+  const moving = ref(false)
+
+  const move = async (schemaId: string, dryRun: boolean): Promise<VersionMoveResult> => {
+    moving.value = true
+    try {
+      // apply sends the planned version: a 409 means a newer one was published since
+      const result = await moveToVersion(schemaId, dryRun, movePlan.value?.to_version)
+      movePlan.value = result
+      return result
+    } finally {
+      moving.value = false
+    }
+  }
+
+  /** Plan a move to the latest version; nothing is written. */
+  const planMove = (schemaId: string) => {
+    movePlan.value = null
+    return move(schemaId, true)
+  }
+
+  /** Apply the planned move (same target version as the plan). */
+  const applyMove = (schemaId: string) => move(schemaId, false)
+
+  return { plan, importing, dryRun, confirm, movePlan, moving, planMove, applyMove }
 })

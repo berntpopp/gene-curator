@@ -129,6 +129,7 @@ mark_all_notifications_read read_only=False destructive=False
 mark_notification_read read_only=False destructive=False
 merge_genes read_only=False destructive=True
 methodology_version_impact read_only=True destructive=False
+move_to_version read_only=False destructive=True
 ping_llm_provider read_only=False destructive=False
 preview_llm_request read_only=True destructive=False
 publish_methodology_version read_only=False destructive=True

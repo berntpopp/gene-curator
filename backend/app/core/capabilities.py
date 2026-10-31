@@ -52,13 +52,16 @@ def require(db: Session, user: UserNew, scope_id: UUID, capability: str) -> None
         )
 
 
+INACTIVE_SCOPE = "This scope is inactive; its curations are read-only"
+
+
 def require_active_scope(scope: Scope | None) -> None:
     """409 for a write to an inactive scope's work: RLS (054) blocks it, which surfaced as a 500
     or a misleading 403."""
     if scope is not None and not scope.is_active:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="This scope is inactive; its curations are read-only",
+            detail=INACTIVE_SCOPE,
         )
 
 
