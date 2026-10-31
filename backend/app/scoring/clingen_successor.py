@@ -23,7 +23,8 @@ def explicit_legacy_segregation(model: dict[str, Any]) -> dict[str, Any] | None:
             if (
                 category["key"] == "segregation"
                 and len(types) == 1
-                and types[0].get("rule") == "explicit_points"
+                # a legacy flat list has no family table for segregation_sop11 (#447)
+                and types[0].get("rule") in ("explicit_points", "segregation_sop11")
             ):
                 return dict(types[0])
     return None

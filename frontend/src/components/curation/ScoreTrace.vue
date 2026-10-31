@@ -97,6 +97,10 @@
         <p v-for="(r, i) in trace.rules_applied" :key="i">
           {{ rowLabel(String(r.path)) }}: {{ ruleText(r) }}
         </p>
+        <!-- #447: why each segregation family counted, or did not -->
+        <template v-for="(r, i) in trace.rules_applied" :key="`f${i}`">
+          <p v-for="(f, j) in families(r)" :key="j" class="ml-4">{{ f.rationale }}</p>
+        </template>
       </div>
       <div v-if="trace.capped_groups.length" class="mt-3" data-testid="capped-groups">
         <h3 class="text-body-large">Capped groups</h3>
@@ -128,12 +132,25 @@
     const m = /^(.*)\[(\d+)\]$/.exec(path)
     return m ? `${traceLabel(m[1]!)} row ${Number(m[2]) + 1}` : traceLabel(path)
   }
+  const families = (r: Record<string, unknown>) =>
+    r.rule === 'segregation_sop11' && Array.isArray(r.families)
+      ? (r.families as Record<string, unknown>[])
+      : []
+  const segregationText = (r: Record<string, unknown>) => {
+    const override = (r.override ?? null) as Record<string, unknown> | null
+    const why = override?.applied
+      ? `; curator override of the computed ${formatScore(Number(r.computed_points))}: ${String(override.rationale)}`
+      : ''
+    return `summed LOD ${Number(r.total).toFixed(2)} (Figure 6 band ${String(r.band)}) gives ${formatScore(Number(r.points))} points${why}`
+  }
   const ruleText = (r: Record<string, unknown>) =>
-    r.rule === 'step'
-      ? `${String(r.field).replaceAll('_', ' ')} ${String(r.sum)} reached ${formatScore(Number(r.points))} points`
-      : r.applied
-        ? `row rule ${Number(r.index) + 1} set ${formatScore(Number(r.points))} points`
-        : `row rule ${Number(r.index) + 1} matched; the entered ${formatScore(Number(r.entered))} points count`
+    r.rule === 'segregation_sop11'
+      ? segregationText(r)
+      : r.rule === 'step'
+        ? `${String(r.field).replaceAll('_', ' ')} ${String(r.sum)} reached ${formatScore(Number(r.points))} points`
+        : r.applied
+          ? `row rule ${Number(r.index) + 1} set ${formatScore(Number(r.points))} points`
+          : `row rule ${Number(r.index) + 1} matched; the entered ${formatScore(Number(r.entered))} points count`
   const capText = (raw: number | null, cap: number | null) =>
     cap == null ? '—' : `${cap}${raw != null && raw > cap ? ' · capped' : ''}`
 </script>

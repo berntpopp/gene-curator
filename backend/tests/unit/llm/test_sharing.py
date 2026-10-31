@@ -110,3 +110,25 @@ def test_containers_with_a_shared_descendant_are_not_warned_as_dropped() -> None
             "Not sent to LLM runs (set llm_share: true to send): bin, binning, note",
         )
     ]
+
+
+def test_clingen_bundle_shares_segregation_facts_not_judgement() -> None:
+    """#447: family facts are sent, override, preconditions, Score? and disputed are not."""
+    import json
+    from pathlib import Path
+
+    bundle = Path(__file__).parents[4] / "docs/schemas/clingen/clingen-methodology.json"
+    schema = json.loads(bundle.read_text())["schemas"][0]
+    fields = schema["field_definitions"]
+    assert [d for d in check_llm_share(fields) if d[0] == "error"] == []
+    keys = shared_keys(fields)
+    facts = {"inheritance", "lod_source", "published_lod", "sequencing_method"}
+    facts |= {"genotypes_complete", "compound_het", "in_trans_shown"}
+    assert facts <= keys
+    judgement = {"override_points", "override_rationale", "scored"}
+    judgement |= {
+        "published_lod_disputed",
+        "phenocopies_rare",
+        "disorder_rare_highly_penetrant",
+    }
+    assert not judgement & keys
