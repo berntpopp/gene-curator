@@ -23,6 +23,16 @@
       @retry="load"
     >
       <template #toolbar-actions>
+        <v-chip
+          data-testid="disagreements-chip"
+          :variant="disagreeOnly ? 'flat' : 'outlined'"
+          :color="disagreeOnly ? 'primary' : undefined"
+          :prepend-icon="disagreeOnly ? 'mdi-check' : undefined"
+          :aria-pressed="disagreeOnly"
+          @click="filters = { ...filters, agreement: disagreeOnly ? '' : 'disagree' }"
+        >
+          Disagreements
+        </v-chip>
         <ScopePicker
           :scopes="store.allScopes"
           :model-value="shownIds"
@@ -132,6 +142,8 @@
     filterKeys: ['agreement', 'classification', 'scopes'],
     multiKeys: ['scopes']
   })
+  // The most asked-for view, one click from the table rather than inside the scope menu (#276)
+  const disagreeOnly = computed(() => filters.value.agreement === 'disagree')
 
   // The URL wins over the saved default view, so a shared link shows the same columns.
   const shownIds = computed(() => {

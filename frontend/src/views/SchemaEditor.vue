@@ -35,6 +35,7 @@
             variant="flat"
             :loading="saving"
             :disabled="hasJsonErrors"
+            :title="hasJsonErrors ? 'Fix the JSON marked in red before saving' : undefined"
             @click="saveSchema"
           >
             <v-icon start>mdi-content-save</v-icon>
@@ -46,7 +47,8 @@
 
       <!-- Schema Details -->
       <v-row>
-        <v-col cols="12" lg="8">
+        <!-- The scoring tables need the full width; the sidebar moves below them -->
+        <v-col cols="12" :lg="tab === 'scoring' ? 12 : 8">
           <!-- Basic Information -->
           <v-card class="mb-6">
             <v-card-title>Basic information</v-card-title>
@@ -115,7 +117,7 @@
               <li v-for="e in validation.errors" :key="e">{{ e }}</li>
             </ul>
             <ul v-if="validation.warnings?.length" class="ps-4">
-              <li v-for="w in validation.warnings" :key="w">Warning: {{ w }}</li>
+              <li v-for="(w, i) in validation.warnings" :key="i">Warning: {{ w }}</li>
             </ul>
           </v-alert>
 
@@ -123,10 +125,13 @@
             <v-tabs v-model="tab" color="primary" show-arrows>
               <v-tab value="fields" prepend-icon="mdi-form-select">Fields</v-tab>
               <v-tab value="preview" prepend-icon="mdi-eye">Preview</v-tab>
-              <v-tab value="scoring" prepend-icon="mdi-calculator">Scoring</v-tab>
+              <v-tab value="scoring" prepend-icon="mdi-calculator">
+                Scoring
+                <v-badge v-if="jsonErrors.scoring_code" color="error" dot inline class="ml-2" />
+              </v-tab>
               <v-tab value="advanced" prepend-icon="mdi-code-json">
                 Advanced JSON
-                <v-badge v-if="hasJsonErrors" color="error" dot inline class="ml-2" />
+                <v-badge v-if="advancedErrors" color="error" dot inline class="ml-2" />
               </v-tab>
             </v-tabs>
             <v-divider />
@@ -162,6 +167,7 @@
                     :model-value="scoringConfig"
                     :field-definitions="draft.field_definitions"
                     @update:model-value="v => setBlock('scoring_configuration', v)"
+                    @error="message => (jsonErrors.scoring_code = message)"
                   />
                   <JsonBlockEditor
                     v-else
@@ -187,7 +193,7 @@
         </v-col>
 
         <!-- Sidebar -->
-        <v-col cols="12" lg="4">
+        <v-col cols="12" :lg="tab === 'scoring' ? 12 : 4">
           <!-- Schema Statistics -->
           <v-card class="mb-6">
             <v-card-title>Statistics</v-card-title>
@@ -337,6 +343,9 @@
   const schemaId = computed(() => String(route.params.id))
   const scoringConfig = computed(() => draft.value.scoring_configuration as ScoringConfig | null)
   const hasJsonErrors = computed(() => Object.values(jsonErrors.value).some(Boolean))
+  const advancedErrors = computed(() =>
+    Object.entries(jsonErrors.value).some(([key, message]) => key !== 'scoring_code' && message)
+  )
 
   const statusOptions = [
     { title: 'Active', value: true },
@@ -462,6 +471,8 @@
       resetEditor(schemaData)
       // Renames warn harder once records may hold values under the old id; creation's own
       // version 1 of a never-activated schema holds none (monkey B16)
+      // Assume published until the versions answer, so an early Edit still warns on rename
+      published.value = true
       schemasStore
         .fetchVersions(schemaId.value)
         .then(versions => (published.value = versions.length > 1 || !!schemaData.is_active))

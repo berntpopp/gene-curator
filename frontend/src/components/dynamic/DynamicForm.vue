@@ -22,7 +22,7 @@
                   <v-icon v-if="tab.icon" :icon="tab.icon" start />
                   {{ tab.name }}
                   <v-chip
-                    v-if="tab.show_score_badge && tabScores[tab.id] !== undefined"
+                    v-if="tab.show_score_badge && tabScores[tab.id] != null"
                     :color="getScoreColor(tabScores[tab.id])"
                     size="small"
                     variant="flat"

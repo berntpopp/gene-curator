@@ -258,6 +258,17 @@ def test_unpublished_edits_are_refused_not_overwritten(
     assert _cur_row(db_session).field_definitions["gene"]["label"] == "UI edit"
 
 
+def test_dry_run_labels_a_refused_schema_refused_not_create(
+    client: TestClient, db_session: Session, admin_token: str
+) -> None:
+    client.post(URL, json=bundle(), headers=auth(admin_token))
+    _edit_unpublished(db_session, "UI edit")
+    plan = client.post(f"{URL}?dry_run=true", json=bundle(), headers=auth(admin_token))
+    assert plan.status_code == 200, plan.text
+    actions = {i["name"]: i["action"] for i in plan.json()["items"]}
+    assert actions["Kidney Cur"] == "refused"
+
+
 def test_unpublished_row_equal_to_the_bundle_is_published(
     client: TestClient, db_session: Session, admin_token: str
 ) -> None:

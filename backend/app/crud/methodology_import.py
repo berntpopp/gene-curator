@@ -1,7 +1,8 @@
 """Idempotent methodology bundle import (#575).
 
-Plans every object first (create, unchanged, new version, update) and validates the whole
-bundle with the publish gate; only a valid, non-dry-run import writes, in one transaction.
+Plans every object first (create, unchanged, new version, update, refused) and validates
+the whole bundle with the publish gate; only a valid, non-dry-run import writes, in one
+transaction.
 Published methodology versions are never changed: changed content publishes the next one.
 """
 
@@ -78,6 +79,7 @@ def _plan_schema(
         item.methodology_version = 1
         return item, None, None
     item.id = row.id
+    item.action = "refused"  # until a check below finds what the import would do
     if row.schema_type != spec.schema_type:
         return item, row, f"schema {spec.name}: is a {row.schema_type.value} schema"
     latest = _latest(db, row.id)

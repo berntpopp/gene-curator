@@ -16,6 +16,9 @@ from app.crud.base import CRUDBase
 from app.models import ScopeMembership, UserNew as User, UserRoleNew as UserRole
 from app.schemas.auth import UserCreate, UserUpdate
 
+# A unique tie-break (id) keeps offset paging stable
+NAME_ORDER = (func.lower(User.name), User.email, User.id)
+
 logger = get_logger(__name__)
 
 
@@ -145,11 +148,18 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         )
         return db.execute(stmt).scalars().all()
 
+    def get_multi(
+        self, db: Session, *, skip: int = 0, limit: int = 100
+    ) -> Sequence[User]:
+        """Users by name, so pages never repeat or skip a row between loads (B19)."""
+        stmt = select(User).order_by(*NAME_ORDER).offset(skip).limit(limit)
+        return db.execute(stmt).scalars().all()
+
     def search(
         self, db: Session, *, query: str, skip: int = 0, limit: int = 100
     ) -> Sequence[User]:
         """Search users by name or email."""
-        stmt = select(User)
+        stmt = select(User).order_by(*NAME_ORDER)
 
         if query:
             term = f"%{escape_like(query)}%"

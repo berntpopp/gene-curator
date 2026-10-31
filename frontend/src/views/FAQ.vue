@@ -71,7 +71,7 @@
       id: 'bulk-add-genes',
       question: 'Can I add several genes at once?',
       answer:
-        'Yes. In the Add Genes dialog, switch to the bulk tab and enter gene symbols or HGNC IDs, one per line or comma-separated. Validate the list before adding. Files cannot be uploaded.'
+        'Yes. In a scope, choose Add genes and paste gene symbols or HGNC IDs, separated by new lines, commas, tabs or spaces. Resolve the list, check how each entry matched (previous symbols and aliases count, ambiguous ones ask you to choose), optionally pick a curator and a due date, then add. Files cannot be uploaded.'
     },
     {
       id: 'precurate-gene',

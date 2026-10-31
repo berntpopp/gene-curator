@@ -72,7 +72,12 @@
 
     <v-window v-model="tab" class="pt-4">
       <v-window-item v-if="model" value="sections">
-        <PointModelSections v-model="model" :diag="checks.at" :count="checks.count" />
+        <PointModelSections
+          v-model="model"
+          :diag="checks.at"
+          :count="checks.count"
+          :field-definitions="fieldDefinitions"
+        />
       </v-window-item>
       <v-window-item v-if="model" value="classes">
         <PointModelBands v-model="model" :diag="checks.at" :class-keys="classKeys" />
@@ -151,6 +156,8 @@
    */
   const props = defineProps<{ fieldDefinitions?: Record<string, unknown> }>()
   const value = defineModel<ScoringConfig | null>({ default: null })
+  // The host blocks Save while the code view holds text that is not JSON
+  const emit = defineEmits<{ error: [message: string] }>()
 
   // 'point_model' is the neutral alias (W10G); clingen_sop_v11 also runs any point model
   const ENGINES = ['point_model', 'clingen_sop_v11', 'gencc_based', 'qualitative_assessment']
@@ -247,6 +254,7 @@
   watch(tab, () => {
     if (!codeError.value) codeDraft.value = null
   })
+  watch(codeError, message => emit('error', message))
 </script>
 
 <style scoped>

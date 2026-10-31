@@ -26,19 +26,32 @@
         {{ counts.resolved }} resolved, {{ counts.ambiguous }} ambiguous, {{ counts.not_found }} not
         found{{ dupCount ? `, ${dupCount} repeated` : '' }}. {{ picks.length }} selected.
       </p>
-      <v-select
-        v-model="curatorId"
-        :items="curators"
-        item-value="user_id"
-        item-title="displayName"
-        label="Assign to curator (optional)"
-        clearable
-        density="compact"
-        variant="outlined"
-        class="mb-3"
-        hide-details
-        data-testid="curator-picker"
-      />
+      <div class="d-flex flex-wrap ga-3 mb-3">
+        <v-select
+          v-model="curatorId"
+          :items="curators"
+          item-value="user_id"
+          item-title="displayName"
+          label="Assign to curator (optional)"
+          clearable
+          density="compact"
+          variant="outlined"
+          hide-details
+          class="intake-option"
+          data-testid="curator-picker"
+        />
+        <v-text-field
+          v-model="dueDate"
+          type="date"
+          label="Due date (optional)"
+          clearable
+          density="compact"
+          variant="outlined"
+          hide-details
+          class="intake-option"
+          data-testid="due-date"
+        />
+      </div>
       <v-table density="compact" class="intake-table">
         <thead>
           <tr>
@@ -122,7 +135,7 @@
 <script setup lang="ts">
   /**
    * Paste a list of genes, review how each entry resolved, then add them to the scope and
-   * optionally assign them to a curator in the same step.
+   * optionally assign them to a curator with a due date in the same step.
    */
   import { computed, nextTick, ref, watch } from 'vue'
   import BaseDialog from '@/components/BaseDialog.vue'
@@ -150,6 +163,7 @@
   const rows = ref<IntakeRow[] | null>(null)
   const busy = ref(false)
   const curatorId = ref<string | null>(null)
+  const dueDate = ref<string | null>(null)
   const curators = ref<CuratorOption[]>([])
   const summaryEl = ref<HTMLElement | null>(null)
 
@@ -208,7 +222,12 @@
   async function add() {
     busy.value = true
     try {
-      const r = await store.addToScope(props.scopeId, picks.value, curatorId.value)
+      const r = await store.addToScope(
+        props.scopeId,
+        picks.value,
+        curatorId.value,
+        dueDate.value || null
+      )
       const total = !r.added && !r.alreadyInScope && r.failed
       const parts = [`${pluralize(r.added, 'gene')} added`]
       if (r.alreadyInScope) parts.push(`${r.alreadyInScope} already in scope`)
@@ -248,6 +267,7 @@
         text.value = ''
         rows.value = null
         curatorId.value = null
+        dueDate.value = null
         loadCurators()
       }
     },
@@ -259,6 +279,10 @@
   .mono {
     font-family: 'IBM Plex Mono', monospace;
     margin-right: 8px;
+  }
+
+  .intake-option {
+    flex: 1 1 220px;
   }
 
   .intake-table {

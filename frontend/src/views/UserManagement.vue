@@ -249,6 +249,32 @@
               inset
             />
           </v-col>
+          <!-- A new user without a scope role can sign in but sees nothing -->
+          <template v-if="!editingUser">
+            <v-col cols="12" sm="8">
+              <v-select
+                v-model="firstScopeId"
+                :items="scopes"
+                item-value="id"
+                :item-title="s => s.display_name || s.name"
+                label="First scope (optional)"
+                hint="Added at once with the role on the right"
+                persistent-hint
+                clearable
+                variant="outlined"
+                data-testid="first-scope"
+              />
+            </v-col>
+            <v-col cols="12" sm="4">
+              <v-select
+                v-model="firstRole"
+                :items="SCOPE_ROLES"
+                label="Scope role"
+                :disabled="!firstScopeId"
+                variant="outlined"
+              />
+            </v-col>
+          </template>
           <v-col v-if="editingUser" cols="12">
             <UserScopeRoles
               :user-id="editingUser.id"
@@ -290,6 +316,8 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { useUsersStore } from '@/stores/users'
   import { useAuthStore } from '@/stores/auth'
+  import { useScopesStore, type ScopeRecord, type ScopeRole } from '@/stores/scopes'
+  import { readableApiError } from '@/utils/apiErrorText'
   import ResetPasswordDialog from '@/views/user-management/ResetPasswordDialog.vue'
   import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
   import UserScopeRoles from '@/views/user-management/UserScopeRoles.vue'
@@ -331,6 +359,10 @@
   const { scopes, rolesByUser, load: loadRoles } = useUserScopeRoles()
   const loadScopeRoles = () =>
     loadRoles().catch(() => showSnackbar('Failed to load scope roles', 'error'))
+  const scopesStore = useScopesStore()
+  const SCOPE_ROLES: ScopeRole[] = ['admin', 'curator', 'reviewer', 'viewer']
+  const firstScopeId = ref<string | null>(null)
+  const firstRole = ref<ScopeRole>('curator')
 
   // Reactive state
   const searchQuery = ref('')
@@ -429,6 +461,8 @@
 
   function openCreateUserDialog() {
     editingUser.value = null
+    firstScopeId.value = null
+    firstRole.value = 'curator'
     userFormData.value = {
       name: '',
       email: '',
@@ -469,13 +503,27 @@
         await usersStore.updateUser(editingUser.value.id, updateData)
         showSnackbar('User updated successfully', 'success')
       } else {
-        // Create user
-        await usersStore.createUser(userFormData.value)
-        showSnackbar('User created successfully', 'success')
+        const created = await usersStore.createUser(userFormData.value)
+        const scope = scopes.value.find(s => s.id === firstScopeId.value)
+        if (created && scope) await grantFirstRole(created.id, scope)
+        else showSnackbar('User created successfully', 'success')
       }
       userDialog.value = false
     } catch (error) {
       showSnackbar((error as ApiError).message || 'Failed to save user', 'error')
+    }
+  }
+
+  /** The created user keeps their account when the grant fails; the admin is told why. */
+  async function grantFirstRole(userId: string, scope: ScopeRecord) {
+    const name = scope.display_name || scope.name
+    try {
+      await scopesStore.inviteMember(scope.id, { user_id: userId, role: firstRole.value }, true)
+      showSnackbar(`User created and added to ${name} as ${firstRole.value}`, 'success')
+      loadScopeRoles()
+    } catch (e) {
+      const why = readableApiError(e, 'the scope role was not saved')
+      showSnackbar(`User created, but not added to ${name}: ${why}`, 'warning')
     }
   }
 

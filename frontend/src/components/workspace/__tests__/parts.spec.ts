@@ -88,6 +88,22 @@ const score = (over: Partial<ScoreSnapshot> = {}): ScoreSnapshot => ({
 describe('ScorePanel', () => {
   beforeEach(() => setActivePinia(createPinia()))
 
+  it('says 0 points only before anything is scored, and never hides a failed or absent score', () => {
+    const empty = { props: { score: null, canSubmit: false, readonly: true } }
+    expect(mount(ScorePanel, empty).find('[data-testid="score-empty"]').text()).toContain(
+      '0 points so far'
+    )
+    const store = useValidationStore()
+    store.validationResults.form = { is_valid: true, errors: [], warnings: [] } as never
+    const none = mount(ScorePanel, empty)
+    expect(none.find('[data-testid="score-none"]').text()).toBe('No scoring for this schema.')
+    expect(none.text()).not.toContain('0 points so far')
+    store.error = 'Server unavailable'
+    const failed = mount(ScorePanel, empty)
+    expect(failed.find('[data-testid="score-error"]').text()).toContain('Server unavailable')
+    expect(failed.text()).not.toContain('0 points so far')
+  })
+
   it('names an out-of-range row by its label, in the flags and the submit reason', () => {
     useValidationStore().validationResults.form = {
       errors: [

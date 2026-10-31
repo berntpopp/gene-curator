@@ -197,6 +197,20 @@ describe('GeneCatalogueView', () => {
     expect(wrapper.find('[data-testid="filter-agreement"]').text()).toContain('Disagree')
   })
 
+  it('toggles the Disagreements chip beside the table (Wave 10 polish)', async () => {
+    const { wrapper, router } = await mountView()
+    const chip = () => wrapper.find('[data-testid="disagreements-chip"]')
+    expect(chip().attributes('aria-pressed')).toBe('false')
+    await chip().trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.query.agreement).toBe('disagree'))
+    expect(api.getMatrix.mock.calls.at(-1)![0]).toMatchObject({ agreement: 'disagree' })
+    expect(chip().attributes('aria-pressed')).toBe('true')
+    await chip().trigger('click')
+    await vi.waitFor(() => expect(router.currentRoute.value.query.agreement).toBeUndefined())
+    await flushPromises()
+    expect(api.getMatrix.mock.calls.at(-1)![0].agreement).toBeUndefined()
+  })
+
   it('filters by a classification the catalogue has, strongest first (#539)', async () => {
     const { wrapper } = await mountView('/genes?classification=definitive')
     expect(api.getMatrix.mock.calls.at(-1)![0]).toMatchObject({ classification: 'definitive' })

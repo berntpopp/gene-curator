@@ -211,11 +211,29 @@
         <tbody>
           <tr v-for="item in importPlan?.items ?? []" :key="`${item.kind}:${item.name}`">
             <td>{{ IMPORT_KINDS[item.kind] }}</td>
-            <td>{{ item.name }}</td>
+            <td>
+              {{ item.name }}
+              <div
+                v-for="e in rowErrors(item)"
+                :key="e"
+                class="text-body-small text-error"
+                data-testid="row-error"
+              >
+                {{ e }}
+              </div>
+            </td>
             <td>{{ item.version ?? '' }}</td>
             <td>
-              <v-chip :color="IMPORT_ACTIONS[item.action].color" size="small" variant="tonal">
-                {{ IMPORT_ACTIONS[item.action].label }}
+              <v-chip
+                :color="rowErrors(item).length ? 'error' : IMPORT_ACTIONS[item.action].color"
+                size="small"
+                variant="tonal"
+              >
+                {{
+                  rowErrors(item).length && item.action !== 'refused'
+                    ? 'Blocked'
+                    : IMPORT_ACTIONS[item.action].label
+                }}
               </v-chip>
             </td>
           </tr>
@@ -385,8 +403,28 @@
     create: { label: 'Create', color: 'success' },
     unchanged: { label: 'Unchanged', color: undefined },
     new_version: { label: 'Publish new version', color: 'primary' },
-    update: { label: 'Update', color: 'warning' }
+    update: { label: 'Update', color: 'warning' },
+    refused: { label: 'Refused', color: 'error' }
   }
+  type ImportItem = Schema<'ImportItem'>
+  const IMPORT_PREFIX = { schema: 'schema', workflow_pair: 'workflow pair', scope_default: '' }
+  /** The plan's errors about this row, shown under it (errors name their object first). */
+  const rowErrors = (item: ImportItem) =>
+    (importPlan.value?.errors ?? []).filter(e =>
+      item.kind === 'scope_default'
+        ? e.startsWith('scope_default:')
+        : e.startsWith(`${IMPORT_PREFIX[item.kind]} ${item.name}:`)
+    )
+  /** "KGDB Mendelian Precuration published as version 3": what changed, by name. */
+  const importSummary = (items: ImportItem[]) =>
+    items
+      .filter(i => i.action !== 'unchanged')
+      .map(i =>
+        i.kind === 'schema' && i.methodology_version
+          ? `${i.name} published as version ${i.methodology_version}`
+          : `${IMPORT_KINDS[i.kind]} ${i.name} ${i.action === 'create' ? 'created' : 'updated'}`
+      )
+      .join('; ')
 
   const importInput = ref<HTMLInputElement | null>(null)
   const importDialog = ref(false)
@@ -416,9 +454,9 @@
   const confirmImport = async () => {
     try {
       const result = await methodologyImport.confirm()
-      const changed = result.items.filter(i => i.action !== 'unchanged').length
-      logger.info('Methodology imported', { file: importFileName.value, changed })
-      showSuccess(changed ? `Imported ${changed} change(s)` : 'Already up to date; nothing changed')
+      const summary = importSummary(result.items)
+      logger.info('Methodology imported', { file: importFileName.value, summary })
+      showSuccess(summary || 'Already up to date; nothing changed')
       importDialog.value = false
       await schemasStore.fetchSchemas({ active_only: false })
     } catch (error) {

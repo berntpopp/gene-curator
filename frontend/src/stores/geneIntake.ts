@@ -47,11 +47,13 @@ export const useGeneIntakeStore = defineStore('geneIntake', () => {
    * of 100; a failing chunk counts its genes as failed and the rest carry on. A curator, when
    * given, is set in a second call on the new assignments only: the bulk endpoint would also
    * take over unassigned genes already in the scope (curator and priority), which must keep theirs.
+   * A due date goes with the first call: the API sets it on created rows only.
    */
   async function addToScope(
     scopeId: string,
     picks: IntakePick[],
-    curatorId: string | null = null
+    curatorId: string | null = null,
+    dueDate: string | null = null
   ): Promise<IntakeResult> {
     const unique = [...new Map(picks.map(p => [p.hgnc_id, p])).values()]
     const ids = unique.flatMap(p => (p.gene_id ? [p.gene_id] : []))
@@ -92,7 +94,8 @@ export const useGeneIntakeStore = defineStore('geneIntake', () => {
           gene_ids: chunk,
           scope_id: scopeId,
           assigned_curator_id: null,
-          priority_level: 'medium'
+          priority_level: 'medium',
+          ...(dueDate ? { due_date: dueDate } : {})
         })
         added += r.total_created
         alreadyInScope += r.total_skipped

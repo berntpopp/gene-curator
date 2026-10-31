@@ -442,6 +442,19 @@ class TestCurationSchemaWrite:
         assert response.status_code == 200
         assert response.json()["is_active"] is False
 
+    def test_update_returns_a_fresh_updated_at(
+        self, client: TestClient, owned_schema: CurationSchema, admin_token: str
+    ):
+        """The editor's Last Modified shows the save, not a dash (monkey B17)."""
+        response = client.put(
+            f"{BASE}/curation-schemas/{owned_schema.id}",
+            json={"description": "edited"},
+            headers=auth(admin_token),
+        )
+
+        assert response.status_code == 200
+        assert response.json()["updated_at"] is not None
+
     def test_update_unknown_is_404(self, client: TestClient, admin_token: str):
         response = client.put(
             f"{BASE}/curation-schemas/{uuid4()}",

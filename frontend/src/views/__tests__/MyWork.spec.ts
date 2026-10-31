@@ -103,6 +103,7 @@ describe('MyWork view', () => {
     expect(full!.text()).toContain('Curation')
     expect(full!.text()).toContain('Moderate')
     expect(bare!.text()).not.toContain('Not classified')
+    expect(bare!.text()).toContain('Assigned') // an assignment has no stage yet (Wave 10 polish)
   })
 
   it('labels a susceptibility entity, not a Mendelian one (W9 monkey)', async () => {

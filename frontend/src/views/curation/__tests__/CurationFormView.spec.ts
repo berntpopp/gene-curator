@@ -456,7 +456,7 @@ describe('CurationFormView', () => {
       await flushPromises()
       expect(wrapper.get('.ws-panel').element).toBe(panel)
       expect(wrapper.find('.ws-panel .v-skeleton-loader').exists()).toBe(false)
-      expect(wrapper.get('.ws-panel').text()).toContain('unavailable')
+      expect(wrapper.get('.ws-panel').text()).toContain('0 points so far')
       wrapper.unmount()
     })
 

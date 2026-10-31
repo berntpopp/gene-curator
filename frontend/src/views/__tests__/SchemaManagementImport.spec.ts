@@ -62,10 +62,12 @@ describe('SchemaManagement methodology import', () => {
     expect(document.body.textContent).toContain('KGDB curation')
     expect(document.body.textContent).toContain('Nothing is written until you confirm')
 
-    post.mockResolvedValueOnce({ ...plan(), dry_run: false } as never)
+    const done = plan()
+    done.items[0] = { ...done.items[0]!, action: 'new_version', methodology_version: 3 } as never
+    post.mockResolvedValueOnce({ ...done, dry_run: false } as never)
     await call(vm, 'confirmImport')
     expect(post).toHaveBeenLastCalledWith(bundle, false)
-    expect(showSuccess).toHaveBeenCalledWith('Imported 1 change(s)')
+    expect(showSuccess).toHaveBeenCalledWith('KGDB curation published as version 3')
     expect(vm.importDialog).toBe(false)
     expect(fetch).toHaveBeenCalledTimes(2)
   })
@@ -85,6 +87,37 @@ describe('SchemaManagement methodology import', () => {
     await flushPromises()
     expect(document.body.textContent).toContain('The file cannot be imported')
     expect(document.body.textContent).toContain('expected class')
+  })
+
+  it('anchors each error to its row: Refused or Blocked (Wave 10 polish)', async () => {
+    const refused = plan(['schema KGDB curation: has unpublished edits'], 'refused')
+    refused.items.push(
+      { kind: 'workflow_pair', name: 'KGDB pair', version: '1', action: 'create' },
+      { kind: 'scope_default', name: 'kidney', version: '', action: 'update' }
+    )
+    refused.errors.push('scope_default: no scope kidney')
+    post.mockResolvedValueOnce(refused as never)
+    const { vm } = await mountView()
+    await call(vm, 'onImportFile', fileEvent(JSON.stringify(bundle)))
+    await flushPromises()
+    const rows = [...document.body.querySelectorAll('tbody tr')]
+      .map(r => r.textContent ?? '')
+      .filter(t => /KGDB|kidney/.test(t))
+    expect(rows[0]).toContain('has unpublished edits')
+    expect(rows[0]).toContain('Refused')
+    expect(rows[1]).toContain('Create')
+    expect(rows[2]).toContain('Blocked')
+    expect(rows[2]).toContain('no scope kidney')
+  })
+
+  it('names created pairs in the success message', async () => {
+    const created = plan()
+    created.items = [{ kind: 'workflow_pair', name: 'KGDB pair', version: '1', action: 'create' }]
+    post.mockResolvedValue(created as never)
+    const { vm } = await mountView()
+    await call(vm, 'onImportFile', fileEvent(JSON.stringify(bundle)))
+    await call(vm, 'confirmImport')
+    expect(showSuccess).toHaveBeenCalledWith('Workflow pair KGDB pair created')
   })
 
   it('rejects a file that is not JSON without calling the server', async () => {

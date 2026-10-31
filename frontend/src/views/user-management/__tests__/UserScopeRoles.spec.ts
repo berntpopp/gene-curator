@@ -6,7 +6,9 @@ import { useUserScopeRoles } from '../useUserScopeRoles'
 import { scopeService } from '@/services/scopeService'
 
 const showSnackbar = vi.hoisted(() => vi.fn())
+const confirmMock = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useNotifications', () => ({ showSnackbar }))
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
 vi.mock('@/services/scopeService', () => ({
   scopeService: {
     fetchScopes: vi.fn(),
@@ -19,7 +21,7 @@ vi.mock('@/services/scopeService', () => ({
 const svc = vi.mocked(scopeService)
 
 const kidney = { id: 's1', name: 'kidney-genetics' }
-const heart = { id: 's2', name: 'cardio' }
+const heart = { id: 's2', name: 'cardio', display_name: 'Cardio Genetics' }
 
 function mountRoles(disabled = false) {
   return mount(UserScopeRoles, {
@@ -53,7 +55,7 @@ describe('UserScopeRoles (#218)', () => {
     await w.find('[data-testid=grant]').trigger('click')
     await flushPromises()
     expect(svc.inviteMember).toHaveBeenCalledWith('s2', { user_id: 'u1', role: 'reviewer' }, true)
-    expect(showSnackbar).toHaveBeenCalledWith('Added to cardio as reviewer', 'success')
+    expect(showSnackbar).toHaveBeenCalledWith('Added to Cardio Genetics as reviewer', 'success')
     expect(w.emitted('changed')).toHaveLength(1)
   })
 
@@ -64,8 +66,16 @@ describe('UserScopeRoles (#218)', () => {
     select(w, 'role-s1').vm.$emit('update:modelValue', 'admin')
     await flushPromises()
     expect(svc.updateMemberRole).toHaveBeenCalledWith('s1', 'u1', 'admin')
+    confirmMock.mockResolvedValueOnce(false)
     await w.find('[data-testid=remove-s1]').trigger('click')
     await flushPromises()
+    expect(svc.removeMember).not.toHaveBeenCalled() // asks first; a no keeps the role
+    confirmMock.mockResolvedValueOnce(true)
+    await w.find('[data-testid=remove-s1]').trigger('click')
+    await flushPromises()
+    expect(confirmMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ title: 'Remove from kidney-genetics?', destructive: true })
+    )
     expect(svc.removeMember).toHaveBeenCalledWith('s1', 'u1')
     expect(w.emitted('changed')).toHaveLength(2)
   })
@@ -112,9 +122,9 @@ describe('useUserScopeRoles', () => {
     expect(rolesByUser.value).toEqual({
       u1: [
         { scope_id: 's1', scope_name: 'kidney-genetics', role: 'curator' },
-        { scope_id: 's2', scope_name: 'cardio', role: 'viewer' }
+        { scope_id: 's2', scope_name: 'Cardio Genetics', role: 'viewer' }
       ],
-      u2: [{ scope_id: 's2', scope_name: 'cardio', role: 'admin' }]
+      u2: [{ scope_id: 's2', scope_name: 'Cardio Genetics', role: 'admin' }]
     })
   })
 })

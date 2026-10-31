@@ -220,6 +220,10 @@ describe('PointModelBuilder', () => {
     expect(vm.codeText).toBe('{ broken')
     await call(vm, 'setCode', '[1]')
     expect(vm.codeError).toContain('Not a JSON object')
+    expect(w.emitted('error')?.[0]).toEqual([expect.stringContaining('Not a JSON object')])
+    await call(vm, 'setCode', '{}')
+    await nextTick()
+    expect(w.emitted('error')?.at(-1)).toEqual([''])
   })
 
   it('adopts a new outside value and offers a point model when there is none', async () => {

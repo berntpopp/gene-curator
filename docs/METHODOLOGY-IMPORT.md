@@ -68,6 +68,8 @@ The JSON download of a schema in the schema editor is the body of one `schemas[]
   Any error refuses the whole import: 422 with the report in `detail`, nothing written.
 - `dry_run=true` returns the same report and plan (`create`, `unchanged`,
   `new_version`, `update`, with the version each schema would have) and writes nothing.
+  An existing schema the import refuses (another schema type, unpublished edits) is
+  planned as `refused`; its reason is in `errors`.
 - The import is one transaction: all of it or nothing. Each import (not a dry run)
   writes one `audit_log` row (`change_type` `methodology_import`) with the plan.
 
