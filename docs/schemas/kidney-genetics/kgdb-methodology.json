@@ -366,7 +366,7 @@
       "version": "alpha",
       "schema_type": "precuration",
       "institution": "Kidney Genetics",
-      "description": "KGDB precuration (alpha): adopt ClinGen, then the disease entity, lumping/splitting and kidney classification; susceptibility (risk allele) entities. PROVISIONAL, not approved by KGDB",
+      "description": "KGDB precuration (alpha): adopt ClinGen, then the disease entity, lumping/splitting and kidney classification; susceptibility (risk allele) entities",
       "field_definitions": {
         "sections": [
           {
@@ -2410,7 +2410,7 @@
       "version": "alpha",
       "schema_type": "curation",
       "institution": "Kidney Genetics",
-      "description": "PROVISIONAL, not approved by KGDB: susceptibility (risk allele) curation (alpha), Established / Likely / Uncertain association, off the Mendelian bands",
+      "description": "Susceptibility (risk allele) curation (alpha, approved by KGDB on 2026-10-31, kidney-genetics-db#473): Established / Likely / Uncertain / Refuted association, off the Mendelian bands",
       "field_definitions": {
         "association": {
           "type": "object",
@@ -2419,7 +2419,7 @@
             "studies": {
               "type": "evidence_table",
               "label": "Association studies",
-              "help_text": "One row per independent association study; no p value, p > 0.05 or a protective odds ratio (< 1) scores 0",
+              "help_text": "One row per independent study of one named risk allele or haplotype; OR and 95% CI oriented to that allele. Not significant after correction, included in a meta-analysis or protective scores 0",
               "columns": {
                 "study_label": {
                   "type": "text",
@@ -2486,13 +2486,42 @@
                   "required": true,
                   "validation": "pmid_format"
                 },
+                "significant_after_correction": {
+                  "type": "boolean",
+                  "label": "Significant after multiple-testing correction",
+                  "required": true,
+                  "help_text": "GWAS p < 5e-8; false or blank scores 0",
+                  "llm_share": true
+                },
+                "effect_direction": {
+                  "type": "select",
+                  "label": "Effect direction",
+                  "options": [
+                    {
+                      "value": "risk",
+                      "label": "Risk"
+                    },
+                    {
+                      "value": "protective",
+                      "label": "Protective"
+                    }
+                  ],
+                  "help_text": "Protective is recorded, not scored (0). An OR < 1 for the curated risk allele is contradictory evidence",
+                  "llm_share": true
+                },
+                "included_in": {
+                  "type": "text",
+                  "label": "Included in meta-analysis (study label)",
+                  "help_text": "Set when this cohort is part of a meta-analysis row; scores 0 so it is not counted twice",
+                  "llm_share": true
+                },
                 "points": {
                   "type": "number",
                   "label": "Points",
                   "min": 0,
-                  "max": 2,
+                  "max": 3,
                   "step": 0.5,
-                  "help_text": "Leave blank for the default (2) or the row rules"
+                  "help_text": "Leave blank for the default (1; 2 if >=50 cases and >=50 controls; 3 if >=500 and >=500 or a meta-analysis); enter fewer for bias or poor ancestry matching"
                 }
               }
             }
@@ -2593,10 +2622,15 @@
             }
           }
         },
+        "meets_very_strong": {
+          "type": "boolean",
+          "label": "Meets ClinGen Very Strong",
+          "help_text": ">1000 individuals in total, extensive replication (preferably a meta-analysis), little inconsistency, bias excluded (Schmidt 2024, PMID 38054408); Established needs it"
+        },
         "replicated_over_time": {
           "type": "boolean",
           "label": "Replicated over time",
-          "help_text": ">=3 years since the first report and >=2 later papers from independent groups (one multicentre series = one paper)"
+          "help_text": "Recorded only; the susceptibility class uses meets_very_strong"
         },
         "reported_not_scored": {
           "type": "textarea",
@@ -2991,7 +3025,7 @@
                   "fields": [
                     "association.studies"
                   ],
-                  "help_text": "Default 2 per significant study, cap 6"
+                  "help_text": "Default 1 / 2 / 3 by study size or meta-analysis, cap 9"
                 },
                 {
                   "name": "Functional",
@@ -3016,6 +3050,7 @@
                 {
                   "name": "Replication and unscored reports",
                   "fields": [
+                    "meets_very_strong",
                     "replicated_over_time",
                     "reported_not_scored",
                     "context_notes"
@@ -3057,28 +3092,35 @@
         "engine": "point_model",
         "point_model": {
           "name": "KGDB susceptibility model (alpha)",
-          "total_cap": 8,
+          "total_cap": 11,
           "sections": [
             {
               "key": "association",
-              "cap": 6,
+              "cap": 9,
               "categories": [
                 {
                   "key": "studies",
-                  "cap": 6,
+                  "cap": 9,
                   "types": [
                     {
                       "path": "studies",
-                      "default": 2,
+                      "default": 1,
                       "range": [
                         0,
-                        2
+                        3
                       ],
                       "require_variant": true,
                       "points_when": [
                         {
-                          "field": "p_value",
-                          "gt": 0.05,
+                          "field": "significant_after_correction",
+                          "in": [
+                            false
+                          ],
+                          "points": 0
+                        },
+                        {
+                          "field": "significant_after_correction",
+                          "present": false,
                           "points": 0
                         },
                         {
@@ -3087,9 +3129,45 @@
                           "points": 0
                         },
                         {
-                          "field": "odds_ratio",
-                          "lt": 1,
+                          "field": "included_in",
+                          "present": true,
                           "points": 0
+                        },
+                        {
+                          "field": "effect_direction",
+                          "in": [
+                            "protective"
+                          ],
+                          "points": 0
+                        },
+                        {
+                          "field": "design",
+                          "in": [
+                            "meta_analysis"
+                          ],
+                          "points": 3
+                        },
+                        {
+                          "field": "cases_total",
+                          "gte": 500,
+                          "and": [
+                            {
+                              "field": "controls_total",
+                              "gte": 500
+                            }
+                          ],
+                          "points": 3
+                        },
+                        {
+                          "field": "cases_total",
+                          "gte": 50,
+                          "and": [
+                            {
+                              "field": "controls_total",
+                              "gte": 50
+                            }
+                          ],
+                          "points": 2
                         }
                       ]
                     }
@@ -3123,8 +3201,15 @@
               "when": "contradictory_evidence",
               "field": "impact",
               "in": [
-                "disputed",
                 "refuted"
+              ],
+              "class": "refuted"
+            },
+            {
+              "when": "contradictory_evidence",
+              "field": "impact",
+              "in": [
+                "disputed"
               ],
               "class": "uncertain"
             }
@@ -3132,24 +3217,24 @@
           "bands": [
             {
               "class": "established",
-              "min": 4,
-              "requires": "replicated_over_time",
+              "min": 6,
+              "requires": "meets_very_strong",
               "section_min": {
-                "association": 4
+                "association": 6
               },
-              "description": "At least 4 association points with replication over time support an ESTABLISHED association."
+              "description": "At least 6 association points and the ClinGen Very Strong criteria support an ESTABLISHED association."
             },
             {
               "class": "likely",
-              "min": 2,
+              "min": 4,
               "section_min": {
-                "association": 2
+                "association": 4
               },
-              "description": "At least 2 association points support a LIKELY association."
+              "description": "At least 4 association points (a discovery study plus a replication) support a LIKELY association."
             },
             {
               "class": "uncertain",
-              "description": "Too little association evidence: the association is UNCERTAIN."
+              "description": "Significant but small, unreplicated or conflicting association evidence: the association is UNCERTAIN."
             }
           ],
           "review_flags": {
@@ -3174,11 +3259,17 @@
             "label": "Uncertain association",
             "order": 3,
             "tone": "limited"
+          },
+          {
+            "key": "refuted",
+            "label": "Refuted association",
+            "order": 4,
+            "tone": "refuted"
           }
         ],
         "tests": [
           {
-            "name": "Established: two significant studies, replicated",
+            "name": "Established: two large significant studies, ClinGen Very Strong",
             "evidence_data": {
               "association": {
                 "studies": [
@@ -3186,25 +3277,33 @@
                     "pmid": "31000080",
                     "study_label": "Cohort A",
                     "variant": "rs4844573",
-                    "p_value": 0.001
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
                   },
                   {
                     "pmid": "31000081",
                     "study_label": "Cohort B",
                     "variant": "rs4844573",
-                    "p_value": 0.01
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 800,
+                    "controls_total": 900
                   }
                 ]
               },
-              "replicated_over_time": true
+              "meets_very_strong": true
             },
             "expect": {
-              "total": 4,
+              "total": 6,
               "class": "established"
             }
           },
           {
-            "name": "Likely: two significant studies, not replicated",
+            "name": "Likely: a large discovery study and a mid-sized replication, not Very Strong",
             "evidence_data": {
               "association": {
                 "studies": [
@@ -3212,24 +3311,32 @@
                     "pmid": "31000080",
                     "study_label": "Cohort A",
                     "variant": "rs4844573",
-                    "p_value": 0.001
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
                   },
                   {
                     "pmid": "31000081",
                     "study_label": "Cohort B",
                     "variant": "rs4844573",
-                    "p_value": 0.01
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 120,
+                    "controls_total": 150
                   }
                 ]
               }
             },
             "expect": {
-              "total": 4,
+              "total": 5,
               "class": "likely"
             }
           },
           {
-            "name": "Uncertain: a non-significant study scores 0",
+            "name": "Uncertain: a small significant study; one not significant after correction scores 0",
             "evidence_data": {
               "association": {
                 "studies": [
@@ -3237,44 +3344,33 @@
                     "pmid": "31000082",
                     "study_label": "Cohort C",
                     "variant": "rs4844573",
-                    "p_value": 0.2
-                  }
-                ]
-              }
-            },
-            "expect": {
-              "total": 0,
-              "class": "uncertain"
-            }
-          },
-          {
-            "name": "Uncertain: no p value or a protective odds ratio scores 0",
-            "evidence_data": {
-              "association": {
-                "studies": [
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 30,
+                    "controls_total": 40
+                  },
                   {
                     "pmid": "31000084",
                     "study_label": "Cohort D",
-                    "variant": "rs4844573"
-                  },
-                  {
-                    "pmid": "31000085",
-                    "study_label": "Cohort E",
                     "variant": "rs4844573",
-                    "p_value": 0.001,
-                    "odds_ratio": 0.6
+                    "p_value": 0.01,
+                    "significant_after_correction": false,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
                   }
                 ]
               },
-              "replicated_over_time": true
+              "meets_very_strong": true
             },
             "expect": {
-              "total": 0,
+              "total": 1,
               "class": "uncertain"
             }
           },
           {
-            "name": "Uncertain: refuted evidence overrides two significant studies",
+            "name": "Refuted: refuting evidence overrides an established score",
             "evidence_data": {
               "association": {
                 "studies": [
@@ -3282,44 +3378,125 @@
                     "pmid": "31000080",
                     "study_label": "Cohort A",
                     "variant": "rs4844573",
-                    "p_value": 0.001
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
                   },
                   {
                     "pmid": "31000081",
                     "study_label": "Cohort B",
                     "variant": "rs4844573",
-                    "p_value": 0.01
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 800,
+                    "controls_total": 900
                   }
                 ]
               },
-              "replicated_over_time": true,
+              "meets_very_strong": true,
               "contradictory_evidence": [
                 {
                   "pmid": "31000086",
-                  "description": "Association not replicated in a large cohort",
-                  "impact": "refuted"
+                  "impact": "refuted",
+                  "description": "Well-powered meta-analysis of >500 cases and >500 controls does not replicate the association"
                 }
               ]
             },
             "expect": {
-              "total": 4,
+              "total": 6,
+              "class": "refuted"
+            }
+          },
+          {
+            "name": "Meta-analysis: its included cohorts are not counted again",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000087",
+                    "study_label": "Meta X",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "design": "meta_analysis"
+                  },
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700,
+                    "included_in": "Meta X"
+                  },
+                  {
+                    "pmid": "31000081",
+                    "study_label": "Cohort B",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 800,
+                    "controls_total": 900,
+                    "included_in": "Meta X"
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 3,
               "class": "uncertain"
             }
           },
           {
-            "name": "Uncertain: functional data alone",
+            "name": "Protective: a large protective study is recorded, not scored",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000085",
+                    "study_label": "Cohort E",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "protective",
+                    "cases_total": 600,
+                    "controls_total": 700,
+                    "odds_ratio": 0.6
+                  }
+                ]
+              },
+              "meets_very_strong": true
+            },
+            "expect": {
+              "total": 0,
+              "class": "uncertain"
+            }
+          },
+          {
+            "name": "Uncertain: functional data alone never move the class",
             "evidence_data": {
               "experimental": {
                 "functional": [
                   {
                     "pmid": "31000083",
                     "assay": "complement assay"
+                  },
+                  {
+                    "pmid": "31000088",
+                    "assay": "eQTL"
                   }
                 ]
               }
             },
             "expect": {
-              "total": 1,
+              "total": 2,
               "class": "uncertain"
             }
           }
@@ -3338,7 +3515,7 @@
     {
       "name": "KGDB Susceptibility",
       "version": "alpha",
-      "description": "PROVISIONAL, not approved by KGDB: susceptibility (risk allele) precuration -> susceptibility curation",
+      "description": "Susceptibility (risk allele) precuration -> susceptibility curation",
       "precuration_schema": "KGDB Susceptibility Precuration",
       "curation_schema": "KGDB Susceptibility Curation"
     }
