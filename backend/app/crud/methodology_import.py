@@ -163,7 +163,7 @@ def _write_schema(
             )
         )
         version = (latest or 0) + 1
-        for key in (*SNAPSHOT_KEYS, "schema_hash"):
+        for key in (*SNAPSHOT_KEYS, "schema_hash", "description"):
             setattr(row, key, data[key])
     db.add(
         MethodologyVersion(
@@ -258,6 +258,8 @@ def import_bundle(
             assert item.methodology_version is not None
             row = _write_schema(db, spec, row, item.methodology_version, user_id)
             item.id = row.id
+        elif write and row is not None:
+            row.description = spec.description  # not versioned content: no new version
         ids[spec.name] = item.id
 
     items = [item for _, item, _ in planned]

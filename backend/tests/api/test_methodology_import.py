@@ -328,3 +328,27 @@ def test_each_import_is_audited_once(
     assert len(rows) == 2
     assert rows[0].user_id == test_user_admin.id
     assert rows[0].changes == {"items": r.json()["items"]}
+
+
+def test_reimport_writes_a_changed_description(
+    client: TestClient, db_session: Session, admin_token: str
+) -> None:
+    """Description is not versioned content: an unchanged schema and a new version both
+    take the bundle's description."""
+    first = client.post(URL, json=bundle(), headers=auth(admin_token)).json()
+    changed = bundle()
+    for spec in changed["schemas"]:
+        spec["description"] = f"{spec['name']} approved"
+    changed["schemas"][1]["field_definitions"] = {
+        "gene": {"type": "text", "label": "HGNC"}
+    }
+    r = client.post(URL, json=changed, headers=auth(admin_token))
+    assert _actions(r.json())[:2] == [
+        ("schema", "unchanged", 1),
+        ("schema", "new_version", 2),
+    ]
+    for item in first["items"][:2]:
+        row = db_session.get(CurationSchema, item["id"])
+        assert row is not None
+        db_session.refresh(row)
+        assert row.description == f"{row.name} approved"
