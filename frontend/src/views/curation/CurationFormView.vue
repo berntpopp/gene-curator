@@ -180,6 +180,7 @@
     default_workflow_pair_id?: string | null
     allowed_workflow_pair_ids?: string[] | null
     display_name?: string | null
+    is_active?: boolean
   }
 
   interface WorkflowPairRecord {
@@ -250,12 +251,16 @@
       return 'This curation is active and read-only. Start a re-curation from the curation page.'
     }
     if (curation.value?.can_edit !== false) return ''
+    // MUI-22: the scope's state outranks the author rule (the server answers 409 for it)
+    if (scope.value?.is_active === false) {
+      return 'This scope is inactive; its curations are read-only.'
+    }
     if (!['draft', 'rejected'].includes(curation.value.status ?? '')) {
       return 'Read-only: this curation is in review. It can be edited again if changes are requested.'
     }
-    // Only the author saves a draft (e.g. the one approval created for the precuration author)
+    // The author or a scope admin saves a draft (#284; e.g. the one approval created)
     return curation.value.curator_name
-      ? `Read-only: this curation belongs to ${curation.value.curator_name}. Only its author can edit it.`
+      ? `Read-only: this curation belongs to ${curation.value.curator_name}. Only its author or a scope admin can edit it.`
       : 'Read-only: you do not have permission to edit this curation.'
   })
   const readonly = computed(() => !!readonlyReason.value)
