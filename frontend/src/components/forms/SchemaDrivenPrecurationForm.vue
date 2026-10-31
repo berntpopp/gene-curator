@@ -60,7 +60,7 @@
               Open the existing precuration
             </router-link>
             <template v-if="draftId" #append>
-              <v-btn variant="outlined" data-testid="discard-duplicate" @click="discardDuplicate">
+              <v-btn variant="outlined" data-testid="discard-duplicate" @click="discardDuplicate()">
                 Discard this draft
               </v-btn>
             </template>
@@ -97,6 +97,11 @@
     />
   </ErrorBoundary>
 </template>
+
+<script lang="ts">
+  // Drafts this tab created: a later duplicate-entity refusal removes them (monkey B5)
+  const createdHere = new Set<string>()
+</script>
 
 <script setup lang="ts">
   /**
@@ -358,8 +363,14 @@
         if (!updated) {
           const refused = precurationsStore.error
           if (refused?.isConflict) conflict.value = true
-          if (refused?.existingId)
+          if (refused?.existingId) {
             duplicate.value = { message: refused.message ?? '', id: refused.existingId }
+            // Created on this page before the entity was complete: remove it, no orphan (B5)
+            if (createdHere.has(existingId)) {
+              await discardDuplicate(false)
+              return false
+            }
+          }
           throw new Error('Draft not saved')
         }
         markSaved(sent, recoveryVersion(updated))
@@ -367,6 +378,7 @@
       } else {
         // Create new precuration as draft
         const created = await precurationsStore.createPrecuration(createPayload())
+        createdHere.add(created.id)
         replaceKeepingChanges(router, {
           name: 'precuration-edit',
           params: { scopeId: props.scopeId, precurationId: created.id }
@@ -458,17 +470,22 @@
    * Cancel editing
    */
   /** Drop this duplicate draft and open the precuration the entity already has */
-  async function discardDuplicate() {
+  async function discardDuplicate(ask = true) {
     const [id, existing] = [draftId.value, duplicate.value?.id]
     if (!id || !existing) return
-    const ok = await confirm({
-      title: 'Discard this draft?',
-      text: 'This draft duplicates an existing precuration and will be removed.',
-      confirmText: 'Discard'
-    })
+    const ok =
+      !ask ||
+      (await confirm({
+        title: 'Discard this draft?',
+        text: 'This draft duplicates an existing precuration and will be removed.',
+        confirmText: 'Discard'
+      }))
     if (!ok) return
     try {
       await precurationsStore.deletePrecuration(id)
+      createdHere.delete(id)
+      if (!ask)
+        notificationsStore.addToast(`${duplicate.value?.message}: this draft was removed`, 'error')
       frame?.markClean()
       router.push({
         name: 'precuration-edit',

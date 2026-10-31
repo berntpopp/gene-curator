@@ -238,6 +238,10 @@ describe('SchemaDrivenPrecurationForm', () => {
     expect(addToast).toHaveBeenCalledWith('Failed to save draft', 'error')
   })
 
+  const toExisting = {
+    name: 'precuration-edit',
+    params: { scopeId: 'scope-1', precurationId: 'p-0' }
+  }
   it('names the existing precuration on a duplicate entity and discards this draft (B5)', async () => {
     const message = 'This disease entity already has an open precuration'
     precurationsStore.saveDraft.mockResolvedValue(null)
@@ -245,15 +249,25 @@ describe('SchemaDrivenPrecurationForm', () => {
     const wrapper = mountForm({ precurationId: 'p-1' })
     await internals(wrapper).handleSaveDraft()
     await flushPromises()
-    expect(addToast).toHaveBeenCalledWith(message, 'error')
     expect(wrapper.find('[data-testid="duplicate-entity"]').text()).toContain(message)
     await wrapper.find('[data-testid="discard-duplicate"]').trigger('click')
     await flushPromises()
     expect(precurationsStore.deletePrecuration).toHaveBeenCalledWith('p-1')
-    expect(push).toHaveBeenCalledWith({
-      name: 'precuration-edit',
-      params: { scopeId: 'scope-1', precurationId: 'p-0' }
-    })
+    expect(push).toHaveBeenCalledWith(toExisting)
+  })
+
+  it('removes its own draft when the entity turns out a duplicate: no orphan', async () => {
+    precurationsStore.createPrecuration.mockResolvedValue({ id: 'new-p' })
+    const wrapper = mountForm({ geneId: 'g-1' })
+    await internals(wrapper).handleSaveDraft() // saved before the MOI was set
+    await wrapper.setProps({ precurationId: 'new-p' }) // the editor route
+    precurationsStore.saveDraft.mockResolvedValue(null)
+    precurationsStore.error = { message: 'Already open', existingId: 'p-0' }
+    await internals(wrapper).handleSaveDraft()
+    expect(confirmMock).not.toHaveBeenCalled()
+    expect(precurationsStore.deletePrecuration).toHaveBeenCalledWith('new-p')
+    expect(addToast).toHaveBeenCalledWith('Already open: this draft was removed', 'error')
+    expect(push).toHaveBeenCalledWith(toExisting)
   })
 
   it('reads the duplicate entity from a refused create', async () => {
