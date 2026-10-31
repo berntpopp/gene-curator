@@ -148,7 +148,10 @@ def create_gene_assignment(
         return GeneScopeAssignment.model_validate(assignment_model)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+            status_code=status.HTTP_409_CONFLICT
+            if "already assigned" in str(e)
+            else status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         ) from e
 
 
