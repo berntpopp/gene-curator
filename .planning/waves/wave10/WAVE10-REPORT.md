@@ -92,6 +92,8 @@ Every PR got a `ponytail:ponytail-review`. Must-fix items caught before merge:
   R2-8 validation box on a duplicate draft). KGDB import, flows and the two-reviewer approval pass end to end.
 - Round 2 fixes: R2-1 to R2-8, the M4 and B6 rest and B13 fixed in
   [#589](https://github.com/berntpopp/gene-curator/pull/589). Left: B20 (follow-up), L6 (owner decision).
+- Round 3 (narrow re-check on ab07af6a, MONKEY-R3.md): 9 of 11 fixed, 2 mostly fixed; Escape in dialogs keeps the form.
+  New: R3-1, R3-2 (low). Not checked: second approval activating WT1, phone width of KGDB forms.
 - UX scores (senior product designer), R1 -> R2: schema builder 4 -> 7, import 7 -> 8, KGDB curation 3 -> 7, intake
   7 -> 8, User Management 6 -> 7, catalogue/phone 7 -> 8.
 
@@ -132,6 +134,9 @@ This wave:
 - Invite of a removed user says "already a member".
 - `due_date` missing from My work API rows.
 - Per-row import diff; trimmed-length messages everywhere.
+- R3-1: the MONDO picker shows "MONDO disease is required" before any input on an untouched precuration.
+- R3-2: a nested select (diagnostics `mane_status`) shows the raw value, not the label, in Evidence changes.
+- Not checked in round 3: second approval activating WT1; phone width of KGDB forms.
 - Skipped polish from #587: Tests still need hand-written evidence JSON; Create stays on the list; Text/String and
   Single choice/Choice (enum) duplicates; raw OS file chooser for import; resolve step does not flag genes already in
   scope; phone empty state off-screen in the catalogue.
