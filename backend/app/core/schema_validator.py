@@ -77,7 +77,7 @@ class SchemaValidator:
         context: dict[str, Any] | None = None,
     ) -> SchemaValidationResult:
         """Validate evidence data (context: gene info, scope info, etc.) against a schema."""
-        result = SchemaValidationResult()
+        result = SchemaValidationResult((context or {}).get("points_keys"))
 
         field_definitions = resolve_conditions(
             flatten_sections(resolve_named_rules(schema_definition)), evidence_data
@@ -243,8 +243,8 @@ class SchemaValidator:
         if places is not None and len(f"{value}.".split(".")[1]) > places:
             msg = f"Value cannot have more than {places} decimal places"
             result.add_error(field_name, msg, "precision")
-        # Scoring points keep to their step, counted from min (#615); elsewhere it is a hint
-        step = config.get("step") if field_name.rsplit(".", 1)[-1] == "points" else None
+        points = field_name.rsplit(".", 1)[-1] in result.points_keys  # its step holds
+        step = config.get("step") if points else None  # from min (#615); else a hint
         if isinstance(step, int | float) and step > 0 and math.isfinite(num_value):
             steps = (num_value - (min_value or 0)) / step
             if abs(steps - round(steps)) > 1e-6:

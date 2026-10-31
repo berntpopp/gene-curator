@@ -45,3 +45,35 @@ def _paths(evidence: dict) -> list[str]:
 )
 def test_values_off_the_step_are_refused(evidence: dict, paths: list[str]) -> None:
     assert _paths(evidence) == paths
+
+
+def test_a_custom_points_key_keeps_to_its_step() -> None:
+    """The point model's points_key names the points column (default points)."""
+    definition = {
+        "field_definitions": {
+            "rows": {
+                "type": "evidence_table",
+                "columns": {
+                    "pts": {"type": "number", "min": 0, "step": 0.5},
+                    "lod": {"type": "number", "min": 0, "step": 0.01},
+                },
+            }
+        },
+        "scoring_configuration": {
+            "point_model": {
+                "sections": [
+                    {
+                        "key": "rows",
+                        "categories": [
+                            {
+                                "key": "c",
+                                "types": [{"path": "rows", "points_key": "pts"}],
+                            }
+                        ],
+                    }
+                ]
+            }
+        },
+    }
+    evidence = {"rows": [{"pts": 0.2, "lod": 3.125}, {"pts": 1.5}]}
+    assert [e.path for e in evidence_errors(evidence, definition)] == ["rows[0].pts"]

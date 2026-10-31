@@ -7,7 +7,9 @@ from typing import Any
 class SchemaValidationResult:
     """Result of schema validation."""
 
-    def __init__(self) -> None:
+    def __init__(self, points_keys: set[str] | None = None) -> None:
+        # Columns holding scoring points: their step is enforced, elsewhere a hint (#615)
+        self.points_keys = frozenset(points_keys or {"points"})
         self.is_valid: bool = True
         self.errors: list[dict[str, Any]] = []
         self.warnings: list[dict[str, Any]] = []
