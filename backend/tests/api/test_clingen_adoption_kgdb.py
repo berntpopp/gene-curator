@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token
@@ -15,6 +16,7 @@ from app.models import (
     CurationNew,
     CurationStatus,
     Gene,
+    ReviewStatus,
     Scope,
     UserNew,
     WorkflowPair,
@@ -250,3 +252,55 @@ def test_an_adoption_scored_before_613_exports_no_points(
         item[k] for k in ("genetic_score", "experimental_score", "total_score")
     ] == [None] * 3
     assert (item["scores"], item["final_classification"]) == (None, "definitive")
+
+
+def test_a_diagnostics_edit_in_review_starts_a_new_review_round(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_scope: Scope,
+    row: dict,
+) -> None:
+    """Every required approval sees the edited content: earlier ones are asked again."""
+    from app.models import Review
+    from tests.unit.scope.test_workflow_config import _pin
+
+    cid = _adopt(client, curator_token, row)
+    c = db_session.get(CurationNew, cid)
+    assert c is not None
+    _pin(db_session, c, {"review": {"reviewers_required": 2}})
+    first, second = (
+        _member(db_session, test_scope, "reviewer", n) for n in ("R One", "R Two")
+    )
+
+    def approve(user: UserNew) -> None:
+        r = client.post(
+            f"/api/v1/workflow/curation/{cid}/assign-reviewer",
+            json={"reviewer_id": str(user.id)},
+            headers=_h(curator_token),
+        )
+        assert r.status_code in (200, 409), r.text  # 409: already asked (new round)
+        review = db_session.scalars(
+            select(Review).where(
+                Review.curation_id == c.id,
+                Review.reviewer_id == user.id,
+                Review.status == ReviewStatus.PENDING,
+            )
+        ).one()
+        token = create_access_token(data={"sub": str(user.id)})
+        r = client.post(
+            f"/api/v1/workflow/reviews/{review.id}/submit",
+            json={"decision": "approve"},
+            headers=_h(token),
+        )
+        assert r.status_code == 200, r.text
+
+    approve(first)
+    r = _put(client, curator_token, cid, evidence_data=DIAGNOSTICS, merge=True)
+    assert r.status_code == 200, r.text
+    approve(second)  # the first approval was of the content before the edit
+    db_session.refresh(c)
+    assert c.status == CurationStatus.IN_REVIEW
+    approve(first)  # asked again in the new round
+    db_session.refresh(c)
+    assert c.status == CurationStatus.ACTIVE

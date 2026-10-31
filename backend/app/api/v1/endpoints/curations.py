@@ -77,7 +77,7 @@ from app.schemas.curation import (
 )
 from app.schemas.scope import SCOPE_NAME
 from app.scoring.point_limits import enforce_clingen_point_ranges, scoring_configuration
-from app.services.clingen_adoption import adopted_edit_allowed
+from app.services.clingen_adoption import adopted_edit_allowed, restart_review_round
 from app.services.curation_access import (
     _can_user_delete_curation,
     _can_user_edit_curation,
@@ -467,6 +467,8 @@ def update_curation(
         raise _conflict(
             curation, curation_in.lock_version, _mine(curation, curation_in)
         )
+    if updated.status == CurationStatus.IN_REVIEW:  # an adoption's diagnostics (#613)
+        restart_review_round(db, updated, current_user.id)
 
     return (
         Curation.model_validate(updated) if detail else CurationWriteResult.of(updated)

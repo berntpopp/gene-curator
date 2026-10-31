@@ -27,6 +27,7 @@ from app.core.logging import get_logger
 from app.crud.curation import _patched, _update_computed_scores, open_curation_id
 from app.crud.curator_classification import allowed_classifications
 from app.crud.precuration_entity import entity_key_of
+from app.crud.review_round import reassign_earlier_reviewers
 from app.mcp.audit import request_agent
 from app.models import (
     CurationNew,
@@ -260,6 +261,16 @@ def adopted_edit_allowed(curation: CurationNew, update: CurationUpdate) -> bool:
             409, "An adopted curation keeps ClinGen's entity and classification"
         )
     return True
+
+
+def restart_review_round(db: Session, curation: CurationNew, user_id: UUID) -> None:
+    """After an edit in review, as on resubmit: approvals of the old content no longer
+    count and each earlier reviewer is asked again (a round starts at submitted_at)."""
+    curation.submitted_at = datetime.now(UTC)
+    db.flush()
+    reassign_earlier_reviewers(db, curation, user_id)
+    db.commit()
+    db.refresh(curation)
 
 
 def adoption_agent(

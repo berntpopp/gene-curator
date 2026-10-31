@@ -125,11 +125,27 @@ def test_adopt_then_only_another_reviewer_approves(client: TestClient, w: W) -> 
     cur = f"/api/v1/curations/{cid}"
     lock = {"lock_version": detail["lock_version"]}
     assert client.put(cur, json=put | lock, headers=_h(w.bob)).status_code == 403
+    asked = client.post(
+        f"/api/v1/workflow/curation/{cid}/assign-reviewer",
+        json={"reviewer_id": str(w.bob)},
+        headers=_h(w.alice),
+    )
+    assert asked.status_code == 200, asked.text
     r = client.put(cur, json=put | lock, headers=_h(w.alice))
     assert r.status_code == 200, r.text
+    # the edit starts a new review round: bob is asked again, as app_user under RLS
+    with _owner() as conn, conn.cursor() as c:
+        c.execute(
+            "SELECT count(*) FROM reviews r JOIN curations c ON c.id = r.curation_id "
+            "WHERE r.curation_id = %s AND r.reviewer_id = %s "
+            "AND r.assigned_at >= c.submitted_at",
+            (cid, str(w.bob)),
+        )
+        assert c.fetchone()[0] == 1
     lock = {"lock_version": r.json()["lock_version"]}
     moved = {"curator_classification": "limited"} | lock
-    assert client.put(cur, json=moved, headers=_h(w.alice)).status_code == 409
+    refused = client.put(cur, json=moved, headers=_h(w.alice))
+    assert refused.status_code == 409 and "ClinGen" in refused.text, refused.text
     assert detail["clingen_adoption"]["cggv_id"] == CGGV
     comments = client.get(f"/api/v1/curations/{cid}/review-comments", headers=_h(w.bob))
     assert [c["body"] for c in comments.json()] == [ADOPTION_COMMENT]
