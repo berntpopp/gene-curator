@@ -26,6 +26,10 @@ pytestmark = pytest.mark.postgres
 
 MIGRATION = Path(__file__).parents[3] / "database/sql/037_review_item_comments.sql"
 HARDENING = Path(__file__).parents[3] / "database/sql/051_reviewer_policy_hardening.sql"
+INACTIVE_READ = (
+    Path(__file__).parents[3]
+    / "database/sql/089_review_comments_inactive_scope_read.sql"
+)
 
 
 @dataclass
@@ -285,9 +289,43 @@ def test_insert_cannot_claim_another_author(world: World, db: Session) -> None:
     )
 
 
+def _comment_off(world: World) -> str:
+    """A comment written while the scope was active (owner role: RLS refuses it now)."""
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO review_item_comments (curation_id, item_path, body, author_id) "
+            "VALUES (%s, 'score', 'Before the freeze', %s) RETURNING id::text",
+            (str(world.curation_off), str(world.reviewer)),
+        )
+        return str(cur.fetchone()[0])
+
+
 def test_insert_into_an_inactive_scope_is_denied(world: World, db: Session) -> None:
     assert _insert(db, world.reviewer, world.curation_off) is False
-    assert _visible(db, world.reviewer, world.curation_off) == []
+
+
+def test_an_inactive_scope_s_comments_are_read_only_for_members(
+    world: World, db: Session
+) -> None:
+    """089: members still read them; outsiders do not; the author cannot edit them."""
+    comment = _comment_off(world)
+    for who in ("curator", "reviewer", "viewer"):
+        assert _visible(db, getattr(world, who), world.curation_off) == [comment]
+    for who in ("pending", "outsider", "platform_admin"):
+        assert _visible(db, getattr(world, who), world.curation_off) == []
+    edited = _update(db, world.reviewer, UUID(comment), "body = :b", b="changed")
+    assert edited <= 0  # no row updated, or refused
+
+
+def test_migration_089_is_idempotent_and_self_recording() -> None:
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(INACTIVE_READ.read_text())
+        cur.execute(INACTIVE_READ.read_text())
+        cur.execute(
+            "SELECT count(*) FROM schema_migrations WHERE filename = %s",
+            (INACTIVE_READ.name,),
+        )
+        assert cur.fetchone()[0] == 1
 
 
 def _update(db: Session, user: UUID, comment: UUID, sets: str, **params: str) -> int:
@@ -376,6 +414,7 @@ def test_migration_is_idempotent_and_self_recording() -> None:
         cur.execute(
             HARDENING.read_text()
         )  # 051 replaces two 037 policies; restore head state
+        cur.execute(INACTIVE_READ.read_text())  # 089 replaces the SELECT policy
         cur.execute(
             "SELECT count(*) FROM schema_migrations WHERE filename = '037_review_item_comments.sql'"
         )
@@ -567,10 +606,11 @@ def test_security_definer_helpers_pin_their_search_path() -> None:
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT proname, proconfig FROM pg_proc WHERE proname IN "
-            "('can_view_review_comments', 'can_write_review_comments', 'can_accept_review_items')"
+            "('can_view_review_comments', 'can_write_review_comments', "
+            "'can_accept_review_items', 'can_read_review_comments')"
         )
         rows = cur.fetchall()
-    assert len(rows) == 3
+    assert len(rows) == 4
     for name, config in rows:
         assert "search_path=public, pg_temp" in (config or []), name
 
@@ -625,7 +665,10 @@ def test_api_inactive_scope_reads_are_allowed_for_members(
         f"/api/v1/workflow/curation/{c}/audit-trail",
         f"/api/v1/curations/{c}/diff",
     )
+    comment = _comment_off(world)
     for url in urls:
         r = client.get(url, headers=_auth(getattr(world, who)))
         assert r.status_code == 200, (url, r.text)
         assert client.get(url, headers=_auth(world.outsider)).status_code in (403, 404)
+    listed = client.get(urls[0], headers=_auth(getattr(world, who))).json()
+    assert [c["id"] for c in listed] == [comment]  # 089: not an empty list
