@@ -3,10 +3,30 @@
     <section class="panel">
       <h2 class="panel__title">Calculated classification</h2>
       <v-skeleton-loader v-if="loading" type="article" />
-      <ScoreTrace v-else-if="score" :scores="score" :classification="score.classification" />
-      <p v-else class="text-medium-emphasis" data-testid="score-empty">
-        0 points so far. The classification appears here as you add evidence.
-      </p>
+      <template v-else>
+        <v-alert
+          v-if="validation.error"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="mb-2"
+          data-testid="score-error"
+        >
+          Score preview failed: {{ validation.error }}
+        </v-alert>
+        <ScoreTrace v-if="score" :scores="score" :classification="score.classification" />
+        <!-- A validated form without a score means the schema has no scoring -->
+        <p
+          v-else-if="!validation.error && validation.getValidationResult('form')"
+          class="text-medium-emphasis"
+          data-testid="score-none"
+        >
+          No scoring for this schema.
+        </p>
+        <p v-else-if="!validation.error" class="text-medium-emphasis" data-testid="score-empty">
+          0 points so far. The classification appears here as you add evidence.
+        </p>
+      </template>
       <ul
         v-if="flags.length"
         data-testid="score-flags"
