@@ -201,3 +201,13 @@ def test_a_call_with_numbers_as_text_still_works(
             active_only="true",
         )
         assert not result.get("isError"), result
+
+
+def test_four_eyes_hint_only_on_four_eyes_refusals() -> None:
+    """W11 A6: every 403 used to say "nobody approves their own work"."""
+    own = _error(
+        403, "approve_precuration", "Cannot approve your own (4-eyes principle)"
+    )
+    assert own.endswith("nobody approves their own work")
+    other = _error(403, "save_draft_curations", "Not authorized to access this scope")
+    assert "nobody approves" not in other
