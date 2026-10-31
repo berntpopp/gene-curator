@@ -72,8 +72,8 @@ the scope's default_workflow_pair_id. Members: search_users_for_invitation finds
 user, add_member adds them at once, update_member_role changes a role.
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
-The unit is the gene-disease-MOI entity (ClinGen lumping/splitting): a split gene gets
-one precuration per MONDO id + mode of inheritance, each curated on its own.
+The unit is the gene-disease-MOI entity: a split gene gets one precuration per
+MONDO id + mode of inheritance, each curated on its own.
 1. Entry: add_genes_to_scope(symbols, scope_name) resolves HGNC symbols, creates
    missing genes and assigns them in one call.
 2. Precuration: create_precuration, save_draft_precurations, then
@@ -83,7 +83,8 @@ one precuration per MONDO id + mode of inheritance, each curated on its own.
 3. Curation: approval opens a draft curation (list_curations); curation_created
    false means curation_id is the open one blocking it. create_curation needs an
    approved precuration and no open curation of that entity; pass precuration_id
-   for a split gene. Evidence that scores
+   for a split gene. In ClinGen: adopt_clingen_classifications
+   (GeneFoundry clingen_get_gene_validity rows). Evidence that scores
    lives in evidence_data (save_draft_curations or update_curation with
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.
@@ -96,8 +97,7 @@ one precuration per MONDO id + mode of inheritance, each curated on its own.
    submit_peer_review(decision="approve" or "request_changes", with comments).
    curation_diff(baseline=): submitted is the latest submission (equal to the
    evidence right after submit), previous_submission the one before it: what
-   changed since the last review round. Long text changes come as word_diff
-   ([-removed-]{+added+}), not the whole before and after.
+   changed since the last review round. Long text changes come as word_diff.
 6. Active: one active curation per entity; a re-curation replaces only its entity.
 
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
@@ -110,7 +110,7 @@ Scope roles (yours: user_role on each list_scopes row; everyone's: list_members)
 | reviewer | read; approve or reject precurations; review others' curations       |
 | admin    | all of the above; members and scope edits                            |
 
-Your queue: read_my_work and get_my_review_assignments.
+Queue: read_my_work and get_my_review_assignments.
 Errors start with a closed code (invalid_input, unauthorized, forbidden, not_found,
 conflict, rate_limited, upstream_unavailable, internal, response_too_large), then the
 detail and a next: line naming the tool to call. On conflict, re-read the item and
@@ -139,7 +139,7 @@ CORE_TOOLS = frozenset(
         # curations
         "create_curation", "get_curation", "list_curations", "update_curation",
         "save_draft_curations", "submit_curation", "delete_curation",
-        "curation_diff", "calculate_score",
+        "curation_diff", "calculate_score", "adopt_clingen_classifications",
         # review and workflow
         "read_curation_for_review", "assign_peer_reviewer", "submit_peer_review",
         "list_review_comments", "create_review_comment", "update_review_comment",

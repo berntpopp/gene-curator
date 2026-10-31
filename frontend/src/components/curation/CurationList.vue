@@ -75,6 +75,7 @@
               >
                 {{ item.gene_symbol }}
               </router-link>
+              <ClinGenAdoptionBadge :adoption="item.clingen_adoption" />
             </div>
           </td>
           <td>{{ item.disease_name || '—' }}</td>
@@ -163,6 +164,7 @@
             <v-card-title class="d-flex align-center">
               <v-icon icon="mdi-dna" class="mr-2" />
               {{ curation.gene_symbol }}
+              <ClinGenAdoptionBadge :adoption="curation.clingen_adoption" />
               <v-spacer />
               <v-chip :color="curationStatusColor(curation.status)" size="small">
                 {{ curationStatusLabel(curation.status) }}
@@ -268,6 +270,7 @@
 <script setup lang="ts">
   import { formatDate } from '@/utils/format'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
+  import ClinGenAdoptionBadge from './ClinGenAdoptionBadge.vue'
   import { compareClassifications, getClassification } from '@/config/classification'
   /**
    * CurationList Component
@@ -310,6 +313,7 @@
     curator_name?: string | null
     status: string
     classification?: string | null
+    clingen_adoption?: { [key: string]: unknown } | null
     score: number
     updated_at?: string
     created_at?: string
@@ -408,6 +412,7 @@
       curator_name: curation.curator_name,
       status: curation.status,
       classification: curation.final_classification ?? curation.computed_verdict,
+      clingen_adoption: curation.clingen_adoption,
       score: Number(curation.computed_scores?.total_score) || 0,
       updated_at: curation.updated_at,
       created_at: curation.created_at
