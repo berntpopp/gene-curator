@@ -1997,7 +1997,7 @@ export interface paths {
          * Calculate Score
          * @description Preview the score. Rows with points but no PMID, an unknown PMID or (case-level) no
          *     real variant or a score_status other than score score 0 points and are listed in
-         *     breakdown.excluded with the reason.
+         *     breakdown.excluded with the reason (blocks_submit: submit refuses it).
          */
         get: operations["calculate_score_api_v1_curations__curation_id__score_get"];
         put?: never;
@@ -2252,8 +2252,7 @@ export interface paths {
         put?: never;
         /**
          * Approve Precuration
-         * @description Approve precuration and optionally create linked curation.
-         *     Requires reviewer role in scope.
+         * @description Approve (scope reviewer, 4-eyes) and open its draft curation.
          */
         post: operations["approve_precuration_api_v1_precurations__precuration_id__approve_post"];
         delete?: never;
@@ -16619,7 +16618,9 @@ export interface operations {
     };
     approve_precuration_api_v1_precurations__precuration_id__approve_post: {
         parameters: {
-            query?: never;
+            query?: {
+                lock_version?: number | null;
+            };
             header?: never;
             path: {
                 precuration_id: string;

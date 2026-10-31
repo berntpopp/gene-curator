@@ -1,5 +1,6 @@
 """Checks every route into review runs (#267, #433): /submit, /workflow transitions, bulk."""
 
+from collections.abc import Iterator
 from typing import Any
 
 from sqlalchemy import select
@@ -38,6 +39,8 @@ _UNCITED = {
     "missing_status": "Case-level row with points needs a score_status: score, review "
     "or contradicts",
 }
+# Exclusions review entry also refuses (an unknown PMID: review_entry); calculate_score marks them
+BLOCKS_SUBMIT = frozenset({*_UNCITED, "unknown_pmid"})
 
 
 def item_definition(db: Session, item: CurationNew | PrecurationNew) -> dict[str, Any]:
@@ -80,6 +83,38 @@ def save_warnings(
     return warnings + [
         e for e in evidence_errors(evidence, definition) if e.path not in seen
     ]
+
+
+def unknown_columns(
+    db: Session, item: CurationNew, evidence: Any
+) -> list[EvidenceWarning]:
+    """Row cells the table does not define (KGDB smoke test): warned on save, never
+    refused, or a typo or another methodology's column reaches the export unseen."""
+    try:
+        fields = item_definition(db, item).get("field_definitions")
+    except ValueError:  # an unreadable pin is refused at submit
+        return []
+    return list(_stray(fields, evidence, ""))
+
+
+def _stray(fields: Any, data: Any, path: str) -> Iterator[EvidenceWarning]:
+    if not isinstance(fields, dict) or not isinstance(data, dict):
+        return
+    for key, cfg in fields.items():
+        at, value = f"{path}.{key}" if path else key, data.get(key)
+        columns = cfg.get("columns") if isinstance(cfg, dict) else None
+        if isinstance(columns, dict) and isinstance(value, list):
+            yield from (
+                EvidenceWarning(
+                    path=f"{at}[{i}].{c}", message="not a column of this table"
+                )
+                for i, row in enumerate(value)
+                if isinstance(row, dict)
+                for c in row
+                if c not in columns and c != "id"  # the row key
+            )
+        elif isinstance(cfg, dict):
+            yield from _stray(cfg.get("properties"), value, at)
 
 
 def _curation_review_evidence(db: Session, item: CurationNew) -> dict[str, Any]:

@@ -278,3 +278,23 @@ def test_self_approval_by_curator_names_the_4_eyes_rule(
     assert "4-eyes" in response.json()["detail"]
     db_session.refresh(test_precuration)
     assert test_precuration.status == CurationStatus.SUBMITTED
+
+
+def test_approve_refuses_a_stale_lock_version(
+    client: TestClient, db_session: Session, test_precuration: PrecurationNew
+) -> None:
+    """KGDB smoke test: approve takes lock_version like update and submit (optional)."""
+    from app.models import Scope
+
+    reviewer = make_user(db_session)
+    scope = db_session.get(Scope, test_precuration.scope_id)
+    make_member(db_session, scope, reviewer, "reviewer")
+    test_precuration.status = CurationStatus.SUBMITTED
+    db_session.commit()
+    url = f"/api/v1/precurations/{test_precuration.id}/approve"
+    stale = test_precuration.lock_version + 1
+    r = client.post(url, params={"lock_version": stale}, headers=auth_headers(reviewer))
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["current_lock_version"] == test_precuration.lock_version
+    db_session.refresh(test_precuration)
+    assert test_precuration.status == CurationStatus.SUBMITTED

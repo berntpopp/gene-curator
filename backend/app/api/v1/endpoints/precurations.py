@@ -4,6 +4,7 @@ Full CRUD with RLS integration and scope-based access control.
 Follows patterns from curations.py.
 """
 
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
@@ -565,11 +566,9 @@ def approve_precuration(
     request: Request,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
+    lock_version: Annotated[int | None, Query()] = None,  # 409 if stale
 ) -> PrecurationApprovalResult:
-    """
-    Approve precuration and optionally create linked curation.
-    Requires reviewer role in scope.
-    """
+    """Approve (scope reviewer, 4-eyes) and open its draft curation."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -580,6 +579,8 @@ def approve_precuration(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Precuration not found",
         )
+    if lock_version is not None and lock_version != precuration.lock_version:
+        raise _conflict(precuration, lock_version)
 
     # 4-eyes first, so the creator learns why even without a reviewer role (#393)
     if _own_work(db, current_user, precuration):
