@@ -272,7 +272,7 @@ def test_non_member_is_denied_not_a_500(client: TestClient, w: W) -> None:
     r = client.post(approve, headers=_h(w.frank))
     assert r.status_code == 404, r.text
     r = client.post(move, json=body, headers=_h(w.frank))
-    assert r.status_code in (403, 404), r.text
+    assert r.status_code == 404, r.text
     assert (
         _owner_scalar("SELECT status::text FROM precurations WHERE id = %s", str(w.pre))
         == "submitted"
