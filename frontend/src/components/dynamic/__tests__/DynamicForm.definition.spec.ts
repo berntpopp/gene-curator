@@ -351,6 +351,9 @@ describe('DynamicForm from raw config', () => {
         props: { schemaId: 's1', definition: { field_definitions: { note: { type: 'text' } } } }
       })
       expect(store.clearValidationResult).toHaveBeenCalledWith('form')
+      await flushPromises()
+      expect(store.validateEvidence).toHaveBeenCalledTimes(1) // once on mount (monkey R2-3)
+      store.validateEvidence.mockClear()
       const form = vmOf(wrapper)
       form.formData.note = 'a'
       await flushPromises()

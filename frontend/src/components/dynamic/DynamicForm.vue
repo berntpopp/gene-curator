@@ -623,9 +623,8 @@
   onMounted(async () => {
     if (props.schemaId) {
       try {
-        if (Object.keys(formData.value).length > 0) {
-          await validateForm()
-        }
+        // An empty new form validates too: the score panel shows its state from the start
+        await validateForm()
       } catch (err) {
         logger.error('Failed to initialize form:', errorDetails(err))
       }

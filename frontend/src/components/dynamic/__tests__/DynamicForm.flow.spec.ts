@@ -264,6 +264,12 @@ describe('DynamicForm flow', () => {
     store.validateEvidence.mockReset()
   })
 
+  it('validates an empty new form on mount so the score panel has a state (monkey R2-3)', async () => {
+    mountForm({ initialData: {} })
+    await flushPromises()
+    expect(store.validateEvidence).toHaveBeenCalledTimes(1)
+  })
+
   it('does not submit when the form fails local validation', async () => {
     store.formValid = false
     const wrapper = mountForm()
