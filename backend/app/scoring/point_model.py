@@ -147,12 +147,11 @@ def _points_when(
             {"path": at, "rule": "points_when", "index": i}
             | {"entered": entered, "points": result, "applied": not keep}
         )
+    if (r := type_def.get("range")) and not r[0] <= result <= r[1]:
+        return result  # flagged as entered, never scaled into the range (#278)
     for i, rule in ((i, r) for i, r in matching if "points" not in r):  # factor / max
-        before = result
-        if "factor" in rule:
-            result *= float(rule["factor"])
-        else:
-            result = min(result, float(rule["max"]))
+        before, factor = result, rule.get("factor", 1)
+        result = min(result * factor, rule.get("max", math.inf))
         applied.append(
             {"path": at, "rule": "points_when", "index": i}
             | {"entered": before, "points": result, "applied": result != before}

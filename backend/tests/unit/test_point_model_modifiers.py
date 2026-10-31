@@ -143,3 +143,10 @@ def test_group_values_must_be_a_mapping() -> None:
     assert _type_errors(group_by="s", group_cap=2, group_values=["a"]) == [
         ".group_values"
     ]
+
+
+def test_range_is_checked_on_the_entered_value_before_factor_and_max() -> None:
+    """Review of #619: 5 entered on a [0, 3] row is out of range even if halved to 2.5."""
+    result = score(_model(TYPE_DEF), _probands({"phase": "unknown", "points": 5}))
+    assert result["total"] == 0
+    assert [f["value"] for f in result["trace"]["out_of_range"]] == [5.0]
