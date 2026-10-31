@@ -41,7 +41,7 @@ class ImportItem(BaseModel):
     kind: Literal["schema", "workflow_pair", "scope_default"]
     name: str
     version: str | None = None
-    action: Literal["create", "unchanged", "new_version", "update"]
+    action: Literal["create", "unchanged", "new_version", "update", "refused"]
     id: UUID | None = Field(
         None, description="Empty for objects a dry run would create"
     )
