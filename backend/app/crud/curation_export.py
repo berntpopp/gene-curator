@@ -187,6 +187,10 @@ def _item(
             for m in made
         )
     ]
+    disease = get_disease_fields(c.evidence_data, pre)
+    # a key from before #614 can hold the HPO id itself
+    hpo = _MOI_HPO.get(moi) or (moi if moi.startswith("HP:") else None)
+    entered = disease["mode_of_inheritance"]
     return ExportCuration(
         curation_id=c.id,
         entity_key=ac.entity_key,
@@ -195,8 +199,9 @@ def _item(
         scope_name=scope.name,
         hgnc_id=gene.hgnc_id,
         approved_symbol=gene.approved_symbol,
-        **get_disease_fields(c.evidence_data, pre),
-        moi_hpo_id=_MOI_HPO.get(moi),
+        **disease | {"mode_of_inheritance": hpo or entered},  # one form (KGDB e2e)
+        mode_of_inheritance_entered=entered,
+        moi_hpo_id=hpo,
         relationship_type=relationship_of_key(ac.entity_key),
         risk_allele=entity_allele(ac.entity_key, c.evidence_data, pre),
         computed_verdict=None if c.clingen_adoption else c.computed_verdict,

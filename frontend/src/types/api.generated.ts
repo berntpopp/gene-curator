@@ -6220,9 +6220,14 @@ export interface components {
             mondo_id?: string | null;
             /**
              * Mode Of Inheritance
-             * @description As entered
+             * @description HPO CURIE of the canonical MOI (as moi_hpo_id); as entered only when it maps to none
              */
             mode_of_inheritance?: string | null;
+            /**
+             * Mode Of Inheritance Entered
+             * @description The MOI as the curator entered it
+             */
+            mode_of_inheritance_entered?: string | null;
             /**
              * Moi Hpo Id
              * @description HPO CURIE of the canonical MOI

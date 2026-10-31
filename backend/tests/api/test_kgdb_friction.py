@@ -108,3 +108,47 @@ def test_susceptibility_scores_name_the_association_points(
     listed = client.get("/api/v1/curations/", headers=_h(curator_token)).json()
     [row] = [c for c in listed["curations"] if c["id"] == str(susceptible.id)]
     assert row["computed_scores"]["association_score"] == 3
+
+
+@pytest.mark.parametrize(
+    ("key", "entered"),
+    [
+        ("MONDO:0000001|AR", "AR"),
+        ("MONDO:0000001|AR", "Autosomal recessive"),
+        ("MONDO:0000001|HP:0000007", "HP:0000007"),  # a key from before #614
+    ],
+)
+def test_export_names_the_moi_by_its_hpo_id(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_curation: CurationNew,
+    key: str,
+    entered: str,
+) -> None:
+    from datetime import UTC, datetime
+
+    from app.models import ActiveCuration, CurationStatus
+
+    at = datetime.now(UTC)
+    test_curation.entity_key = key
+    test_curation.evidence_data = {
+        "mondo_id": "MONDO:0000001",
+        "mode_of_inheritance": entered,
+    }
+    test_curation.status, test_curation.approved_at = CurationStatus.ACTIVE, at
+    db_session.add(
+        ActiveCuration(
+            gene_id=test_curation.gene_id,
+            scope_id=test_curation.scope_id,
+            curation_id=test_curation.id,
+            entity_key=test_curation.entity_key,
+            activated_at=at,
+        )
+    )
+    db_session.commit()
+    [item] = client.get("/api/v1/export/curations", headers=_h(curator_token)).json()[
+        "items"
+    ]
+    assert (item["mode_of_inheritance"], item["moi_hpo_id"]) == ("HP:0000007",) * 2
+    assert item["mode_of_inheritance_entered"] == entered
