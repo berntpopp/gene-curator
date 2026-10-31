@@ -173,6 +173,11 @@ KGDB end-to-end round 2: PASS on 0fda2285. MAGI2 (Mendelian), PLA2R1 rs17831251 
 import into KGDB created 3, skipped 4 and rejected 2 with a reason. The 12 frictions it found
 were fixed in #622 (bundle; #623 for 091 edge cases) and #624 (API, MCP, export; #625 tests).
 
+KGDB end-to-end round 3 (release candidate): PASS on c3acb8dd. db-migrate applied 091; the export (9 rows) passes KGDB's
+pinned-schema check; import: 7 skipped as already imported, 2 rejected as intended (no final classification), 0
+conflicts, 0 dropped fields; mode_of_inheritance equals moi_hpo_id on all rows, risk_allele canonical, association
+scores, override notes and adoption statements map correctly. KGDB needs no change (its side: kidney-genetics-db PR #499).
+
 ## Remaining follow-ups
 
 None.
