@@ -121,6 +121,7 @@ body:
         - v0.12.0 (KGDB readiness: schema builder, methodology import and native point-model rules)
         - v0.13.0 (ClinGen adoption, provenance, capability matrix and SOP v11 segregation)
         - v0.13.1 (Production images and deployment)
+        - v0.13.2 (ClinGen reference export and KGDB re-curation fixes)
         - Future (Post v1.0)
         - Not sure
 
