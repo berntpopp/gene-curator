@@ -14,6 +14,8 @@ export interface Option {
 export interface ColumnOption extends Option {
   /** Choice values of a select column, offered by "is one of". */
   options: string[]
+  /** Labels of those values where the schema gives one (MUI-18) */
+  optionLabels: Record<string, string>
 }
 export interface TableOption extends Option {
   columns: ColumnOption[]
@@ -58,6 +60,12 @@ function choices(cfg: Defs | null): string[] {
   return raw.map(o => String(obj(o)?.value ?? o))
 }
 
+function choiceLabels(cfg: Defs | null): Record<string, string> {
+  const raw = cfg?.options ?? cfg?.enum
+  const labelled = (Array.isArray(raw) ? raw : []).map(obj).filter(o => o?.label != null)
+  return Object.fromEntries(labelled.map(o => [String(o!.value), String(o!.label)]))
+}
+
 function walk(fields: Defs, prefix: string, out: TableOption[]) {
   for (const [key, raw] of Object.entries(fields)) {
     const cfg = obj(raw)
@@ -67,7 +75,8 @@ function walk(fields: Defs, prefix: string, out: TableOption[]) {
     if (rows) {
       const columns = Object.entries(rows).map(([col, c]) => ({
         ...option(col, obj(c)),
-        options: choices(obj(c))
+        options: choices(obj(c)),
+        optionLabels: choiceLabels(obj(c))
       }))
       out.push({ ...option(key, cfg, path), columns })
     } else if (obj(cfg.properties)) {

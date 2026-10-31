@@ -394,7 +394,7 @@
   import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
-  import { formatScore } from './curationScores'
+  import { formatScore, warningText } from './curationScores'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
   import CurationMetadata from '@/components/curation/CurationMetadata.vue'
@@ -489,7 +489,7 @@
   // Engine warnings saved with the score (review flags #559, lint) for the reviewer
   const scoreWarnings = computed(() => {
     const w = (curation.value?.computed_scores as { warnings?: unknown } | null)?.warnings
-    return Array.isArray(w) ? w.map(String) : []
+    return Array.isArray(w) ? w.map(m => warningText(String(m))) : []
   })
   const { scores, classification, final, rationale } = useCurationClassification(
     () => curation.value

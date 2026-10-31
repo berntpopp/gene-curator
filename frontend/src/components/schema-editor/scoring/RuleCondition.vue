@@ -20,6 +20,7 @@
       v-if="listOp(cond) === 'in'"
       :model-value="(cond.in ?? []).map(String)"
       :items="choicesOf(cond)"
+      :item-title="(v: string) => labelsOf(cond)[v] ?? v"
       label="Values"
       multiple
       chips
@@ -95,6 +96,9 @@
   /** The picked column's choice values, so "is one of" offers what the form stores. */
   const choicesOf = (c: RowCondition) =>
     props.columns.find(col => col.value === c.field)?.options ?? []
+
+  const labelsOf = (c: RowCondition) =>
+    props.columns.find(col => col.value === c.field)?.optionLabels ?? {}
 
   /** Change one test; a bound keeps its value and the other bound stays. */
   const setOp = (c: RowCondition, from: Op, picked: string) => {

@@ -57,7 +57,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import ScoreTrace from '@/components/curation/ScoreTrace.vue'
-  import { rowLabel } from '@/views/curation/curationScores'
+  import { rowLabel, warningText } from '@/views/curation/curationScores'
   import { useValidationStore } from '@/stores/validation'
   import type { ScoreSnapshot } from './useWorkspaceFrame'
 
@@ -75,15 +75,12 @@
 
   // Rows the scoring engine flags in the live preview (e.g. invalid or missing PMIDs)
   const validation = useValidationStore()
-  // Scoring warnings start with the row's evidence path (`a.rows[0].points = 5 ...`)
-  const labelled = (message: string) =>
-    message.replace(/^(\S+\[\d+\]\S*)(?= = )/, path => rowLabel(path))
   const flags = computed(() => [
     ...new Set([
       ...(props.score?.excluded ?? []).map(e => e.text),
       ...(validation.getValidationResult('form')?.warnings ?? [])
         .filter(w => w.type === 'scoring')
-        .map(w => labelled(String(w.message)))
+        .map(w => warningText(String(w.message)))
     ])
   ])
   // Why the form is invalid, by field label (e.g. a row outside its range)

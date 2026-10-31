@@ -94,3 +94,15 @@ export function rowLabel(path: string, evidence?: unknown): string {
     traceLabel(row.replace(/\[(\d+)\]/g, (_, i: string) => ` #${Number(i) + 1}`))
   return field ? `${name} › ${traceLabel(field)}` : name
 }
+
+// ponytail: the point model's three review flags (#559); a new one falls back to its key
+const FLAGS: Record<string, string> = {
+  band_margin: 'Near a class boundary',
+  hotspot: 'Variant hotspot',
+  experimental_over_genetic: 'Experimental outweighs genetic'
+}
+/** A scoring warning for people: review flags and evidence row paths named (MUI-18) */
+export const warningText = (message: string): string =>
+  message
+    .replace(/^review_flags\.(\w+): /, (_, key: string) => `${FLAGS[key] ?? traceLabel(key)}: `)
+    .replace(/^(\S+\[\d+\]\S*)(?= = )/, path => rowLabel(path))
