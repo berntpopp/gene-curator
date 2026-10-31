@@ -27,7 +27,7 @@ Step 0 is answered; do not ask again.
 
 ## Releases
 
-- v0.12.0: release branch `release/v0.12.0`, notes `docs/releases/v0.12.0.md` (PR and tag pending owner go).
+- v0.12.0: [#588](https://github.com/berntpopp/gene-curator/pull/588), notes `docs/releases/v0.12.0.md` (tag pending owner go).
 
 ## Issues
 
@@ -42,7 +42,7 @@ Step 0 is answered; do not ask again.
 | Closed | #577 list cells | [#578](https://github.com/berntpopp/gene-curator/pull/578) |
 | Closed | #219 schema field editor, preview, Advanced JSON, Publish version | [#580](https://github.com/berntpopp/gene-curator/pull/580) |
 | Closed | #576 native row rules, step rule, cross-checks | [#582](https://github.com/berntpopp/gene-curator/pull/582) |
-| Open, done | #575 methodology import (backend, REST, /mcp/full; UI button) | [#579](https://github.com/berntpopp/gene-curator/pull/579), [#581](https://github.com/berntpopp/gene-curator/pull/581): closable |
+| Closed | #575 methodology import (backend, REST, /mcp/full; UI button) | [#579](https://github.com/berntpopp/gene-curator/pull/579), [#581](https://github.com/berntpopp/gene-curator/pull/581) |
 | Partial | #282 point-model builder and import UI; form/workflow builders and canvas remain | [#581](https://github.com/berntpopp/gene-curator/pull/581) |
 | Partial | #284 delete slice (creator or scope admin) | [#574](https://github.com/berntpopp/gene-curator/pull/574) |
 | Partial | #105 `classification_source` guidance, no take-over | [#571](https://github.com/berntpopp/gene-curator/pull/571) |
@@ -51,7 +51,7 @@ Step 0 is answered; do not ask again.
 | Done | KGDB methodology bundle (KGDB #439) | [#583](https://github.com/berntpopp/gene-curator/pull/583) |
 | Done | monkey round 1 API (13) and UI (22) findings | [#585](https://github.com/berntpopp/gene-curator/pull/585), [#586](https://github.com/berntpopp/gene-curator/pull/586) |
 | Done | UX polish from the monkey rating and POLISH-LIST | [#587](https://github.com/berntpopp/gene-curator/pull/587) |
-| Pending | monkey round 2 fixes (`fix/w10q-monkey-r2`) | not merged yet |
+| Done | monkey round 2 fixes: R2-1 to R2-8, M4 and B6 rest, B13; `corrected_disease` on curation detail; `due_date` typed date | [#589](https://github.com/berntpopp/gene-curator/pull/589) |
 
 ## Migrations
 
@@ -90,6 +90,8 @@ Every PR got a `ponytail:ponytail-review`. Must-fix items caught before merge:
   (medium 2: R2-1 cleared search keeps the filter, R2-3 score panel hidden until the first edit; low 6: R2-2, R2-4
   "SOP v11" label on KGDB, R2-5 corrector not told why, R2-6 Escape opens discard, R2-7 raw enums and "none" cells,
   R2-8 validation box on a duplicate draft). KGDB import, flows and the two-reviewer approval pass end to end.
+- Round 2 fixes: R2-1 to R2-8, the M4 and B6 rest and B13 fixed in
+  [#589](https://github.com/berntpopp/gene-curator/pull/589). Left: B20 (follow-up), L6 (owner decision).
 - UX scores (senior product designer), R1 -> R2: schema builder 4 -> 7, import 7 -> 8, KGDB curation 3 -> 7, intake
   7 -> 8, User Management 6 -> 7, catalogue/phone 7 -> 8.
 
@@ -128,19 +130,17 @@ This wave:
 - Test-order flake: `test_review_assignment` after `test_workflow_config`.
 - Missing test: corrector plus a real reviewer both approve.
 - Invite of a removed user says "already a member".
-- `due_date` missing from My work API rows; `GeneScopeAssignment.due_date` typed datetime.
+- `due_date` missing from My work API rows.
 - Per-row import diff; trimmed-length messages everywhere.
-- Round 2 findings R2-1 to R2-8 and B13, unless the round-2 fix PR closes them.
 - Skipped polish from #587: Tests still need hand-written evidence JSON; Create stays on the list; Text/String and
   Single choice/Choice (enum) duplicates; raw OS file chooser for import; resolve step does not flag genes already in
   scope; phone empty state off-screen in the catalogue.
 - #105, #276, #284, #282 and #447 remainders.
 
-## Open issue triage (2026-10-31, master afba66c4)
+## Open issue triage (2026-10-31, master ab07af6a)
 
 | Issue | Verdict | Size | Kidney |
 |---|---|---|---|
-| #575 methodology import | done (#579 backend, #581 UI); closable | - | yes, shipped |
 | #282 admin builders | partial; point-model builder done; form layout/workflow builders and canvas remain | L | low |
 | #284 granular permissions | partial; delete slice done; allowed-pairs list and capability checks remain | M+L | medium (allowed pairs) |
 | #105 adopt ClinGen | partial; schema guidance only; native take-over marker (no fetch, GeneFoundry rule) | S/M | yes (#439 step 0) |
@@ -162,7 +162,7 @@ Read first (only these): .planning/waves/wave10/WAVE10-REPORT.md (triage table, 
 1. L6: 4-eyes refusals stay 400 (Recommended) / move to 403 (self-approval) and 409 (state), updating tests and views.
 2. Allowed pairs: a per-scope list of allowed workflow pairs; create refuses others (Recommended) / keep any pair.
 3. #105 take-over: a marker field and help text in the KGDB/ClinGen schemas, no fetch (Recommended) / leave open.
-4. Close #575 now (Recommended) / keep open for a per-row import diff.
+4. Per-row import diff: build it in W11C (Recommended) / drop it.
 Record the answers at the top of WAVE11-REPORT.md. Ask nothing else.
 
 ## Step 1: workstreams (parallel, disjoint files, migration numbers fixed up front; next free is 078)
@@ -171,7 +171,7 @@ Record the answers at the top of WAVE11-REPORT.md. Ask nothing else.
 | W11A pairs | allowed-pairs list per Step 0; picker lists only allowed pairs; precuration create refuses another schema id | scope model/schemas/endpoint for the list, crud/precuration.py create check, PrecurationFormView pair picker | 078 | full Opus, Postgres test as app_user |
 | W11B schema editor safety | schema save conflict (lock_version or updated_at check, 409), validate-unsaved-draft endpoint used by the editor, required_when cross-check, URL max_length enforced | crud/schema_repository.py, endpoints/validation.py, core/schema_rules.py, SchemaEditor.vue save path | 079 if lock_version | full Opus |
 | W11C builder rest | nested groups and plain objects in the field editor, and-conditions in the row-rule UI, per-row import diff, Tests from the Preview widgets | components/schema-editor/*, SchemaManagement.vue import dialog | none | full Opus |
-| W11D small | round-2 leftovers not fixed by the R2 PR, B20 reviewer-visible LLM flag, B21 auth bootstrap 401s, due_date in My work rows and typed date, removed-user invite message, trimmed-length messages, test-order flake, corrector plus real reviewer test, hotspot group_by docs | those files only | none | quick delta |
+| W11D small | B20 reviewer-visible LLM flag, B21 auth bootstrap 401s, due_date in My work rows, removed-user invite message, trimmed-length messages, test-order flake, corrector plus real reviewer test, hotspot group_by docs | those files only | none | quick delta |
 
 Rules for agents (put them in every brief via setup.sh): as in Wave 10. One worktree each via
 .planning/orchestration/setup.sh, run setups one after another, no backticks in double-quoted notes. Backend gates
@@ -193,7 +193,7 @@ master in its own worktree after the last feature merge.
 ## Step 4: verify end to end
 Fresh-stack monkey test (.planning/orchestration/monkey-stack.sh up origin/master; 5455/8052/5190), UI and API/MCP
 testers in parallel: allowed pairs, concurrent schema edits (two admins), validate unsaved draft, builder nested groups
-and and-conditions, import diff, round-2 leftovers, approvals_require_session and review through MCP (not tested in
+and and-conditions, import diff, B20, approvals_require_session and review through MCP (not tested in
 Wave 10), forms at 390 px. One fix PR per tester, then a narrow re-check of exactly those findings.
 
 ## Step 5: release v0.13.0 and report
