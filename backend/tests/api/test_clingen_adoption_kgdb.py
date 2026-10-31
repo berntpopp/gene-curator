@@ -242,6 +242,7 @@ def test_an_adoption_scored_before_613_exports_no_points(
     assert c is not None
     c.computed_verdict = "no_known"
     c.computed_scores = {"genetic_total": 0, "experimental_total": 0, "total_score": 0}
+    c.computed_summary = "genetic = 0.0 ... NO KNOWN disease relationship"  # DNAJB11
     db_session.commit()
     _approve(client, db_session, test_scope, cid)
     [item] = client.get("/api/v1/export/curations", headers=_h(curator_token)).json()[
@@ -252,6 +253,7 @@ def test_an_adoption_scored_before_613_exports_no_points(
         item[k] for k in ("genetic_score", "experimental_score", "total_score")
     ] == [None] * 3
     assert (item["scores"], item["final_classification"]) == (None, "definitive")
+    assert item["summary"] is None
 
 
 def test_a_diagnostics_edit_in_review_starts_a_new_review_round(

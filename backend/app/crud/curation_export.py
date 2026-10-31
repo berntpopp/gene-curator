@@ -206,7 +206,7 @@ def _item(
         pmids=sorted(evidence_pmids(c.evidence_data), key=int),
         evidence=c.evidence_data if detail else None,
         scores=c.computed_scores if detail and not c.clingen_adoption else None,
-        summary=c.computed_summary if detail else None,
+        summary=c.computed_summary if detail and not c.clingen_adoption else None,
         curator_name=curator_name,
         reviewer_name=reviewer_name,
         approved_at=c.approved_at,
