@@ -581,6 +581,8 @@
       const schemaData = await schemasStore.fetchSchemaById(schemaId.value)
       schema.value = schemaData
       resetEditor(schemaData)
+      // A template just created opens ready to edit (MUI-14)
+      if (route.query.edit) isEditing.value = true
       // Renames warn harder once records may hold values under the old id; creation's own
       // version 1 of a never-activated schema holds none (monkey B16)
       // Assume published until the versions answer, so an early Edit still warns on rename

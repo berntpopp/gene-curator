@@ -203,6 +203,10 @@ describe('SchemaManagement', () => {
       use_dynamic_form: true
     })
     expect(showSuccess).toHaveBeenCalledWith('Schema "Fresh" created successfully')
+    // MUI-14: a new template opens ready to edit, not in View mode
+    expect(routerPush).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'SchemaEditor', query: { edit: '1' } })
+    )
     expect(vm.createSchemaDialog).toBe(false)
     expect((vm.newSchema as { name: string }).name).toBe('')
   })
@@ -238,6 +242,16 @@ describe('SchemaEditor', () => {
     await flushPromises()
     return { wrapper, schemas, vm: vmOf(wrapper) }
   }
+
+  it('opens in edit mode when asked to (MUI-14)', async () => {
+    routeState.query = { edit: '1' }
+    try {
+      const { vm } = await mountView()
+      expect(vm.isEditing).toBe(true)
+    } finally {
+      routeState.query = {}
+    }
+  })
 
   it('shows the real schema fields and their count', async () => {
     const { wrapper } = await mountView()

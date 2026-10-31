@@ -613,7 +613,7 @@
         version: '1.0.0'
       }
       // Straight into the builders: the skeleton is only a start (#282)
-      router.push({ name: 'SchemaEditor', params: { id: created.id } })
+      router.push({ name: 'SchemaEditor', params: { id: created.id }, query: { edit: '1' } })
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to create schema', {
