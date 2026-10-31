@@ -45,7 +45,8 @@
         </span>
       </template>
       <template #item.stage="{ item }">
-        {{ item.stage ? humanize(item.stage) : EMPTY }}
+        <!-- An assignment has no workflow stage yet; say what it is, not a dash -->
+        {{ item.stage ? humanize(item.stage) : item.kind === 'assignment' ? 'Assigned' : EMPTY }}
       </template>
       <template #item.classification="{ item }">
         <ClassificationMark v-if="item.classification" :classification="item.classification" />

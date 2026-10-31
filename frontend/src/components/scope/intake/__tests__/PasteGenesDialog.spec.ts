@@ -168,6 +168,20 @@ describe('PasteGenesDialog', () => {
     expect(addToast).toHaveBeenCalledWith('1 gene added, 1 already in scope', 'success')
   })
 
+  it('sends a due date picked at paste time with the new assignments (Wave 10 polish)', async () => {
+    bulkAssign.mockResolvedValue({
+      total_created: 1,
+      total_skipped: 0,
+      total_errors: 0,
+      created_assignments: [{ gene_id: 'g1' }]
+    } as never)
+    const w = await resolved()
+    await w.find('[data-testid=due-date] input').setValue('2026-12-01')
+    await w.find('[data-testid=add]').trigger('click')
+    await flushPromises()
+    expect(bulkAssign.mock.calls[0]![0]).toMatchObject({ due_date: '2026-12-01' })
+  })
+
   it('says which added genes did not get the curator', async () => {
     fetchMembers.mockResolvedValue([member('cur', 'curator')] as never)
     bulkAssign
