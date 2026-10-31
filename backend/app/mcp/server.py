@@ -54,6 +54,10 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
     ("PATCH", "/api/v1/llm-findings/{finding_id}"): (
         "accepting or dismissing an AI finding is a human reviewer decision"
     ),
+    **dict.fromkeys(
+        (("GET", "/api/v1/me/views/catalogue"), ("PUT", "/api/v1/me/views/catalogue")),
+        "the web catalogue's saved columns, not curation data",
+    ),
 }
 
 INSTRUCTIONS = """\

@@ -39,6 +39,7 @@ from app.api.v1.endpoints import (
     scope_memberships,
     scopes,
     search,
+    user_view_preferences,
     users,
     version_move,
     workflow,
@@ -63,6 +64,9 @@ api_router.include_router(llm_scope.router, prefix="/scopes", tags=["llm"])
 api_router.include_router(my_work.router, tags=["my-work"])  # /me/work
 api_router.include_router(
     personal_access_tokens.router, prefix="/me/tokens", tags=["tokens"]
+)
+api_router.include_router(
+    user_view_preferences.router, prefix="/me/views", tags=["views"]
 )
 api_router.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
