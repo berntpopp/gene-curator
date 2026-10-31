@@ -311,8 +311,8 @@ class CurationNew(Base):
 
     @hybrid_property
     def final_classification(self) -> str | None:
-        # a blank curator call is no call, here and in SQL alike
-        return (self.curator_classification or "").strip() or self.computed_verdict
+        # a blank curator call is no call, here and in SQL alike (trim: spaces only)
+        return (self.curator_classification or "").strip(" ") or self.computed_verdict
 
     @final_classification.inplace.expression
     @classmethod
