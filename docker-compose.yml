@@ -15,7 +15,8 @@
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:15-alpine
+    # Pinned by digest (also scripts/test-postgres.sh); bump both together
+    image: postgres:15-alpine@sha256:54e0dd8e8cddcdbb9156c2486eed5a43eccb7214d7c6828097d41ce049fb3984
     container_name: ${POSTGRES_CONTAINER:-gene_curator_postgres}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gene_curator_dev}
@@ -29,6 +30,8 @@ services:
     volumes:
       - dev_postgres_data:/var/lib/postgresql/data
       - ./database/sql:/docker-entrypoint-initdb.d
+      # Dev logins (admin123), loaded by 999_dev_fixtures.sh; docker/docker-compose.npm.yml drops both mounts
+      - ./database/fixtures:/docker-entrypoint-fixtures:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dev_user} -d ${POSTGRES_DB:-gene_curator_dev}"]
       interval: 10s

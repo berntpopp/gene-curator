@@ -125,6 +125,17 @@ class Settings(BaseSettings):
             raise ValueError("GENE_CURATOR_PUBLIC_URL must be https:// in production")
         return self
 
+    @model_validator(mode="after")
+    def secret_key_is_strong_in_production(self) -> "Settings":
+        """Fail closed: production never signs tokens with a short or placeholder key."""
+        weak = len(self.SECRET_KEY) < 32 or "change" in self.SECRET_KEY.lower()
+        if self.ENVIRONMENT == "production" and weak:
+            raise ValueError(
+                "SECRET_KEY must be at least 32 random characters in production "
+                "(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+            )
+        return self
+
     @field_validator("PORT", mode="before")
     @classmethod
     def get_port(cls, v: int | str | None) -> int:

@@ -34,7 +34,7 @@ updates:
     groups:
       actions: { patterns: ['*'] }
   - package-ecosystem: docker
-    directories: [/backend, /frontend]
+    directories: [/backend, /frontend, /database]
     schedule: { interval: weekly, day: monday, time: '07:00', timezone: Europe/Berlin }
     cooldown: { default-days: 7 }
     ignore:

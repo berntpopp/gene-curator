@@ -51,6 +51,7 @@ jobs:
             frontend: ['frontend/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml', '.nvmrc']
             docker: ['backend/Dockerfile', 'backend/.dockerignore', 'backend/pyproject.toml', 'backend/uv.lock',
                      'frontend/Dockerfile', 'frontend/.dockerignore', 'frontend/package*.json', 'frontend/nginx.conf',
+                     'database/Dockerfile', 'database/.dockerignore', 'database/migrate.sh',
                      '.trivyignore', 'Makefile', '.github/workflows/ci.yml']
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: make ci-repo
@@ -125,6 +126,13 @@ jobs:
           load: true
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: database
+          tags: gene-curator-migrate:ci
+          load: true
+          cache-from: type=gha,scope=migrate
+          cache-to: type=gha,scope=migrate,mode=max
       - run: make docker-scan
 
   gate:

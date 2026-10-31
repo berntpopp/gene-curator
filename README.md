@@ -359,6 +359,28 @@ without them, and with `ENVIRONMENT=production` the API refuses a non-HTTPS issu
 | `GENE_CURATOR_PUBLIC_URL` | `http://localhost:8051` | API origin MCP clients reach (OAuth issuer) |
 | `GENE_CURATOR_FRONTEND_URL` | `http://localhost:5193` | Web app origin that serves `/oauth/consent` |
 
+## Production deployment
+
+Release tags `vX.Y.Z` publish `ghcr.io/berntpopp/gene-curator/{backend,frontend,migrate}`
+(`.github/workflows/docker.yml`, with provenance and SBOM). Run them behind a reverse proxy with
+`docker-compose.yml` plus `docker/docker-compose.npm.yml` and a third file that pins the images by
+digest; copy `.env.docker.example` to `.env.docker` first. The overlay publishes no ports, joins
+the external `npm_default` network, gives its internal network the subnet `10.251.10.0/24` and
+starts the backend only after the one-shot `migrate` service applied `database/sql` (idempotent,
+recorded in `schema_migrations`). Production gets no seeded logins: 004 keeps a disabled seed owner
+only. Create the first platform admin once (the password stays in your environment):
+
+```bash
+ADMIN_PASSWORD='<12+ characters>' docker compose -f docker-compose.yml -f docker/docker-compose.npm.yml \
+  --env-file .env.docker run --rm -e ADMIN_EMAIL=you@example.org -e ADMIN_PASSWORD \
+  backend python scripts/create_default_user.py
+```
+
+The web image calls `/api/v1` on its own origin. Proxy `gene-curator.org` to
+`gene_curator_frontend:80` and the paths `/api`, `/mcp`, `/authorize`, `/token`, `/register` and
+`/.well-known` to `gene_curator_backend:8000`. With `ENVIRONMENT=production` the API refuses a
+`SECRET_KEY` shorter than 32 characters or a placeholder.
+
 ## Documentation
 
 - [docs/CURATOR-GUIDE.md](docs/CURATOR-GUIDE.md): curating and reviewing, one page

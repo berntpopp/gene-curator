@@ -1,0 +1,6 @@
+# The migrate image ships migrations only: no dev logins, initdb hooks or tests
+fixtures/
+sql/*.sh
+sql/*.py
+Dockerfile
+.dockerignore

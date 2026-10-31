@@ -715,139 +715,26 @@ UPDATE scopes SET default_workflow_pair_id = (
 ) WHERE name IN ('oncogenetics', 'rare-disease');
 
 -- ========================================
--- DEVELOPMENT USERS (1 Admin + 3 Test Users)
+-- SEED OWNER (disabled application admin)
 -- ========================================
 
--- **CRITICAL ARCHITECTURE NOTE**:
--- Application roles: 'admin' (platform-level) and 'user' (standard user)
--- Scope roles: 'admin', 'curator', 'reviewer', 'viewer' (defined in scope_memberships)
---
--- This seed data creates:
--- - 1 application admin (full platform access)
--- - 3 test users with scope-level roles (no global curator/reviewer/viewer roles)
-
--- Insert application admin user
+-- 014, 016 and 017 record an application admin as creator of the seeded schemas, so one must
+-- exist. It cannot sign in: inactive, and '!' is no bcrypt hash. Development logins
+-- (admin123) and demo memberships live in database/fixtures/dev_users.sql, never in production.
+-- Production admins: backend/scripts/create_default_user.py (README, Production deployment).
 INSERT INTO users (
     id, email, hashed_password, name, role, institution,
-    assigned_scopes, orcid_id, expertise_areas, is_active
+    orcid_id, expertise_areas, is_active
 ) VALUES (
     uuid_generate_v4(),
     'admin@genecurator.org',
-    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123
-    'Admin User',
+    '!',
+    'Seed Owner (disabled)',
     'admin',  -- Application-level admin role
     'Gene Curator Platform',
-    (SELECT array_agg(id) FROM scopes WHERE is_active = true),
     '0000-0000-0000-0001',
     ARRAY['Platform Administration', 'System Management'],
-    true
-);
-
--- ========================================
--- TEST USERS (Standard Users with Scope Roles)
--- ========================================
-
--- Test User 1: Alice Smith (curator in kidney-genetics scope)
-INSERT INTO users (
-    id, email, hashed_password, name, role, institution,
-    assigned_scopes, orcid_id, expertise_areas, is_active
-) VALUES (
-    uuid_generate_v4(),
-    'alice.smith@genecurator.org',
-    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123
-    'Alice Smith',
-    'user',  -- Standard user (scope roles assigned via scope_memberships)
-    'Nephrology Research Institute',
-    (SELECT array_agg(id) FROM scopes WHERE name = 'kidney-genetics'),
-    '0000-0001-5000-0001',
-    ARRAY['Nephrology', 'CAKUT', 'Ciliopathies'],
-    true
-);
-
--- Test User 2: Bob Jones (reviewer in cardio-genetics scope)
-INSERT INTO users (
-    id, email, hashed_password, name, role, institution,
-    assigned_scopes, orcid_id, expertise_areas, is_active
-) VALUES (
-    uuid_generate_v4(),
-    'bob.jones@genecurator.org',
-    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123
-    'Bob Jones',
-    'user',  -- Standard user (scope roles assigned via scope_memberships)
-    'Cardiovascular Genomics Center',
-    (SELECT array_agg(id) FROM scopes WHERE name = 'cardio-genetics'),
-    '0000-0001-5000-0002',
-    ARRAY['Cardiology', 'Arrhythmia', 'Congenital Heart Disease'],
-    true
-);
-
--- Test User 3: Carol Williams (viewer in neuro-genetics scope)
-INSERT INTO users (
-    id, email, hashed_password, name, role, institution,
-    assigned_scopes, orcid_id, expertise_areas, is_active
-) VALUES (
-    uuid_generate_v4(),
-    'carol.williams@genecurator.org',
-    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123
-    'Carol Williams',
-    'user',  -- Standard user (scope roles assigned via scope_memberships)
-    'Neurology and Epilepsy Lab',
-    (SELECT array_agg(id) FROM scopes WHERE name = 'neuro-genetics'),
-    '0000-0001-5000-0003',
-    ARRAY['Neurology', 'Epilepsy', 'Intellectual Disability'],
-    true
-);
-
--- ========================================
--- SCOPE MEMBERSHIPS (Scope-Level Roles)
--- ========================================
-
--- **CRITICAL**: These entries define SCOPE-LEVEL roles, not application roles
--- Scope roles: 'admin', 'curator', 'reviewer', 'viewer'
-
--- Admin user as scope admin in all scopes
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at)
-SELECT
-    s.id as scope_id,
-    (SELECT id FROM users WHERE email = 'admin@genecurator.org') as user_id,
-    'admin' as role,
-    true as is_active,
-    'accepted' as invitation_status,
-    NOW() as accepted_at
-FROM scopes s
-WHERE s.is_active = true;
-
--- Alice Smith as curator in kidney-genetics scope
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at) VALUES
-(
-    (SELECT id FROM scopes WHERE name = 'kidney-genetics'),
-    (SELECT id FROM users WHERE email = 'alice.smith@genecurator.org'),
-    'curator',  -- Scope-level curator role
-    true,
-    'accepted',
-    NOW()
-);
-
--- Bob Jones as reviewer in cardio-genetics scope
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at) VALUES
-(
-    (SELECT id FROM scopes WHERE name = 'cardio-genetics'),
-    (SELECT id FROM users WHERE email = 'bob.jones@genecurator.org'),
-    'reviewer',  -- Scope-level reviewer role
-    true,
-    'accepted',
-    NOW()
-);
-
--- Carol Williams as viewer in neuro-genetics scope
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at) VALUES
-(
-    (SELECT id FROM scopes WHERE name = 'neuro-genetics'),
-    (SELECT id FROM users WHERE email = 'carol.williams@genecurator.org'),
-    'viewer',  -- Scope-level viewer role
-    true,
-    'accepted',
-    NOW()
+    false
 );
 
 -- ========================================

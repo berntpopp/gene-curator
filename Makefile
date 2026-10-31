@@ -80,21 +80,8 @@ db-reset: ## DESTRUCTIVE: drop the dev volume and rebuild from database/sql
 	$(DC_INFRA) up -d --wait postgres
 
 db-migrate: ## Apply pending SQL files once (optional FILE=database/sql/NNN_x.sql)
-	@set -euo pipefail; \
-	files=( $(if $(FILE),"$(FILE)",database/sql/[0-9][0-9][0-9]_*.sql) ); \
-	for file in "$${files[@]}"; do \
-		[[ "$$file" =~ ^database/sql/[0-9]{3}_[a-zA-Z0-9_]+\.sql$$ && -f "$$file" ]] || { echo "Invalid migration: $$file" >&2; exit 1; }; \
-	done; \
-	{ \
-		printf '%s\n' 'SELECT pg_advisory_xact_lock(158030);'; \
-		cat database/sql/030_schema_migrations.sql; \
-		for file in "$${files[@]}"; do \
-			name=$${file##*/}; \
-			printf "SELECT NOT EXISTS (SELECT 1 FROM schema_migrations WHERE filename = '%s') AS pending \\gset\n\\if :pending\n" "$$name"; \
-			sed -E '/^(BEGIN|COMMIT);[[:space:]]*$$/d' "$$file"; \
-			printf "\nINSERT INTO schema_migrations (filename) VALUES ('%s') ON CONFLICT DO NOTHING;\n\\\\endif\n" "$$name"; \
-		done; \
-	} | docker exec -i -e APP_DB_PASSWORD $(POSTGRES_CONTAINER) psql -X -v ON_ERROR_STOP=1 --single-transaction -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+	FILE="$(FILE)" database/migrate.sh docker exec -i -e APP_DB_PASSWORD $(POSTGRES_CONTAINER) \
+		psql -X -v ON_ERROR_STOP=1 --single-transaction -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 rotate-llm-keys: ## Re-encrypt all LLM credentials to LLM_CREDENTIAL_ACTIVE_KID (as DB owner)
 	cd backend && OWNER_DATABASE_URL="$${OWNER_DATABASE_URL:-postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)}" \
@@ -192,11 +179,12 @@ workflows: ## Lint GitHub workflows (zizmor)
 TRIVY := docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v gene-curator-trivy-cache:/root/.cache \
 	-v $(CURDIR)/.trivyignore:/.trivyignore:ro \
 	aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
-IMAGES := gene-curator-backend:ci gene-curator-frontend:ci
+IMAGES := gene-curator-backend:ci gene-curator-frontend:ci gene-curator-migrate:ci
 
 docker-images: ## Build the production images (CI builds the same targets with a GitHub layer cache)
 	docker buildx build --load --target production -t gene-curator-backend:ci backend
 	docker buildx build --load -t gene-curator-frontend:ci frontend
+	docker buildx build --load -t gene-curator-migrate:ci database
 
 docker-scan: ## Trivy: fail on fixable HIGH/CRITICAL CVEs in the built images (accepted ones: .trivyignore)
 	for i in $(IMAGES); do \

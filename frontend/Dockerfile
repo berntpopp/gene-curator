@@ -8,7 +8,8 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 COPY . .
 
-ARG VITE_API_BASE_URL=http://localhost:8051
+# Empty = same origin (/api/v1 on the page's host); set an origin only for a split API host
+ARG VITE_API_BASE_URL=
 # Quick-login buttons expose seeded credentials: never on by default in a production image
 ARG VITE_ENABLE_DEV_LOGIN=false
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
