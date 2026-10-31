@@ -49,6 +49,7 @@ def _item(row: Any, kind: WorkKind, tab: WorkTab, verb: str, link: str) -> WorkI
         scope_name=scope_name,
         link=link.format(s=obj.scope_id, i=obj.id, g=obj.gene_id),
         updated_at=getattr(obj, "updated_at", None) or obj.assigned_at,
+        due_date=getattr(obj, "due_date", None),
         disease_name=disease["disease_name"],
         mode_of_inheritance=disease["mode_of_inheritance"],
         relationship_type=relationship_of_key(getattr(obj, "entity_key", None)),

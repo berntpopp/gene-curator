@@ -55,6 +55,10 @@
       <template #item.updated_at="{ item }">
         <span class="font-mono text-medium-emphasis">{{ relativeTime(item.updated_at) }}</span>
       </template>
+      <template #item.due_date="{ item }">
+        <!-- a calendar date as stored: no timezone shift -->
+        <span class="font-mono text-medium-emphasis">{{ item.due_date ?? EMPTY }}</span>
+      </template>
       <template #item.verb="{ item }">
         <v-btn :to="item.link" size="small" variant="outlined" color="primary">
           {{ item.verb }}
@@ -93,6 +97,7 @@
     { title: 'Classification', key: 'classification' },
     { title: 'Scope', key: 'scope_name' },
     { title: 'Age', key: 'updated_at' },
+    { title: 'Due', key: 'due_date' },
     { title: 'Next action', key: 'verb' }
   ]
   const EMPTY_TEXT: Record<WorkTab, string> = {

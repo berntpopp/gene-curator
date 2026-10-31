@@ -86,6 +86,12 @@ describe('MyWork view', () => {
     expect(rows(w)[0]!.text()).toContain('2d ago')
   })
 
+  it('shows an assignment due date (Wave 10 intake follow-up)', async () => {
+    const w = mountView([item({ due_date: '2026-12-01' })])
+    await settle()
+    expect(rows(w)[0]!.text()).toContain('2026-12-01')
+  })
+
   it('shows disease, inheritance, stage and classification on each row (#277)', async () => {
     const w = mountView([
       item({

@@ -11503,6 +11503,11 @@ export interface components {
             link: string;
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * Due Date
+             * @description Assignment due date
+             */
+            due_date?: string | null;
             /** Disease Name */
             disease_name?: string | null;
             /** Mode Of Inheritance */

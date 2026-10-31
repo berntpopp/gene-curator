@@ -1,6 +1,6 @@
 """GET /me/work: inbox grouped by next action, scoped to accepted memberships."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -45,6 +45,7 @@ def test_assignment_then_started(
     a = GeneScopeAssignment(
         gene_id=test_gene.id, scope_id=test_scope.id,
         assigned_curator_id=test_user_curator.id, is_active=True,
+        due_date=date(2026, 12, 1),
     )  # fmt: skip
     db_session.add(a)
     db_session.commit()
@@ -56,6 +57,7 @@ def test_assignment_then_started(
     body = _get(client, test_user_curator)
     (item,) = body["items"]
     assert item["kind"] == "assignment"
+    assert item["due_date"] == "2026-12-01"
     assert (
         item["link"] == f"/scopes/{test_scope.id}/genes/{test_gene.id}/precuration/new"
     )
