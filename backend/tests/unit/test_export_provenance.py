@@ -26,6 +26,19 @@ def test_dates_serialize_like_the_other_export_timestamps() -> None:
     assert {"format": "date-time", "type": "string"} in date["anyOf"]
 
 
+@pytest.mark.parametrize(
+    ("given", "shown"),
+    [
+        ("2026-10-02", "2026-10-02T00:00:00Z"),  # bare date: midnight UTC
+        ("2026-10-02T11:00:00+02:00", "2026-10-02T09:00:00Z"),  # offset: to UTC
+    ],
+)
+def test_every_date_is_utc_with_z(given: str, shown: str) -> None:
+    """#602 review: docs/EXPORT.md promises UTC with Z for every input."""
+    c = contribution("curator", Agent(name="A", agentType="person"), given)
+    assert c.model_dump(mode="json")["date"] == shown
+
+
 def test_no_assessor_without_a_visible_review() -> None:
     roles = [c.activityType.name for c in curation_contributions("A", T, "B", T, [])]
     assert roles == ["curator", "approver"]
