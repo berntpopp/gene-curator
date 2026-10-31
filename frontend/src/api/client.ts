@@ -191,15 +191,19 @@ apiClient.interceptors.response.use(
       duration
     )
 
-    // A request aborted on purpose (a stale palette search) is not an error
+    // A request aborted on purpose (a stale palette search) is not an error; a 401 is the
+    // expected answer for a signed-out visitor or a dropped session (MUI-19), so a warning
     if (!axios.isCancel(error)) {
-      logService.error('API Error', {
-        method: error.config?.method,
-        url: error.config?.url,
-        status,
-        error: error.message,
-        detail: errorDetail(error.response?.data)
-      })
+      logService[status === 401 ? 'warn' : 'error'](
+        status === 401 ? 'API unauthorized' : 'API Error',
+        {
+          method: error.config?.method,
+          url: error.config?.url,
+          status,
+          error: error.message,
+          detail: errorDetail(error.response?.data)
+        }
+      )
     }
 
     clearCorrelationIdFor(originalRequest?.headers?.['X-Request-ID'])
