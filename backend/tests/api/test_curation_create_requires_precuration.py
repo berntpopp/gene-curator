@@ -249,6 +249,7 @@ def test_curation_uses_the_precurations_pair_not_the_scope_default(
     test_scope: Scope,
     test_gene: Gene,
     approved_precuration: PrecurationNew,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """MUI-03: Start curation sent the scope default (another methodology's pair)."""
     from uuid import uuid4
@@ -274,7 +275,13 @@ def test_curation_uses_the_precurations_pair_not_the_scope_default(
         "precuration_id": str(approved_precuration.id),
         "evidence_data": {},
     }
+    ranged: list[object] = []  # point ranges are the precuration pair's (#609 review)
+    monkeypatch.setattr(
+        "app.api.v1.endpoints.curations.enforce_clingen_point_ranges",
+        lambda db, pair_id, *a: ranged.append(pair_id),
+    )
     h = auth_headers(test_user_admin)
     r = client.post("/api/v1/curations/", json=body, headers=h)
     assert r.status_code == 201, r.text
     assert r.json()["workflow_pair_id"] == str(own.id)
+    assert ranged == [own.id]

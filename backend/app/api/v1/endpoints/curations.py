@@ -50,9 +50,11 @@ from app.models import (
     CurationNew,
     CurationStatus,
     Gene,
+    PrecurationNew,
     Scope,
     ScopeMembership,
     UserNew,
+    WorkflowPair,
 )
 from app.schemas.curation import (
     ClassificationChoice,
@@ -357,6 +359,14 @@ def create_curation(
     require(db, current_user, curation_in.scope_id, EDIT)
     scope = db.get(Scope, curation_in.scope_id)
     require_active_scope(scope)
+    sent = db.get(WorkflowPair, curation_in.workflow_pair_id)
+    if curation_in.precuration_id and sent:  # MUI-03: the precuration's pair, up front
+        pre = db.get(PrecurationNew, curation_in.precuration_id)
+        try:
+            pair = precuration_crud.pair_for(db, pre, sent)
+        except ValueError as e:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+        curation_in = curation_in.model_copy(update={"workflow_pair_id": pair.id})
     require_allowed_pair(scope, curation_in.workflow_pair_id)
 
     enforce_clingen_point_ranges(
