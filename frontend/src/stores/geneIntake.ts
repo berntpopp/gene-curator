@@ -18,6 +18,8 @@ export interface IntakeResult {
 /** The backend caps bulk create and bulk assign at 100 items per request. */
 const CHUNK = 100
 const LOOKUP_CONCURRENCY = 5
+/** ASSIGNMENTS_MAX_LIMIT of GET /gene-assignments/ */
+const PAGE = 1000
 
 const chunks = <T>(items: T[]): T[][] =>
   Array.from({ length: Math.ceil(items.length / CHUNK) }, (_, i) =>
@@ -120,5 +122,19 @@ export const useGeneIntakeStore = defineStore('geneIntake', () => {
     return { added, alreadyInScope, failed, notAssigned }
   }
 
-  return { resolve, addToScope }
+  /** The scope's genes (gene id -> curator name, null if unassigned), paged at the API maximum. */
+  async function inScope(scopeId: string): Promise<Map<string, string | null>> {
+    const found = new Map<string, string | null>()
+    for (let skip = 0; ; skip += PAGE) {
+      const { assignments } = await assignmentsAPI.getAssignments({
+        scope_id: scopeId,
+        skip,
+        limit: PAGE
+      })
+      for (const a of assignments) found.set(a.gene_id, a.curator_name ?? null)
+      if (assignments.length < PAGE) return found
+    }
+  }
+
+  return { resolve, addToScope, inScope }
 })

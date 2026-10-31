@@ -7,7 +7,9 @@ import { assignmentsAPI } from '@/api/assignments'
 
 vi.mock('@/api/geneResolve', () => ({ geneResolveAPI: { resolve: vi.fn() } }))
 vi.mock('@/api/genes', () => ({ genesAPI: { bulkCreateGenes: vi.fn(), searchGenes: vi.fn() } }))
-vi.mock('@/api/assignments', () => ({ assignmentsAPI: { bulkAssignGenes: vi.fn() } }))
+vi.mock('@/api/assignments', () => ({
+  assignmentsAPI: { bulkAssignGenes: vi.fn(), getAssignments: vi.fn() }
+}))
 
 const bulkCreate = vi.mocked(genesAPI.bulkCreateGenes)
 const search = vi.mocked(genesAPI.searchGenes)
@@ -18,6 +20,26 @@ describe('geneIntake store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     ;[bulkCreate, search, bulkAssign].forEach(m => m.mockReset())
+  })
+
+  it('reads every page of the scope genes for the resolve flags', async () => {
+    const page = (n: number, from = 0) => ({
+      assignments: Array.from({ length: n }, (_, i) => ({
+        gene_id: `g${from + i}`,
+        curator_name: i ? null : 'Alice'
+      }))
+    })
+    vi.mocked(assignmentsAPI.getAssignments)
+      .mockResolvedValueOnce(page(1000) as never)
+      .mockResolvedValueOnce(page(2, 1000) as never)
+    const found = await useGeneIntakeStore().inScope('s1')
+    expect(found.size).toBe(1002)
+    expect(found.get('g1000')).toBe('Alice')
+    expect(assignmentsAPI.getAssignments).toHaveBeenLastCalledWith({
+      scope_id: 's1',
+      skip: 1000,
+      limit: 1000
+    })
   })
 
   it('resolves through the API', async () => {

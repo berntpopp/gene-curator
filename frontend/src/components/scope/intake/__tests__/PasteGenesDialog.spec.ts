@@ -13,11 +13,14 @@ vi.mock('@/composables/useLogger', () => ({
 }))
 vi.mock('@/api/geneResolve', () => ({ geneResolveAPI: { resolve: vi.fn() } }))
 vi.mock('@/api/genes', () => ({ genesAPI: { bulkCreateGenes: vi.fn(), searchGenes: vi.fn() } }))
-vi.mock('@/api/assignments', () => ({ assignmentsAPI: { bulkAssignGenes: vi.fn() } }))
+vi.mock('@/api/assignments', () => ({
+  assignmentsAPI: { bulkAssignGenes: vi.fn(), getAssignments: vi.fn() }
+}))
 vi.mock('@/services/scopeService', () => ({ scopeService: { fetchMembers: vi.fn() } }))
 
 const resolve = vi.mocked(geneResolveAPI.resolve)
 const bulkAssign = vi.mocked(assignmentsAPI.bulkAssignGenes)
+const getAssignments = vi.mocked(assignmentsAPI.getAssignments)
 const fetchMembers = vi.mocked(scopeService.fetchMembers)
 const member = (user_id: string, role: string) => ({ user_id, role, user_full_name: user_id })
 const local = (n: number) => ({
@@ -83,6 +86,8 @@ describe('PasteGenesDialog', () => {
   beforeEach(() => {
     ;[resolve, bulkAssign].forEach(m => m.mockReset())
     fetchMembers.mockResolvedValue([] as never)
+    getAssignments.mockReset()
+    getAssignments.mockResolvedValue({ assignments: [] } as never)
     addToast.mockReset()
   })
 
@@ -96,6 +101,19 @@ describe('PasteGenesDialog', () => {
     await w.find('textarea').setValue(Array.from({ length: 1001 }, (_, i) => `G${i}`).join(' '))
     expect(w.text()).toContain('At most 1000')
     expect(w.find('[data-testid=resolve]').attributes('disabled')).toBeDefined()
+  })
+
+  it('flags resolved genes already in the scope, naming the kept curator (#587)', async () => {
+    getAssignments.mockResolvedValue({
+      assignments: [
+        { gene_id: 'g2', curator_name: 'Alice Smith' },
+        { gene_id: 'g1', curator_name: null }
+      ]
+    } as never)
+    const w = await resolved()
+    expect(getAssignments).toHaveBeenCalledWith({ scope_id: 's1', skip: 0, limit: 1000 })
+    const flags = w.findAll('[data-testid=in-scope]').map(f => f.text())
+    expect(flags).toEqual(['Already in scope', 'Already in scope (curator: Alice Smith, kept)'])
   })
 
   it('sends the parsed symbols and summarises the outcome', async () => {

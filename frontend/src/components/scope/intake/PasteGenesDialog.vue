@@ -97,6 +97,13 @@
               <span v-else class="text-medium-emphasis" data-testid="not-found">
                 {{ reasonText(r.item) }}
               </span>
+              <div
+                v-if="r.duplicateOf === null && r.pick?.gene_id && inScope.has(r.pick.gene_id)"
+                class="text-body-small text-medium-emphasis"
+                data-testid="in-scope"
+              >
+                {{ inScopeText(r.pick.gene_id) }}
+              </div>
             </td>
           </tr>
         </tbody>
@@ -166,6 +173,12 @@
   const dueDate = ref<string | null>(null)
   const curators = ref<CuratorOption[]>([])
   const summaryEl = ref<HTMLElement | null>(null)
+  // Genes the scope already has (gene id -> curator name); adding them keeps their curator
+  const inScope = ref(new Map<string, string | null>())
+  const inScopeText = (geneId: string) => {
+    const curator = inScope.value.get(geneId)
+    return curator ? `Already in scope (curator: ${curator}, kept)` : 'Already in scope'
+  }
 
   const symbols = computed(() => parseSymbols(text.value))
   const tooMany = computed(() => symbols.value.length > MAX_SYMBOLS)
@@ -200,7 +213,12 @@
   async function resolve() {
     busy.value = true
     try {
-      const r = await store.resolve(symbols.value)
+      const [r, known] = await Promise.all([
+        store.resolve(symbols.value),
+        // the flags are a hint: a failed lookup leaves them out, the add still reports it
+        store.inScope(props.scopeId).catch(() => new Map<string, string | null>())
+      ])
+      inScope.value = known
       rows.value = toRows(r.items)
       // Screen readers hear the summary (role=status); keyboard focus moves to it
       await nextTick()
