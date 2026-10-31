@@ -9,6 +9,9 @@ describe('formatInheritance', () => {
     ['MT', 'Mitochondrial'],
     ['XL', 'X-linked'],
     ['SD', 'Semidominant'],
+    // monkey B18: HPO ids, never re-cased
+    ['HP:0000006', 'Autosomal dominant'],
+    ['HP:9999999', 'HP:9999999'],
     ['Undetermined', 'Undetermined'],
     ['Autosomal dominant', 'Autosomal dominant'],
     ['', 'Unknown'],
