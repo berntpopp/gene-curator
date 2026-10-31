@@ -52,3 +52,22 @@ def test_kgdb_bundle_imports_once(
 
     again = _post(client, admin_token)
     assert {action for _, _, action in _plan(again)} == {"unchanged"}
+
+
+def test_import_stamps_column_order_from_the_bundle_file(
+    client: TestClient, db_session: Session, admin_token: str
+) -> None:
+    """jsonb reorders keys; the bundle's column order survives as ``order`` (monkey B10)."""
+    db_session.add(Scope(id=uuid4(), name="kidney-genetics", display_name="Kidney"))
+    db_session.commit()
+    _post(client, admin_token)
+    name = "KGDB Mendelian Curation"
+    row = db_session.scalars(select(CurationSchema).where(CurationSchema.name == name))
+    columns = row.one().field_definitions["genetic"]["properties"]["probands"][
+        "columns"
+    ]
+    authored = next(s for s in BUNDLE["schemas"] if s["name"] == name)
+    keys = list(
+        authored["field_definitions"]["genetic"]["properties"]["probands"]["columns"]
+    )
+    assert sorted(columns, key=lambda k: columns[k]["order"]) == keys
