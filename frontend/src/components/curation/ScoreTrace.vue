@@ -91,6 +91,13 @@
       <p v-else class="text-body-small mt-3">
         Classification rule details were not stored with this score.
       </p>
+      <!-- Why a row scored what it did: the row rule or step that fired (monkey B12) -->
+      <div v-if="trace.rules_applied.length" class="mt-3" data-testid="rules-applied">
+        <h3 class="text-body-large">Rules applied</h3>
+        <p v-for="(r, i) in trace.rules_applied" :key="i">
+          {{ rowLabel(String(r.path)) }}: {{ ruleText(r) }}
+        </p>
+      </div>
       <div v-if="trace.capped_groups.length" class="mt-3" data-testid="capped-groups">
         <h3 class="text-body-large">Capped groups</h3>
         <p v-for="(g, i) in trace.capped_groups" :key="i">
@@ -116,6 +123,17 @@
   const skipped = computed(() =>
     Array.isArray(rule.value?.skipped) ? (rule.value.skipped as Record<string, unknown>[]) : []
   )
+  // "genetic.probands[2]" -> "Genetic › probands row 3"
+  const rowLabel = (path: string) => {
+    const m = /^(.*)\[(\d+)\]$/.exec(path)
+    return m ? `${traceLabel(m[1]!)} row ${Number(m[2]) + 1}` : traceLabel(path)
+  }
+  const ruleText = (r: Record<string, unknown>) =>
+    r.rule === 'step'
+      ? `${String(r.field).replaceAll('_', ' ')} ${String(r.sum)} reached ${formatScore(Number(r.points))} points`
+      : r.applied
+        ? `row rule ${Number(r.index) + 1} set ${formatScore(Number(r.points))} points`
+        : `row rule ${Number(r.index) + 1} matched; the entered ${formatScore(Number(r.entered))} points count`
   const capText = (raw: number | null, cap: number | null) =>
     cap == null ? '—' : `${cap}${raw != null && raw > cap ? ' · capped' : ''}`
 </script>
