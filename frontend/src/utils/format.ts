@@ -18,6 +18,10 @@ const parts = (value: DateInput): [string, string | null] | null => {
   ]
 }
 
+/** "v1.0.0" for a numeric version; "alpha" and "SOP v11" stay as written (monkey B22) */
+export const formatVersion = (value: string | null | undefined): string =>
+  !value ? EMPTY : /^\d/.test(value) ? `v${value}` : value
+
 /** 2026-10-20 (local time) */
 export const formatDate = (value: DateInput): string => parts(value)?.[0] ?? EMPTY
 

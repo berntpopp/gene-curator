@@ -434,34 +434,26 @@ def _check_model_paths(
     model: dict[str, Any], path: str, fields: dict[str, Any]
 ) -> list[Diagnostic]:
     """Evidence paths the model reads must name fields, or they silently score 0 (#576).
-    ponytail: skipped when no section key is a field (the fields do not describe the
-    evidence); a section that is a flat list is scored by the legacy rule, not by paths."""
+    A section whose key is no field reads its paths from the top level, as the scorer does
+    for forms built in the UI (B3); a flat-list section is scored by the legacy rule.
+    ponytail: skipped when the fields describe no evidence (no section key is a field and
+    no top-level evidence table)."""
     top = _top_fields(fields)
     sections = _dicts(_as(list, model.get("sections")))
-    if not any(section.get("key") in top for _, section in sections):
+    tables = any(_as(dict, cfg).get("type") == "evidence_table" for cfg in top.values())
+    if not tables and not any(section.get("key") in top for _, section in sections):
         return []
     found: list[tuple[str, str]] = []  # (JSON path, data path)
     for i, section in sections:
-        found.append((f"{path}.sections[{i}].key", str(section.get("key"))))
-        if _as(dict, top.get(str(section.get("key")))).get("type") == "array":
+        key = str(section.get("key"))
+        if _as(dict, top.get(key)).get("type") == "array":
             continue
+        base = f"{key}." if key in top else ""  # per section, as the scorer reads it
         for j, cat in _dicts(_as(list, section.get("categories"))):
             for k, item in _dicts(_as(list, cat.get("types"))):
                 at = f"{path}.sections[{i}].categories[{j}].types[{k}]"
-                table = f"{section.get('key')}.{item.get('path')}"
-                found.append((f"{at}.path", table))
-                if isinstance(item.get("field"), str):
-                    found.append((f"{at}.field", f"{table}.{item['field']}"))
-                for m, rule in _dicts(_as(list, item.get("points_when"))):
-                    conditions = [(f"{at}.points_when[{m}]", rule)] + [
-                        (f"{at}.points_when[{m}].and[{n}]", c)
-                        for n, c in _dicts(_as(list, rule.get("and")))
-                    ]
-                    found += [
-                        (f"{p}.field", f"{table}.{c['field']}")
-                        for p, c in conditions
-                        if isinstance(c.get("field"), str)
-                    ]
+                table = f"{base}{item.get('path')}"
+                found += _type_paths(item, at, table)
     for i, override in _dicts(_as(list, model.get("overrides"))):
         at = f"{path}.overrides[{i}]"
         found.append((f"{at}.when", str(override.get("when"))))
@@ -472,6 +464,24 @@ def _check_model_paths(
         for at, target in found
         if not field_exists(fields, target)
     ]
+
+
+def _type_paths(item: dict[str, Any], at: str, table: str) -> list[tuple[str, str]]:
+    """(JSON path, data path) of what one evidence type reads: its table and row fields."""
+    found = [(f"{at}.path", table)]
+    if isinstance(item.get("field"), str):
+        found.append((f"{at}.field", f"{table}.{item['field']}"))
+    for m, rule in _dicts(_as(list, item.get("points_when"))):
+        conditions = [(f"{at}.points_when[{m}]", rule)] + [
+            (f"{at}.points_when[{m}].and[{n}]", c)
+            for n, c in _dicts(_as(list, rule.get("and")))
+        ]
+        found += [
+            (f"{p}.field", f"{table}.{c['field']}")
+            for p, c in conditions
+            if isinstance(c.get("field"), str)
+        ]
+    return found
 
 
 def _check_review_flags(flags: Any, path: str, sections: set[Any]) -> list[Diagnostic]:

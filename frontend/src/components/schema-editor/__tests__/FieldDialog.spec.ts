@@ -118,10 +118,11 @@ describe('FieldDialog', () => {
     cvm.setOptions(row, 'missense, other') // existing labels survive
     await vm.save()
     expect(saved(wrapper)?.columns).toEqual({
-      pmid: { type: 'text', label: 'PMID' },
+      pmid: { type: 'text', label: 'PMID', order: 1 },
       variant_class: {
         type: 'select',
         label: '',
+        order: 2,
         required: true,
         options: [
           { value: 'missense', label: 'missense' },
@@ -134,8 +135,18 @@ describe('FieldDialog', () => {
     cvm.remove(1)
     await vm.save()
     expect(wrapper.emitted('save')?.[1]?.[0]).toMatchObject({
-      columns: { pmid: { type: 'text', label: 'PMID' } }
+      columns: { pmid: { type: 'text', label: 'PMID', order: 1 } }
     })
+  })
+
+  it('lists columns in their stored order (monkey B10)', async () => {
+    const { wrapper } = await mountDialog({
+      id: 'probands',
+      type: 'evidence_table',
+      columns: { pmid: { type: 'text', order: 2 }, proband: { type: 'text', order: 1 } }
+    })
+    const cvm = wrapper.findComponent(ColumnsEditor).vm as unknown as { rows: { key: string }[] }
+    expect(cvm.rows.map(r => r.key)).toEqual(['proband', 'pmid'])
   })
 
   it('closes on cancel', async () => {

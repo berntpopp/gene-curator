@@ -37,7 +37,7 @@
           variant="outlined"
           hide-details
           clearable
-          @input="debouncedSearch"
+          @update:model-value="debouncedSearch"
           @click:clear="clearSearch"
         />
       </v-col>
@@ -401,7 +401,7 @@
   }
 
   // Debounced search
-  const debouncedSearch = debounce(async (query: string) => {
+  const debouncedSearch = debounce(async (query: string | null) => {
     if (query) {
       await usersStore.searchUsers(query)
     } else {

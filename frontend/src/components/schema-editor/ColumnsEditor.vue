@@ -79,14 +79,21 @@
   const props = defineProps<{ modelValue: Record<string, Def> | undefined }>()
   const emit = defineEmits<{ 'update:modelValue': [value: Record<string, Def>] }>()
 
+  // jsonb does not keep key order: each column carries its `order` (monkey B10)
   const rows = ref<Row[]>(
-    Object.entries(clone(props.modelValue ?? {})).map(([key, def]) => ({ key, def }))
+    Object.entries(clone(props.modelValue ?? {}))
+      .map(([key, def]) => ({ key, def }))
+      .sort((a, b) => Number(a.def.order ?? Infinity) - Number(b.def.order ?? Infinity))
   )
 
   const sync = () =>
     emit(
       'update:modelValue',
-      Object.fromEntries(rows.value.filter(r => r.key.trim()).map(r => [r.key.trim(), r.def]))
+      Object.fromEntries(
+        rows.value
+          .filter(r => r.key.trim())
+          .map((r, i) => [r.key.trim(), Object.assign(r.def, { order: i + 1 })])
+      )
     )
 
   const set = (row: Row, key: string, value: unknown) => {

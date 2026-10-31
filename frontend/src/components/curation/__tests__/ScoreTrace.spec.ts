@@ -95,6 +95,36 @@ describe('ScoreTrace', () => {
     expect(w.text()).toContain('Override: Contradictory evidence · Impact: disputed')
     expect(w.find('.cls-mark').text()).toBe('Custom verdict')
   })
+  it('says which row rule set each row and what a step reached (monkey B12)', () => {
+    const w = render({
+      ...trace,
+      rules_applied: [
+        {
+          path: 'genetic.probands[0]',
+          rule: 'points_when',
+          index: 0,
+          entered: 1,
+          points: 1.5,
+          applied: true
+        },
+        {
+          path: 'genetic.probands[2]',
+          rule: 'points_when',
+          index: 2,
+          entered: 2,
+          points: 2,
+          applied: false
+        },
+        { path: 'genetic.segregation', rule: 'step', field: 'summed_lod', sum: 3.2, points: 2 }
+      ]
+    })
+    const text = w.get('[data-testid="rules-applied"]').text()
+    expect(text).toContain('Genetic › probands row 1: row rule 1 set 1.50 points')
+    expect(text).toContain(
+      'Genetic › probands row 3: row rule 3 matched; the entered 2.00 points count'
+    )
+    expect(text).toContain('Genetic › segregation: summed lod 3.2 reached 2.00 points')
+  })
   it('handles old partial traces and null caps as unknown', () => {
     const w = render({ sections: [{ key: 'old', categories: [{ key: 'legacy', types: [{}] }] }] })
     expect(w.text()).toContain('Unavailable')

@@ -32,7 +32,7 @@
                   </v-chip>
                   <!-- Error badge -->
                   <v-badge
-                    v-if="tabValidationErrors[tab.id]"
+                    v-if="touched && tabValidationErrors[tab.id]"
                     color="error"
                     dot
                     inline
@@ -164,7 +164,7 @@
       <v-col v-if="showScoring" cols="12" lg="4">
         <div class="sticky-sidebar">
           <ScoreDisplay
-            :score-calculations="validationResult?.score_calculations"
+            :score-calculations="storedValidation?.score_calculations"
             :scoring-configuration="jsonSchema?.scoring_configuration"
             :loading="validationPending"
           />
@@ -296,10 +296,14 @@
       )
     )
   ])
-  const validationResult = computed(() => {
+  const storedValidation = computed(() => {
     const raw = validationStore.getValidationResult('form')
     return raw ? toFormValidation(raw) : undefined
   })
+  // An untouched new form shows no errors yet: they appear after an edit, a submit or when a
+  // saved record loads (monkey B13); validity is still reported to the parent from the start
+  const touched = ref(Object.keys(props.initialData ?? {}).length > 0)
+  const validationResult = computed(() => (touched.value ? storedValidation.value : undefined))
 
   const {
     hasTabs,
@@ -310,7 +314,7 @@
     nextTab,
     prevTab,
     findFirstInvalidTab
-  } = useFormTabs({ jsonSchema, validationResult, backendErrors, activeTab })
+  } = useFormTabs({ jsonSchema, validationResult: storedValidation, backendErrors, activeTab })
 
   const showScoring = computed(() => {
     return !props.hideScoring && jsonSchema.value?.scoring_configuration?.engine != null
@@ -321,6 +325,9 @@
   watch([() => JSON.stringify(props.initialData), () => props.readonly], ([next, readonly]) => {
     if (readonly || !userEdited) {
       const loaded = JSON.parse(next)
+      // A record that loads shows its errors; the parent echoing our own defaults does not
+      if (Object.keys(loaded).length && next !== JSON.stringify(formData.value))
+        touched.value = true
       formData.value = readonly ? loaded : withDeclaredDefaults(loaded, jsonSchema.value.properties)
     }
     if (readonly) userEdited = false
@@ -332,7 +339,7 @@
 
   const canSubmit = computed(() => {
     // Block if backend validation failed
-    if (validationResult.value?.is_valid === false) return false
+    if (storedValidation.value?.is_valid === false) return false
     // Block if any backend errors present
     if (Object.keys(backendErrors.value).length > 0) return false
     // Block if no changes
@@ -369,7 +376,7 @@
 
   const updateField = (fieldName: string, value: unknown) => {
     clearFieldBackendError(fieldName)
-    userEdited = true
+    userEdited = touched.value = true
     formData.value[fieldName] = value
   }
 
@@ -402,7 +409,7 @@
    */
   const handleTabFieldUpdate = (fieldPath: string, value: unknown) => {
     clearFieldBackendError(fieldPath)
-    userEdited = true
+    userEdited = touched.value = true
 
     // Handle nested paths using dot notation
     if (fieldPath.includes('.')) {
@@ -493,6 +500,7 @@
 
   const handleSubmit = async () => {
     submitting.value = true
+    touched.value = true
     try {
       // Validate using v-form ref (VALD-06)
       const { valid } = await formRef.value!.validate()
@@ -588,7 +596,7 @@
 
   // Emit validation state changes for parent components
   watch(
-    validationResult,
+    storedValidation,
     result => {
       emit('validation-change', result)
     },

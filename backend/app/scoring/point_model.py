@@ -6,12 +6,17 @@ A point model (``scoring_configuration.point_model``, else the template file nam
 points_when?, field?, steps?}]}]}],
 overrides: [{when, field?, in?, class}], bands: [{class, min?, requires?, section_min?}],
 review_flags?: {band_margin?, hotspot?: {max_variants, min_share}, experimental_over_genetic?:
-[section, section]}}``. ``path`` is dotted and relative to the section's evidence.
+[section, section]}}``. ``path`` is dotted and relative to the section's evidence; when
+the evidence has nothing under the section key, it is read from the top level (forms built
+in the UI store their fields flat).
 
 ``points_when: [{field, in?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets a row's
 points from its own fields; the first rule whose conditions all hold wins (#576).
 ``rule: "step"`` sums ``field`` over the type's rows and scores the highest
 ``steps: [{min, points}]`` reached as one item. Both are listed in the trace's ``rules_applied``.
+
+Under the neutral ``point_model`` engine a blank points cell (null, empty) scores the type's
+default, as a missing key does; ClinGen keeps scoring an explicit null as 0 (golden parity).
 """
 
 import json
@@ -45,7 +50,9 @@ def point_model(scoring_configuration: dict[str, Any] | None) -> dict[str, Any] 
     config = scoring_configuration or {}
     model = config.get("point_model")
     if isinstance(model, dict):
-        return model
+        # The neutral engine (#576) has no ClinGen-era data to keep: blank is the default
+        neutral = config.get("engine") == "point_model"
+        return {**model, "blank_points_default": True} if neutral else model
     engine = config.get("engine")
     return template(engine) if isinstance(engine, str) else None
 
@@ -54,6 +61,12 @@ def default_points(type_def: dict[str, Any], row: dict[str, Any]) -> float:
     """The row's points, or the type's default when the row has no points key."""
     value = row.get(type_def.get("points_key", "points"), type_def.get("default", 0))
     return float(value or 0)
+
+
+def blank_default_points(type_def: dict[str, Any], row: dict[str, Any]) -> float:
+    """Like ``default_points``, but a blank cell also scores the type's default (B2)."""
+    value = row.get(type_def.get("points_key", "points"))
+    return default_points(type_def, {}) if _blank(value) else float(value or 0)
 
 
 def _at(data: Any, path: str) -> Any:
@@ -74,13 +87,16 @@ def _number(value: Any) -> float | None:
 
 def _holds(condition: dict[str, Any], row: dict[str, Any]) -> bool:
     """``in`` is strict (``true`` is not ``1``); comparisons need a number; ``present``
-    is whether the value is set (not missing, null or a blank string)."""
+    is whether the value is set (not missing, null, a blank string or an empty list);
+    ``in`` holds for a list cell when any of its values is an option."""
     value = row.get(condition["field"])
     if "present" in condition and _blank(value) == condition["present"]:
         return False
+    values = value if isinstance(value, list) else [value]
     if "in" in condition and not any(
-        option == value and isinstance(option, bool) == isinstance(value, bool)
+        option == v and isinstance(option, bool) == isinstance(v, bool)
         for option in condition["in"]
+        for v in values
     ):
         return False
     bounds = [(op, condition[op]) for op in COMPARISONS if op in condition]
@@ -99,7 +115,7 @@ COMPARISONS: dict[str, Callable[[float, float], bool]] = {
 
 
 def _blank(value: Any) -> bool:
-    return value is None or (isinstance(value, str) and not value.strip())
+    return value in (None, []) or (isinstance(value, str) and not value.strip())
 
 
 def _points_when(
@@ -285,6 +301,7 @@ def _cap_groups(
 def _section_points(
     section: dict[str, Any],
     data: Any,
+    flat: dict[str, Any],
     rules: dict[str, ItemRule],
     legacy: LegacyRule | None,
     flags: list[Any],
@@ -293,7 +310,8 @@ def _section_points(
     variants: dict[str, list[float]],
     applied: list[Any],
 ) -> dict[str, dict[str, list[float]]]:
-    """{category key: {type path: [item points]}} for one section's evidence."""
+    """{category key: {type path: [item points]}} for one section's evidence; ``data``
+    is ``flat`` (the whole evidence) when the section key holds nothing."""
     if isinstance(data, list) and legacy is not None:
         by_category = legacy(section["key"], data, flags, excluded)
         return {
@@ -301,11 +319,12 @@ def _section_points(
             for c in section["categories"]
         }
     out: dict[str, dict[str, list[float]]] = {}
+    base = f"{section['key']}." if data is not flat else ""
     for category in section["categories"]:
         out[category["key"]] = {}
         for type_def in category["types"]:
             rule = rules.get(type_def.get("rule", ""), default_points)
-            path = f"{section['key']}.{type_def['path']}"
+            path = f"{base}{type_def['path']}"
             out[category["key"]][type_def["path"]] = _type_points(
                 path, type_def, data, rule, flags, excluded, capped, variants, applied
             )
@@ -364,11 +383,14 @@ def score(
     capped: list[Any] = []
     variants: dict[str, list[float]] = {}
     applied: list[Any] = []
+    if model.get("blank_points_default"):
+        rules = {"": blank_default_points, **(rules or {})}
     for section in model["sections"]:
         data = evidence.get(section["key"])
         points = _section_points(
             section,
-            data,
+            evidence if data is None else data,
+            evidence,
             rules or {},
             legacy,
             flags,

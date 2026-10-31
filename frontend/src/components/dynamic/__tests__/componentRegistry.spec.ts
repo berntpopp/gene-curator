@@ -13,6 +13,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { h } from 'vue'
+import { mount, flushPromises } from '@vue/test-utils'
 import {
   cellFor,
   componentRegistry,
@@ -143,8 +145,30 @@ describe('fieldTypes', () => {
       ...chips,
       items: [{ title: 'a', value: 'a' }]
     })
-    expect(cellFor({ type: 'array' }).props).toEqual(chips)
+    // Typed or pasted "1, 2" becomes two entries (monkey B15)
+    expect(cellFor({ type: 'array' }).props).toEqual({ ...chips, delimiters: [', ', '; '] })
     expect(cellFor({ type: 'array' }).lazy).toBeFalsy()
     expect(emptyValue({ type: 'multiselect' })).toEqual([])
+  })
+
+  it('splits typed lists on ", " and "; " but keeps URLs and SICI DOIs whole (monkey B15)', async () => {
+    const cell = cellFor({ type: 'array' })
+    const typed = async (text: string) => {
+      const w = mount({ render: () => h(cell.is, { ...cell.props, modelValue: [] }) })
+      await w.find('input').setValue(text)
+      await flushPromises()
+      const out = w.findComponent(cell.is).emitted('update:modelValue')?.at(-1)?.[0]
+      w.unmount()
+      return out
+    }
+    expect(await typed('31000006, 31000007; 31000008')).toEqual([
+      '31000006',
+      '31000007',
+      '31000008'
+    ])
+    expect(await typed('https://example.org/a,b')).toBeUndefined()
+    expect(
+      await typed('10.1002/(SICI)1097-4636(199706)35:4<459::AID-JBM6>3.0.CO;2-X')
+    ).toBeUndefined()
   })
 })

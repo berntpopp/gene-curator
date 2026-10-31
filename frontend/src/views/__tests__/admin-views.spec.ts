@@ -113,6 +113,16 @@ describe('UserManagement', () => {
     last_login: null
   }
 
+  it('searches with the typed text (monkey B6)', async () => {
+    vi.useFakeTimers()
+    const store = users as unknown as { searchUsers: ReturnType<typeof vi.fn> }
+    const wrapper = mount(UserManagement, opts())
+    await wrapper.find('input[type="text"]').setValue('alice')
+    vi.advanceTimersByTime(300)
+    vi.useRealTimers()
+    expect(store.searchUsers).toHaveBeenCalledWith('alice')
+  })
+
   it('uses singular nouns for a count of one', async () => {
     users.statistics = {
       total_users: 1,

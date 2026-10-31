@@ -121,6 +121,32 @@ describe('DynamicForm flow', () => {
     expect(store.generateJsonSchema).toHaveBeenCalledWith('schema-1')
   })
 
+  it('shows no errors on an untouched new form, then after the first edit (monkey B13)', async () => {
+    store.result = {
+      is_valid: false,
+      errors: [{ field: 'name', message: 'Required field is missing' }],
+      field_validations: { name: { is_valid: false, errors: ['Required field is missing'] } }
+    }
+    store.schema = {
+      properties: { ...flatSchema.properties, age: { type: 'integer', default: 1 } }
+    }
+    const wrapper = mountForm({ initialData: {} })
+    await flushPromises()
+    expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual({ age: 1 })
+    expect(wrapper.text()).not.toContain('Form Validation Errors')
+    expect(fieldStub(wrapper, 'name').props('validationResult')).toBeUndefined()
+    // Validity still reaches the parent, so submit stays gated
+    expect(wrapper.emitted('validation-change')?.at(-1)?.[0]).toMatchObject({ is_valid: false })
+    // The parent echoing the form's own defaults back is not a load
+    await wrapper.setProps({ initialData: { age: 1 } })
+    expect(wrapper.text()).not.toContain('Form Validation Errors')
+
+    fieldStub(wrapper, 'age').vm.$emit('update:model-value', 3)
+    await flushPromises()
+    expect(wrapper.text()).toContain('Form Validation Errors')
+    expect(fieldStub(wrapper, 'name').props('validationResult')).toMatchObject({ is_valid: false })
+  })
+
   it('renders one field per property of a flat schema', () => {
     const wrapper = mountForm()
 

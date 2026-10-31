@@ -70,6 +70,8 @@ interface PrecurationsState {
     message?: string
     isAutoSave?: boolean
     isConflict?: boolean
+    /** A 409 naming the precuration this disease entity already has in the scope */
+    existingId?: string
     currentVersion?: number
     yourVersion?: number
   } | null
@@ -285,8 +287,11 @@ export const usePrecurationsStore = defineStore('precurations', {
           error: toApiError(error).message
         })
         const apiError = toApiError(error)
-        if (apiError.response?.status === 409) {
-          const data = apiError.response.data ?? {}
+        const data = apiError.response?.data ?? {}
+        const detail = data.detail as { message?: string; precuration_id?: string } | undefined
+        if (apiError.response?.status === 409 && detail?.precuration_id) {
+          this.error = { message: detail.message, existingId: detail.precuration_id }
+        } else if (apiError.response?.status === 409) {
           this.error = {
             message:
               'Another user or tab has modified this precuration. Reload to see their version.',

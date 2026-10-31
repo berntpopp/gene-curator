@@ -41,6 +41,30 @@
             </template>
             No schema assigned. Please contact an administrator.
           </v-alert>
+
+          <!-- The server names the precuration this disease entity already has (monkey B5) -->
+          <v-alert
+            v-if="duplicate"
+            type="warning"
+            variant="tonal"
+            class="mt-4"
+            data-testid="duplicate-entity"
+          >
+            {{ duplicate.message }}.
+            <router-link
+              :to="{
+                name: 'precuration-edit',
+                params: { scopeId, precurationId: duplicate.id }
+              }"
+            >
+              Open the existing precuration
+            </router-link>
+            <template v-if="draftId" #append>
+              <v-btn variant="outlined" data-testid="discard-duplicate" @click="discardDuplicate()">
+                Discard this draft
+              </v-btn>
+            </template>
+          </v-alert>
         </v-card-text>
 
         <v-divider />
@@ -73,6 +97,11 @@
     />
   </ErrorBoundary>
 </template>
+
+<script lang="ts">
+  // Drafts this tab created: a later duplicate-entity refusal removes them (monkey B5)
+  const createdHere = new Set<string>()
+</script>
 
 <script setup lang="ts">
   /**
@@ -164,6 +193,8 @@
   const conflict = ref(false)
   const submitting = ref(false)
   const createdId = ref<string | null>(null)
+  const draftId = computed(() => props.precurationId ?? createdId.value)
+  const duplicate = ref<{ message: string; id: string } | null>(null)
   const savedAt = ref<number | null>(null) // last successful server save
   const isValid = ref(true) // Updated via validation-change event
   const version = ref<Schema<'MethodologyVersion'> | null>(null)
@@ -321,6 +352,7 @@
   async function handleSaveDraft(): Promise<boolean> {
     if (conflict.value) return false // never save over the newer version; the user reloads
     savingDraft.value = true
+    duplicate.value = null
     try {
       const existingId = props.precurationId ?? createdId.value
       if (existingId) {
@@ -329,7 +361,16 @@
         const updated = await precurationsStore.saveDraft(existingId, sent)
         // The store swallows save errors and returns nothing
         if (!updated) {
-          if (precurationsStore.error?.isConflict) conflict.value = true
+          const refused = precurationsStore.error
+          if (refused?.isConflict) conflict.value = true
+          if (refused?.existingId) {
+            duplicate.value = { message: refused.message ?? '', id: refused.existingId }
+            // Created on this page before the entity was complete: remove it, no orphan (B5)
+            if (createdHere.has(existingId)) {
+              await discardDuplicate(false)
+              return false
+            }
+          }
           throw new Error('Draft not saved')
         }
         markSaved(sent, recoveryVersion(updated))
@@ -337,6 +378,7 @@
       } else {
         // Create new precuration as draft
         const created = await precurationsStore.createPrecuration(createPayload())
+        createdHere.add(created.id)
         replaceKeepingChanges(router, {
           name: 'precuration-edit',
           params: { scopeId: props.scopeId, precurationId: created.id }
@@ -349,7 +391,14 @@
       return true
     } catch (error) {
       logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
+      const detail = (error as { response?: { data?: { detail?: unknown } } }).response?.data
+        ?.detail as { message?: string; precuration_id?: string } | undefined
+      if (detail?.precuration_id)
+        duplicate.value = { message: detail.message ?? '', id: detail.precuration_id }
+      notificationsStore.addToast(
+        duplicate.value?.message || apiDetail(error, 'Failed to save draft'),
+        'error'
+      )
       return false
     } finally {
       savingDraft.value = false
@@ -420,6 +469,33 @@
   /**
    * Cancel editing
    */
+  /** Drop this duplicate draft and open the precuration the entity already has */
+  async function discardDuplicate(ask = true) {
+    const [id, existing] = [draftId.value, duplicate.value?.id]
+    if (!id || !existing) return
+    const ok =
+      !ask ||
+      (await confirm({
+        title: 'Discard this draft?',
+        text: 'This draft duplicates an existing precuration and will be removed.',
+        confirmText: 'Discard'
+      }))
+    if (!ok) return
+    try {
+      await precurationsStore.deletePrecuration(id)
+      createdHere.delete(id)
+      if (!ask)
+        notificationsStore.addToast(`${duplicate.value?.message}: this draft was removed`, 'error')
+      frame?.markClean()
+      router.push({
+        name: 'precuration-edit',
+        params: { scopeId: props.scopeId, precurationId: existing }
+      })
+    } catch (error) {
+      notificationsStore.addToast(apiDetail(error, 'Could not discard the draft'), 'error')
+    }
+  }
+
   async function handleCancel() {
     if (Object.keys(evidenceData.value).length > 0) {
       if (

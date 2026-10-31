@@ -133,9 +133,14 @@ describe('CurationDetailView', () => {
     expect(wrapper.findComponent({ name: 'DynamicForm' }).exists()).toBe(false)
   })
 
-  it('keeps the generic form for non-ClinGen schemas', async () => {
-    const wrapper = await load({ evidence_data: { foo: 1 } }, 'other')
-    expect(wrapper.findComponent(CurationEvidenceReadonly).exists()).toBe(false)
+  it('renders any schema from its pinned snapshot, so KGDB tables stay tables (monkey B1)', async () => {
+    const wrapper = await load(
+      { evidence_data: { foo: 1 }, methodology_version_id: 'v9' },
+      'point_model'
+    )
+    const readonly = wrapper.findComponent(CurationEvidenceReadonly)
+    expect(readonly.props()).toMatchObject({ schemaId: 's1', versionId: 'v9' })
+    expect(wrapper.findComponent({ name: 'DynamicForm' }).exists()).toBe(false)
   })
 
   it('explains the 4-eyes wait to the author of a curation in review (#242)', async () => {

@@ -20,7 +20,7 @@
             {{ isEditing ? 'Edit' : 'View' }} Schema: {{ schema.name }}
           </h1>
           <p class="text-body-large text-medium-emphasis mt-1">
-            {{ schema.schema_type }} schema v{{ schema.version }}
+            {{ schema.schema_type }} schema {{ formatVersion(schema.version) }}
           </p>
         </div>
         <v-spacer />
@@ -276,7 +276,7 @@
 </template>
 
 <script setup lang="ts">
-  import { formatDate } from '@/utils/format'
+  import { formatDate, formatVersion } from '@/utils/format'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
@@ -347,7 +347,7 @@
     ;(draft.value as Record<BlockKey, unknown>)[key] = value
   }
 
-  const getFieldCount = () => fieldIds(readLayout(schema.value?.field_definitions)).length
+  const getFieldCount = () => fieldIds(readLayout(draft.value.field_definitions)).length
 
   // Seed the edit buffer and the draft blocks from a loaded schema
   const resetEditor = (source: SchemaDetail) => {
@@ -460,10 +460,11 @@
       const schemaData = await schemasStore.fetchSchemaById(schemaId.value)
       schema.value = schemaData
       resetEditor(schemaData)
-      // Renames warn harder once records may hold values under the old id
+      // Renames warn harder once records may hold values under the old id; creation's own
+      // version 1 of a never-activated schema holds none (monkey B16)
       schemasStore
         .fetchVersions(schemaId.value)
-        .then(versions => (published.value = versions.length > 0))
+        .then(versions => (published.value = versions.length > 1 || !!schemaData.is_active))
         .catch(() => (published.value = false))
     } catch (err) {
       const apiErr = err as ApiError

@@ -46,8 +46,8 @@
                 type="number"
                 density="compact"
                 variant="plain"
-                :error-messages="diag(`${base}[${k}].${col.key}`)"
-                :hide-details="!diag(`${base}[${k}].${col.key}`).length"
+                :error-messages="diag(`${base}[${k}].${col.key(item)}`)"
+                :hide-details="!diag(`${base}[${k}].${col.key(item)}`).length"
                 @update:model-value="v => col.set(item, v)"
               />
             </td>
@@ -140,21 +140,23 @@
     else item.range = range
   }
 
+  // A case row's default is what a blank row scores: `blank_at`, which case_row needs (monkey B8)
+  const defaultKey = (i: ItemType) => (i.rule === 'case_row' ? 'blank_at' : 'default')
   const NUMBER_COLS = [
     {
-      key: 'default',
+      key: defaultKey,
       label: 'Default points',
-      get: (i: ItemType) => i.default ?? '',
-      set: (i: ItemType, v: unknown) => setNumber(i, 'default', v)
+      get: (i: ItemType) => i[defaultKey(i)] ?? '',
+      set: (i: ItemType, v: unknown) => setNumber(i, defaultKey(i), v)
     },
     {
-      key: 'range',
+      key: () => 'range',
       label: 'Minimum points',
       get: (i: ItemType) => i.range?.[0] ?? '',
       set: (i: ItemType, v: unknown) => setRange(i, 0, v)
     },
     {
-      key: 'range',
+      key: () => 'range',
       label: 'Maximum points',
       get: (i: ItemType) => i.range?.[1] ?? '',
       set: (i: ItemType, v: unknown) => setRange(i, 1, v)

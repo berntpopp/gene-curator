@@ -157,3 +157,31 @@ describe('SchemaEditor field builder', () => {
     }
   })
 })
+
+describe('SchemaEditor sidebar and rename warning (monkey B16, B17)', () => {
+  it.each([
+    [[{ version: 1 }], false, false],
+    [[{ version: 1 }], true, true],
+    [[{ version: 1 }, { version: 2 }], false, true]
+  ])('versions %j, active %s: published %s', async (versions, isActive, published) => {
+    const schemas = useSchemasStore()
+    vi.spyOn(schemas, 'fetchVersions').mockResolvedValue(versions as never)
+    vi.spyOn(schemas, 'fetchSchemaById').mockResolvedValue({
+      ...curationSchema,
+      is_active: isActive
+    } as never)
+    const wrapper = mount(SchemaEditor, opts())
+    await flushPromises()
+    expect(vmOf(wrapper).published).toBe(published)
+  })
+
+  it('counts the fields being edited', async () => {
+    const { wrapper, vm } = await mountView()
+    ;(vm.draft as { field_definitions: Record<string, unknown> }).field_definitions = {
+      a: { type: 'text' },
+      b: { type: 'text' }
+    }
+    await nextTick()
+    expect(wrapper.text()).toMatch(/Total Fields:\s*2/)
+  })
+})

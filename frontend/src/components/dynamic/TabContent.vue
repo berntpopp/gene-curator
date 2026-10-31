@@ -26,7 +26,9 @@
               v-for="{ fieldPath, fieldSchema } in shownFields(section)"
               :key="fieldPath"
               cols="12"
-              :sm="section.fields.length > 2 && fieldSchema.type !== 'evidence_table' ? 6 : 12"
+              :sm="
+                (section.fields?.length ?? 0) > 2 && fieldSchema.type !== 'evidence_table' ? 6 : 12
+              "
             >
               <DynamicField
                 :field-name="getFieldName(fieldPath)"
@@ -162,7 +164,7 @@
 
   /** Visible fields of a section, with `required_when` resolved against the form data */
   function shownFields(section: SectionConfig) {
-    return section.fields.flatMap(fieldPath => {
+    return (section.fields ?? []).flatMap(fieldPath => {
       const parts = fieldPath.split('.')
       // A field under a hidden parent is hidden too
       const parentsShown = parts

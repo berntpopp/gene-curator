@@ -273,23 +273,16 @@
           </v-row>
 
           <!-- Evidence Details (Schema-Agnostic) -->
-          <v-row v-if="isClinGenSchema || curationSchemaId" class="mb-6">
+          <v-row v-if="curationSchemaId" class="mb-6">
             <v-col cols="12">
               <v-card variant="outlined">
                 <v-card-title> Evidence details </v-card-title>
                 <v-card-text>
+                  <!-- From the pinned version's snapshot: the server JSON schema flattens tables (monkey B1) -->
                   <CurationEvidenceReadonly
-                    v-if="isClinGenSchema && curationSchemaId"
                     :evidence="evidence"
                     :schema-id="curationSchemaId"
                     :version-id="curation.methodology_version_id"
-                  />
-                  <DynamicForm
-                    v-else-if="curationSchemaId"
-                    :schema-id="curationSchemaId"
-                    :initial-data="curation.evidence_data || {}"
-                    :readonly="true"
-                    title=""
                   />
                 </v-card-text>
               </v-card>
@@ -423,7 +416,6 @@
   import { formatInheritance, relationshipLabel } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
-  import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import { formatScore } from './curationScores'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
@@ -495,8 +487,6 @@
   const curationSchemaId = ref<string | null>(null)
 
   const evidence = computed(() => (curation.value?.evidence_data ?? {}) as Record<string, unknown>)
-  // ClinGen schemas (by scoring engine) get the read-only evidence view
-  const isClinGenSchema = ref(false)
   const schemaFields = ref<Record<string, unknown> | null>(null)
   const pageTitle = computed(() =>
     curation.value?.gene_symbol
@@ -562,7 +552,6 @@
       curationSchemaId.value = workflowPair.curation_schema_id || null
       if (curationSchemaId.value) {
         const schema = await schemasAPI.getSchemaById(curationSchemaId.value)
-        isClinGenSchema.value = schema.scoring_configuration?.engine === 'clingen_sop_v11'
         registerClassifications(schema.scoring_configuration?.classifications)
         schemaFields.value = schema.field_definitions
       }

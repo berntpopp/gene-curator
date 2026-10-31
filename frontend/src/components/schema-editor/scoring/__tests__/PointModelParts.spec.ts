@@ -92,6 +92,16 @@ describe('PointModelTypes', () => {
   })
 })
 
+describe('PointModelTypes case rows (monkey B8)', () => {
+  it('edits blank_at as the default of a case row', () => {
+    const types: ItemType[] = [{ path: 'p', rule: 'case_row' }]
+    const w = withModel(PointModelTypes, types, { base: 'x.types', diag: () => [] })
+    const [points] = vmOf(w).NUMBER_COLS as { set: (i: ItemType, v: unknown) => void }[]
+    points!.set(types[0]!, '1.5')
+    expect(types[0]).toEqual({ path: 'p', rule: 'case_row', blank_at: 1.5 })
+  })
+})
+
 describe('PointModelRowRules', () => {
   it('adds and removes points_when conditions and steps', async () => {
     const item: ItemType = { path: 'segregation', rule: 'step' }

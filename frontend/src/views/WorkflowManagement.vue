@@ -251,7 +251,7 @@
 
 <script setup lang="ts">
   import { TERMINOLOGY } from '@/config/terminology'
-  import { formatDate, formatDateTime } from '@/utils/format'
+  import { formatDate, formatDateTime, formatVersion } from '@/utils/format'
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useSchemasStore, useWorkflowStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
@@ -327,7 +327,7 @@
   // Admin pages load inactive schemas too, but a pair may only reference active ones
   // Linked schemas cannot change later, so every option must be unambiguous and keep its place
   function schemaOptions(all: SchemaOption[]): SchemaOption[] {
-    const key = (s: SchemaOption) => `${s.name} · v${s.version ?? '?'}`
+    const key = (s: SchemaOption) => `${s.name} · ${formatVersion(s.version)}`
     const repeats = (s: SchemaOption) =>
       all.filter(o => o.is_active && key(o) === key(s)).length > 1
     return all

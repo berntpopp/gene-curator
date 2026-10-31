@@ -50,6 +50,22 @@ def _snapshot(source: Any) -> dict[str, Any]:
     return {key: get(key) for key in SNAPSHOT_KEYS}
 
 
+def _stamp_column_order(node: Any) -> None:
+    """jsonb reorders keys: a table column without ``order`` gets its place in the bundle
+    file, so tables show in authored order (monkey B10). Mutates ``node``."""
+    if isinstance(node, list):
+        for item in node:
+            _stamp_column_order(item)
+    elif isinstance(node, dict):
+        columns = node.get("columns")
+        if isinstance(columns, dict):
+            for i, column in enumerate(columns.values(), start=1):
+                if isinstance(column, dict):
+                    column.setdefault("order", i)
+        for value in node.values():
+            _stamp_column_order(value)
+
+
 def _plan_schema(
     db: Session, spec: CurationSchemaCreate
 ) -> tuple[ImportItem, CurationSchema | None, str | None]:
@@ -220,6 +236,8 @@ def import_bundle(
     db: Session, bundle: MethodologyBundle, *, user_id: UUID, dry_run: bool
 ) -> MethodologyImportResult:
     """Plan, validate and (unless dry_run or invalid) apply a methodology bundle."""
+    for spec in bundle.schemas:
+        _stamp_column_order(spec.field_definitions)
     errors = _bundle_errors(db, bundle)
     planned = []
     for spec in bundle.schemas:
