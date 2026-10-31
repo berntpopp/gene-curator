@@ -368,11 +368,12 @@ describe('SchemaDrivenPrecurationForm', () => {
     expect(recovery.clearRecovery).not.toHaveBeenCalled()
   })
 
-  it('readonly Escape navigation preserves the hidden local draft', async () => {
+  it('readonly cancel navigation preserves the hidden local draft', async () => {
     const wrapper = mountForm({ readonly: true })
     await flushPromises()
     internals(wrapper).evidenceData = { a: 'server' }
-    internals(wrapper).handleKeydown(new KeyboardEvent('keydown', { key: 'Escape' }))
+    confirmMock.mockResolvedValue(true)
+    await internals(wrapper).handleCancel()
     await flushPromises()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
     expect(recovery.clearRecovery).not.toHaveBeenCalled()
@@ -471,24 +472,9 @@ describe('SchemaDrivenPrecurationForm', () => {
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }))
     expect(history.undo).not.toHaveBeenCalled()
 
-    // No evidence entered yet, so Escape cancels without asking for confirmation.
+    // Escape closes dialogs only; it never cancels the form (monkey R2-6)
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(confirmMock).not.toHaveBeenCalled()
-    expect(wrapper.emitted('cancel')).toHaveLength(1)
-  })
-
-  it('leaves Escape in a field or select to that control', async () => {
-    const wrapper = mountForm()
-    await flushPromises()
-    const vm = internals(wrapper)
-    for (const html of ['<input>', '<input role="combobox" aria-expanded="false">']) {
-      const form = document.createElement('form')
-      form.innerHTML = html
-      form.addEventListener('keydown', e => vm.handleKeydown(e))
-      form.firstElementChild!.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
-      )
-    }
     expect(wrapper.emitted('cancel')).toBeUndefined()
   })
 

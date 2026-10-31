@@ -130,11 +130,14 @@ describe('DynamicForm flow', () => {
     store.schema = {
       properties: { ...flatSchema.properties, age: { type: 'integer', default: 1 } }
     }
+    store.validateEvidence.mockResolvedValue(store.result)
     const wrapper = mountForm({ initialData: {} })
     await flushPromises()
     expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual({ age: 1 })
     expect(wrapper.text()).not.toContain('Form Validation Errors')
     expect(fieldStub(wrapper, 'name').props('validationResult')).toBeUndefined()
+    // The server's reply is not shown on an untouched form either (monkey B13 rest)
+    expect(fieldStub(wrapper, 'name').props('backendErrors')).toEqual([])
     // Validity still reaches the parent, so submit stays gated
     expect(wrapper.emitted('validation-change')?.at(-1)?.[0]).toMatchObject({ is_valid: false })
     // The parent echoing the form's own defaults back is not a load
@@ -143,8 +146,25 @@ describe('DynamicForm flow', () => {
 
     fieldStub(wrapper, 'age').vm.$emit('update:model-value', 3)
     await flushPromises()
-    expect(wrapper.text()).toContain('Form Validation Errors')
     expect(fieldStub(wrapper, 'name').props('validationResult')).toMatchObject({ is_valid: false })
+  })
+
+  it('lists the form errors in a box only after a submit, not while drafting (monkey R2-8)', async () => {
+    const invalid = {
+      is_valid: false,
+      errors: [{ field: 'name', message: 'Required field is missing' }],
+      field_validations: { name: { errors: [{ message: 'Required field is missing' }] } }
+    }
+    store.result = invalid
+    store.validateEvidence.mockResolvedValue(invalid)
+    const wrapper = mountForm()
+    await flushPromises()
+    await buttonWithText(wrapper, 'Save').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Form Validation Errors')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Form Validation Errors')
   })
 
   it('renders one field per property of a flat schema', () => {
@@ -262,6 +282,12 @@ describe('DynamicForm flow', () => {
     expect(wrapper.emitted('submit')).toBeUndefined()
     expect(wrapper.text()).toContain('Could not validate the form. Please try again.')
     store.validateEvidence.mockReset()
+  })
+
+  it('validates an empty new form on mount so the score panel has a state (monkey R2-3)', async () => {
+    mountForm({ initialData: {} })
+    await flushPromises()
+    expect(store.validateEvidence).toHaveBeenCalledTimes(1)
   })
 
   it('does not submit when the form fails local validation', async () => {
@@ -459,7 +485,7 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
     expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('typed')
   })
 
-  it('labels error paths with the schema title, not the raw path', () => {
+  it('labels error paths with the schema title, not the raw path', async () => {
     store.schema = {
       properties: {
         entity_definition: {
@@ -480,6 +506,7 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
       ]
     }
     const wrapper = mountForm()
+    await wrapper.find('form').trigger('submit') // the error box lists errors after a submit
 
     expect(wrapper.findComponent({ name: 'ValidationWarnings' }).props('messages')).toEqual([
       'Disease name: Short'

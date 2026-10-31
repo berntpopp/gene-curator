@@ -201,6 +201,12 @@
                     <div v-else-if="curation.has_approved" class="text-body-medium text-center">
                       You approved; {{ curation.approvals_remaining }} more needed
                     </div>
+                    <div
+                      v-if="canReview && !curation.has_approved && approvalsLeft > 1"
+                      class="text-body-small text-medium-emphasis text-center"
+                    >
+                      Needs {{ approvalsLeft }} approvals; yours is one of them
+                    </div>
                     <v-btn
                       v-if="canReview"
                       color="warning"
@@ -228,11 +234,7 @@
                       v-if="!canSubmitForReview && !canDelete && !canReview"
                       class="text-body-medium text-medium-emphasis text-center py-2"
                     >
-                      {{
-                        isAuthorInReview
-                          ? 'Waiting for review by another scope reviewer (4-eyes)'
-                          : 'No actions available'
-                      }}
+                      {{ whyNoActions }}
                     </div>
                   </div>
                 </v-card-text>
@@ -387,6 +389,7 @@
       :replaces="replaces"
       :total="formatScore(scores.total)"
       :curator="curation?.curator_name"
+      :methodology="methodology"
       :blockers="blockers"
       :busy="review.busy.value"
       :error="review.error.value"
@@ -428,6 +431,7 @@
   import { useScopesStore } from '@/stores/scopes'
   import { useCurationClassification, type ScoredCuration } from './useCurationClassification'
   import { replacesActive } from './replacesActive'
+  import { noActionsReason } from './noActionsReason'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useCurateGuard } from '@/components/workspace/useCurateGuard'
 
@@ -456,6 +460,7 @@
     can_review?: boolean
     has_approved?: boolean
     approvals_remaining?: number | null
+    corrected_disease?: boolean
   }
 
   // Error shape from axios (API) and plain Error alike
@@ -499,6 +504,9 @@
       !!curation.value.created_by &&
       curation.value.created_by === (authStore.user as { id?: string } | null)?.id
   )
+
+  const approvalsLeft = computed(() => curation.value?.approvals_remaining ?? 0)
+  const whyNoActions = computed(() => noActionsReason(curation.value ?? {}, isAuthorInReview.value))
 
   // Engine warnings saved with the score (review flags #559, lint) for the reviewer
   const scoreWarnings = computed(() => {
@@ -545,6 +553,7 @@
     queryTodos(curation.value?.created_by ?? '', reviewStore.comments, reviewContext.value)
   )
 
+  const methodology = ref<string | null>(null)
   async function loadCurationSchema() {
     if (!curation.value?.workflow_pair_id) return
     try {
@@ -553,6 +562,9 @@
       if (curationSchemaId.value) {
         const schema = await schemasAPI.getSchemaById(curationSchemaId.value)
         registerClassifications(schema.scoring_configuration?.classifications)
+        // ClinGen's engine is SOP v11; any other methodology goes by its schema's name (R2-4)
+        methodology.value =
+          schema.scoring_configuration?.engine === 'clingen_sop_v11' ? 'SOP v11' : schema.name
         schemaFields.value = schema.field_definitions
       }
       logger.debug('Curation schema loaded', {

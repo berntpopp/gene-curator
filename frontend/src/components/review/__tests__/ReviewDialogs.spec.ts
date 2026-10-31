@@ -42,6 +42,12 @@ describe('ApproveChecklistDialog', () => {
     expect(w.text()).toContain('Definitive')
   })
 
+  it('names the methodology the checklist is checked against (monkey R2-4)', () => {
+    const w = mount(ApproveChecklistDialog, opts({ ...approveProps, methodology: 'KGDB curation' }))
+    expect(w.text()).toContain('Checked against KGDB curation')
+    expect(w.text()).not.toContain('SOP v11')
+  })
+
   it('stays disabled until every checklist item is ticked, counting what is left', async () => {
     const w = mount(ApproveChecklistDialog, opts(approveProps))
     const btn = () => w.find('[data-testid=approve-confirm]')

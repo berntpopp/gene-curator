@@ -437,6 +437,7 @@
     if (query) {
       await usersStore.searchUsers(query)
     } else {
+      usersStore.clearSearch()
       await usersStore.fetchUsers()
     }
   }, 300)

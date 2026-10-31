@@ -283,3 +283,23 @@ def test_old_values_name_the_entity_the_precuration_supplied(
     assert audit.old_values["disease_name"] == "old"
     assert audit.old_values["mondo_id"] == A["mondo_id"]
     assert audit.old_values["relationship_type"] == "mendelian"
+
+
+def test_the_detail_tells_the_corrector_why_they_cannot_review(
+    db_session: Session, client: TestClient
+) -> None:
+    """Monkey R2-5: the corrector saw "No actions available" with no reason."""
+    world = World(db_session)
+    c, admin = _legacy(world), _admin(world)
+    assert _correct(client, c, admin).status_code == 200
+    c.status, c.workflow_stage = CurationStatus.IN_REVIEW, WorkflowStage.REVIEW
+    db_session.commit()
+
+    def detail(user):  # type: ignore[no-untyped-def]
+        r = client.get(f"/api/v1/curations/{c.id}", headers=auth_headers(user))
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    assert detail(admin)["corrected_disease"] is True
+    assert detail(admin)["can_review"] is False
+    assert detail(world.reviewer)["corrected_disease"] is False

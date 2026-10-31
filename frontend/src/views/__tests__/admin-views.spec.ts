@@ -124,6 +124,19 @@ describe('UserManagement', () => {
     expect(store.searchUsers).toHaveBeenCalledWith('alice')
   })
 
+  it('clearing the search text drops the old filter (monkey R2-1)', async () => {
+    vi.useFakeTimers()
+    const store = users as unknown as { clearSearch: ReturnType<typeof vi.fn> }
+    const wrapper = mount(UserManagement, opts())
+    await wrapper.find('input[type="text"]').setValue('bob')
+    vi.advanceTimersByTime(300)
+    store.clearSearch.mockClear()
+    await wrapper.find('input[type="text"]').setValue('')
+    vi.advanceTimersByTime(300)
+    vi.useRealTimers()
+    expect(store.clearSearch).toHaveBeenCalled()
+  })
+
   it('uses singular nouns for a count of one', async () => {
     users.statistics = {
       total_users: 1,

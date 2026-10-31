@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import DynamicForm from '../DynamicForm.vue'
 import { vmOf } from './testHelpers'
@@ -212,6 +212,7 @@ describe('DynamicForm Validation', () => {
       })
 
       // Set backend error on field1
+      await flushPromises() // the on-mount validation settles first
       vmOf(wrapper).backendErrors = { field1: ['Error message'] }
       await wrapper.vm.$nextTick()
 
@@ -346,6 +347,7 @@ describe('DynamicForm Validation', () => {
       })
 
       // Set up backend errors for tab2 field
+      await flushPromises() // the on-mount validation settles first
       vmOf(wrapper).backendErrors = { field2: ['Error message'] }
       await wrapper.vm.$nextTick()
 

@@ -266,7 +266,6 @@
     () => frame.save(),
     () => formReady.value && !readonly.value
   )
-  const scoreShown = ref(false)
   // A create refused for an open curation (409, e.g. a legacy one covering the gene): open it
   watch(
     () => curationsStore.error?.openCurationId,
@@ -278,14 +277,7 @@
         })
     }
   )
-  watch(
-    frame.score,
-    score => {
-      if (score) scoreShown.value = true
-    },
-    { immediate: true }
-  )
-  const showPanel = computed(() => formReady.value && scoreShown.value)
+  const showPanel = computed(() => formReady.value)
 
   const crumbs = computed(() => [
     { text: scope.value?.display_name || 'Scope', to: `/scopes/${scopeId.value}` },

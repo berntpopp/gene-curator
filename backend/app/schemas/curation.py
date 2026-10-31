@@ -299,6 +299,8 @@ class CurationDetail(CurationInDBBase):
     # Open review round only: the user's approval is recorded / approvals still needed (#430)
     has_approved: bool = False
     approvals_remaining: int | None = None
+    # The user corrected its disease entity (#453), so they cannot review it (R2-5)
+    corrected_disease: bool = False
     assigned_reviewers: list[AssignedReviewer] = Field(
         default_factory=list, description="In review: who still has to review it"
     )

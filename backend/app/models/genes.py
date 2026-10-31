@@ -6,7 +6,7 @@ Modern SQLAlchemy 2.0 patterns with full type safety.
 """
 
 import uuid
-from datetime import datetime as dt
+from datetime import date, datetime as dt
 from typing import TYPE_CHECKING, Any
 from uuid import UUID as PyUUID  # noqa: N811
 
@@ -152,7 +152,7 @@ class GeneScopeAssignment(Base):
     priority: Mapped[str] = mapped_column(
         String(20), default="medium"
     )  # high, medium, low
-    due_date: Mapped[dt | None] = mapped_column(Date)
+    due_date: Mapped[date | None] = mapped_column(Date)
     assignment_notes: Mapped[str | None] = mapped_column(Text)
 
     # Metadata

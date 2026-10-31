@@ -194,3 +194,28 @@ def test_bulk_create_keeps_the_due_date(
     assert response.status_code == 200, response.text
     created = response.json()["created_assignments"]
     assert [a["due_date"] for a in created] == ["2026-12-01"]
+
+
+def test_bulk_assign_onto_existing_unassigned_keeps_the_due_date(
+    client: TestClient,
+    db_session: Session,
+    admin_token: str,
+    test_gene: Gene,
+    test_scope: Scope,
+    test_user_curator: UserNew,
+) -> None:
+    """Monkey R2-2: the existing-without-curator branch dropped due_date."""
+    row = _assignment(db_session, test_gene, test_scope)
+    response = client.post(
+        f"{BASE}/bulk",
+        json={
+            "gene_ids": [str(test_gene.id)],
+            "scope_id": str(test_scope.id),
+            "assigned_curator_id": str(test_user_curator.id),
+            "due_date": "2026-12-15",
+        },
+        headers=_auth(admin_token),
+    )
+    assert response.status_code == 200, response.text
+    db_session.refresh(row)
+    assert str(row.due_date) == "2026-12-15"
