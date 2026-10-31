@@ -63,6 +63,26 @@ def test_pmids_in_free_text_warn_but_ids_and_variants_do_not() -> None:
     ]
 
 
+def test_pmid_text_warns_only_in_scoring_rows() -> None:
+    """#612: notes, source citations and diagnostics cite papers by design."""
+    cited = "PMID: 23456789"
+    row = {"pmid": "1", "explanation": cited, "sources": [{"citation": cited}]}
+    evidence = {
+        "genetic": {"probands": [row]},
+        "reported_not_scored": cited,
+        "context_notes": cited,
+        "diagnostics_notes": {"detectability_note": cited},
+        "diagnostics": {
+            "recommended_transcript": {"numbering_conversion": cited},
+            "detectability": [{"challenge": "vntr", "note": cited}],
+        },
+    }
+    assert [w for w in evidence_warnings(evidence, _result(0)) if "free text" in w] == [
+        "genetic.probands[0].explanation: mentions a PMID in free text; record each "
+        "paper in a row's pmid field"
+    ]
+
+
 @pytest.mark.parametrize(
     ("summary", "claimed"),
     [

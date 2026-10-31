@@ -1748,8 +1748,8 @@ export interface paths {
         /**
          * Get My Review Assignments
          * @description Get the current user's curation review assignments, with gene symbol and scope name.
-         *     Precurations are not listed (no review row): find routed ones in read_my_work or
-         *     list_precurations with pending_review=true.
+         *     Precurations, and curations moved to review without a reviewer, have no review row:
+         *     read_my_work lists them (a curation's curator calls assign_peer_reviewer).
          */
         get: operations["get_my_review_assignments_api_v1_workflow_reviews_my_assignments_get"];
         put?: never;
@@ -13762,6 +13762,8 @@ export interface operations {
                 compact?: boolean;
                 /** @description Dotted evidence path, e.g. genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null: only that field, its validation rules and point ranges, without the schema envelope */
                 path?: string | null;
+                /** @description Only the scoring_configuration */
+                scoring?: boolean;
             };
             header?: never;
             path: {

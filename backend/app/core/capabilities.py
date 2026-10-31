@@ -131,8 +131,24 @@ def require(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Needs a platform admin (global configuration or data)"
             if scope_id is None
-            else "Not authorized to access this scope",
+            else _denied(db, user.id, scope_id, capability),
         )
+
+
+def _denied(db: Session, user_id: UUID, scope_id: UUID, capability: str) -> str:
+    """A member learns the role it lacks (#612); a stranger nothing about the scope."""
+    role = db.scalar(
+        select(ScopeMembership.role).where(
+            ScopeMembership.user_id == user_id,
+            ScopeMembership.scope_id == scope_id,
+            ScopeMembership.is_active == True,  # noqa: E712
+            ScopeMembership.accepted_at.isnot(None),
+        )
+    )
+    if role is None:
+        return "Not authorized to access this scope"
+    needed = " or ".join(sorted(str(r) for r in db.scalars(roles_holding(capability))))
+    return f"Your scope role {role} cannot do {capability}; it needs the {needed} role"
 
 
 INACTIVE_SCOPE = "This scope is inactive; its curations are read-only"

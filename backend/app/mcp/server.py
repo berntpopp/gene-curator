@@ -26,6 +26,7 @@ from mcp.types import ToolAnnotations
 
 from app.api.v1.endpoints.logs import require_admin, require_admin_or_reviewer
 from app.core.deps import PAT_BLOCKED_OPERATIONS, get_current_admin_user
+from app.core.source_field import KINDS as SOURCE_KINDS
 from app.mcp.audit import (
     AGENT_ARG,
     AGENT_TOOLS,
@@ -71,10 +72,9 @@ Scopes by name: tools with scope_name take the team name for scope_id
 get_peer_reviewers, get_my_review_assignments); list_scopes(name=) finds the id.
 
 Set up a pipeline: get_workflow_pairs, create_scope (default_workflow_pair_id;
-update_scope changes it later). Two ClinGen SOP v11 pairs exist: "ClinGen
-Gene-Disease Validity" is_default (create_scope uses it) and
-"ClinGen_Complete_Workflow", the older form in the demo scopes. Curate with
-the scope's default_workflow_pair_id. Members: search_users_for_invitation finds a
+update_scope changes it later). create_precuration uses the scope's default pair
+unless precuration_schema_id names another pair's; the methodology says which pair
+an entity needs. Members: search_users_for_invitation finds a
 user, add_member adds them at once, update_member_role changes a role.
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
@@ -188,9 +188,8 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
   other_variant_type}[]: proband_label, variant, variant_type, pmid,
   proband_counted_points, score_status ("score" counts; "review"/"contradicts" count
   nothing; blank scores 0); .autosomal_recessive.{...}[]: variant_1 and variant_2
-- One row per proband the paper describes, never one per paper or cohort; each row
-  has its own variant(s) as HGVS (c./p.), rsID or genomic coordinate, and the PMID
-  that reports that proband.
+- One row per proband (never per paper or cohort), each with its own variant(s)
+  (HGVS c./p., rsID or genomic coordinate) and the PMID that reports it.
 - variant_type values per table:
 {variant_types}
 - genetic_evidence.segregation[]: one row per family; estimated LODs count only if
@@ -204,11 +203,15 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
 - contradictory_evidence[]: pmid, impact
 - evidence_summary: free-text summary and notes of the curation (never scored);
   submit notes go to the reviewer.
+Other methodologies have their own paths (KGDB: genetic.probands[],
+association.studies[]).
+A source cell is {kind, id} or a list of them; kind: {source_kinds}; optional url,
+title, tool, citation, retrieved_at, record_sha256.
 Row fields, options and point ranges of one table: get_curation_schema(schema_id,
-path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null").""".replace(
+path="genetic_evidence.segregation").""".replace(
     "{variant_types}",
     "\n".join(f"  {table}: {', '.join(vs)}" for table, vs in VARIANT_TYPES.items()),
-)
+).replace("{source_kinds}", "|".join(SOURCE_KINDS))
 # Routes without a docstring: lead with the words an agent searches for
 _DESCRIPTIONS = {
     # without the invitation flow, which is not on /mcp
@@ -235,9 +238,8 @@ _ARG_DESCRIPTIONS = {
 
 # Said once, on the tool agents save evidence with (round 4: list size)
 _SEE_SAVE = (
-    "\n\nOne row per proband, each with its own variant (HGVS c./p., rsID or genomic "
-    "coordinate) and the PMID that reports it; exact variant_type values per table, "
-    "paths and evidence_summary: see save_draft_curations."
+    "\n\nOne row per proband (own variant and PMID); paths and values: see "
+    "save_draft_curations."
 )
 _DESCRIPTION_EXTRAS = {
     "save_draft_curations": _EVIDENCE_PATHS,
