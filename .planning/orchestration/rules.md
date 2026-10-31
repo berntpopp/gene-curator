@@ -12,3 +12,4 @@
 - Never start dev servers in the worktree. Tests only (SQLite pytest, Vitest).
 - Ponytail full: smallest complete change; no unrelated modernizing.
 - Report in at most 15 lines: branch, PR number, issues closed / partial, gates run with results, files touched, follow-ups. No diffs, no file dumps.
+- Never `pkill`/`killall` make, pytest, docker or node: other worktrees run the same commands. Stop only your own process by PID (or your own PGTEST_PORT container).
