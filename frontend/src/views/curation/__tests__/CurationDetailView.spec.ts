@@ -79,6 +79,7 @@ describe('CurationDetailView', () => {
       curation_schema_id: 's1'
     } as never)
     vi.mocked(schemasAPI.getSchemaById).mockResolvedValue({
+      name: 'KGDB Mendelian Curation',
       scoring_configuration: { engine }
     } as never)
     vi.mocked(curationsAPI.getCuration).mockResolvedValue({
@@ -148,6 +149,18 @@ describe('CurationDetailView', () => {
     const wrapper = await load({ created_by: 'me', can_review: false })
     expect(wrapper.text()).toContain('Waiting for review by another scope reviewer (4-eyes)')
     expect(wrapper.text()).not.toContain('No actions available')
+  })
+
+  it('says why nothing is available: the corrector, or the approvals still needed (monkey R2-5)', async () => {
+    useAuthStore().user = { id: 'sadmin' } as never
+    let wrapper = await load({ created_by: 'alice', corrected_disease: true })
+    expect(wrapper.text()).toContain('You corrected the disease entity')
+    expect(wrapper.text()).not.toContain('No actions available')
+    wrapper = await load({ created_by: 'alice', approvals_remaining: 2 })
+    expect(wrapper.text()).toContain('Waiting for 2 more approvals')
+    // The first reviewer learns before approving that two approvals are required
+    wrapper = await load({ can_review: true, created_by: 'alice', approvals_remaining: 2 })
+    expect(wrapper.text()).toContain('Needs 2 approvals')
   })
 
   it('links a reviewer to the AI second view, nobody else (#530)', async () => {
@@ -236,6 +249,14 @@ describe('CurationDetailView', () => {
       '2'
     ])
     expect(wrapper.text()).not.toContain('/ 6')
+  })
+
+  it.each([
+    ['point_model', 'KGDB Mendelian Curation'],
+    ['clingen_sop_v11', 'SOP v11']
+  ])('names the %s methodology in the approve checklist (monkey R2-4)', async (engine, name) => {
+    const wrapper = await load({ can_review: true }, engine)
+    expect(wrapper.findComponent(ApproveChecklistDialog).props('methodology')).toBe(name)
   })
 
   it('leads with the final classification and gives the reviewer both (#533)', async () => {

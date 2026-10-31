@@ -372,6 +372,7 @@ describe('CurationFormView', () => {
 
   describe('workspace frame', () => {
     // Stands in for the form: attaches to the frame like SchemaDrivenCurationForm does
+    let scoreOnMount = true
     const FrameForm = defineComponent({
       name: 'SchemaDrivenCurationForm',
       emits: ['ready', 'submit'],
@@ -383,12 +384,13 @@ describe('CurationFormView', () => {
         const save = vi.fn().mockResolvedValue(true)
         frame.attachForm({ evidence, saving, savedAt, save })
         frame.attachSubmit({ canSubmit: ref(true), run: () => emit('submit') })
-        frame.setScore({
-          trace: null,
-          total: 7.5,
-          classification: 'Moderate',
-          hasContradictory: false
-        })
+        if (scoreOnMount)
+          frame.setScore({
+            trace: null,
+            total: 7.5,
+            classification: 'Moderate',
+            hasContradictory: false
+          })
         frame.setMeta({ disease: 'Alport syndrome', moi: 'X-linked' })
         onMounted(() => emit('ready'))
         formApi.frame = frame
@@ -438,6 +440,14 @@ describe('CurationFormView', () => {
       expect(wrapper.text()).toContain('Saved')
       expect(wrapper.text()).toContain('Calculated classification')
       expect(wrapper.text()).toContain('7.5')
+    })
+
+    it('shows the score panel state before any score arrives (monkey R2-3)', async () => {
+      scoreOnMount = false
+      const { wrapper } = await mountFramed()
+      scoreOnMount = true
+      expect(wrapper.get('.ws-panel').text()).toContain('0 points so far')
+      wrapper.unmount()
     })
 
     it('keeps the same score panel and checklist mounted while a new score is pending', async () => {

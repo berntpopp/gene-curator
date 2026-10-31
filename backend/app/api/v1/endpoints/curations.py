@@ -33,6 +33,7 @@ from app.crud.curator_classification import classification_choices
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
+    corrected_by,
     earlier_feedback,
     pending_reviews,
     reviewers_required,
@@ -278,6 +279,7 @@ def get_curation(
     ]
     # The view hides Approve while this approval waits for others (#430)
     response.has_approved = _has_approved(db, current_user, curation)
+    response.corrected_disease = corrected_by(db, curation.id, current_user.id)
     response.can_delete = _can_user_delete_curation(db, current_user, curation)
     if curation.status == CurationStatus.IN_REVIEW:
         required = reviewers_required(WorkflowEngine.workflow_states(db, curation))

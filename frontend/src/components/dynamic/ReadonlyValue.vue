@@ -31,7 +31,7 @@
   const displayValue = computed(() => {
     const options = props.schema.enumOptions ?? props.schema.enum
     return Array.isArray(props.modelValue)
-      ? props.modelValue.map(value => formatValue(value, options)).join(', ') || 'none'
+      ? props.modelValue.map(value => formatValue(value, options)).join(', ') || '—'
       : formatValue(props.modelValue, options)
   })
 </script>

@@ -12,6 +12,7 @@ export interface FieldDef {
   properties?: Record<string, FieldDef>
   item_schema?: Record<string, FieldDef>
   items?: FieldDef
+  columns?: Record<string, FieldDef>
   options?: (string | { value: unknown; label?: string })[]
 }
 
@@ -80,7 +81,7 @@ function fieldAt(fields: DiffContext['fields'], path: string): FieldDef | undefi
   let node: FieldDef | undefined
   for (const s of segments(path)) {
     node = props?.[s]
-    props = node?.properties ?? node?.item_schema ?? node?.items?.properties
+    props = node?.properties ?? node?.item_schema ?? node?.columns ?? node?.items?.properties
   }
   return node
 }

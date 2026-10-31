@@ -6,7 +6,7 @@ Modern SQLAlchemy 2.0 patterns with full type safety.
 """
 
 import uuid
-from datetime import datetime as dt
+from datetime import date, datetime as dt
 from typing import TYPE_CHECKING, Any
 from uuid import UUID as PyUUID  # noqa: N811
 
@@ -456,7 +456,7 @@ class Review(Base):
     assigned_by: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
-    due_date: Mapped[dt | None] = mapped_column(Date)
+    due_date: Mapped[date | None] = mapped_column(Date)
 
     # Version tracking for iterative reviews
     review_round: Mapped[int] = mapped_column(Integer, default=1)

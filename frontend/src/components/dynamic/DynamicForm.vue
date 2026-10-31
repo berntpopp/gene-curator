@@ -49,7 +49,7 @@
                       :schema="jsonSchema"
                       :form-data="formData"
                       :validation-result="validationResult"
-                      :backend-errors="backendErrors"
+                      :backend-errors="shownBackendErrors"
                       :readonly="readonly"
                       @update:field="handleTabFieldUpdate"
                       @disease-name="fillDiseaseName"
@@ -84,7 +84,7 @@
                     :field-schema="field"
                     :model-value="formData[fieldName]"
                     :validation-result="getFieldValidation(fieldName)"
-                    :backend-errors="backendErrors[fieldName] || []"
+                    :backend-errors="shownBackendErrors[fieldName] || []"
                     :disabled="readonly"
                     :readonly="readonly"
                     @update:model-value="updateField(fieldName, $event)"
@@ -105,7 +105,7 @@
 
             <!-- Validation Errors (shown for both layouts) -->
             <v-alert
-              v-if="validationResult && !validationResult.is_valid"
+              v-if="submitAttempted && validationResult && !validationResult.is_valid"
               type="error"
               variant="tonal"
               class="mt-4"
@@ -304,6 +304,9 @@
   // saved record loads (monkey B13); validity is still reported to the parent from the start
   const touched = ref(Object.keys(props.initialData ?? {}).length > 0)
   const validationResult = computed(() => (touched.value ? storedValidation.value : undefined))
+  // The error summary is for a submit; while drafting, the fields show their own errors (R2-8)
+  const submitAttempted = ref(false)
+  const shownBackendErrors = computed(() => (touched.value ? backendErrors.value : {}))
 
   const {
     hasTabs,
@@ -500,7 +503,7 @@
 
   const handleSubmit = async () => {
     submitting.value = true
-    touched.value = true
+    touched.value = submitAttempted.value = true
     try {
       // Validate using v-form ref (VALD-06)
       const { valid } = await formRef.value!.validate()
@@ -623,9 +626,8 @@
   onMounted(async () => {
     if (props.schemaId) {
       try {
-        if (Object.keys(formData.value).length > 0) {
-          await validateForm()
-        }
+        // An empty new form validates too: the score panel shows its state from the start
+        await validateForm()
       } catch (err) {
         logger.error('Failed to initialize form:', errorDetails(err))
       }
