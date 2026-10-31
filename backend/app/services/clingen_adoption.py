@@ -33,6 +33,7 @@ from app.models import (
     CurationNew,
     CurationStatus,
     Gene,
+    NotificationNew,
     ReviewItemComment,
     Scope,
     UserNew,
@@ -40,6 +41,7 @@ from app.models import (
     WorkflowStage,
 )
 from app.models.curation import _MOI_SYNONYMS
+from app.models.model_enums import NotificationType
 from app.schemas.clingen_adoption import (
     ClinGenAdoptionItem,
     ClinGenAdoptionResult,
@@ -268,7 +270,17 @@ def restart_review_round(db: Session, curation: CurationNew, user_id: UUID) -> N
     count and each earlier reviewer is asked again (a round starts at submitted_at)."""
     curation.submitted_at = datetime.now(UTC)
     db.flush()
-    reassign_earlier_reviewers(db, curation, user_id)
+    gene = db.get(Gene, curation.gene_id)
+    for reviewer_id in reassign_earlier_reviewers(db, curation, user_id):
+        db.add(  # as a resubmit notifies (workflow_engine)
+            NotificationNew(
+                user_id=reviewer_id,
+                type=NotificationType.REVIEW_ASSIGNED,
+                title="New review assigned",
+                message=f"New review assigned: {gene.approved_symbol if gene else 'Unknown'}",
+                link=f"/scopes/{curation.scope_id}/curations/{curation.id}",
+            )
+        )
     db.commit()
     db.refresh(curation)
 

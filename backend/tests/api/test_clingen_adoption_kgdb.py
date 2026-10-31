@@ -301,6 +301,18 @@ def test_a_diagnostics_edit_in_review_starts_a_new_review_round(
     approve(second)  # the first approval was of the content before the edit
     db_session.refresh(c)
     assert c.status == CurationStatus.IN_REVIEW
-    approve(first)  # asked again in the new round
+    # asked again in the new round, with the notification a resubmit sends
+    from app.models import NotificationNew
+    from app.models.model_enums import NotificationType
+
+    note = db_session.scalars(
+        select(NotificationNew).where(
+            NotificationNew.user_id == first.id,
+            NotificationNew.type == NotificationType.REVIEW_ASSIGNED,
+            NotificationNew.link == f"/scopes/{c.scope_id}/curations/{cid}",
+        )
+    ).all()
+    assert len(note) == 2  # the first ask and the new round
+    approve(first)
     db_session.refresh(c)
     assert c.status == CurationStatus.ACTIVE
