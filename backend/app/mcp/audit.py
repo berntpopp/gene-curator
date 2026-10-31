@@ -41,6 +41,32 @@ _CHANNEL_HEADERS = {CHANNEL_HEADER.encode(), CLIENT_HEADER.encode()}
 request_channel: ContextVar[tuple[str, str] | None] = ContextVar(
     "request_channel", default=None
 )
+# #593: the client-reported AI agent of the tool call being served (W3C PROV-O
+# SoftwareAgent acting on behalf of the token's user); set only by ToolAuditMiddleware
+request_agent: ContextVar[dict[str, Any] | None] = ContextVar(
+    "request_agent", default=None
+)
+_TEXT = {"type": "string", "maxLength": 200}
+AGENT_ARG: dict[str, Any] = {
+    "type": "object",
+    "description": "The AI agent writing for you: recorded as a software contribution "
+    "on your behalf, never as an approver",
+    "properties": {
+        "model": _TEXT,
+        "agent": _TEXT,
+        "tools_used": {"type": "array", "items": _TEXT, "maxItems": 50},
+    },
+    "required": ["model"],
+    "additionalProperties": False,
+}
+# Evidence writes an agent drafts; approvals and reviews stay a person's act
+AGENT_TOOLS = frozenset(
+    {
+        *("create_precuration", "update_precuration", "save_draft_precurations"),
+        *("submit_precuration", "create_curation", "update_curation"),
+        *("save_draft_curations", "submit_curation"),
+    }
+)
 
 
 def mark_internal(app: ASGIApp) -> ASGIApp:
@@ -90,9 +116,14 @@ def _apply_channel(
         connection.execute(
             text(
                 "SELECT set_config('app.channel', :channel, true), "
-                "set_config('app.client', :client, true)"
+                "set_config('app.client', :client, true), "
+                "set_config('app.agent', :agent, true)"
             ),
-            {"channel": found[0], "client": found[1]},
+            {
+                "channel": found[0],
+                "client": found[1],
+                "agent": json.dumps(request_agent.get()) if request_agent.get() else "",
+            },
         )
 
 
@@ -197,7 +228,9 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
 
 # Lean results on /mcp only (token plan 3, 4); /mcp/full drops only null.
 # Who created or submitted stays: reviewers need it for 4-eyes and feedback.
-AUDIT_KEYS = frozenset({"auto_saved_at", "record_hash", "previous_hash"})
+AUDIT_KEYS = frozenset(
+    {"auto_saved_at", "record_hash", "previous_hash", "row_provenance"}
+)
 SLIM_KEYS = {
     "validate_pmids": frozenset(
         {
@@ -434,7 +467,13 @@ class ToolAuditMiddleware(Middleware):
                     raise _invalid_arguments(name, tool.parameters, problems)
             args = context.message.arguments or {}
             extra = {k: args.pop(k) for k in MCP_ONLY_ARGS.get(name, {}) if k in args}
-            result = await call_next(context)
+            agent = request_agent.set(
+                args.pop("agent", None) if name in AGENT_TOOLS else None
+            )
+            try:
+                result = await call_next(context)
+            finally:
+                request_agent.reset(agent)
 
             def shaped(data: Any) -> Any:
                 return shape(name, data, lean=self.lean, args=extra)

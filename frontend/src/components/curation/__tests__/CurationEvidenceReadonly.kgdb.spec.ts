@@ -42,4 +42,15 @@ describe('CurationEvidenceReadonly with the KGDB bundle', () => {
     expect(wrapper.text()).not.toContain('"proband_label"')
     wrapper.unmount()
   })
+
+  it('shows the synopsis the bundle names (evidence_summary)', async () => {
+    const evidence = { evidence_summary: 'HOMG3, autosomal recessive' }
+    const wrapper = mount(CurationEvidenceReadonly, {
+      props: { evidence, schemaId: 's1', versionId: 'v1' }
+    })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="curation-synopsis"]').text()).toContain(
+      'HOMG3, autosomal recessive'
+    )
+  })
 })

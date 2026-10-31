@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core.schema_defaults import check_default_mappings, finite_number
 from app.core.schema_validation_result import SchemaValidationResult
+from app.core.synopsis import synopsis_diagnostics
 
 # One copy of the condition semantics (#433), shared with submit and the frontend
 from app.crud.precuration_required import (
@@ -117,7 +118,7 @@ def _as(kind: type, value: Any) -> Any:
 VALID_FIELD_TYPES = (
     *("text", "number", "boolean", "array", "object", "date", "select", "multiselect"),
     *("string", "integer", "enum", "textarea", "external_reference", "evidence_table"),
-    "url",
+    *("url", "source"),
 )
 Diagnostic = tuple[str, str, str]  # (severity, JSON path, message)
 
@@ -154,6 +155,7 @@ def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
     out += _check_rules(schema.get("validation_rules"), names)
     if known is not None:
         out += _check_conditions(known)
+    out += synopsis_diagnostics(schema)
     return out
 
 

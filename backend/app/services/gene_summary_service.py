@@ -13,6 +13,7 @@ from sqlalchemy import func as sa_func, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
+from app.core.synopsis import synopsis_of
 from app.crud.curation import section_total
 from app.models.models import (
     ActiveCuration,
@@ -127,7 +128,17 @@ class GeneSummaryService:
                 curation.gene_id, curation.scope_id
             ),
             "evidence_count": len(items) if isinstance(items, list) else 0,
+            # Members see the synopsis (get_full_summary); others when evidence is public
+            "_synopsis": None if in_progress else self._synopsis(curation),
+            "synopsis": None
+            if in_progress or not (scope.is_public and scope.export_evidence_public)
+            else self._synopsis(curation),
         }
+
+    def _synopsis(self, curation: CurationNew) -> str | None:
+        pair = curation.workflow_pair
+        schema = pair.curation_schema if pair else None
+        return synopsis_of(curation.evidence_data, schema and schema.ui_configuration)
 
     def _member_scope_ids(self, user: UserNew | None) -> set[UUID]:
         """Accepted, active memberships only. Platform admins get no extra scopes."""
@@ -157,6 +168,9 @@ class GeneSummaryService:
             for e in self._build(gene_id)
             if e.get("is_public") or UUID(e["scope_id"]) in member_ids
         ]
+        for e in entries:
+            if UUID(e["scope_id"]) in member_ids:
+                e["synopsis"] = e["_synopsis"]
         active_ids = {e["curation_id"] for e in entries}
         if member_ids:
             stmt = (

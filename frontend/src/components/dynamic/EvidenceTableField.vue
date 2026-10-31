@@ -25,6 +25,7 @@
             {{ col.label }}
             <span v-if="col.schema.required" class="text-error" aria-hidden="true">*</span>
           </th>
+          <th v-if="authored" scope="col">Added / changed</th>
           <th v-if="!disabled && !readonly" scope="col"><span class="d-sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -35,7 +36,12 @@
             :key="col.key"
             :class="{ 'text-cell': col.schema.type === 'string' }"
           >
-            <ReadonlyValue v-if="readonly" :schema="col.schema" :model-value="row[col.key]" />
+            <SourceCell
+              v-if="readonly && col.schema.type === 'source'"
+              readonly
+              :model-value="row[col.key]"
+            />
+            <ReadonlyValue v-else-if="readonly" :schema="col.schema" :model-value="row[col.key]" />
             <component
               :is="col.cell.is"
               v-else
@@ -72,6 +78,13 @@
                 {{ pmidNote(r) }}
               </span>
             </template>
+          </td>
+          <td
+            v-if="authored"
+            class="row-author"
+            :title="rowTools(stampOf(stamps, path, row, index)).join(', ')"
+          >
+            {{ rowAuthorship(stampOf(stamps, path, row, index)) }}
           </td>
           <td v-if="!disabled && !readonly">
             <v-btn
@@ -125,6 +138,8 @@
   import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import PubmedLinkButton from './PubmedLinkButton.vue'
   import ReadonlyValue from './ReadonlyValue.vue'
+  import SourceCell from './SourceCell.vue'
+  import { FIELD_PATH, ROW_PROVENANCE, rowAuthorship, rowTools, stampOf } from './rowAuthorship'
   import {
     CELL_COMMIT_MS,
     cellFor,
@@ -143,6 +158,8 @@
 
   const props = defineProps<{
     fieldSchema: FieldSchema
+    /** Data key of this table; with FIELD_PATH it finds the rows' provenance */
+    fieldName?: string
     label: string
     modelValue?: unknown
     disabled?: boolean
@@ -173,6 +190,11 @@
       url: schema.type === 'url'
     }))
   )
+
+  // #593: who added and changed each row, from the curation's row_provenance
+  const stamps = inject(ROW_PROVENANCE, null)
+  const path = `${inject(FIELD_PATH, '')}${props.fieldName ?? ''}`
+  const authored = computed(() => rows.value.some((row, i) => stampOf(stamps?.value, path, row, i)))
 
   // Only rows created in this mounted table may follow selector-driven suggestions.
   const automaticDefaults = new Set<string | number>()
@@ -396,6 +418,12 @@
   .evidence-table-field :deep(td:focus-within) {
     outline: 2px solid rgb(var(--v-theme-primary));
     outline-offset: -2px;
+  }
+
+  .row-author {
+    font-size: 0.75rem;
+    min-width: 10rem;
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
   }
 
   .pmid-note {

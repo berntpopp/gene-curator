@@ -57,6 +57,7 @@
     <component
       :is="typeEditor"
       v-else-if="typeEditor"
+      :field-name="fieldName"
       :field-schema="fieldSchema"
       :label="getFieldLabel()"
       :model-value="modelValue"
@@ -69,6 +70,7 @@
     <!-- Object and Array Fields (rendered recursively) -->
     <DynamicNestedField
       v-else-if="(fieldSchema.type === 'array' || fieldSchema.type === 'object') && canRenderNested"
+      :field-name="fieldName"
       :field-schema="fieldSchema"
       :label="getFieldLabel()"
       :model-value="modelValue"

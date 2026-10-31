@@ -281,11 +281,11 @@
               <v-card variant="outlined">
                 <v-card-title> Evidence details </v-card-title>
                 <v-card-text>
-                  <!-- From the pinned version's snapshot: the server JSON schema flattens tables (monkey B1) -->
                   <CurationEvidenceReadonly
                     :evidence="evidence"
                     :schema-id="curationSchemaId"
                     :version-id="curation.methodology_version_id"
+                    :row-provenance="curation.row_provenance"
                   />
                 </v-card-text>
               </v-card>
@@ -316,6 +316,7 @@
                       <div class="text-body-large">{{ curation.lock_version }}</div>
                     </v-col>
                   </v-row>
+                  <CurationHistory :curation-id="curationId" class="mt-4" />
                 </v-card-text>
               </v-card>
             </v-col>
@@ -424,6 +425,7 @@
   import { formatScore } from './curationScores'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
+  import CurationHistory from '@/components/curation/CurationHistory.vue'
   import ApproveChecklistDialog from '@/components/review/ApproveChecklistDialog.vue'
   import RequestChangesDialog from '@/components/review/RequestChangesDialog.vue'
   import ReviewDiff from '@/components/review/ReviewDiff.vue'
@@ -445,6 +447,7 @@
     workflow_pair_id?: string
     methodology_version_id?: string | null
     evidence_data?: Record<string, unknown> | null
+    row_provenance?: Record<string, unknown> | null
     gene_symbol?: string | null
     hgnc_id?: string | null
     disease_name?: string | null

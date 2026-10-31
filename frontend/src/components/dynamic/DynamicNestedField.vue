@@ -123,13 +123,16 @@
    * parent's depth check) and keeps a local copy of the value so child edits
    * can be emitted as a whole.
    */
-  import { inject, ref, watch } from 'vue'
+  import { inject, provide, ref, watch } from 'vue'
   import { generateUUID } from '@/utils/uuidPolyfill'
   import DynamicField from './DynamicField.vue'
   import { FORM_DATA, resolveField } from './conditions'
+  import { FIELD_PATH } from './rowAuthorship'
   import type { ComponentFallbackEvent, FieldSchema } from './types'
 
   const props = defineProps<{
+    /** Data key; child tables find their row provenance under it (#593) */
+    fieldName?: string
     fieldSchema: FieldSchema
     /** Label shown above the nested block */
     label: string
@@ -150,6 +153,9 @@
 
   // Condition paths start at the root of the form data (DynamicForm provides it)
   const root = inject(FORM_DATA, undefined)
+  // Tables inside an object field are at "<object>.<table>" (row provenance keys)
+  if (props.fieldSchema.type === 'object' && props.fieldName)
+    provide(FIELD_PATH, `${inject(FIELD_PATH, '')}${props.fieldName}.`)
 
   /** Child fields as the form data shows them: hidden ones dropped, `required_when` resolved */
   const shown = (fields?: Record<string, FieldSchema>) =>

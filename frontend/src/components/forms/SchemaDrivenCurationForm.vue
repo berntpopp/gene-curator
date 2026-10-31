@@ -126,7 +126,7 @@
    * />
    */
 
-  import { ref, computed, inject, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
+  import { ref, computed, inject, nextTick, watch, onMounted, onBeforeUnmount, provide } from 'vue'
   import { useSchemasStore } from '@/stores/schemas'
   import { useCurationsStore } from '@/stores/curations'
   import { usePrecurationsStore } from '@/stores/precurations'
@@ -146,6 +146,7 @@
   import { scoreSnapshot } from './scorePreview'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import { ROW_PROVENANCE } from '@/components/dynamic/rowAuthorship'
   import FormActions from '@/components/forms/FormActions.vue'
   import ScoreSummary from './ScoreSummary.vue'
   import LumpingSplittingSection from './LumpingSplittingSection.vue'
@@ -189,6 +190,10 @@
   const logger = useLogger()
   const schemasStore = useSchemasStore()
   const curationsStore = useCurationsStore()
+  provide(
+    ROW_PROVENANCE,
+    computed(() => curationsStore.currentCuration?.row_provenance)
+  )
   const precurationsStore = usePrecurationsStore()
   const notificationsStore = useNotificationsStore()
 

@@ -105,6 +105,11 @@ revoked immediately.
   call, for example `add_genes_to_scope` or `create_gene` when a gene is not found.
 - Rate limits are per user, shared by all of a user's tokens and sessions.
 - Every write is recorded in the audit log with `channel: mcp` and the token name as client.
+- An AI agent may add an optional `agent` block (`{model, agent, tools_used}`) to the evidence
+  writes (create, update, save draft and submit of precurations and curations). It is recorded
+  in the audit log with the token's user as `actedOnBehalfOf`, on the evidence rows it wrote,
+  in the history and in the export as a software contribution. Approvals and reviews take no
+  agent block: the approver is always a person, and nobody approves their own work.
 
 ## Not yet supported
 

@@ -134,6 +134,21 @@
       @save="saveField"
       @close="editing = null"
     />
+    <!-- Synopsis per curated entity: one text field, shown on the gene page and exported -->
+    <v-select
+      :model-value="synopsisField"
+      :items="textFields"
+      label="Synopsis field"
+      hint="A text field shown as the entity's synopsis on the gene page and in the export"
+      persistent-hint
+      clearable
+      density="compact"
+      variant="outlined"
+      class="mt-4"
+      :disabled="readonly"
+      data-testid="synopsis-field"
+      @update:model-value="setSynopsis"
+    />
   </div>
 </template>
 
@@ -183,6 +198,23 @@
 
   const layout = computed(() => readLayout(props.modelValue, props.uiConfiguration))
   const editing = ref<{ si: number; fi: number; field: FieldDef } | null>(null)
+
+  const uiRecord = () =>
+    props.uiConfiguration && typeof props.uiConfiguration === 'object'
+      ? (props.uiConfiguration as Record<string, unknown>)
+      : {}
+  const synopsisField = computed(() => uiRecord().synopsis_field ?? null)
+  const textFields = computed(() =>
+    layout.value.sections
+      .flatMap(s => s.fields)
+      .filter(f => ['text', 'textarea', 'string'].includes(String(f.type)))
+      .map(f => ({ value: f.id, title: String(f.label ?? f.title ?? f.id) }))
+  )
+  function setSynopsis(value: unknown) {
+    const rest = { ...uiRecord() }
+    delete rest.synopsis_field
+    emit('update:uiConfiguration', value ? { ...rest, synopsis_field: value } : rest)
+  }
 
   /** Change copies of the layout and UI configuration; emit them in the stored shape */
   const edit = (change: (l: Layout, ui: unknown) => void) => {

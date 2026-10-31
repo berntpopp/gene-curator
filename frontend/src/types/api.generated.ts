@@ -1958,31 +1958,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/curations/clingen-adoptions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Adopt Clingen Classifications
-         * @description Adopt ClinGen classifications for entities ClinGen already curated (curator). Rows:
-         *     the entity plus the GeneFoundry clingen_get_gene_validity record verbatim (perm_id as
-         *     cggv_id, raw_sha256 as record_sha256, recommended_citation as citation). Gene, MONDO and
-         *     MOI must match the entity, the class the schema's. Each curation goes to review with an
-         *     automatic re-score comment; another reviewer approves. Same record again: unchanged; an
-         *     entity with an open curation or any invalid row: 422, nothing written.
-         */
-        post: operations["adopt_clingen_classifications_api_v1_curations_clingen_adoptions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/curations/{curation_id}/disease-correction": {
         parameters: {
             query?: never;
@@ -2051,8 +2026,7 @@ export interface paths {
         /**
          * Curation Diff
          * @description Current evidence versus the version the reviewer last saw, else the active curation it
-         *     replaces (none of either: all items added). Long text changes come as word_diff
-         *     ([-removed-]{+added+}), not the whole before and after.
+         *     replaces (none of either: all items added).
          */
         get: operations["curation_diff_api_v1_curations__curation_id__diff_get"];
         put?: never;
@@ -4426,6 +4400,44 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActivityType */
+        ActivityType: {
+            /**
+             * Name
+             * @description SEPIO contributory role
+             * @enum {string}
+             */
+            name: "curator" | "assessor" | "approver" | "interpreter" | "publisher";
+            primaryCoding: components["schemas"]["Coding"];
+        };
+        /**
+         * Agent
+         * @description VA-Spec Agent: a person, an organization or software (an AI model).
+         */
+        Agent: {
+            /**
+             * Name
+             * @description Person's name, or the model
+             */
+            name?: string | null;
+            /**
+             * Agenttype
+             * @enum {string}
+             */
+            agentType: "person" | "organization" | "software";
+            /** Id */
+            id?: string | null;
+            /**
+             * Description
+             * @description Software: the agent (client)
+             */
+            description?: string | null;
+            /**
+             * Extensions
+             * @description Software: tools_used, as the client reported them
+             */
+            extensions?: components["schemas"]["Extension"][] | null;
+        };
         /**
          * AssignedReviewer
          * @description The reviewer a submit routed the item to.
@@ -4641,105 +4653,31 @@ export interface components {
             /** Label */
             label: string;
         };
-        /**
-         * ClinGenAdoptionItem
-         * @description What adoption did (or, on a dry run, would do) for one row.
-         */
-        ClinGenAdoptionItem: {
-            /** Row */
-            row: number;
-            /** Cggv Id */
-            cggv_id: string;
+        /** Coding */
+        Coding: {
             /**
-             * Action
-             * @enum {string}
+             * System
+             * @description Code system
+             * @default SEPIO
              */
-            action: "create" | "unchanged";
+            system: string;
             /**
-             * Curation Id
-             * @description Empty for curations a dry run would create
+             * Code
+             * @description SEPIO or SEPIO-CG code of the role
              */
-            curation_id?: string | null;
-        };
-        /** ClinGenAdoptionRequest */
-        ClinGenAdoptionRequest: {
-            /** Rows */
-            rows: components["schemas"]["ClinGenAdoptionRow"][];
+            code: string;
         };
         /**
-         * ClinGenAdoptionResult
-         * @description The plan and the validation report; nothing is written when errors is not empty.
+         * Contribution
+         * @description VA-Spec Contribution.
          */
-        ClinGenAdoptionResult: {
-            /** Dry Run */
-            dry_run: boolean;
-            /** Errors */
-            errors: string[];
-            /** Items */
-            items: components["schemas"]["ClinGenAdoptionItem"][];
-        };
-        /**
-         * ClinGenAdoptionRow
-         * @description The entity to curate (as create_curation needs it) and the ClinGen record.
-         */
-        ClinGenAdoptionRow: {
-            /**
-             * Gene Id
-             * Format: uuid
-             */
-            gene_id: string;
-            /**
-             * Scope Id
-             * Format: uuid
-             */
-            scope_id: string;
-            /**
-             * Workflow Pair Id
-             * Format: uuid
-             */
-            workflow_pair_id: string;
-            /** Mondo Id */
-            mondo_id: string;
-            /** Mode Of Inheritance */
-            mode_of_inheritance: string;
-            /** Disease Name */
-            disease_name?: string | null;
-            clingen: components["schemas"]["ClinGenRecord"];
-        };
-        /**
-         * ClinGenRecord
-         * @description One ClinGen assertion as GeneFoundry returns it (perm_id -> cggv_id,
-         *     raw_sha256 -> record_sha256, recommended_citation -> citation).
-         */
-        ClinGenRecord: {
-            /**
-             * Source
-             * @default clingen
-             * @constant
-             */
-            source: "clingen";
-            /** Cggv Id */
-            cggv_id: string;
-            /** Permalink */
-            permalink: string;
-            /** Classification */
-            classification: string;
-            /** Moi */
-            moi: string;
-            /** Mondo */
-            mondo: string;
-            /** Hgnc Id */
-            hgnc_id: string;
-            /** Expert Panel */
-            expert_panel: string;
-            /** Classified Date */
-            classified_date: string;
-            /** Retrieved At */
-            retrieved_at: string;
-            /** Record Sha256 */
-            record_sha256: string;
-            /** Citation */
-            citation: string;
+        Contribution: {
+            contributor: components["schemas"]["Agent"];
+            activityType: components["schemas"]["ActivityType"];
+            /** Date */
+            date?: string | null;
+            /** @description PROV-O: the person a software agent acted for */
+            actedOnBehalfOf?: components["schemas"]["Agent"] | null;
         };
         /**
          * Curation
@@ -4802,13 +4740,6 @@ export interface components {
              * @description curator_classification if set, else computed_verdict
              */
             final_classification?: string | null;
-            /**
-             * Clingen Adoption
-             * @description ClinGen record this curation adopted (#105), else null
-             */
-            clingen_adoption?: {
-                [key: string]: unknown;
-            } | null;
             /** Lock Version */
             lock_version: number;
             /** Methodology Version Id */
@@ -4975,13 +4906,6 @@ export interface components {
              * @description curator_classification if set, else computed_verdict
              */
             final_classification?: string | null;
-            /**
-             * Clingen Adoption
-             * @description ClinGen record this curation adopted (#105), else null
-             */
-            clingen_adoption?: {
-                [key: string]: unknown;
-            } | null;
             /** Lock Version */
             lock_version: number;
             /** Methodology Version Id */
@@ -5073,6 +4997,13 @@ export interface components {
              * @description In review: who still has to review it
              */
             assigned_reviewers?: components["schemas"]["AssignedReviewer"][];
+            /**
+             * Row Provenance
+             * @description #593: per evidence row (key: path#row id, else path[index]) added_by/added_at/changed_by/changed_at; an MCP agent under by.agent
+             */
+            row_provenance?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * CurationDiff
@@ -5149,13 +5080,6 @@ export interface components {
              * @description curator_classification if set, else computed_verdict
              */
             final_classification?: string | null;
-            /**
-             * Clingen Adoption
-             * @description ClinGen record this curation adopted (#105), else null
-             */
-            clingen_adoption?: {
-                [key: string]: unknown;
-            } | null;
             /** Lock Version */
             lock_version: number;
             /** Methodology Version Id */
@@ -5713,10 +5637,6 @@ export interface components {
             computed_verdict: string | null;
             /** Final Classification */
             final_classification?: string | null;
-            /** Clingen Adoption */
-            clingen_adoption?: {
-                [key: string]: unknown;
-            } | null;
             /** Computed Scores */
             computed_scores?: {
                 [key: string]: unknown;
@@ -5943,6 +5863,28 @@ export interface components {
             lock_version: number;
         };
         /**
+         * EvidenceLine
+         * @description One evidence table row (VA-Spec EvidenceLine): its sources and contributions.
+         */
+        EvidenceLine: {
+            /**
+             * Path
+             * @description Row path in evidence, e.g. genetic.probands[0]
+             */
+            path: string;
+            /** Row Id */
+            row_id?: string | null;
+            /** Directionofevidenceprovided */
+            directionOfEvidenceProvided?: ("supports" | "disputes" | "neutral") | null;
+            /**
+             * Sources
+             * @description VA-Spec reportedIn: the row's documents
+             */
+            sources?: components["schemas"]["ExportSource"][];
+            /** Contributions */
+            contributions?: components["schemas"]["Contribution"][];
+        };
+        /**
          * EvidenceWarning
          * @description A value a draft keeps but that needs fixing before submit.
          */
@@ -6075,12 +6017,20 @@ export interface components {
              */
             updated_at: string;
             /**
-             * Adoption
-             * @description Adopted ClinGen classification (#105) as a VA-Spec statement: id (CGGV), reportedIn [Document], contributions [GCEP interpreter, curator, approver]; null for a curation of our own
+             * Contributions
+             * @description VA-Spec Contribution[]: curator and approver (persons) and any software agent that wrote evidence rows
              */
-            adoption?: {
-                [key: string]: unknown;
-            } | null;
+            contributions?: components["schemas"]["Contribution"][];
+            /**
+             * Synopsis
+             * @description The entity's synopsis: the text field the schema names in ui_configuration.synopsis_field; null like evidence
+             */
+            synopsis?: string | null;
+            /**
+             * Evidence Lines
+             * @description VA-Spec EvidenceLine per evidence row with sources (reportedIn), directionOfEvidenceProvided or contributions
+             */
+            evidence_lines?: components["schemas"]["EvidenceLine"][] | null;
         };
         /** ExportMethodology */
         ExportMethodology: {
@@ -6099,6 +6049,51 @@ export interface components {
              * @description Pinned methodology version id
              */
             version_id?: string | null;
+        };
+        /**
+         * ExportSource
+         * @description VA-Spec Document, plus the GeneFoundry provenance of the record.
+         */
+        ExportSource: {
+            /**
+             * Documenttype
+             * @description Source kind: pmid, doi, clinvar, clingen_allele, clingen_validity, url or database
+             */
+            documentType: string;
+            /**
+             * Id
+             * @description Identifier as recorded
+             */
+            id?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Urls */
+            urls?: string[];
+            /** Pmid */
+            pmid?: string | null;
+            /** Doi */
+            doi?: string | null;
+            /**
+             * Citation
+             * @description recommended_citation, verbatim
+             */
+            citation?: string | null;
+            /** Retrieved At */
+            retrieved_at?: string | null;
+            /**
+             * Tool
+             * @description e.g. genefoundry:clinvar_get_variant
+             */
+            tool?: string | null;
+            /** Record Sha256 */
+            record_sha256?: string | null;
+        };
+        /** Extension */
+        Extension: {
+            /** Name */
+            name: string;
+            /** Value */
+            value: unknown;
         };
         /**
          * FieldValidationRequest
@@ -10880,6 +10875,11 @@ export interface components {
              */
             curation_id?: string | null;
             /**
+             * Synopsis
+             * @description Synopsis of the active curation (schema synopsis_field); members, or anyone when the scope exports evidence publicly
+             */
+            synopsis?: string | null;
+            /**
              * Disease Name
              * @description Disease of the curation
              */
@@ -15575,42 +15575,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurationScoreResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    adopt_clingen_classifications_api_v1_curations_clingen_adoptions_post: {
-        parameters: {
-            query?: {
-                /** @description Return the plan and report; write nothing */
-                dry_run?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ClinGenAdoptionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClinGenAdoptionResult"];
                 };
             };
             /** @description Validation Error */
