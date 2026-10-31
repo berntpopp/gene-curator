@@ -65,7 +65,7 @@
 
       <!-- Stats Cards -->
       <v-row class="mb-4">
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="6" md="3">
           <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
@@ -76,7 +76,7 @@
           </v-card>
         </v-col>
 
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="6" md="3">
           <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
@@ -87,7 +87,7 @@
           </v-card>
         </v-col>
 
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="6" md="3">
           <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
@@ -98,7 +98,7 @@
           </v-card>
         </v-col>
 
-        <v-col cols="12" sm="6" md="3">
+        <v-col cols="6" md="3">
           <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">

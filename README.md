@@ -331,7 +331,10 @@ without them, and with `ENVIRONMENT=production` the API refuses a non-HTTPS issu
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to propose changes
 - [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md): connecting MCP clients with a token
 - API reference: http://localhost:8051/docs (interactive OpenAPI) while the backend runs
-- `backend/docs/`: architecture and schema format notes
+- [docs/METHODOLOGY-IMPORT.md](docs/METHODOLOGY-IMPORT.md): importing a methodology bundle (schemas, pairs, scope default)
+- [docs/POINT-MODEL.md](docs/POINT-MODEL.md): point-model scoring format
+- [docs/EXPORT.md](docs/EXPORT.md): exporting curations
+- [docs/schemas/](docs/schemas/): example schemas (kidney genetics)
 
 ## License
 
