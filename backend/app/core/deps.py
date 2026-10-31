@@ -203,6 +203,12 @@ async def get_async_db(
             if not isinstance(e, HTTPException):
                 logger.error("Async database error", error=e)
             await session.rollback()
+            # The async engine refused the connection (an outage of the async pool, or the
+            # SQLite test lane's unreachable engine): 503, not 500
+            if isinstance(e, ConnectionError):
+                raise HTTPException(
+                    status.HTTP_503_SERVICE_UNAVAILABLE, "Database unavailable"
+                ) from e
             raise
 
 

@@ -256,13 +256,15 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       store.curations = [row('c1')]
       store.currentCuration = detail('c1')
-      api.saveDraft.mockResolvedValue(saved('c1', { is_draft: false }))
+      const provenance = { 'genetic.probands#r1': { added_by: { name: 'Alice' } } }
+      api.saveDraft.mockResolvedValue(saved('c1', { is_draft: false, row_provenance: provenance }))
 
       const result = await store.saveDraft('c1', { evidence_data: {}, lock_version: 0 })
 
       expect(result).toMatchObject({ id: 'c1' })
       expect(store.curations[0]).toMatchObject({ is_draft: false })
-      expect(store.currentCuration).toMatchObject({ is_draft: false })
+      // the evidence table's Added/changed column refreshes without a reload
+      expect(store.currentCuration).toMatchObject({ is_draft: false, row_provenance: provenance })
       expect(store.loading).toBe(false)
     })
 

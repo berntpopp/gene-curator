@@ -117,12 +117,13 @@ def require(
     """
     if user.role == "admin":
         return
+    # An inactive scope is read-only, not hidden: its members keep VIEW
+    active_only = active_only and capability != VIEW
     if scope_id is None or not holds(db, user.id, scope_id, capability, active_only):
         # A1: a member of an inactive scope gets the read-only reason, a stranger the 403
         if (
             scope_id is not None
             and active_only
-            and capability != VIEW
             and holds(db, user.id, scope_id, capability, active_only=False)
         ):
             require_active_scope(db.get(Scope, scope_id))

@@ -155,7 +155,8 @@
     <!-- Create Schema Dialog -->
     <BaseDialog v-model="createSchemaDialog" size="md">
       <template #title>Create new {{ TERMINOLOGY.TEMPLATE }}</template>
-      <v-form ref="createForm">
+      <!-- ga-3: an error line stays clear of the next field's floating label -->
+      <v-form ref="createForm" class="d-flex flex-column ga-3">
         <v-text-field
           v-model="newSchema.name"
           label="Schema Name"

@@ -192,6 +192,7 @@
   import { FORM_DATA, resolveField } from './conditions'
   import { toFormValidation } from './validationResult'
   import ValidationWarnings from './ValidationWarnings.vue'
+  import { warningText } from '@/views/curation/curationScores'
   import type {
     FieldSchema,
     FieldValidation,
@@ -293,8 +294,13 @@
   const labelFor = (path?: string) => (path ? labelForPath(jsonSchema.value, path) : '')
   const warningLines = computed(() => [
     ...new Set(
+      // the engine's warnings (field `scoring`) name their own flag or row (MUI-18)
       (validationResult.value?.warnings ?? []).map(w =>
-        w.field ? `${labelFor(w.field)}: ${w.message}` : w.message
+        w.field === 'scoring'
+          ? warningText(w.message)
+          : w.field
+            ? `${labelFor(w.field)}: ${w.message}`
+            : w.message
       )
     )
   ])

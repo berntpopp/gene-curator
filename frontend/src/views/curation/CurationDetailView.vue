@@ -285,6 +285,8 @@
                     :evidence="evidence"
                     :schema-id="curationSchemaId"
                     :version-id="curation.methodology_version_id"
+                    :scores="scores"
+                    :classification="classification"
                     :row-provenance="curation.row_provenance"
                   />
                 </v-card-text>

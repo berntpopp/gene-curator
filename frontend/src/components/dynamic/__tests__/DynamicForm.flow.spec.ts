@@ -515,4 +515,25 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
     expect(wrapper.text()).toContain('Mode of inheritance: Must be AD or AR')
     expect(wrapper.text()).not.toContain('entity_definition')
   })
+
+  it('names a scoring warning by its flag, not the raw key (MUI-18)', async () => {
+    store.schema = { properties: {} }
+    store.result = {
+      is_valid: true,
+      errors: [],
+      warnings: [
+        {
+          field: 'scoring',
+          type: 'scoring',
+          message: 'review_flags.band_margin: the total is near a band edge'
+        }
+      ]
+    }
+    const wrapper = mountForm()
+    await flushPromises()
+
+    expect(wrapper.findComponent({ name: 'ValidationWarnings' }).props('messages')).toEqual([
+      'Near a class boundary: the total is near a band edge'
+    ])
+  })
 })

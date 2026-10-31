@@ -22,7 +22,7 @@ export const SOURCE_KINDS: Array<{ value: string; title: string; pattern: RegExp
   { value: 'clingen_allele', title: 'ClinGen allele', pattern: /^CA\d+$/ },
   { value: 'clingen_validity', title: 'ClinGen validity', pattern: /^CGGV:assertion_\S+$/ },
   { value: 'url', title: 'URL', pattern: /^https?:\/\/\S+$/ },
-  { value: 'database', title: 'Database', pattern: /^\S.*$/ }
+  { value: 'database', title: 'Database', pattern: /^[A-Za-z][\w.-]*:\S+$/ }
 ]
 
 const LINKS: Record<string, (id: string) => string> = {
@@ -62,7 +62,9 @@ export function sourceError(kind: string, id: string): string {
   const def = SOURCE_KINDS.find(k => k.value === kind)
   if (!def) return 'Pick a kind'
   if (!id.trim()) return 'Enter an id'
-  return def.pattern.test(id.trim()) ? '' : `Not a valid ${def.title} id`
+  if (def.pattern.test(id.trim())) return ''
+  const hint = kind === 'database' ? ': use prefix:id, e.g. OMIM:600123' : ''
+  return `Not a valid ${def.title} id${hint}`
 }
 
 export function sourceHref(source: Source): string | undefined {

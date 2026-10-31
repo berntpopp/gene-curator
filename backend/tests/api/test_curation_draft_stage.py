@@ -84,3 +84,24 @@ def test_save_draft_allowed_when_rejected(
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200
+
+
+def test_full_save_answer_carries_row_provenance(
+    client: TestClient,
+    db_session: Session,
+    test_curation: CurationNew,
+    curator_token: str,
+):
+    """The evidence table's Added/changed column updates without a reload."""
+    response = client.patch(
+        f"/api/v1/curations/{test_curation.id}/draft?detail=true",
+        json={
+            "evidence_data": {"genetic": {"probands": [{"id": "r1", "variant": "x"}]}},
+            "lock_version": test_curation.lock_version,
+        },
+        headers={"Authorization": f"Bearer {curator_token}"},
+    )
+    assert response.status_code == 200, response.text
+    db_session.refresh(test_curation)
+    assert test_curation.row_provenance
+    assert response.json()["row_provenance"] == test_curation.row_provenance

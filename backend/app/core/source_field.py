@@ -7,7 +7,9 @@ the record; it checks the identifier's format and keeps what the client sent.
 
 import re
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import AfterValidator
 
 from app.core.schema_validation_result import SchemaValidationResult
 from app.core.url_field import valid_url
@@ -28,7 +30,10 @@ ID_FORMATS: dict[str, tuple[re.Pattern[str], str]] = {
         re.compile(r"CGGV:assertion_\S+"),
         "a ClinGen gene validity id looks like CGGV:assertion_<uuid>",
     ),
-    "database": (re.compile(r"\S.*"), "name the database record"),
+    "database": (
+        re.compile(r"[A-Za-z][\w.-]*:\S+"),
+        "a database record is prefix:id, e.g. OMIM:600123",
+    ),
 }
 KINDS = (*ID_FORMATS, "url")
 DIRECTIONS = ("supports", "disputes", "neutral")  # VA-Spec directionOfEvidenceProvided
@@ -43,6 +48,24 @@ def source_id(kind: Any, ident: Any) -> str:
     """The identifier as checked and exported: trimmed, a PMID without "PMID:" (MUI-15)."""
     text = str(ident or "").strip()
     return _PMID_PREFIX.sub("", text, count=1) if kind == "pmid" else text
+
+
+def bare_pmids(node: Any) -> Any:
+    """Evidence as saved: pmid cells and pmid sources without "PMID:" (MUI-15)."""
+    if isinstance(node, list):
+        return [bare_pmids(v) for v in node]
+    if not isinstance(node, dict):
+        return node
+    out = {k: bare_pmids(v) for k, v in node.items()}
+    if isinstance(node.get("pmid"), str):
+        out["pmid"] = source_id("pmid", node["pmid"])
+    if node.get("kind") == "pmid" and isinstance(node.get("id"), str):
+        out["id"] = source_id("pmid", node["id"])
+    return out
+
+
+# evidence_data in a create, update or draft save body
+EvidenceIn = Annotated[dict[str, Any], AfterValidator(bare_pmids)]
 
 
 def _blank(value: Any) -> bool:

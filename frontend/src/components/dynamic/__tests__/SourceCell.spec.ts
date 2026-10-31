@@ -46,6 +46,11 @@ describe('sourceModel', () => {
     expect(sourceError('pmid', 'PMID:20414234')).toBe('') // MUI-15
     expect(sourceHref({ kind: 'pmid', id: 'PMID: 2' })).toBe('https://pubmed.ncbi.nlm.nih.gov/2/')
     expect(sourceError('book', 'x')).toBe('Pick a kind')
+    // a database record is prefix:id, not any text
+    expect(sourceError('database', 'OMIM:600123')).toBe('')
+    expect(sourceError('database', 'garbage!!')).toBe(
+      'Not a valid Database id: use prefix:id, e.g. OMIM:600123'
+    )
   })
 
   it('links only safe URLs and lists one or many sources', () => {
@@ -84,6 +89,10 @@ describe('SourceCell', () => {
     const input = wrapper.find('input')
     await input.trigger('keydown.enter')
     expect(wrapper.emitted('update:model-value')).toBeUndefined()
+    await input.setValue('garbage!!')
+    await input.trigger('keydown.enter')
+    expect(wrapper.emitted('update:model-value')).toBeUndefined()
+    expect(wrapper.find('[role="alert"]').text()).toContain('prefix:id')
     await input.setValue('PMID:42')
     expect(wrapper.find('.source-cell__kind').text()).toBe('PMID')
     await input.trigger('keydown.enter')
