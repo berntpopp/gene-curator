@@ -164,7 +164,7 @@ KGDB side (berntpopp/kidney-genetics-db, not this wave): #472 key fix, #448 impo
 
 ```text
 You are the Wave 11 orchestrator for Gene Curator (/home/bernt-popp/development/gene-curator, GitHub
-berntpopp/gene-curator, master at v0.12.0 plus #592). Goal: finish development. Every open issue ends closed by a
+berntpopp/gene-curator, master at v0.12.0 plus #592, #594, #595). Goal: finish development. Every open issue ends closed by a
 merged PR or an owner won't-do, every follow-up below is fixed or ticketed, and the wave ships v1.0.0 (or v0.13.0 per
 Step 0). Ponytail full for you and every agent: smallest complete change, deletion beats addition. Orchestrate only:
 dispatch, review, merge, release; agents report in 15 lines; you do not pull source files or full diffs into your
@@ -193,7 +193,7 @@ Batch 1 (start together):
 | W11B ClinGen adoption #105 | adopted marker storing the GeneFoundry clingen_get_gene_validity fields verbatim (cggv_id, permalink, classification, moi, mondo, expert_panel, classified_date, retrieved_at, record_sha256, citation; see the #105 design comment); bulk adopt API + MCP with the same rows, checked against the entity (gene, MONDO, MOI) and the schema's classes, creating curations in review with the #105 auto comment; reviewer confirms (4-eyes); badge "Adopted from ClinGen" with the permalink; export as a VA-Spec-style statement (reportedIn the CGGV permalink; contributions: GCEP organization, curator, approver); never fetch | new services/clingen_adoption.py, endpoint, MCP tool, badge component, export additive | 079 | full Opus, Postgres test |
 | W11C provenance #593 | follow the standards in #593 (GA4GH VA-Spec 1.0 Contribution/Agent/Document/EvidenceLine, ClinGen SEPIO contributory roles, PROV-O SoftwareAgent): `source` field type (kind pmid/doi/clinvar/clingen_allele/clingen_validity/url/database, id validated per kind, url, title, retrieved_at, tool, record_sha256, citation verbatim from GeneFoundry) as cell and list, optional direction supports/disputes/neutral; contributions {agent person/organization/software, SEPIO activityType, date} per curation and evidence row; MCP write tools accept an optional agent block {model, agent, tools_used} stored in audit change_metadata, client-reported, on behalf of the token's user; software never counts for 4-eyes; row added/changed by in UI; export contributions[] and sources[] in VA-Spec field names with a JSON Schema snapshot; new KGDB and ClinGen bundle versions with source cells (frozen ids untouched) | core field-type validator, mcp/audit.py additive, history UI, bundle files, docs/EXPORT.md | 080 | full Opus, Postgres test |
 | W11D builders #282 | workflow-stage builder (table view), nested groups and plain objects, and-conditions in the row-rule UI, per-row import diff, Tests from Preview widgets, schema save conflict (409 on stale lock_version) and validate-unsaved-draft endpoint, required_when cross-check, URL max_length enforced, Text/String and Choice duplicates merged | components/schema-editor/*, SchemaManagement.vue import dialog, crud/schema_repository.py, endpoints/validation.py, core/schema_rules.py | 081 | full Opus |
-| W11H follow-ups | every "This wave" and carried item in WAVE10-REPORT.md Follow-ups not owned above: B20, B21, R3-1, R3-2, due_date in My work, removed-user invite message, trimmed-length messages, test-order flake, corrector plus real reviewer test, hotspot group_by, point_model.py docstring, matrix labels from the pinned version, signed-out gene 404, anonymous export methodology.version, MCP instructions under 4096, #587 skipped polish (import file chooser, resolve flags genes already in scope, phone empty state) | those files only; one commit per item | none | quick delta |
+| W11H follow-ups | every "This wave" and carried item in WAVE10-REPORT.md Follow-ups not owned above: B20, B21, R3-1, R3-2, due_date in My work, removed-user invite message, trimmed-length messages, test-order flake, corrector plus real reviewer test, hotspot group_by, point_model.py docstring, matrix labels from the pinned version, signed-out gene 404, anonymous export methodology.version, MCP instructions under 4096, store conflict state: drop the never-filled currentVersion/yourVersion/currentState or read them from detail (curations.ts, precurations.ts), #587 skipped polish (import file chooser, resolve flags genes already in scope, phone empty state) | those files only; one commit per item | none | quick delta |
 Batch 2 (start each as soon as batch 1 merges free the files; B2 rebases on batch 1):
 | W11E permissions #284 | allowed pairs per scope (picker lists only allowed, create refuses others); per Step 0 the capability matrix as data, owner_scope_id on methodologies, versions and workflows, every write endpoint via require(...), capability x role API tests, RLS matches the matrix | core/capabilities.py, deps, scope schemas, endpoints (additive require lines), RLS migration | 082 | full Opus, Postgres lane |
 | W11F segregation #447 (if yes) | first a clinical spec agent writes .planning/waves/wave11/SEGREGATION-SPEC.md from the SOP v11 PDF (eligibility, inheritance, methods, published vs estimated LOD, summed eligible-family LOD, method weighting, worked examples); orchestrator checks it; then the engine rule, family table in the ClinGen bundle as a new version, per-family rationale, save/preview parity; old pins never rescored | scoring/point_model.py rule, ClinGen bundle, tests | 083 | full Opus + clinical check against the PDF |
@@ -227,13 +227,15 @@ and API/MCP tester in parallel, findings via Bash heredoc:
 - Permissions: viewer, curator, reviewer, scope admin of own and other scope, platform admin on the key writes.
 - Builders: workflow-stage builder, nested groups, and-conditions, import diff, two admins editing one schema (409).
 - Segregation (if built): the SOP worked examples score as the spec says.
-- Forms at 390 px; second approval activating a curation; review through MCP.
+- Forms at 390 px; second approval activating a curation; review through MCP; an inactive scope shows its
+  read-only reason on save, not "modified by another user" (#594).
 UI tester also rates UX as a senior product designer per flow (score, top friction); then one impeccable polish PR
 from the findings and reviews; then a narrow re-check of exactly those findings. Repeat fix + re-check until no
 critical/high/medium remains.
 
 ## Step 5: release and report
-release/v1.0.0 (or v0.13.0): notes (every claim cites a merged PR, fact-checked), README and docs current (EXPORT.md,
+release/v1.0.0 (or v0.13.0): notes (every claim cites a merged PR, fact-checked; include #592 and #594, merged
+after v0.12.0), README and docs current (EXPORT.md,
 METHODOLOGY-IMPORT.md, POINT-MODEL.md, a short curator and admin guide), version bump in every file holding 0.12.0
 (not history). Merge, git pull, confirm HEAD is the release merge, signed tag, gh release create --verify-tag. Cleanup
 worktrees and branches (GitHub API). WAVE11-REPORT.md: owner decisions, issues, migrations, reviews, monkey and UX
