@@ -123,11 +123,24 @@
 
           <v-card class="mb-6">
             <v-tabs v-model="tab" color="primary" show-arrows>
-              <v-tab value="fields" prepend-icon="mdi-form-select">Fields</v-tab>
+              <v-tab value="fields" prepend-icon="mdi-form-select">
+                Fields
+                <v-badge v-if="fieldProblems" :content="fieldProblems" color="error" inline />
+              </v-tab>
+              <v-tab value="workflow" prepend-icon="mdi-sitemap">
+                Workflow
+                <v-badge v-if="workflowProblems" :content="workflowProblems" color="error" inline />
+              </v-tab>
               <v-tab value="preview" prepend-icon="mdi-eye">Preview</v-tab>
               <v-tab value="scoring" prepend-icon="mdi-calculator">
                 Scoring
                 <v-badge v-if="jsonErrors.scoring_code" color="error" dot inline class="ml-2" />
+                <v-badge
+                  v-else-if="scoringProblems"
+                  :content="scoringProblems"
+                  color="error"
+                  inline
+                />
               </v-tab>
               <v-tab value="advanced" prepend-icon="mdi-code-json">
                 Advanced JSON
@@ -147,8 +160,19 @@
                     }"
                     :published="published"
                     :readonly="!isEditing"
+                    :diagnostics="checks.diagnostics.value"
                     @update:model-value="v => (draft.field_definitions = v)"
                     @update:ui-configuration="v => (draft.ui_configuration = v)"
+                  />
+                </v-window-item>
+                <v-window-item value="workflow">
+                  <WorkflowStagesEditor
+                    :model-value="draft.workflow_states"
+                    :diagnostics="checks.diagnostics.value"
+                    :has-scoring="!!draft.scoring_configuration"
+                    :readonly="!isEditing"
+                    @update:model-value="v => setBlock('workflow_states', v)"
+                    @open="builder => (tab = builder)"
                   />
                 </v-window-item>
                 <v-window-item value="preview">
@@ -166,6 +190,8 @@
                     v-if="isEditing"
                     :model-value="scoringConfig"
                     :field-definitions="draft.field_definitions"
+                    :definition="draft"
+                    :schema-id="schemaId"
                     @update:model-value="v => setBlock('scoring_configuration', v)"
                     @error="message => (jsonErrors.scoring_code = message)"
                   />
@@ -190,6 +216,27 @@
               </v-window>
             </v-card-text>
           </v-card>
+
+          <!-- Validator report of the unsaved draft; each builder also shows its own inline -->
+          <v-expansion-panels v-if="checks.diagnostics.value.length" class="mb-6">
+            <v-expansion-panel data-testid="draft-diagnostics">
+              <v-expansion-panel-title>
+                Problems in this draft ({{ checks.diagnostics.value.length }})
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-list density="compact">
+                  <v-list-item
+                    v-for="(d, i) in checks.diagnostics.value"
+                    :key="i"
+                    :prepend-icon="d.severity === 'error' ? 'mdi-alert-circle' : 'mdi-alert'"
+                    :base-color="d.severity === 'error' ? 'error' : 'warning'"
+                    :title="d.message"
+                    :subtitle="d.field"
+                  />
+                </v-list>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
         </v-col>
 
         <!-- Sidebar -->
@@ -286,11 +333,11 @@
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
-  import { ref, computed, onMounted, watch } from 'vue'
+  import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
   import { errorMessage } from '@/stores/apiError'
-  import { showError } from '@/composables/useNotifications'
+  import { showError, showWarning } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
   import { useConfirm } from '@/composables/useConfirm'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -299,12 +346,15 @@
   import JsonBlockEditor from '@/components/schema-editor/JsonBlockEditor.vue'
   import PublishDialog from '@/components/schema-editor/PublishDialog.vue'
   import PointModelBuilder from '@/components/schema-editor/scoring/PointModelBuilder.vue'
+  import WorkflowStagesEditor from '@/components/schema-editor/WorkflowStagesEditor.vue'
+  import { usePointModelChecks } from '@/components/schema-editor/scoring/usePointModelChecks'
   import type { ScoringConfig } from '@/components/schema-editor/scoring/pointModel'
   import { clone, fieldIds, readLayout, type BlockKey } from '@/components/schema-editor/fieldModel'
 
   interface ApiError {
     message?: string
     stack?: string
+    response?: { status?: number }
   }
 
   type SchemaDetail = Schema<'CurationSchema'>
@@ -329,7 +379,7 @@
   const error = ref<string | null>(null)
   const isEditing = ref(false)
   const schema = ref<SchemaDetail | null>(null)
-  const editableSchema = ref<Schema<'CurationSchemaUpdate'>>({})
+  const editableSchema = ref<Partial<Schema<'CurationSchemaUpdate'>>>({})
   // The five JSON blocks being edited; every tab edits this one draft
   const draft = ref<Blocks>({ field_definitions: {} } as Blocks)
   // Parse error per JSON editor ('' = valid); Save is blocked while any is set
@@ -346,6 +396,24 @@
   const advancedErrors = computed(() =>
     Object.entries(jsonErrors.value).some(([key, message]) => key !== 'scoring_code' && message)
   )
+
+  // The validator's report of the unsaved draft, shown inline and as tab badges (#282)
+  const checks = usePointModelChecks()
+  const fieldProblems = computed(() =>
+    checks.count('field_definitions', 'ui_configuration', 'validation_rules')
+  )
+  const workflowProblems = computed(() => checks.count('workflow_states'))
+  const scoringProblems = computed(() => checks.count('scoring_configuration'))
+  let checkTimer: ReturnType<typeof setTimeout> | undefined
+  watch(
+    draft,
+    value => {
+      clearTimeout(checkTimer)
+      checkTimer = setTimeout(() => checks.checkDraft(value), 600)
+    },
+    { deep: true }
+  )
+  onBeforeUnmount(() => clearTimeout(checkTimer))
 
   const statusOptions = [
     { title: 'Active', value: true },
@@ -380,19 +448,35 @@
 
     saving.value = true
     try {
+      // lock_version: a copy saved by someone else meanwhile is refused (409), not overwritten
       schema.value = await schemasStore.updateSchema(schemaId.value, {
         ...editableSchema.value,
-        ...(draft.value as Schema<'CurationSchemaUpdate'>)
+        ...(draft.value as Partial<Schema<'CurationSchemaUpdate'>>),
+        lock_version: schema.value?.lock_version ?? 0
       })
       resetEditor(schema.value)
       isEditing.value = false
       validation.value = null
     } catch (error) {
       const err = error as ApiError
+      if (err.response?.status === 409) return await keepDraftAfterConflict()
       logger.error('Failed to save schema:', { error: err.message, stack: err.stack })
       showError(errorMessage(error, 'Failed to save schema'))
     } finally {
       saving.value = false
+    }
+  }
+
+  /** Their save wins the row, not the draft: load their version (its lock_version) under the
+   * draft, so Save replaces it and Cancel shows it */
+  const keepDraftAfterConflict = async () => {
+    try {
+      schema.value = await schemasStore.fetchSchemaById(schemaId.value)
+      showWarning(
+        'Someone else saved this schema. Your draft is kept: Save again to replace their version, or Cancel to load theirs.'
+      )
+    } catch (error) {
+      showError(errorMessage(error, 'Someone else saved this schema; reloading it failed'))
     }
   }
 

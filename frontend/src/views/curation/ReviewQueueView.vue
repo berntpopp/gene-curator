@@ -129,6 +129,7 @@
         </div>
         <div v-else class="d-flex justify-end ga-2">
           <v-btn
+            v-if="aiScopes.has(item.scope_id ?? '')"
             variant="text"
             size="small"
             :to="`/scopes/${item.scope_id}/curations/${item.id}/second-view`"
@@ -235,6 +236,10 @@
   // State
   const loading = ref(true)
   const curations = ref<ReviewItem[]>([])
+  // Scopes whose AI second view is on for me (B20: no dead link where it is off)
+  const aiScopes = computed(
+    () => new Set(scopesStore.scopes.filter(sc => sc.llm_second_view).map(sc => sc.id))
+  )
   const approvalNotice = ref<(ApprovalNotice & { scopeId: string }) | null>(null)
   const scopes = ref<Array<{ id: string; name: string }>>([])
   // Search, scope filter, sort and page live in the URL; My work deep-links here with ?q=<gene>

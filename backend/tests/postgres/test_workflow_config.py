@@ -269,7 +269,11 @@ def test_forbidden_edge_is_refused_and_changes_nothing(
 
 def test_migration_045_drops_the_trigger_idempotently() -> None:
     sql = MIGRATION.read_text()
-    with _owner() as conn, conn.cursor() as cur:
+    conn = _owner()
+    # rolled back: 045 also restores an older guard_reviewer_updates than 067's, which
+    # broke later reviewer approvals (test_review_assignment after this file)
+    try:
+        cur = conn.cursor()
         cur.execute(sql)
         cur.execute(sql)
         cur.execute(
@@ -286,3 +290,6 @@ def test_migration_045_drops_the_trigger_idempotently() -> None:
             "WHERE filename = '045_drop_workflow_trigger.sql'"
         )
         assert cur.fetchone()[0] == 1
+    finally:
+        conn.rollback()
+        conn.close()

@@ -19,7 +19,13 @@
               <v-text-field v-model="label" label="Label" variant="outlined" />
             </v-col>
             <v-col cols="12" sm="6">
-              <v-select v-model="draft.type" :items="FIELD_TYPES" label="Type" variant="outlined" />
+              <v-select
+                :model-value="pickerType(draft.type)"
+                :items="FIELD_TYPES"
+                label="Type"
+                variant="outlined"
+                @update:model-value="v => (draft!.type = v)"
+              />
             </v-col>
             <v-col cols="12" sm="6" class="d-flex flex-wrap ga-4">
               <v-switch v-model="draft.required" label="Required" color="primary" hide-details />
@@ -83,6 +89,9 @@
             <v-col v-if="draft.type === 'evidence_table'" cols="12">
               <ColumnsEditor v-model="columns" />
             </v-col>
+            <v-col v-if="draft.type === 'object'" cols="12">
+              <ColumnsEditor v-model="properties" title="Fields in this group" noun="field" />
+            </v-col>
 
             <v-col cols="12">
               <div class="text-title-small mb-2">Show when</div>
@@ -137,6 +146,7 @@
     clone,
     formatValues,
     parseValues,
+    pickerType,
     type FieldDef
   } from './fieldModel'
 
@@ -155,6 +165,7 @@
   const draft = ref<FieldDef | null>(null)
   const options = ref<Array<{ value: string; label: string }>>([])
   const columns = ref<Record<string, Def> | undefined>()
+  const properties = ref<Record<string, Def> | undefined>()
   const conditionField = ref<string | null>(null)
   const conditionValues = ref('')
 
@@ -190,6 +201,7 @@
       if (!draft.value) return
       options.value = clone((draft.value.options ?? []) as typeof options.value)
       columns.value = draft.value.columns as Record<string, Def> | undefined
+      properties.value = draft.value.properties as Record<string, Def> | undefined
       const [entry] = Object.entries(condition.value ?? {})
       conditionField.value = entry?.[0] ?? null
       conditionValues.value = entry ? formatValues(entry[1]) : ''
@@ -221,6 +233,7 @@
     const def = draft.value
     if (isChoice.value) def.options = options.value.filter(o => String(o.value).trim())
     if (def.type === 'evidence_table') def.columns = columns.value ?? {}
+    if (def.type === 'object') def.properties = properties.value ?? {}
     if (!complexCondition.value) {
       if (conditionField.value) {
         def[condKey.value] = { [conditionField.value]: parseValues(conditionValues.value) }

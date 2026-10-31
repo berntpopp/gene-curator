@@ -364,7 +364,9 @@
         formData.value,
         props.schemaId,
         'form',
-        props.methodologyVersionId
+        props.methodologyVersionId,
+        // a definition without a pinned version is a draft (schema editor): check against it
+        ...(props.definition && !props.methodologyVersionId ? [props.definition] : [])
       )
       if (result === null) return null // a newer validation was started: its reply wins
       handleBackendValidation(result ? toFormValidation(result) : undefined)

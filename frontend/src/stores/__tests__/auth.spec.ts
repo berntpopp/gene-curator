@@ -102,6 +102,20 @@ describe('useAuthStore', () => {
       expect(api.me).toHaveBeenCalledTimes(1)
     })
 
+    it('drops a stale session without calling the API (B21)', async () => {
+      const past = `h.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }))}.s`
+      localStorage.setItem('access_token', past)
+      localStorage.setItem('refresh_token', past)
+      setActivePinia(createPinia())
+      const store = useAuthStore()
+
+      await store.initialize()
+
+      expect(api.me).not.toHaveBeenCalled()
+      expect(localStorage.getItem('access_token')).toBeNull()
+      expect(store.isAuthenticated).toBe(false)
+    })
+
     it('clears auth when the stored token is rejected', async () => {
       localStorage.setItem('access_token', 'expired')
       api.me.mockRejectedValue(new Error('401'))

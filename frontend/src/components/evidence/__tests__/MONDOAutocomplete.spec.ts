@@ -173,8 +173,12 @@ describe('MONDOAutocomplete', () => {
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 
-  it('requires a disease when marked required', () => {
-    const { vm } = mountAutocomplete({ required: true })
+  it('requires a disease once the field was left empty, not on an untouched form (R3-1)', async () => {
+    const { wrapper, vm } = mountAutocomplete({ required: true })
+    expect(vm.errorMessages).toEqual([])
+
+    wrapper.findComponent({ name: 'VAutocomplete' }).vm.$emit('update:focused', false)
+    await flushPromises()
 
     expect(vm.errorMessages).toEqual(['MONDO disease is required'])
   })

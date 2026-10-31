@@ -4,9 +4,8 @@
 
 type Extra = { [key: string]: unknown }
 
-/** Row rule (#576): a matching 0-point rule always wins; a non-zero rule only fills rows
- * whose points are blank. `and` lists further conditions of the same shape. */
-export interface PointsWhen extends Extra {
+/** One test of a row column: a value list, filled in / blank, or numeric bounds. */
+export interface RowCondition extends Extra {
   field: string
   in?: unknown[]
   present?: boolean
@@ -14,7 +13,12 @@ export interface PointsWhen extends Extra {
   gte?: number
   lt?: number
   lte?: number
-  and?: unknown[]
+}
+
+/** Row rule (#576): a matching 0-point rule always wins; a non-zero rule only fills rows
+ * whose points are blank. `and` lists further conditions that must all hold too. */
+export interface PointsWhen extends RowCondition {
+  and?: RowCondition[]
   points: number
 }
 

@@ -10,5 +10,10 @@ describe('geneResolveAPI', () => {
     vi.mocked(apiClient.post).mockResolvedValue({ data: body })
     expect(await geneResolveAPI.resolve(['PKD1'])).toBe(body)
     expect(apiClient.post).toHaveBeenCalledWith('/genes/resolve', { symbols: ['PKD1'] })
+    await geneResolveAPI.resolve(['PKD1'], 's1')
+    expect(apiClient.post).toHaveBeenLastCalledWith('/genes/resolve', {
+      symbols: ['PKD1'],
+      scope_id: 's1'
+    })
   })
 })

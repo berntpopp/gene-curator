@@ -94,6 +94,11 @@ describe('useValidationRules', () => {
       expect(result).toBe('Minimum 5 characters')
     })
 
+    it('counts the trimmed value, so padding does not reach the minimum', () => {
+      const rules = getRules({ minLength: 5 })
+      expect(rules[0]!('  abc  ')).toBe('Minimum 5 characters')
+    })
+
     it('passes for string equal to minLength', () => {
       const rules = getRules({ minLength: 5 })
       const result = rules[0]!('abcde')

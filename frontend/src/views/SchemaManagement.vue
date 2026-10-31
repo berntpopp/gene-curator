@@ -9,20 +9,12 @@
         </p>
       </div>
       <v-spacer />
-      <input
-        ref="importInput"
-        type="file"
-        accept=".json,application/json"
-        class="d-none"
-        aria-label="Methodology file"
-        @change="onImportFile"
-      />
       <v-btn
         variant="outlined"
         size="large"
         prepend-icon="mdi-file-upload"
         :loading="importing"
-        @click="importInput?.click()"
+        @click="importPicker = true"
       >
         Import methodology
       </v-btn>
@@ -125,6 +117,7 @@
               variant="text"
               @click="duplicateSchema(item)"
             />
+            <VersionMoveDialog :schema-id="item.id" :schema-name="item.name" />
             <v-btn
               aria-label="Delete schema"
               icon="mdi-delete"
@@ -183,6 +176,25 @@
       </template></BaseDialog
     >
 
+    <!-- Pick the file in the house file input, with a word on what a bundle is (#587) -->
+    <BaseDialog v-model="importPicker" size="sm">
+      <template #title>Import methodology</template>
+      <p class="text-body-medium mb-4">
+        A methodology bundle is a JSON file with curation schemas and the workflow pairs that link
+        them (for example the KGDB bundle). You see the plan before anything is written.
+      </p>
+      <v-file-input
+        :model-value="null"
+        accept=".json,application/json"
+        label="Methodology bundle (.json)"
+        prepend-icon=""
+        prepend-inner-icon="mdi-file-upload"
+        variant="outlined"
+        :loading="importing"
+        @update:model-value="onImportFile"
+      />
+    </BaseDialog>
+
     <!-- Import plan (dry run) before anything is written -->
     <BaseDialog v-model="importDialog" size="md">
       <template #title>Import {{ importFileName }}</template>
@@ -213,6 +225,14 @@
             <td>{{ IMPORT_KINDS[item.kind] }}</td>
             <td>
               {{ item.name }}
+              <div
+                v-for="c in importChanges[`${item.name}@${item.version}`] ?? []"
+                :key="c"
+                class="text-body-small text-medium-emphasis"
+                data-testid="row-change"
+              >
+                {{ c }}
+              </div>
               <div
                 v-for="e in rowErrors(item)"
                 :key="e"
@@ -268,9 +288,11 @@
   import { curationStatusColor } from '@/config/status'
   import { useConfirm } from '@/composables/useConfirm'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import VersionMoveDialog from '@/components/schema-editor/VersionMoveDialog.vue'
   import { storeToRefs } from 'pinia'
   import type { Schema } from '@/types/api'
   import { useMethodologyImportStore } from '@/stores/methodologyImport'
+  import { schemaChanges } from '@/components/schema-editor/importDiff'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -426,23 +448,45 @@
       )
       .join('; ')
 
-  const importInput = ref<HTMLInputElement | null>(null)
+  const importPicker = ref(false)
   const importDialog = ref(false)
   const importFileName = ref('')
   const methodologyImport = useMethodologyImportStore()
   const { plan: importPlan, importing } = storeToRefs(methodologyImport)
+  // Per schema row (name@version, like the import's own match): what the file changes
+  const importChanges = ref<Record<string, string[]>>({})
+
+  const loadImportChanges = async (bundle: Schema<'MethodologyBundle'>, items: ImportItem[]) => {
+    importChanges.value = {}
+    const changed = items.filter(i => i.kind === 'schema' && i.id && i.action !== 'unchanged')
+    await Promise.all(
+      changed.map(async item => {
+        const incoming = bundle.schemas.find(
+          s => s.name === item.name && s.version === item.version
+        )
+        if (!incoming) return
+        try {
+          const current = await schemasStore.fetchSchemaById(String(item.id))
+          importChanges.value[`${item.name}@${item.version}`] = schemaChanges(current, incoming)
+        } catch (error) {
+          // the plan still shows the action; only its detail is missing
+          logger.warn('Import diff unavailable', { schema: item.name, error: String(error) })
+        }
+      })
+    )
+  }
 
   /** Read the chosen file and show the dry-run plan; nothing is written yet. */
-  const onImportFile = async (event: Event) => {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    input.value = '' // choosing the same file again fires change again
+  const onImportFile = async (picked: File | File[] | null | undefined) => {
+    const file = Array.isArray(picked) ? picked[0] : picked
     if (!file) return
+    importPicker.value = false
     try {
       // the server validates the file (shape, list limits, publish gate)
       const bundle = JSON.parse(await file.text()) as Schema<'MethodologyBundle'>
       importFileName.value = file.name
-      await methodologyImport.dryRun(bundle)
+      const result = await methodologyImport.dryRun(bundle)
+      await loadImportChanges(bundle, result.items)
       importDialog.value = true
     } catch (error) {
       const message = error instanceof SyntaxError ? 'The file is not valid JSON' : null
@@ -505,7 +549,7 @@
     try {
       const { type, ...basics } = newSchema.value
       // Created as an inactive skeleton that passes backend validation; edit it in the schema editor
-      await schemasStore.createSchema({
+      const created = await schemasStore.createSchema({
         ...basics,
         schema_type: type as string,
         // Sectioned, so the editor offers Add section (monkey B7)
@@ -537,6 +581,8 @@
         type: null,
         version: '1.0.0'
       }
+      // Straight into the builders: the skeleton is only a start (#282)
+      router.push({ name: 'SchemaEditor', params: { id: created.id } })
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to create schema', {

@@ -4,6 +4,7 @@ Active curations are produced by the real review flow (assign reviewer, approve)
 """
 
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -163,7 +164,10 @@ def test_public_summary_drops_scope_made_private_immediately(
     assert client.get(f"/api/v1/genes/{gene.id}/summary").status_code == 200
     scope.is_public = False
     db_session.commit()
-    assert client.get(f"/api/v1/genes/{gene.id}/summary").status_code == 404
+    # a known gene without public curations is an empty result, not a 404 (signed-out page)
+    r = client.get(f"/api/v1/genes/{gene.id}/summary")
+    assert (r.status_code, r.json()) == (200, None)
+    assert client.get(f"/api/v1/genes/{uuid4()}/summary").status_code == 404
 
 
 def test_archived_only_curation_leaves_empty_summary(
@@ -176,7 +180,7 @@ def test_archived_only_curation_leaves_empty_summary(
     ac.archived_at = datetime.now(UTC)
     c.status = "archived"
     db_session.commit()
-    assert client.get(f"/api/v1/genes/{gene.id}/summary").status_code == 404
+    assert client.get(f"/api/v1/genes/{gene.id}/summary").json() is None
     user = make_user(db_session)
     body = _full(client, user, gene)
     assert body["scope_summaries"] == []

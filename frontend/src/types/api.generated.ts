@@ -1115,6 +1115,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schemas/curation-schemas/{schema_id}/move-to-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move To Version
+         * @description Move every curation and precuration of the schema to its latest methodology version.
+         *
+         *     A dry run (the default) lists per row the fields kept and dropped, new required fields
+         *     now empty and old -> new score and class. Apply re-pins, drops the gone fields,
+         *     rescores and audit-logs every row in one transaction. An active curation whose class
+         *     changes, or that misses a new required field, stays active: an open copy on the new
+         *     version goes to review (its earlier reviewers are asked again) or to draft and
+         *     replaces it once approved (4-eyes). Running it twice changes nothing. ``version``
+         *     (the planned target) must still be the latest, else 409.
+         */
+        post: operations["move_to_version_api_v1_schemas_curation_schemas__schema_id__move_to_version_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/validation/validate-evidence": {
         parameters: {
             query?: never;
@@ -2871,10 +2899,11 @@ export interface paths {
          *         gene_id: UUID of the gene
          *
          *     Returns:
-         *         Public gene summary with only public scope data
+         *         Public gene summary with only public scope data; null when the gene has no
+         *         public curation (an empty result, so the signed-out gene page logs no 404)
          *
          *     Raises:
-         *         HTTPException: 404 if no public curations found for gene
+         *         HTTPException: 404 if the gene does not exist
          */
         get: operations["get_gene_public_summary_api_v1_genes__gene_id__summary_get"];
         put?: never;
@@ -5377,6 +5406,11 @@ export interface components {
             updated_at?: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Lock Version
+             * @default 0
+             */
+            lock_version: number;
         };
         /**
          * CurationSchemaCreate
@@ -5549,6 +5583,11 @@ export interface components {
             is_active?: boolean | null;
             /** Use Dynamic Form */
             use_dynamic_form?: boolean | null;
+            /**
+             * Lock Version
+             * @description The lock_version the writer loaded; a stale one is 409
+             */
+            lock_version: number;
         };
         /**
          * CurationScoreResponse
@@ -6052,7 +6091,7 @@ export interface components {
             schema_name?: string | null;
             /**
              * Version
-             * @description Pinned methodology version; null when the caller may not read methodology versions (anonymous)
+             * @description Pinned methodology version; null only for a row that pins none
              */
             version?: number | null;
             /**
@@ -6274,6 +6313,16 @@ export interface components {
              * @description Local gene row, null if only in HGNC
              */
             gene_id?: string | null;
+            /**
+             * In Scope
+             * @description Already in the request's scope_id
+             */
+            in_scope?: boolean | null;
+            /**
+             * In Scope Curator
+             * @description Its assigned curator there, if any (kept on add)
+             */
+            in_scope_curator?: string | null;
         };
         /**
          * GeneCatalogueEntry
@@ -6595,6 +6644,11 @@ export interface components {
         GeneResolveRequest: {
             /** Symbols */
             symbols: string[];
+            /**
+             * Scope Id
+             * @description Flag candidates already in this scope (caller must see it)
+             */
+            scope_id?: string | null;
         };
         /** GeneResolveResponse */
         GeneResolveResponse: {
@@ -10245,6 +10299,11 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /**
+             * Llm Second View
+             * @description AI second view is on and the caller may review here (RLS)
+             */
+            llm_second_view?: boolean | null;
             /** Description */
             description?: string | null;
             /** Institution */
@@ -11402,6 +11461,76 @@ export interface components {
             /** Few Shot Examples Changed */
             few_shot_examples_changed: boolean;
         };
+        /**
+         * VersionMoveItem
+         * @description What the move does (or, on a dry run, would do) to one curation or precuration.
+         */
+        VersionMoveItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "curation" | "precuration";
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Gene */
+            gene?: string | null;
+            /** Status */
+            status: string;
+            /** From Version */
+            from_version: number;
+            /** To Version */
+            to_version: number;
+            /**
+             * Kept
+             * @default []
+             */
+            kept: string[];
+            /**
+             * Dropped
+             * @default []
+             */
+            dropped: string[];
+            /**
+             * Missing Required
+             * @default []
+             */
+            missing_required: string[];
+            /** Old Score */
+            old_score?: number | null;
+            /** New Score */
+            new_score?: number | null;
+            /** Old Class */
+            old_class?: string | null;
+            /** New Class */
+            new_class?: string | null;
+            /** Back To */
+            back_to?: ("review" | "draft") | null;
+            /** Copy Id */
+            copy_id?: string | null;
+            /** Skipped */
+            skipped?: string | null;
+        };
+        /** VersionMoveResult */
+        VersionMoveResult: {
+            /** Dry Run */
+            dry_run: boolean;
+            /**
+             * Schema Id
+             * Format: uuid
+             */
+            schema_id: string;
+            /** To Version */
+            to_version: number;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["VersionMoveItem"][];
+        };
         /** VersionOut */
         VersionOut: {
             /**
@@ -11503,6 +11632,11 @@ export interface components {
             link: string;
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * Due Date
+             * @description Assignment due date
+             */
+            due_date?: string | null;
             /** Disease Name */
             disease_name?: string | null;
             /** Mode Of Inheritance */
@@ -13897,6 +14031,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MethodologyImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_to_version_api_v1_schemas_curation_schemas__schema_id__move_to_version_post: {
+        parameters: {
+            query?: {
+                /** @description The planned target; refused unless still the latest */
+                version?: number | null;
+                /** @description Return the plan; write nothing */
+                dry_run?: boolean;
+            };
+            header?: never;
+            path: {
+                schema_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionMoveResult"];
                 };
             };
             /** @description Validation Error */
@@ -17193,7 +17363,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GeneSummaryPublic"];
+                    "application/json": components["schemas"]["GeneSummaryPublic"] | null;
                 };
             };
             /** @description Validation Error */

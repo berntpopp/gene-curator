@@ -18,7 +18,7 @@ from app.core.deps import (
 )
 from app.core.logging import api_endpoint, get_logger
 from app.crud.scope_visibility import member_scope_ids, visible_scope_ids
-from app.models.models import CurationNew, Scope, UserNew
+from app.models.models import CurationNew, Gene, Scope, UserNew
 from app.schemas.gene_summary import GeneSummaryFull, GeneSummaryPublic
 from app.services.gene_summary_service import GeneSummaryService
 
@@ -28,14 +28,14 @@ router = APIRouter()
 
 @router.get(
     "/genes/{gene_id}/summary",
-    response_model=GeneSummaryPublic,
+    response_model=GeneSummaryPublic | None,
 )
 @api_endpoint()
 async def get_gene_public_summary(
     *,
     db: Session = Depends(get_db),
     gene_id: UUID,
-) -> GeneSummaryPublic:
+) -> GeneSummaryPublic | None:
     """Get public gene summary (no authentication required)
 
     Returns aggregated statistics for gene across public scopes only.
@@ -46,23 +46,21 @@ async def get_gene_public_summary(
         gene_id: UUID of the gene
 
     Returns:
-        Public gene summary with only public scope data
+        Public gene summary with only public scope data; null when the gene has no
+        public curation (an empty result, so the signed-out gene page logs no 404)
 
     Raises:
-        HTTPException: 404 if no public curations found for gene
+        HTTPException: 404 if the gene does not exist
     """
     service = GeneSummaryService(db)
     summary = service.get_public_summary(gene_id)
 
     if not summary:
-        logger.info(
-            "No public gene summary available",
-            gene_id=str(gene_id),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No public curations found for this gene",
-        )
+        if db.get(Gene, gene_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+            )
+        return None
 
     logger.debug(
         "Public gene summary retrieved",

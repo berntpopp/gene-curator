@@ -10,11 +10,13 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import event, func, select
+from sqlalchemy import event, func, select, update
 from sqlalchemy.orm import Session
 
+from app.crud.methodology_import import _write_schema
 from app.models import AuditLogNew, CurationSchema, Scope, UserNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
+from app.schemas.schema_repository import CurationSchemaCreate
 from tests.api.schema_api_support import auth, schema_payload
 
 pytestmark = pytest.mark.unit
@@ -139,6 +141,13 @@ def test_changed_content_publishes_a_new_version_and_keeps_the_old(
     ).all()
     assert [v.version for v in versions] == [1, 2]
     assert versions[0].snapshot == old_snapshot
+    # an editor that loaded the schema before the import now saves a stale copy (#282)
+    stale = client.put(
+        f"/api/v1/schemas/curation-schemas/{schema_id}",
+        json={"description": "editor", "lock_version": 0},
+        headers=auth(admin_token),
+    )
+    assert stale.status_code == 409, stale.text
     assert versions[1].snapshot["field_definitions"]["gene"]["label"] == "HGNC"
 
 
@@ -352,3 +361,26 @@ def test_reimport_writes_a_changed_description(
         assert row is not None
         db_session.refresh(row)
         assert row.description == f"{row.name} approved"
+        assert row.lock_version == 1  # an editor's stale copy is refused (#282)
+
+
+def test_import_bumps_the_stored_lock_version_not_a_stale_copy(
+    client: TestClient, db_session: Session, admin_token: str, test_user_admin: UserNew
+) -> None:
+    """An editor save between loading the row and the import's write is not lost (#282)."""
+    first = client.post(URL, json=bundle(), headers=auth(admin_token)).json()
+    row = db_session.get(CurationSchema, first["items"][1]["id"])
+    assert row is not None and row.lock_version == 0
+    db_session.execute(  # an editor saved meanwhile; the loaded row still says 0
+        update(CurationSchema)
+        .where(CurationSchema.id == row.id)
+        .values(lock_version=5)
+        .execution_options(synchronize_session=False)
+    )
+    changed = bundle()["schemas"][1]
+    changed["field_definitions"] = {"gene": {"type": "text", "label": "HGNC"}}
+    _write_schema(
+        db_session, CurationSchemaCreate(**changed), row, 2, test_user_admin.id
+    )
+    db_session.refresh(row)
+    assert row.lock_version == 6

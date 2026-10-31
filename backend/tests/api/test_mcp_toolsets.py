@@ -315,7 +315,7 @@ def test_every_tool_named_in_a_hint_description_or_instructions_exists(
 
 
 def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
-    assert len(INSTRUCTIONS) < 4096  # Claude Code cuts server instructions there
+    assert len(INSTRUCTIONS) < 3700  # clients cut at 4096; room for new tools
     for shortcut in (
         "scope_name",
         "submit_curation(reviewer_email=",

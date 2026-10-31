@@ -36,22 +36,29 @@ export function usePointModelChecks() {
     scoring_configuration: config
   })
 
-  async function check(config: ScoringConfig, fields?: Fields) {
+  // Replies can land out of order: only the latest check may set the diagnostics
+  let run = 0
+  async function validate(schema: Record<string, unknown>, prefix = '') {
+    const mine = ++run
     checking.value = true
     error.value = ''
     try {
-      const r = await validationAPI.validateSchema({
-        schema_definition: definition(config, fields)
-      })
+      const r = await validationAPI.validateSchema({ schema_definition: schema })
+      if (mine !== run) return
       diagnostics.value = [...r.errors, ...r.warnings]
         .map(d => d as unknown as Diagnostic)
-        .filter(d => String(d.field).startsWith('scoring_configuration'))
+        .filter(d => String(d.field).startsWith(prefix))
     } catch (e) {
-      error.value = errorMessage(e, 'Check failed')
+      if (mine === run) error.value = errorMessage(e, 'Check failed')
     } finally {
-      checking.value = false
+      if (mine === run) checking.value = false
     }
   }
+
+  const check = (config: ScoringConfig, fields?: Fields) =>
+    validate(definition(config, fields), 'scoring_configuration')
+  /** Every block of an unsaved draft schema, every diagnostic (the editor's badges, #282). */
+  const checkDraft = (schema: Record<string, unknown>) => validate(schema)
 
   async function runTests(config: ScoringConfig, fields?: Fields) {
     running.value = true
@@ -102,5 +109,16 @@ export function usePointModelChecks() {
       )
     ).length
 
-  return { diagnostics, results, checking, running, error, check, runTests, at, count }
+  return {
+    diagnostics,
+    results,
+    checking,
+    running,
+    error,
+    check,
+    checkDraft,
+    runTests,
+    at,
+    count
+  }
 }

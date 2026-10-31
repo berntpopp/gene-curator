@@ -167,7 +167,7 @@ export function groupDiff(items: DiffItem[], ctx: DiffContext = {}): DiffGroup[]
       let g = groups.get(key)
       if (!g) groups.set(key, (g = { key, label: '', context: '', change: it.change, fields: [] }))
       const field = path.slice(key.length).replace(/^\./, '')
-      const def = field ? fieldAt(ctx.fields, path) : undefined
+      const def = fieldAt(ctx.fields, path) // a scalar item (nested select) has options too
       g.fields.push({
         name: field,
         label: field ? fieldLabel(ctx.fields, path) : '',

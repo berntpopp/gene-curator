@@ -308,6 +308,35 @@ describe('evidence table options (monkey R2-7)', () => {
     const field = groupDiff(items, { fields })[0]!.fields[0]!
     expect(formatValue(field.after, field.options)).toBe('Compound heterozygous')
   })
+
+  it('labels a select inside nested objects (KGDB mane_status, monkey R3-2)', () => {
+    const fields = {
+      diagnostics: {
+        type: 'object',
+        properties: {
+          recommended_transcript: {
+            type: 'object',
+            properties: {
+              mane_status: {
+                type: 'select',
+                options: [{ value: 'select', label: 'MANE Select' }]
+              }
+            }
+          }
+        }
+      }
+    }
+    const items = [
+      {
+        path: 'diagnostics.recommended_transcript.mane_status',
+        change: 'changed',
+        before: null,
+        after: 'select'
+      }
+    ] as Item[]
+    const field = groupDiff(items, { fields })[0]!.fields[0]!
+    expect(formatValue(field.after, field.options)).toBe('MANE Select')
+  })
 })
 
 describe('formatValue', () => {

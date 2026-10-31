@@ -33,7 +33,8 @@ export interface Layout {
   sections: EditorSection[]
 }
 
-/** Same list as the backend validator (`core/schema_rules.py: VALID_FIELD_TYPES`) */
+/** The backend validator's types (`core/schema_rules.py: VALID_FIELD_TYPES`) without the two
+ * duplicates in `TYPE_ALIASES`, which stored schemas keep and the editor shows as their twin */
 export const FIELD_TYPES = [
   { value: 'text', title: 'Text' },
   { value: 'textarea', title: 'Long text' },
@@ -44,13 +45,20 @@ export const FIELD_TYPES = [
   { value: 'url', title: 'Link (URL)' },
   { value: 'select', title: 'Single choice' },
   { value: 'multiselect', title: 'Multiple choice' },
-  { value: 'enum', title: 'Choice (enum)' },
   { value: 'external_reference', title: 'Ontology reference' },
   { value: 'evidence_table', title: 'Evidence table' },
   { value: 'array', title: 'List' },
-  { value: 'object', title: 'Group (object)' },
-  { value: 'string', title: 'String' }
+  { value: 'object', title: 'Group (object)' }
 ]
+
+/** Same renderer and validator as their twin (normalizeDefinition.ts, schema_validator.py) */
+export const TYPE_ALIASES: Record<string, string> = { string: 'text', enum: 'select' }
+
+/** The type the picker shows: a stored alias stays stored until another type is picked */
+export const pickerType = (type: unknown) => TYPE_ALIASES[String(type)] ?? type
+
+export const typeTitle = (type: unknown) =>
+  FIELD_TYPES.find(t => t.value === pickerType(type))?.title ?? String(type ?? 'no type')
 
 /** Types whose values come from an options list */
 export const CHOICE_TYPES = ['select', 'multiselect', 'enum']

@@ -300,3 +300,37 @@ def test_a_non_member_of_a_public_scope_sees_no_assigned_reviewers(
     finally:
         with _owner() as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM users WHERE id = %s", (str(outsider),))
+
+
+def test_only_reviewers_learn_the_ai_second_view_is_on(
+    client: TestClient, w: W
+) -> None:
+    """B20 on RLS (065): the scope list says llm_second_view to reviewers only."""
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO scope_llm_settings (scope_id, enabled) VALUES (%s, true)",
+            (str(w.scope),),
+        )
+
+    def on(uid: UUID) -> bool:
+        rows = client.get("/api/v1/scopes/", headers=_h(uid)).json()
+        return next(r for r in rows if r["id"] == str(w.scope))["llm_second_view"]
+
+    assert (on(w.bob), on(w.alice)) == (True, False)
+
+
+def test_resolve_flags_genes_already_in_the_scope_under_rls(
+    client: TestClient, w: W
+) -> None:
+    """#587 polish: POST /genes/resolve with scope_id reads the assignment as app_user."""
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO gene_scope_assignments (gene_id, scope_id, assigned_curator_id, "
+            "is_active) VALUES (%s, %s, %s, true)",
+            (str(w.gene), str(w.scope), str(w.alice)),
+        )
+    body = {"symbols": [f"RA{str(w.scope)[:8]}"], "scope_id": str(w.scope)}
+    r = client.post("/api/v1/genes/resolve", json=body, headers=_h(w.vic))
+    assert r.status_code == 200, r.text
+    (candidate,) = r.json()["items"][0]["candidates"]
+    assert (candidate["in_scope"], candidate["in_scope_curator"]) == (True, "u")
