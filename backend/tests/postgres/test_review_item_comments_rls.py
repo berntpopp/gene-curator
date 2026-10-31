@@ -611,3 +611,21 @@ def test_api_scope_admin_cannot_withdraw_a_reviewers_accept(
     assert denied.status_code == 403
     ok = client.patch(url, json={"status": "resolved"}, headers=_auth(world.reviewer))
     assert ok.status_code == 200, ok.text
+
+
+@pytest.mark.parametrize("who", ["curator", "reviewer", "viewer"])
+def test_api_inactive_scope_reads_are_allowed_for_members(
+    client: TestClient, world: World, who: str
+) -> None:
+    """An inactive scope is read-only, not hidden: its members read comments, the audit
+    trail and the diff (writes stay 409, see test_inactive_scope_members)."""
+    c = world.curation_off
+    urls = (
+        f"/api/v1/curations/{c}/review-comments",
+        f"/api/v1/workflow/curation/{c}/audit-trail",
+        f"/api/v1/curations/{c}/diff",
+    )
+    for url in urls:
+        r = client.get(url, headers=_auth(getattr(world, who)))
+        assert r.status_code == 200, (url, r.text)
+        assert client.get(url, headers=_auth(world.outsider)).status_code in (403, 404)
