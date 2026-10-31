@@ -3851,7 +3851,7 @@
             }
           },
           {
-            "name": "Blank p value: a study significant after correction scores by size",
+            "name": "Size tiers: a blank p value scores by size; 50/50 and 500/500 are inclusive, 600/40 stays at 1",
             "evidence_data": {
               "association": {
                 "studies": [
@@ -3864,13 +3864,43 @@
                     "effect_direction": "risk",
                     "cases_total": 120,
                     "controls_total": 150
+                  },
+                  {
+                    "pmid": "31000091",
+                    "study_label": "Cohort H",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 50,
+                    "controls_total": 50
+                  },
+                  {
+                    "pmid": "31000092",
+                    "study_label": "Cohort I",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 500,
+                    "controls_total": 500
+                  },
+                  {
+                    "pmid": "31000093",
+                    "study_label": "Cohort J",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 40
                   }
                 ]
               }
             },
             "expect": {
-              "total": 2,
-              "class": "uncertain"
+              "total": 8,
+              "class": "likely"
             }
           },
           {

@@ -351,11 +351,11 @@ def test_reimport_writes_a_changed_description(
     changed["schemas"][1]["field_definitions"] = {
         "gene": {"type": "text", "label": "HGNC"}
     }
+    dry = client.post(f"{URL}?dry_run=true", json=changed, headers=auth(admin_token))
+    plan = [("schema", "update", 1), ("schema", "new_version", 2)]
+    assert _actions(dry.json())[:2] == plan  # the dry run reports what the apply writes
     r = client.post(URL, json=changed, headers=auth(admin_token))
-    assert _actions(r.json())[:2] == [
-        ("schema", "unchanged", 1),
-        ("schema", "new_version", 2),
-    ]
+    assert _actions(r.json())[:2] == plan
     for item in first["items"][:2]:
         row = db_session.get(CurationSchema, item["id"])
         assert row is not None

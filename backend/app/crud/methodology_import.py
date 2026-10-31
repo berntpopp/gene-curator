@@ -86,7 +86,8 @@ def _plan_schema(
     published = latest.snapshot if latest else None
     wanted, current = _snapshot(spec.model_dump()), _snapshot(row)
     if published == wanted and current == wanted:
-        item.action = "unchanged"
+        # description is not versioned content: written in place, no new version
+        item.action = "update" if row.description != spec.description else "unchanged"
         item.methodology_version = latest.version if latest else None
         return item, row, None
     if current not in (published, wanted):  # never overwrite unpublished UI edits
@@ -256,12 +257,13 @@ def import_bundle(
 
     ids: dict[str, UUID | None] = {}
     for spec, item, row in planned:
-        if write and item.action != "unchanged":
+        if write and item.action in ("create", "new_version"):
             assert item.methodology_version is not None
             row = _write_schema(db, spec, row, item.methodology_version, user_id)
             item.id = row.id
-        elif write and row is not None and row.description != spec.description:
-            row.description = spec.description  # not versioned content: no new version
+        elif write and item.action == "update":
+            assert row is not None
+            row.description = spec.description
             row.lock_version = (
                 CurationSchema.lock_version + 1
             )  # as _write_schema (#282)

@@ -117,7 +117,7 @@ Embedded `scoring_configuration.tests` (run at every publish and import):
 | Compound het without a phase | 1 | limited |
 | Proband without zygosity (AF cutoff) | 1 | limited |
 | Row rules (de novo, zero rules, AF caps, models 1) | 4.5 | limited |
-| Susceptibility: established (two 600/700 studies, Very Strong) | 6 | established |
+| Susceptibility: established (600/700 + 800/900, Very Strong) | 6 | established |
 | Susceptibility: likely (600/700 + 120/150, not Very Strong) | 5 | likely |
 | Susceptibility: small study; not significant after correction, or blank, scores 0 | 1 | uncertain |
 | Susceptibility: refuted overrides an established score | 6 | refuted |
@@ -127,7 +127,7 @@ Embedded `scoring_configuration.tests` (run at every publish and import):
 | Susceptibility: three 600/700 studies, not Very Strong | 9 | likely |
 | Susceptibility: one 600/700 study + two functional rows (`section_min`) | 5 | uncertain |
 | Susceptibility: disputed overrides an established score | 6 | uncertain |
-| Susceptibility: blank p value, significant after correction, scores by size | 2 | uncertain |
+| Susceptibility: size tiers (blank p value 120/150 = 2, 50/50 = 2, 500/500 = 3, 600/40 = 1) | 8 | likely |
 | Susceptibility: Very Strong, 5 association + 2 functional (`section_min`) | 7 | likely |
 
 ## LLM sharing

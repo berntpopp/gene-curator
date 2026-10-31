@@ -64,8 +64,8 @@ evidence publicly. The schema editor sets it with *Synopsis field* under the fie
 - New schema: created and published as methodology version 1.
 - Existing schema whose content (`field_definitions`, `validation_rules`,
   `scoring_configuration`, `workflow_states`, `ui_configuration`) equals both its latest
-  published version and the bundle: `unchanged`, no version is published; only a changed
-  `description` (not versioned content) is written. Changed content
+  published version and the bundle: `unchanged`, no version is published. If only its `description` (not versioned
+  content) differs, the plan says `update` and the description is written in place. Changed content
   overwrites the schema and publishes the next version; published versions never change
   and existing curations keep theirs.
 - A schema with unpublished edits (differs from its latest version and from the bundle)
