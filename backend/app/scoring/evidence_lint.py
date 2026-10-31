@@ -146,7 +146,11 @@ def review_flags(result: dict[str, Any]) -> list[str]:
             ]
             return max(checks, key=lambda c: c[0])
 
-        edges = [(b, gap(b)) for b in result["model"]["bands"] if b.get("min", 0) > 0]
+        # The lowest floor within the margin of 0 (limited at 0.1) parts some evidence from
+        # none: no boundary to flag
+        bands = [b for b in result["model"]["bands"] if b.get("min", 0) > 0]
+        floor = min((b["min"] for b in bands), default=0)
+        edges = [(b, gap(b)) for b in bands if b["min"] > floor or floor > margin]
         near = min(edges, key=lambda e: abs(e[1][0]), default=None)
         if near and abs(near[1][0]) <= margin:
             band, (_, note) = near

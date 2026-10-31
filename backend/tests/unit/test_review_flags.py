@@ -157,6 +157,20 @@ def test_band_margin_ignores_edges_at_or_below_zero() -> None:
     assert _flags(model, _evidence(_distinct(1))) == []
 
 
+def test_band_margin_skips_the_lowest_bands_floor() -> None:
+    """A total of 1 is not "within 2 of limited at 0.1": a lowest floor within the margin
+    of 0 only separates some evidence from none (a floor above it still counts, see the
+    KGDB susceptibility test below)."""
+    model = _model(band_margin=2)
+    assert _flags(model, _evidence(_distinct(1))) == []
+    assert _flags(model, _evidence([])) == []
+    model["bands"].insert(1, {"class": "moderate", "min": 7})
+    assert _flags(model, _evidence(_distinct(6))) == [
+        "review_flags.band_margin: the total of 6 points is within 2 points of the "
+        "moderate band edge at 7; check the evidence near the boundary"
+    ]
+
+
 def test_hotspot_names_the_variants_there_are() -> None:
     model = _model(hotspot={"max_variants": 2, "min_share": 0.5})
     assert _flags(model, _evidence(["c.1A>G"] * 3)) == [
