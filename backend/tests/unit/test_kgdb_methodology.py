@@ -122,3 +122,40 @@ def test_a_band_without_description_falls_back_to_its_label() -> None:
         band.pop("description", None)
     rationale = _score({}, config).verdict_rationale
     assert rationale.endswith("Classification: No Known Disease Relationship.")
+
+
+@pytest.mark.parametrize(
+    "name", ["KGDB Mendelian Curation", "KGDB Susceptibility Curation"]
+)
+def test_kgdb_text_and_list_limits_are_refused(name: str) -> None:
+    """#611: KGDB's limits (summary 2000, notes 300 / 500, at most 10 detectability
+    sources) are refused at submit; values at the limit pass."""
+    from app.services.evidence_ids import evidence_errors
+
+    def paths(evidence: dict[str, Any]) -> set[str]:
+        return {e.path for e in evidence_errors(evidence, SCHEMAS[name])}
+
+    def evidence(n: int, sources: int) -> dict[str, Any]:
+        return {
+            "evidence_summary": "x" * (2000 + n),
+            "diagnostics_notes": {
+                "transcript_verified_via": "x" * (300 + n),
+                "detectability_note": "x" * (500 + n),
+            },
+            "diagnostics": {
+                "detectability": [
+                    {"challenge": "other", "sources": ["PMID:1"] * sources}
+                ]
+            },
+        }
+
+    assert paths(evidence(0, 10)) == set()
+    assert {
+        "evidence_summary",
+        "diagnostics_notes.transcript_verified_via",
+        "diagnostics_notes.detectability_note",
+    } <= paths(evidence(1, 11))
+    # ponytail: table cells honour max_items once #616's validator lands; then add
+    # "diagnostics.detectability[0].sources" to the set above
+    detectability = SCHEMAS[name]["field_definitions"]["diagnostics"]["properties"]
+    assert detectability["detectability"]["columns"]["sources"]["max_items"] == 10

@@ -167,12 +167,14 @@
             {
               "pmid": "31000022",
               "assay": "paracellular Mg2+ flux",
-              "evidence_quote": "Quoted from the source."
+              "evidence_quote": "Quoted from the source.",
+              "subtype": "patient_cells"
             },
             {
               "pmid": "31000023",
               "assay": "tight junction localisation",
-              "evidence_quote": "Quoted from the source."
+              "evidence_quote": "Quoted from the source.",
+              "subtype": "patient_cells"
             }
           ]
         },

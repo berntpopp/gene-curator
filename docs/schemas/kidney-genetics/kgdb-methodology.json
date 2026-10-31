@@ -1624,7 +1624,8 @@
                 "sources": {
                   "type": "array",
                   "label": "Sources (PMID or DOI)",
-                  "llm_share": true
+                  "llm_share": true,
+                  "max_items": 10
                 }
               }
             },
@@ -2395,12 +2396,14 @@
                   {
                     "pmid": "31000022",
                     "assay": "paracellular Mg2+ flux",
-                    "evidence_quote": "Quoted from the source."
+                    "evidence_quote": "Quoted from the source.",
+                    "subtype": "patient_cells"
                   },
                   {
                     "pmid": "31000023",
                     "assay": "tight junction localisation",
-                    "evidence_quote": "Quoted from the source."
+                    "evidence_quote": "Quoted from the source.",
+                    "subtype": "patient_cells"
                   }
                 ]
               },
@@ -2530,7 +2533,8 @@
                   {
                     "pmid": "31000040",
                     "assay": "reporter assay",
-                    "evidence_quote": "Quoted from the source."
+                    "evidence_quote": "Quoted from the source.",
+                    "subtype": "patient_cells"
                   }
                 ]
               },
@@ -2591,12 +2595,14 @@
                   {
                     "pmid": "31000054",
                     "assay": "ER chaperone assay",
-                    "evidence_quote": "Quoted from the source."
+                    "evidence_quote": "Quoted from the source.",
+                    "subtype": "patient_cells"
                   },
                   {
                     "pmid": "31000055",
                     "assay": "secretion assay",
-                    "evidence_quote": "Quoted from the source."
+                    "evidence_quote": "Quoted from the source.",
+                    "subtype": "patient_cells"
                   }
                 ]
               }
@@ -3556,7 +3562,8 @@
                 "sources": {
                   "type": "array",
                   "label": "Sources (PMID or DOI)",
-                  "llm_share": true
+                  "llm_share": true,
+                  "max_items": 10
                 }
               }
             },
