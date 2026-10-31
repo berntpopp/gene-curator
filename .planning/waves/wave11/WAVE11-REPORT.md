@@ -50,7 +50,8 @@ Step 0 is answered; do not ask again.
 | #276 catalogue column order, With results, saved view | #605 |
 | #447 SOP v11 segregation | #606 |
 | Release v0.13.0 | this PR (release/v0.13.0) |
-| Polish PRs fix/w11-polish, fix/w11-ui-polish | TODO(owner): numbers |
+| UI monkey findings and UX polish (fix/w11-ui-polish) | #608 |
+| API/MCP monkey findings, polish queue, migration 086 (fix/w11-polish) | #609 |
 
 ## Migrations
 
@@ -64,15 +65,16 @@ Step 0 is answered; do not ask again.
 | 083 | - | unused (#606 needed none) |
 | 084_user_view_preferences | #605 | per-user saved views, own-row RLS, no DELETE |
 | 085_methodology_versions_public_read | #601 | anyone reads methodology versions (anonymous export `methodology.version`) |
+| 086 (allowed pairs backfill) | #609 | each scope's allowed pairs from its existing work: default, curations' pairs, active pairs of its precurations' schemas |
 
 ## Reviews
 
-Must-fix findings caught in review, from the fix commits on each PR (single-commit PRs were
-amended before merge; findings left for later are in the polish queue above).
+Must-fix findings caught in review, from the fix commits on each PR (and the coordinator's
+review notes; findings left for later were fixed in #608 and #609).
 
 - #592, #594: #594 itself is the review follow-up of #592 (every 409 read as a stale save).
 - #598: no user ids in the export; a concurrent adopt (race) is a 409.
-- #599: none recorded separately.
+- #599: a PUT without `lock_version` overwrote; the draft stuck after a 409.
 - #600: frontend diff-cover 89% raised to 98% with tests.
 - #601: in-scope gene flags resolved in one query; typed public summary; boolean length limits ignored.
 - #602: source ids warn at save and MCP write; one VA-Spec contribution builder; no email
@@ -85,15 +87,29 @@ amended before merge; findings left for later are in the polish queue above).
   into its own function; audit-after-commit queued for polish.
 - #605: blank curator call counts as unclassified; saved view written by upsert; drop indicator
   for drag reorder.
-- #606: none recorded separately.
+- #606: the MCP hint missed `segregation_assessment`; the field-id explanation was kept instead of
+  the notes.
+- #608: removing a source chip hid the next one.
+- #609: scope-admin edits could approve their own edits (curation and precuration; fixed by
+  `draft_edit` joining the correctors); 086 took inactive and foreign pairs.
 
 ## Monkey results
 
-TODO(owner)
+Round 1:
+
+| Run | Critical | High | Medium | Low |
+| --- | --- | --- | --- | --- |
+| API/MCP | 0 | 0 | 2 | 9 |
+| UI | 0 | 3 | 6 | 14 |
+
+UX scores (out of 10): KGDB journey 5, builders 5, permissions 5, mobile 6, version move 7,
+segregation 7, catalogue 8. Fixed in #608 (UI) and #609 (API/MCP).
+
+TODO(owner): re-check results.
 
 ## KGDB readiness
 
-TODO(owner)
+TODO(owner): KGDB readiness.
 
 ## Remaining follow-ups
 
