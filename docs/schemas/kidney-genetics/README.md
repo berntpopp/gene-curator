@@ -1,7 +1,9 @@
 # Kidney Genetics (KGDB) methodology bundle
 
 `kgdb-methodology.json` is the kidney-genetics-db curation methodology (alpha, draft
-iteration 3; see [kidney-genetics-db#439](https://github.com/berntpopp/kidney-genetics-db/issues/439))
+iteration 8: the rules of KGDB's production curator prompt
+`kidney-genetics-db/.planning/specs/2026-10-30-curation-alpha/PROMPT_PRODUCTION.md`; see
+[kidney-genetics-db#439](https://github.com/berntpopp/kidney-genetics-db/issues/439))
 as one import bundle ([docs/METHODOLOGY-IMPORT.md](../../METHODOLOGY-IMPORT.md)):
 
 | Object | Name | Version |
@@ -25,7 +27,13 @@ The curator picks the pair by hand: a Mendelian entity is precurated with the Me
 precuration schema, a susceptibility (risk allele) entity with the susceptibility one. Each
 precuration schema belongs to one pair, so approval opens the curation of the right pair
 without routing code. `relationship_type` is fixed per precuration schema and becomes part of
-the entity key (`MONDO|MOI|SUSCEPTIBILITY`).
+the entity key. A susceptibility entity is one named allele: the precuration's `risk_allele`
+(rsID, haplotype or genotype) is the key's fourth part, so a second allele of the same gene and
+disease is its own entity (`MONDO|MOI|SUSCEPTIBILITY|RS4664308`; trimmed, spaces removed, upper
+case; migration 088). Both precurations offer MOI Undetermined (HP:0000005, key `UNDETERMINED`); the
+susceptibility one also Multifactorial (polygenic) (HP:0010982, Polygenic inheritance, whose
+HPO synonym is multifactorial; key `MULTIFACTORIAL`), the keys these
+labels typed as text already had.
 
 ## Import
 
@@ -54,28 +62,47 @@ Mendelian (`scoring_configuration.point_model`, engine `point_model`; see
 
 | Category | Row | Default | Cap |
 | --- | --- | --- | --- |
-| `genetic.probands` | unrelated proband with a real variant (`require_variant`) | 1, de novo confirmed 1.5 | 10 |
+| `genetic.probands` | unrelated proband, scored per allele (ClinGen SOP v12; `require_variant`) | entered; blank 1, de novo confirmed 1.5 | 12 |
 | `genetic.segregation` | one row, summed LOD 2 / 3 / 5 | 1 / 2 / 3 (`rule: step`) | 3 |
-| `genetic.cohort` | significant case-control or burden study | 2 | 4 |
+| `genetic.cohort` | significant case-control or burden study | 2 | 6 |
 | `experimental.models` | model with a matching phenotype | 2, partial mechanism fit or morpholino only 1 | 4 |
-| `experimental.functional` | assay or rescue | 1 | 2 |
+| `experimental.functional` | one line of evidence by `subtype` | biochemical, interaction, expression 0.5; patient cells 1; non-patient cells 0.5; rescue 2 | 4 |
 
-Genetic cap 12, experimental cap 6, total 18; a proband row scores at most 1.5. A proband row
-scores 0 when `variant_source` is `not_given`, `duplicate_of` is set, `zygosity` is blank, a
-compound heterozygote has `phase` `unknown` or blank (only confirmed or suspected in trans
-count), or `allele_frequency` is above 2.5e-3, or above 1e-4 when `zygosity` is
-`heterozygous` or `hemizygous`. The AF cutoff keys on the row's zygosity, not on the entity's
-MOI: an AD row must be entered as heterozygous (or hemizygous for XL) to get the 1e-4 cutoff.
-At most 2 points per recurrent variant (`group_by: variant`); rows are grouped by the variant
-text after trimming and case folding only, so `c.100C>T` and `NM_006580.4:c.100C>T` are two
-variants (not HGVS-normalised). A row without a PMID scores nothing.
+Genetic cap 12, experimental cap 6, total 18. The curator (or agent) computes a proband row's
+points from its `alleles` (one text entry per allele, `variant | class | nmd_expected |
+functional_support | functional_pmid | functional_quote | also_scored_as_experimental`; null
+1.5, or 1.0 when `nmd_expected` is false; any other 0.1, or 0.5 with functional support;
+recessive alleles summed; de novo confirmed +0.5) and enters it; the row scores at most 3. GC
+does not compute allele points; it applies the row rules and caps. A proband row scores 0 when
+`variant_source` is `not_given`, `duplicate_of` is set, `zygosity` is blank, `evidence_quote`
+is blank (no quote, no points), or `allele_frequency` is above 2.5e-3, or above 1e-4 when
+`zygosity` is `heterozygous` or `hemizygous`. The engine halves a compound heterozygote with
+`phase` `unknown` or blank (local rule, `factor: 0.5`; enter the full allele sum) and caps a
+homozygote with `consanguinity` `yes` at 2 (`max: 2`). The AF cutoff keys on the row's
+zygosity, not on the entity's MOI: an AD row must be entered as heterozygous (or hemizygous
+for XL) to get the 1e-4 cutoff. All rows sharing one variant (AD/XL) or genotype (AR: the
+`v1 / v2` text) within one population score at most 3 together (`group_by: [variant,
+population]`); the same variant in another population is its own group, and rows without a
+population form one group per variant. Rows are grouped by the text after trimming and case
+folding only, so write a recurrent variant identically on every row: `c.100C>T` and
+`NM_006580.4:c.100C>T` are two variants (not HGVS-normalised). `af_checked` is recorded. Cohort, model and functional rows also
+score 0 without an `evidence_quote`; segregation rows carry one but the step rule does not
+check it. A row without a PMID scores nothing. A functional row's `subtype` sets its default
+and its maximum (function 0.5, non-patient cells 0.5, patient cells 1, rescue 2; `max` rules);
+function rows (biochemical, interaction, expression) score at most 2 together and functional
+alteration rows (patient and non-patient cells) at most 2 (`group_values` + `group_cap`);
+rescue stays in the functional category (cap 4) rather than counting toward the models cap.
 
-Bands, first match wins: Definitive >= 12 and `replicated_over_time`; Strong >= 12; Moderate
->= 7; Limited > 0; No Known 0. Definitive, Strong and Moderate also need genetic >= 4
+Bands, first match wins: Definitive >= 11.5 and `replicated_over_time`; Strong >= 11.5;
+Moderate >= 6.5; Limited > 0 with genetic > 0; No Known otherwise (no genetic points, whatever
+the experimental evidence). Definitive, Strong and Moderate also need genetic >= 4
 (`section_min`). Contradictory evidence with impact `refuted` or `disputed` sets that class.
-Reviewer flags: total within 2 points of a band edge, experimental above genetic, hotspot
-(the top 2 variants carry >= 50% of proband points and one of them is in 2 or more scoring
-probands; single-proband variants never raise it; the hotspot pilot case raises it).
+Reviewer flags (`review_flags`): total within 1 point of a band edge, experimental above
+genetic, hotspot (the top 2 variants carry >= 50% of proband points and one of them is in 2 or
+more scoring probands; single-proband variants never raise it; the hotspot pilot case raises
+it). The prompt's other flags (calculated class differs from the curator's call,
+susceptibility, unchecked AF, unread key paper) go in `reviewer_flags`; the curator's own call
+is the curation's curator classification and rationale.
 
 Susceptibility (approved by KGDB in
 [kidney-genetics-db#473](https://github.com/berntpopp/kidney-genetics-db/issues/473); ClinGen
@@ -84,10 +111,10 @@ disease + one named risk allele, haplotype or genotype; studies of different all
 
 | Category | Row | Default | Cap |
 | --- | --- | --- | --- |
-| `association.studies` | significant study of the named allele, OR and 95% CI oriented to it | 1; 2 if >= 50 cases and >= 50 controls; 3 if >= 500 and >= 500 or `design` `meta_analysis` | 9 |
+| `association.studies` | significant study of the named allele, OR and 95% CI (`ci_lower`, `ci_upper`) oriented to it | 1; 2 if >= 50 cases and >= 50 controls; 3 if >= 500 and >= 500 or `design` `meta_analysis` (the prompt says >; #473 approved >=) | 9 |
 | `experimental.functional` | assay, expression/eQTL or model supporting the allele | 1 | 2 |
 
-Total 11. A study row scores 0 when `significant_after_correction` is false or blank,
+Total 11. Each study row carries `evidence_quote` (recorded; no points rule). A study row scores 0 when `significant_after_correction` is false or blank,
 `included_in` names a meta-analysis row (so a cohort is not counted twice), or
 `effect_direction` is `protective` (protective alleles are recorded, not scored). Effect size is
 recorded, not scored (`p_value` is stored only; a blank one does not change the points); an OR
@@ -113,10 +140,15 @@ Embedded `scoring_configuration.tests` (run at every publish and import):
 | NEK8 (AD ADPKD): 12 genetic, 2 experimental, not replicated | 14 | strong |
 | SIX5 (AD BOR): disputed by contradictory evidence | 1 | disputed |
 | DNAJB11-like: genetic 2 + experimental 6 | 8 | limited (not moderate: genetic < 4) |
-| Hotspot: 6 probands, one recurrent variant | 2 | limited |
-| Compound het without a phase | 1 | limited |
+| Hotspot: 6 probands, one recurrent variant (group cap 3) | 3 | limited |
+| Compound het without a phase (half) | 1.5 | limited |
 | Proband without zygosity (AF cutoff) | 1 | limited |
-| Row rules (de novo, zero rules, AF caps, models 1) | 4.5 | limited |
+| Row rules (de novo, phase unknown halved, zero rules, AF caps, models 1) | 5 | limited |
+| Iteration 8: rows up to 3, Strong from 11.5, no quote scores 0 | 11.5 | strong |
+| Functional subtypes 0.5 / 1 / 2, cap 4, no genetic points | 4 | no_known |
+| Unknown phase halves entered 3, consanguineous homozygote at most 2 | 6.5 | moderate |
+| Recurrent variant: cap 3 per population (Japan 4.5 -> 3, Finland 3) | 6 | limited |
+| Functional sub-caps: 6 expression rows 2, non-patient cells entered 1 -> 0.5, + 1 genetic | 3.5 | limited |
 | Susceptibility: established (600/700 + 800/900, Very Strong) | 6 | established |
 | Susceptibility: likely (600/700 + 120/150, not Very Strong) | 5 | likely |
 | Susceptibility: small study; not significant after correction, or blank, scores 0 | 1 | uncertain |
@@ -148,9 +180,10 @@ unless the scope exports evidence publicly).
 | --- | --- |
 | Gene | `hgnc_id`, `approved_symbol` |
 | Gene_Entity_ID / match key | `entity_key` (opaque), with `mondo_id`, `moi_hpo_id`, `relationship_type` |
-| Disease | `disease_name`, `mondo_id` |
+| Disease | `disease_name`, `mondo_id` (`MONDO:`; a typed `MONDO_` is normalised) |
 | Class | `final_classification` (reviewer-approved), `computed_verdict` (point model) |
-| Points | `total_score`, `genetic_score`, `experimental_score` (`genetic_total`, `experimental_total`); trace in `scores` |
+| Points | `total_score`, `genetic_score`, `experimental_score` (`genetic_total`, `experimental_total`); susceptibility `association_score` (also `scores.association_total`); trace in `scores` |
+| Named risk allele | `risk_allele` (susceptibility; also the key's fourth part) |
 | Methodology | `methodology.schema_name`, `methodology.version`, `methodology.version_id` |
 | Curator, reviewer | `curator_name`, `reviewer_name`, `approved_at`, `activated_at` |
 | Provenance link | `url`, `curation_id` |
@@ -158,7 +191,7 @@ unless the scope exports evidence publicly).
 | Evidence rows | `evidence.genetic.*`, `evidence.experimental.*`, `evidence.contradictory_evidence` |
 | Susceptibility rows | `evidence.association.studies` |
 | Clinical diagnostics | `evidence.diagnostics` (see below) |
-| Diagnostics notes | `evidence.diagnostics_notes.transcript_verified_via`, `.detectability_note` (not in KGDB's `Diagnostics`) |
+| Diagnostics notes | `evidence.diagnostics_notes.transcript_verified_via`, `.detectability_note` (KGDB `recommended_transcript.verified_via`, `detectability_note`) |
 | PMIDs | `pmids` |
 
 Class keys: `definitive`, `strong`, `moderate`, `limited`, `no_known`, `disputed`,
@@ -180,23 +213,24 @@ must reshape them exactly like this; everything else passes through unchanged:
 | `recommended_transcript.{refseq, ensembl, mane_status, legacy_transcript, numbering_conversion}` | same keys |
 | `detectability[].{challenge, share_of_variants, affected_variants, methods, negative_report_does_not_exclude, sources}` | same keys |
 | `detectability[].tools[]`: text `name \| url \| pmid_or_doi`, split on ` \| `, empty parts null | `tools[]`: `{name, url, pmid_or_doi}` |
-| `resources[].{type, name, url, language, audiences, maintainer, conflict_of_interest}` | same keys; `type` is `patient_organisation`, `registry`, `variant_database`, `guideline` or `other` |
+| `resources[].{type, name, url, language, audiences, maintainer, conflict_of_interest, country_or_scope}` | same keys; `type` is `patient_organisation`, `registry`, `variant_database`, `guideline` or `other` |
 | `resources[].verified_method`, `resources[].verified_date` | `resources[].verified`: `{method, date}` |
-| `diagnostics_notes.transcript_verified_via`, `diagnostics_notes.detectability_note` | no KGDB key yet (kept outside `diagnostics`) |
+| `diagnostics_notes.transcript_verified_via` | `recommended_transcript.verified_via` |
+| `diagnostics_notes.detectability_note` | `detectability_note` |
 
 Drop blank optional keys (null or `""`) before validating. KGDB's text limits are set as `max_length`
 on the fields (`legacy_transcript` <= 50, `numbering_conversion` <= 500, `share_of_variants`
 <= 100, `affected_variants` <= 300, resource `name` 1-200, `language` <= 20, `maintainer` <=
-200, `conflict_of_interest` <= 500); the server does not check evidence-table cells, so the
+200, `conflict_of_interest` <= 500, `country_or_scope` <= 100, `verified_via` <= 300,
+`detectability_note` <= 500); `evidence_summary` is limited to 2000; the server does not check evidence-table cells, so the
 importer checks them too. Importer-only limits: resource `url` <= 2000, `methods` <= 20 entries of <= 50
 characters, `tools` <= 10 entries with a non-empty name <= 100 (drop an entry whose name part
-is blank), `pmid_or_doi` <= 100, `sources` <= 10 entries of <= 300, `audiences` <= 10 entries
+is blank), `pmid_or_doi` <= 100, `sources` <= 10 entries (`max_items`, checked at submit) of <= 300, `audiences` <= 10 entries
 of <= 50, at most 20 detectability rows and 50 resources; `challenge` (<= 300) is one of the
 GC select values. RefSeq (`^NM_\d+\.\d+$`) and Ensembl (`^ENST\d{11}\.\d+$`) formats are
-checked by GC. Open KGDB questions: the curator
-brief also asks for a transcript `verified_via`, a `detectability_note` and a resource
-`country_or_scope`, which KGDB's `Diagnostics` forbids; the first two are kept outside
-`diagnostics`, `country_or_scope` is left out until KGDB adds it.
+checked by GC. KGDB's `Diagnostics` has `recommended_transcript.verified_via`,
+`detectability_note` and resource `country_or_scope`; GC keeps the first two in
+`diagnostics_notes` (frozen ids), so the importer moves them as mapped above.
 
 ## Frozen field ids (the KGDB import contract)
 
@@ -241,6 +275,7 @@ mondo_id
 disease_name
 mode_of_inheritance
 relationship_type
+risk_allele
 omim_id
 orphanet_id
 lumping_splitting_applicable
@@ -265,13 +300,18 @@ genetic.probands
 genetic.probands[].proband_label
 genetic.probands[].variant
 genetic.probands[].variant_class
+genetic.probands[].alleles
 genetic.probands[].zygosity
+genetic.probands[].consanguinity
 genetic.probands[].phase
 genetic.probands[].de_novo
 genetic.probands[].variant_source
+genetic.probands[].population
 genetic.probands[].allele_frequency
+genetic.probands[].af_checked
 genetic.probands[].duplicate_of
 genetic.probands[].pmid
+genetic.probands[].evidence_quote
 genetic.probands[].points
 genetic.probands[].explanation
 genetic.probands[].sources
@@ -281,6 +321,7 @@ genetic.segregation[].families
 genetic.segregation[].summed_lod
 genetic.segregation[].method_note
 genetic.segregation[].pmid
+genetic.segregation[].evidence_quote
 genetic.segregation[].sources
 genetic.segregation[].direction
 genetic.cohort
@@ -292,6 +333,7 @@ genetic.cohort[].controls_total
 genetic.cohort[].odds_ratio
 genetic.cohort[].p_value
 genetic.cohort[].pmid
+genetic.cohort[].evidence_quote
 genetic.cohort[].points
 genetic.cohort[].sources
 genetic.cohort[].direction
@@ -303,13 +345,16 @@ experimental.models[].phenotype
 experimental.models[].mechanism_fit
 experimental.models[].morpholino_only
 experimental.models[].pmid
+experimental.models[].evidence_quote
 experimental.models[].points
 experimental.models[].sources
 experimental.models[].direction
 experimental.functional
+experimental.functional[].subtype
 experimental.functional[].assay
 experimental.functional[].finding
 experimental.functional[].pmid
+experimental.functional[].evidence_quote
 experimental.functional[].points
 experimental.functional[].sources
 experimental.functional[].direction
@@ -323,6 +368,7 @@ contradictory_evidence[].direction
 replicated_over_time
 reported_not_scored
 context_notes
+reviewer_flags
 evidence_summary
 diagnostics_notes
 diagnostics_notes.transcript_verified_via
@@ -350,6 +396,7 @@ diagnostics.resources[].language
 diagnostics.resources[].audiences
 diagnostics.resources[].maintainer
 diagnostics.resources[].conflict_of_interest
+diagnostics.resources[].country_or_scope
 diagnostics.resources[].verified_method
 diagnostics.resources[].verified_date
 ```
@@ -366,8 +413,11 @@ association.studies[].ancestry
 association.studies[].cases_total
 association.studies[].controls_total
 association.studies[].odds_ratio
+association.studies[].ci_lower
+association.studies[].ci_upper
 association.studies[].p_value
 association.studies[].pmid
+association.studies[].evidence_quote
 association.studies[].significant_after_correction
 association.studies[].effect_direction
 association.studies[].included_in
@@ -393,6 +443,7 @@ meets_very_strong
 replicated_over_time
 reported_not_scored
 context_notes
+reviewer_flags
 evidence_summary
 diagnostics_notes
 diagnostics_notes.transcript_verified_via
@@ -420,6 +471,7 @@ diagnostics.resources[].language
 diagnostics.resources[].audiences
 diagnostics.resources[].maintainer
 diagnostics.resources[].conflict_of_interest
+diagnostics.resources[].country_or_scope
 diagnostics.resources[].verified_method
 diagnostics.resources[].verified_date
 ```

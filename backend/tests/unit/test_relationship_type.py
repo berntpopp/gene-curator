@@ -29,6 +29,31 @@ def test_only_susceptibility_suffixes_the_key(db_session: Session) -> None:
     assert key({"relationship_type": "susceptibility"}) == ""  # no MONDO, no entity
 
 
+def test_risk_allele_and_undetermined_moi_join_the_key(db_session: Session) -> None:
+    """#614: two risk alleles of one gene and disease are two entities; the allele is
+    ignored for Mendelian entities; UD / MF MOI are canonical codes."""
+
+    def key(evidence: dict) -> str:
+        return entity_key_of(db_session, evidence)
+
+    base = "MONDO:0000001|AD|SUSCEPTIBILITY"
+    assert key({**SUS, "risk_allele": " rs4664308 "}) == f"{base}|RS4664308"
+    assert key({**SUS, "risk_allele": "rs17831251"}) == f"{base}|RS17831251"
+    assert key({**SUS, "risk_allele": " "}) == base
+    assert key({**A, "risk_allele": "rs1"}) == "MONDO:0000001|AD"
+    assert (
+        key({**SUS, "mode_of_inheritance": "HP:0000005"}).split("|")[1]
+        == "UNDETERMINED"
+    )
+    assert (
+        key({**SUS, "mode_of_inheritance": "Multifactorial"}).split("|")[1]
+        == "MULTIFACTORIAL"
+    )
+    # Review of #619: Polygenic inheritance (synonym multifactorial), not Non-Mendelian
+    polygenic = key({**SUS, "mode_of_inheritance": "HP:0010982"})
+    assert polygenic.split("|")[1] == "MULTIFACTORIAL"
+
+
 def test_relationship_type_defaults_to_mendelian() -> None:
     assert relationship_type(None, None) == "mendelian"
     assert relationship_type({}, SUS) == "susceptibility"  # inherited
@@ -172,3 +197,13 @@ def test_class_key_matches_the_frontend_class_key() -> None:
     assert class_key("Limited - Moderate") == "limited___moderate"
     assert class_key(" Strong  Association ") == "strong__association"
     assert class_key("No Known Disease Relationship") == "no_known"
+
+
+def test_blank_risk_allele_is_none() -> None:
+    """Review of #619: blank or whitespace is no allele; a blank curation value falls
+    back to the precuration's; a named allele is kept exactly as named."""
+    from app.schemas.curation import risk_allele
+
+    assert risk_allele({"risk_allele": "  "}, None) is None
+    assert risk_allele({"risk_allele": " "}, {"risk_allele": "rs1 A"}) == "rs1 A"
+    assert risk_allele(None, {"entity_definition": {"risk_allele": "\t"}}) is None

@@ -53,15 +53,20 @@
               />
             </td>
             <td>
-              <FieldPicker
-                :model-value="item.group_by ?? ''"
+              <v-combobox
+                :model-value="[item.group_by ?? []].flat()"
                 :items="columnsOf(item)"
-                aria-label="Group by column"
+                :return-object="false"
+                item-props
+                multiple
+                chips
+                density="compact"
+                aria-label="Group by columns"
                 variant="underlined"
                 placeholder="None"
                 :error-messages="diag(`${base}[${k}].group_by`)"
                 :hide-details="!diag(`${base}[${k}].group_by`).length"
-                @update:model-value="v => setText(item, 'group_by', v)"
+                @update:model-value="v => setGroupBy(item, v)"
               />
             </td>
             <td class="num">
@@ -126,7 +131,7 @@
   import FieldPicker from './FieldPicker.vue'
   import PointModelRowRules from './PointModelRowRules.vue'
   import type { ColumnOption, TableOption } from './evidenceFields'
-  import { setNumber, setText, type DiagFn, type ItemType } from './pointModel'
+  import { setGroupBy, setNumber, setText, type DiagFn, type ItemType } from './pointModel'
 
   const props = withDefaults(
     defineProps<{ base: string; diag: DiagFn; tables?: TableOption[] }>(),

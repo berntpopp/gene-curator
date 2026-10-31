@@ -284,6 +284,19 @@
           "default": null,
           "title": "Archived At"
         },
+        "association_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Susceptibility association points (scores.association_total)",
+          "title": "Association Score"
+        },
         "computed_verdict": {
           "anyOf": [
             {
@@ -347,7 +360,7 @@
           "title": "Disease Name"
         },
         "entity_key": {
-          "description": "MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility; '' when the curation has no MONDO id",
+          "description": "MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility and |ALLELE when a named allele is set; '' when the curation has no MONDO id",
           "title": "Entity Key",
           "type": "string"
         },
@@ -461,6 +474,7 @@
             }
           ],
           "default": null,
+          "description": "MONDO:nnnnnnn (MONDO_ typed is normalised)",
           "title": "Mondo Id"
         },
         "pmids": {
@@ -493,6 +507,19 @@
           "default": null,
           "description": "Who approved the curation",
           "title": "Reviewer Name"
+        },
+        "risk_allele": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Susceptibility: the risk allele as the curator named it (e.g. 'rs4664308 A'); null for Mendelian entities (#614)",
+          "title": "Risk Allele"
         },
         "scope_name": {
           "title": "Scope Name",

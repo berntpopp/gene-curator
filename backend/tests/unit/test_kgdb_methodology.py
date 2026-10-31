@@ -38,7 +38,7 @@ def test_schema_publishes_with_its_scoring_tests(name: str) -> None:
 
 @pytest.mark.parametrize(
     ("name", "tests"),
-    [("KGDB Mendelian Curation", 8), ("KGDB Susceptibility Curation", 12)],
+    [("KGDB Mendelian Curation", 13), ("KGDB Susceptibility Curation", 12)],
 )
 def test_embedded_tests_score_as_expected(name: str, tests: int) -> None:
     config = SCHEMAS[name]["scoring_configuration"]
@@ -122,3 +122,70 @@ def test_a_band_without_description_falls_back_to_its_label() -> None:
         band.pop("description", None)
     rationale = _score({}, config).verdict_rationale
     assert rationale.endswith("Classification: No Known Disease Relationship.")
+
+
+@pytest.mark.parametrize(
+    "name", ["KGDB Mendelian Curation", "KGDB Susceptibility Curation"]
+)
+def test_kgdb_text_and_list_limits_are_refused(name: str) -> None:
+    """#611: KGDB's limits (summary 2000, notes 300 / 500, at most 10 detectability
+    sources) are refused at submit; values at the limit pass."""
+    from app.services.evidence_ids import evidence_errors
+
+    def paths(evidence: dict[str, Any]) -> set[str]:
+        return {e.path for e in evidence_errors(evidence, SCHEMAS[name])}
+
+    def evidence(n: int, sources: int) -> dict[str, Any]:
+        return {
+            "evidence_summary": "x" * (2000 + n),
+            "diagnostics_notes": {
+                "transcript_verified_via": "x" * (300 + n),
+                "detectability_note": "x" * (500 + n),
+            },
+            "diagnostics": {
+                "detectability": [
+                    {"challenge": "other", "sources": ["PMID:1"] * sources}
+                ]
+            },
+        }
+
+    assert paths(evidence(0, 10)) == set()
+    assert paths(evidence(1, 11)) == {
+        "evidence_summary",
+        "diagnostics_notes.transcript_verified_via",
+        "diagnostics_notes.detectability_note",
+        "diagnostics.detectability[0].sources",
+    }
+
+
+def test_proband_help_says_enter_the_full_allele_sum() -> None:
+    """Review of #619: the engine halves unknown phase, so the agent must not halve too."""
+    schema = SCHEMAS["KGDB Mendelian Curation"]
+    points = schema["field_definitions"]["genetic"]["properties"]["probands"]["columns"]
+    tabs = schema["ui_configuration"]["layout"]["tabs"]
+    [section] = [s for t in tabs for s in t["sections"] if s.get("name") == "Probands"]
+    for text in (points["points"]["help_text"], section["help_text"]):
+        assert "full allele sum" in text and "halves" in text, text
+
+
+def test_moi_options_carry_their_hpo_label() -> None:
+    """Review of #619: each MOI option's HPO id and label as HPO 2026-09-01 names them."""
+    hpo = {
+        "HP:0000006": "Autosomal dominant",
+        "HP:0000007": "Autosomal recessive",
+        "HP:0001417": "X-linked",
+        "HP:0001423": "X-linked dominant",
+        "HP:0001419": "X-linked recessive",
+        "HP:0032113": "Semidominant",
+        "HP:0001427": "Mitochondrial",
+        "HP:0001450": "Y-linked",
+        "HP:0000005": "Undetermined",
+        "HP:0010982": "Multifactorial (polygenic)",
+    }
+    for name in ("KGDB Mendelian Precuration", "KGDB Susceptibility Precuration"):
+        sections = SCHEMAS[name]["field_definitions"]["sections"]
+        [moi] = [
+            f for s in sections for f in s["fields"] if f["id"] == "mode_of_inheritance"
+        ]
+        for option in moi["options"]:
+            assert option["label"] == f"{hpo[option['value']]} ({option['value']})"

@@ -26,7 +26,7 @@ from app.models import (
 )
 from app.models.curation import _MOI_SYNONYMS
 from app.models.methodology import MethodologyVersion
-from app.schemas.curation import relationship_of_key
+from app.schemas.curation import relationship_of_key, risk_allele
 from app.schemas.curation_export import (
     CurationExportPage,
     ExportCuration,
@@ -166,7 +166,7 @@ def _item(
     scores: dict[str, Any] = {} if c.clingen_adoption else (c.computed_scores or {})
     # #558: members always; others only when the public scope opted in
     detail = scope.id in members or (scope.is_public and scope.export_evidence_public)
-    parts = ac.entity_key.split("|")  # MONDO|MOI[|SUSCEPTIBILITY]
+    parts = ac.entity_key.split("|")  # MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]]
     moi = parts[1] if len(parts) > 1 else ""
     pre = c.precuration.evidence_data if c.precuration else None
     lines = evidence_lines(c.evidence_data, c.row_provenance) if detail else None
@@ -190,11 +190,15 @@ def _item(
         **get_disease_fields(c.evidence_data, pre),
         moi_hpo_id=_MOI_HPO.get(moi),
         relationship_type=relationship_of_key(ac.entity_key),
+        risk_allele=risk_allele(c.evidence_data, pre)
+        if relationship_of_key(ac.entity_key) == "susceptibility"
+        else None,
         computed_verdict=None if c.clingen_adoption else c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,
         genetic_score=section_total(scores, "genetic"),
         experimental_score=section_total(scores, "experimental"),
+        association_score=section_total(scores, "association"),
         total_score=scores.get("total_score"),
         methodology=ExportMethodology(
             schema_name=schema_name,

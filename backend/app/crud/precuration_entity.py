@@ -13,7 +13,7 @@ from app.core.db_types import compatible_jsonb
 from app.crud.optimistic_lock import update_if_version
 from app.models import CurationNew, CurationStatus, PrecurationNew
 from app.models.curation import ENTITY_KEY_SQL
-from app.schemas.curation import disease_fields, relationship_type
+from app.schemas.curation import disease_fields, relationship_type, risk_allele
 
 
 def conflict(message: str, **ids: UUID) -> HTTPException:
@@ -37,6 +37,7 @@ def curation_entity_key(
     """The key a curation's evidence names, the precuration filling what it leaves out."""
     fields = disease_fields(evidence, precuration)
     fields["relationship_type"] = relationship_type(evidence, precuration)
+    fields["risk_allele"] = risk_allele(evidence, precuration)
     return entity_key_of(db, fields)
 
 

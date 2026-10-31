@@ -6147,7 +6147,7 @@ export interface components {
             curation_id: string;
             /**
              * Entity Key
-             * @description MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility; '' when the curation has no MONDO id
+             * @description MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility and |ALLELE when a named allele is set; '' when the curation has no MONDO id
              */
             entity_key: string;
             /**
@@ -6168,7 +6168,10 @@ export interface components {
             approved_symbol: string;
             /** Disease Name */
             disease_name?: string | null;
-            /** Mondo Id */
+            /**
+             * Mondo Id
+             * @description MONDO:nnnnnnn (MONDO_ typed is normalised)
+             */
             mondo_id?: string | null;
             /**
              * Mode Of Inheritance
@@ -6187,6 +6190,11 @@ export interface components {
              * @enum {string}
              */
             relationship_type: "mendelian" | "susceptibility";
+            /**
+             * Risk Allele
+             * @description Susceptibility: the risk allele as the curator named it (e.g. 'rs4664308 A'); null for Mendelian entities (#614)
+             */
+            risk_allele?: string | null;
             /** Computed Verdict */
             computed_verdict?: string | null;
             /**
@@ -6203,6 +6211,11 @@ export interface components {
             genetic_score?: number | null;
             /** Experimental Score */
             experimental_score?: number | null;
+            /**
+             * Association Score
+             * @description Susceptibility association points (scores.association_total)
+             */
+            association_score?: number | null;
             /** Total Score */
             total_score?: number | null;
             methodology: components["schemas"]["ExportMethodology"];
@@ -17032,7 +17045,7 @@ export interface operations {
             query?: {
                 skip?: number;
                 limit?: number;
-                /** @description Only show assigned genes */
+                /** @description Scope genes; false: all genes */
                 assigned_only?: boolean;
             };
             header?: never;

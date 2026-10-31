@@ -56,6 +56,7 @@ def item_definition(db: Session, item: CurationNew | PrecurationNew) -> dict[str
     return {
         "field_definitions": schema.field_definitions,
         "validation_rules": schema.validation_rules,
+        "scoring_configuration": schema.scoring_configuration,  # points_key (#615)
     }
 
 

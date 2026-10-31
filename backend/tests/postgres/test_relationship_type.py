@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token
@@ -202,3 +203,206 @@ def test_entities_coexist_and_a_save_cannot_move_the_entity(
     r = client.get(f"/api/v1/curations/{cid}", headers=h)
     assert r.status_code == 200, r.text
     assert r.json()["relationship_type"] == "susceptibility"
+
+
+def test_two_risk_alleles_are_two_curations(client: TestClient, w: W) -> None:
+    """#614: as app_user, a second risk allele of one gene, disease and MOI opens its
+    own curation instead of colliding with the first."""
+    sus = {**ENTITY, "relationship_type": "susceptibility"}
+    other = uuid4()
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE precurations SET evidence_data = %s WHERE id = %s",
+            (json.dumps({**sus, "risk_allele": "rs4664308"}), str(w.pre)),
+        )
+        cur.execute(
+            "INSERT INTO precurations (id, gene_id, scope_id, precuration_schema_id, "
+            "status, workflow_stage, is_draft, created_by, evidence_data) "
+            "SELECT %s, gene_id, scope_id, precuration_schema_id, status, "
+            "workflow_stage, false, created_by, %s FROM precurations WHERE id = %s",
+            (str(other), json.dumps({**sus, "risk_allele": "rs17831251"}), str(w.pre)),
+        )
+    h = {"Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"}
+    keys = set()
+    for pre in (w.pre, other):
+        r = client.post(
+            "/api/v1/curations/",
+            json={
+                "gene_id": str(w.gene),
+                "scope_id": str(w.scope),
+                "workflow_pair_id": w.pair,
+                "precuration_id": str(pre),
+                "evidence_data": {},
+            },
+            headers=h,
+        )
+        assert r.status_code == 201, r.text
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT entity_key FROM curations WHERE id = %s", (r.json()["id"],)
+            )
+            keys.add(cur.fetchone()[0])
+    assert keys == {
+        f"{KEY}|SUSCEPTIBILITY|RS4664308",
+        f"{KEY}|SUSCEPTIBILITY|RS17831251",
+    }
+
+
+def test_088_keys_susceptibility_by_risk_allele(owner_session: Session) -> None:
+    """#614: back on the 072 column, 088 adds the allele to susceptibility keys, makes
+    HP:0000005 UNDETERMINED, leaves Mendelian keys alone and re-keys curation copies; twice is once."""
+    owner_session.execute(
+        text(
+            "DROP INDEX uq_precurations_open_draft; DROP INDEX uq_precurations_open_entity; "
+            "ALTER TABLE precurations DROP COLUMN entity_key"
+        )
+    )
+    owner_session.execute(text((SQL / "067_split_disease_entities.sql").read_text()))
+    owner_session.execute(text((SQL / "072_relationship_type.sql").read_text()))
+    scope = owner_session.scalars(select(Scope)).first()
+    user = owner_session.scalars(select(UserNew)).first()
+    pair = owner_session.scalars(select(WorkflowPair)).first()
+    assert scope and user and pair and pair.precuration_schema_id
+    gene = uuid4()
+    owner_session.execute(
+        text(
+            "INSERT INTO genes (id, hgnc_id, approved_symbol, record_hash) "
+            "VALUES (:g, 'HGNC:999088', 'REL088', :h)"
+        ),
+        {"g": gene, "h": "8" * 64},
+    )
+    sus = {**ENTITY, "relationship_type": "susceptibility"}
+    evidence = {
+        "mendelian": {**ENTITY, "risk_allele": "rs1"},
+        "a1": {**sus, "risk_allele": "rs4664308"},
+        "ud": {**sus, "mode_of_inheritance": "HP:0000005", "risk_allele": "rs2"},
+    }
+    ids = {
+        name: owner_session.scalar(
+            text(
+                "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id, "
+                "status, evidence_data, created_by) VALUES "
+                "(:g, :s, :ps, 'approved', CAST(:e AS jsonb), :u) RETURNING id"
+            ),
+            {
+                "g": gene,
+                "s": scope.id,
+                "ps": pair.precuration_schema_id,
+                "e": json.dumps(e),
+                "u": user.id,
+            },
+        )
+        for name, e in evidence.items()
+    }
+    old = f"{KEY}|SUSCEPTIBILITY"
+    copy = owner_session.scalar(
+        text(
+            "INSERT INTO curations (gene_id, scope_id, workflow_pair_id, status, "
+            "workflow_stage, evidence_data, created_by, precuration_id, entity_key) "
+            "VALUES (:g, :s, :p, 'active', 'curation', '{}', :u, :pre, :k) RETURNING id"
+        ),
+        {
+            "g": gene,
+            "s": scope.id,
+            "p": pair.id,
+            "u": user.id,
+            "pre": ids["a1"],
+            "k": old,
+        },
+    )
+    owner_session.execute(
+        text(
+            "INSERT INTO active_curations (gene_id, scope_id, curation_id, entity_key) "
+            "VALUES (:g, :s, :c, :k)"
+        ),
+        {"g": gene, "s": scope.id, "c": copy, "k": old},
+    )
+    for _ in range(2):
+        owner_session.execute(
+            text((SQL / "088_susceptibility_allele_key.sql").read_text())
+        )
+    keys = {
+        name: owner_session.scalar(
+            text("SELECT entity_key FROM precurations WHERE id = :i"), {"i": i}
+        )
+        for name, i in ids.items()
+    }
+    assert keys == {
+        "mendelian": KEY,
+        "a1": f"{old}|RS4664308",
+        "ud": "MONDO:0011037|UNDETERMINED|SUSCEPTIBILITY|RS2",
+    }
+    for table, col in (("curations", "id"), ("active_curations", "curation_id")):
+        assert (
+            owner_session.scalar(
+                text(f"SELECT entity_key FROM {table} WHERE {col} = :c"), {"c": copy}
+            )
+            == f"{old}|RS4664308"
+        )
+    indexes = owner_session.scalars(
+        text(
+            "SELECT indexname FROM pg_indexes WHERE indexname IN "
+            "('uq_precurations_open_draft', 'uq_precurations_open_entity')"
+        )
+    ).all()
+    assert sorted(indexes) == [
+        "uq_precurations_open_draft",
+        "uq_precurations_open_entity",
+    ]
+    assert owner_session.scalar(
+        text(
+            "SELECT count(*) FROM schema_migrations "
+            "WHERE filename = '088_susceptibility_allele_key.sql'"
+        )
+    )
+
+
+def test_088_stops_on_open_precurations_the_new_key_merges(
+    owner_session: Session,
+) -> None:
+    """Review of #619: 'Undetermined' and HP:0000005 were two keys before 088 and are one
+    after; two open precurations of them stop the migration with both ids."""
+    owner_session.execute(
+        text(
+            "DROP INDEX uq_precurations_open_draft; DROP INDEX uq_precurations_open_entity; "
+            "ALTER TABLE precurations DROP COLUMN entity_key"
+        )
+    )
+    owner_session.execute(text((SQL / "067_split_disease_entities.sql").read_text()))
+    owner_session.execute(text((SQL / "072_relationship_type.sql").read_text()))
+    scope = owner_session.scalars(select(Scope)).first()
+    user = owner_session.scalars(select(UserNew)).first()
+    pair = owner_session.scalars(select(WorkflowPair)).first()
+    assert scope and user and pair and pair.precuration_schema_id
+    gene = uuid4()
+    owner_session.execute(
+        text(
+            "INSERT INTO genes (id, hgnc_id, approved_symbol, record_hash) "
+            "VALUES (:g, 'HGNC:999089', 'DUP088', :h)"
+        ),
+        {"g": gene, "h": "9" * 64},
+    )
+    ids = [
+        owner_session.scalar(
+            text(
+                "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id, "
+                "status, evidence_data, created_by) VALUES "
+                "(:g, :s, :ps, 'submitted', CAST(:e AS jsonb), :u) RETURNING id"
+            ),
+            {
+                "g": gene,
+                "s": scope.id,
+                "ps": pair.precuration_schema_id,
+                "e": json.dumps({**ENTITY, "mode_of_inheritance": moi}),
+                "u": user.id,
+            },
+        )
+        for moi in ("Undetermined", "HP:0000005")
+    ]
+    with pytest.raises(DBAPIError) as refused:
+        owner_session.execute(
+            text((SQL / "088_susceptibility_allele_key.sql").read_text())
+        )
+    message = str(refused.value)
+    assert "088: open precurations would share a disease entity" in message
+    assert all(str(i) in message for i in ids)

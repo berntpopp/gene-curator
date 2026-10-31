@@ -56,9 +56,9 @@ harmless).
 
 `curation_id`, `entity_key`, `url`, `status` (`active` or `archived`), `scope_name`,
 `hgnc_id`, `approved_symbol`, `disease_name`, `mondo_id`, `mode_of_inheritance` (as entered),
-`moi_hpo_id` (HPO CURIE of the canonical MOI), `relationship_type`, `computed_verdict`,
-`final_classification`, `curator_classification_rationale`, `genetic_score`,
-`experimental_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
+`moi_hpo_id` (HPO CURIE of the canonical MOI), `relationship_type`, `risk_allele`,
+`computed_verdict`, `final_classification`, `curator_classification_rationale`,
+`genetic_score`, `experimental_score`, `association_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
 (every PMID under a `pmid` key in the evidence, deduplicated, numerically sorted),
 `curator_name`, `reviewer_name` (who approved), `approved_at`, `activated_at`, `archived_at`,
 `archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`,
@@ -69,8 +69,10 @@ harmless).
   ClinGen bundles name `evidence_summary`), trimmed. `null` when the schema names none, the
   field is blank, or `evidence` is hidden from the caller (same rule).
 
-- **Entity:** `entity_key` is `MONDO|MOI`, plus `|SUSCEPTIBILITY` for susceptibility entities,
-  and `''` without a MONDO id. Treat it as an opaque match key; do not split it on `|`. Use
+- **Entity:** `entity_key` is `MONDO|MOI`, plus `|SUSCEPTIBILITY` for susceptibility entities
+  (then `|ALLELE` when the precuration names a risk allele, exported exactly as named, e.g.
+  `"rs4664308 A"`, in `risk_allele`, null for Mendelian entities), and `''` without a MONDO id. `mondo_id` is exported as `MONDO:nnnnnnn`
+  (a typed `MONDO_` is normalised). Treat it as an opaque match key; do not split it on `|`. Use
   `mondo_id`, `moi_hpo_id` and `relationship_type` (`mendelian` or `susceptibility`, default
   `mendelian`) for the parts.
 - **Classification:** `computed_verdict` is the class the scoring engine computed.
@@ -84,7 +86,8 @@ harmless).
   unknown ones.
 - **Scores:** `genetic_score` and `experimental_score` are the ClinGen
   `genetic_evidence_total` and `experimental_evidence_total`; for custom point models without
-  those keys, the model's `genetic_total` and `experimental_total`. `null` when the schema
+  those keys, the model's `genetic_total` and `experimental_total`. `association_score` is a
+  susceptibility model's `association_total` (still in `scores` too). `null` when the schema
   has no such section.
 - **Evidence:** `evidence` is the curation's evidence as stored, keyed by the field ids of
   the methodology version `methodology.version_id`, non-scoring sections (for example a
@@ -165,6 +168,6 @@ agent under `agent`) is computed by the server and kept beside the evidence (the
 `export_version` is `"1"`. Fields may be added within v1 (v0.11.0 added `relationship_type`,
 `final_classification` and `curator_classification_rationale`; v0.12.0 added `evidence`, `scores`
 and `summary`; #105 added `adoption`; #593 added `contributions`, `evidence_lines` and
-`synopsis`); consumers must ignore unknown
+`synopsis`; #614 added `risk_allele` and `association_score`); consumers must ignore unknown
 fields. Renaming, removing or changing the meaning of a
 field publishes a new version at a new path.

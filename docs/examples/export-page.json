@@ -14,11 +14,13 @@
       "mode_of_inheritance": null,
       "moi_hpo_id": null,
       "relationship_type": "mendelian",
+      "risk_allele": null,
       "computed_verdict": "definitive",
       "final_classification": "definitive",
-      "curator_classification_rationale": null,
+      "curator_classification_rationale": "Expert call matches the point model",
       "genetic_score": null,
       "experimental_score": null,
+      "association_score": null,
       "total_score": 16.0,
       "methodology": {
         "schema_name": "KGDB Mendelian Curation",
@@ -50,6 +52,7 @@
               "variant": "c.101G>A",
               "zygosity": "homozygous",
               "variant_source": "primary",
+              "evidence_quote": "Quoted from the source.",
               "id": "row-p1",
               "direction": "supports",
               "sources": [
@@ -76,63 +79,72 @@
               "proband_label": "P2",
               "variant": "c.102G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000003",
               "proband_label": "P3",
               "variant": "c.103G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000004",
               "proband_label": "P4",
               "variant": "c.104G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000005",
               "proband_label": "P5",
               "variant": "c.105G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000006",
               "proband_label": "P6",
               "variant": "c.106G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000007",
               "proband_label": "P7",
               "variant": "c.107G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000008",
               "proband_label": "P8",
               "variant": "c.108G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000009",
               "proband_label": "P9",
               "variant": "c.109G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000010",
               "proband_label": "P10",
               "variant": "c.110G>A",
               "zygosity": "homozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             }
           ]
         },
@@ -141,22 +153,28 @@
             {
               "pmid": "31000020",
               "organism": "mouse",
-              "mechanism_fit": "yes"
+              "mechanism_fit": "yes",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000021",
               "organism": "zebrafish",
-              "mechanism_fit": "yes"
+              "mechanism_fit": "yes",
+              "evidence_quote": "Quoted from the source."
             }
           ],
           "functional": [
             {
               "pmid": "31000022",
-              "assay": "paracellular Mg2+ flux"
+              "assay": "paracellular Mg2+ flux",
+              "evidence_quote": "Quoted from the source.",
+              "subtype": "patient_cells"
             },
             {
               "pmid": "31000023",
-              "assay": "tight junction localisation"
+              "assay": "tight junction localisation",
+              "evidence_quote": "Quoted from the source.",
+              "subtype": "patient_cells"
             }
           ]
         },
@@ -177,6 +195,10 @@
             }
           ],
           "resources": []
+        },
+        "diagnostics_notes": {
+          "transcript_verified_via": "genefoundry:hgnc_resolve_symbol (mane_select)",
+          "detectability_note": "Standard short-read testing adequate"
         }
       },
       "scores": {
@@ -370,7 +392,7 @@
     },
     {
       "curation_id": "00000000-0000-0000-0000-00000000002a",
-      "entity_key": "MONDO:0011308|HP:0000007|SUSCEPTIBILITY",
+      "entity_key": "MONDO:0011308|HP:0000007|SUSCEPTIBILITY|RS73885319G",
       "url": "https://curator.example/scopes/00000000-0000-0000-0000-000000000001/curations/00000000-0000-0000-0000-00000000002a",
       "status": "active",
       "scope_name": "kidney-genetics",
@@ -381,11 +403,13 @@
       "mode_of_inheritance": null,
       "moi_hpo_id": null,
       "relationship_type": "susceptibility",
+      "risk_allele": "rs73885319 G",
       "computed_verdict": "established",
       "final_classification": "established",
       "curator_classification_rationale": null,
       "genetic_score": null,
       "experimental_score": null,
+      "association_score": 6.0,
       "total_score": 6.0,
       "methodology": {
         "schema_name": "KGDB Mendelian Curation",
@@ -421,10 +445,12 @@
             }
           ]
         },
-        "meets_very_strong": true
+        "meets_very_strong": true,
+        "risk_allele": "rs73885319 G"
       },
       "scores": {
-        "total_score": 6
+        "total_score": 6,
+        "association_total": 6
       },
       "summary": null,
       "curator_name": "Alice Curator",
@@ -489,12 +515,14 @@
       "mode_of_inheritance": null,
       "moi_hpo_id": null,
       "relationship_type": "mendelian",
-      "computed_verdict": "strong",
+      "risk_allele": null,
+      "computed_verdict": null,
       "final_classification": "strong",
       "curator_classification_rationale": null,
       "genetic_score": null,
       "experimental_score": null,
-      "total_score": 14.0,
+      "association_score": null,
+      "total_score": null,
       "methodology": {
         "schema_name": "KGDB Mendelian Curation",
         "version": null,
@@ -522,70 +550,80 @@
               "proband_label": "P1",
               "variant": "c.201C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000002",
               "proband_label": "P2",
               "variant": "c.202C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000003",
               "proband_label": "P3",
               "variant": "c.203C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000004",
               "proband_label": "P4",
               "variant": "c.204C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000005",
               "proband_label": "P5",
               "variant": "c.205C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000006",
               "proband_label": "P6",
               "variant": "c.206C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000007",
               "proband_label": "P7",
               "variant": "c.207C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000008",
               "proband_label": "P8",
               "variant": "c.208C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000009",
               "proband_label": "P9",
               "variant": "c.209C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             },
             {
               "pmid": "31000010",
               "proband_label": "P10",
               "variant": "c.210C>T",
               "zygosity": "heterozygous",
-              "variant_source": "primary"
+              "variant_source": "primary",
+              "evidence_quote": "Quoted from the source."
             }
           ],
           "segregation": [
@@ -601,15 +639,14 @@
             {
               "pmid": "31000031",
               "organism": "mouse",
-              "mechanism_fit": "yes"
+              "mechanism_fit": "yes",
+              "evidence_quote": "Quoted from the source."
             }
           ]
         },
         "replicated_over_time": false
       },
-      "scores": {
-        "total_score": 14
-      },
+      "scores": null,
       "summary": null,
       "curator_name": "Alice Curator",
       "reviewer_name": "Bob Reviewer",
@@ -618,7 +655,76 @@
       "archived_at": "2026-10-09T12:00:00",
       "archive_reason": "Curation deleted",
       "updated_at": "2026-10-06T12:00:00",
-      "adoption": null,
+      "adoption": {
+        "type": "Statement",
+        "id": "CGGV:assertion_00000000-0000-0000-0000-000000000043-2021-02-26T150000.000Z",
+        "classification": "Strong",
+        "moi": "AD",
+        "mondo": "MONDO:0013727",
+        "reportedIn": [
+          {
+            "documentType": "ClinGen gene-disease validity curation",
+            "title": "ClinGen Gene-Disease Validity: NEK8 - Strong (AD)",
+            "urls": [
+              "https://search.clinicalgenome.org/kb/gene-validity/CGGV:assertion_00000000-0000-0000-0000-000000000043-2021-02-26T150000.000Z"
+            ]
+          }
+        ],
+        "contributions": [
+          {
+            "contributor": {
+              "name": "Kidney Cystic and Ciliopathy Disorders GCEP",
+              "agentType": "organization"
+            },
+            "activityType": {
+              "name": "interpreter",
+              "primaryCoding": {
+                "system": "SEPIO",
+                "code": "SEPIO:0000331"
+              }
+            },
+            "date": "2021-02-26T15:00:00Z"
+          },
+          {
+            "contributor": {
+              "name": "Alice Curator",
+              "agentType": "person"
+            },
+            "activityType": {
+              "name": "curator",
+              "primaryCoding": {
+                "system": "SEPIO",
+                "code": "SEPIO:0000156"
+              }
+            },
+            "date": "2026-10-03T12:00:00Z"
+          },
+          {
+            "contributor": {
+              "name": "Bob Reviewer",
+              "agentType": "person"
+            },
+            "activityType": {
+              "name": "approver",
+              "primaryCoding": {
+                "system": "SEPIO",
+                "code": "SEPIO:0000155"
+              }
+            },
+            "date": "2026-10-06T12:00:00Z"
+          }
+        ],
+        "extensions": [
+          {
+            "name": "retrieved_at",
+            "value": "2026-10-02T09:00:00Z"
+          },
+          {
+            "name": "record_sha256",
+            "value": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ]
+      },
       "contributions": [
         {
           "contributor": {

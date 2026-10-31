@@ -16,10 +16,39 @@ export interface RowCondition extends Extra {
 }
 
 /** Row rule (#576): a matching 0-point rule always wins; a non-zero rule only fills rows
- * whose points are blank. `and` lists further conditions that must all hold too. */
+ * whose points are blank. `and` lists further conditions that must all hold too. A rule
+ * has one effect: `points`, or (#615) `factor` / `max`, which scale or cap the result. */
 export interface PointsWhen extends RowCondition {
   and?: RowCondition[]
-  points: number
+  points?: number
+  factor?: number
+  max?: number
+}
+
+export const EFFECTS = [
+  { value: 'points', title: 'Points' },
+  { value: 'factor', title: 'Times' },
+  { value: 'max', title: 'At most' }
+] as const
+export type Effect = (typeof EFFECTS)[number]['value']
+
+/** The rule's effect key; `points` when it has none yet. */
+export const effectOf = (rule: PointsWhen): Effect =>
+  EFFECTS.find(e => e.value in rule)?.value ?? 'points'
+
+/** Switch a rule's effect, keeping its number. */
+export function setEffect(rule: PointsWhen, effect: Effect) {
+  const value = rule[effectOf(rule)] ?? 0
+  for (const e of EFFECTS) delete rule[e.value]
+  rule[effect] = value
+}
+
+/** group_by chips: one stays a field name, several a list (#615), none removes it. */
+export function setGroupBy(item: ItemType, chips: unknown) {
+  const fields = (Array.isArray(chips) ? chips : [chips]).map(String).filter(f => f.trim())
+  if (fields.length > 1) item.group_by = fields
+  else if (fields.length === 1) item.group_by = fields[0]
+  else delete item.group_by
 }
 
 /** Step rule (#576): `field` summed over the rows; the highest `min` reached scores once. */
@@ -34,7 +63,8 @@ export interface ItemType extends Extra {
   default?: number
   range?: [number | null, number | null] // null: a bound being typed (the validator flags it)
   points_key?: string
-  group_by?: string
+  group_by?: string | string[]
+  group_values?: Record<string, string>
   group_cap?: number
   require_variant?: boolean
   points_when?: PointsWhen[]

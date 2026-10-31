@@ -47,6 +47,23 @@ T = [datetime(2026, 10, d, 12, tzinfo=UTC) for d in range(1, 10)]
 UPDATE = os.environ.get("UPDATE_EXPORT_EXAMPLE") == "1"
 
 
+CGGV = "CGGV:assertion_00000000-0000-0000-0000-000000000043-2021-02-26T150000.000Z"
+NEK8_ADOPTION = {
+    "source": "clingen",
+    "cggv_id": CGGV,
+    "permalink": f"https://search.clinicalgenome.org/kb/gene-validity/{CGGV}",
+    "classification": "Strong",
+    "moi": "AD",
+    "mondo": "MONDO:0013727",
+    "hgnc_id": "HGNC:13387",
+    "expert_panel": "Kidney Cystic and Ciliopathy Disorders GCEP",
+    "classified_date": "2021-02-26T15:00:00Z",
+    "retrieved_at": "2026-10-02T09:00:00Z",
+    "record_sha256": "1" * 64,
+    "citation": "ClinGen Gene-Disease Validity: NEK8 - Strong (AD)",
+}
+
+
 def _id(n: int) -> UUID:
     return UUID(int=n)
 
@@ -118,6 +135,10 @@ def _cldn16() -> dict[str, Any]:
         ],
         "resources": [],
     }
+    evidence["diagnostics_notes"] = {
+        "transcript_verified_via": "genefoundry:hgnc_resolve_symbol (mane_select)",
+        "detectability_note": "Standard short-read testing adequate",
+    }
     return evidence
 
 
@@ -183,8 +204,8 @@ def _page(db: Session) -> dict[str, Any]:
         # (n, gene, entity, evidence, scores, verdict, status, archive_reason)
         (41, "CLDN16", "MONDO:0009461|HP:0000007", _cldn16(), 16, "definitive",
          CurationStatus.ACTIVE, None),
-        (42, "APOL1", "MONDO:0011308|HP:0000007|SUSCEPTIBILITY",
-         TESTS["Established:"], 6, "established", CurationStatus.ACTIVE, None),
+        (42, "APOL1", "MONDO:0011308|HP:0000007|SUSCEPTIBILITY|RS73885319G",
+         {**TESTS["Established:"], "risk_allele": "rs73885319 G"}, 6, "established", CurationStatus.ACTIVE, None),
         (43, "NEK8", "MONDO:0013727|HP:0000006", TESTS["NEK8"], 14, "strong",
          CurationStatus.ARCHIVED, "Curation deleted"),
     ]  # fmt: skip
@@ -199,7 +220,12 @@ def _page(db: Session) -> dict[str, Any]:
             status=status,
             evidence_data=evidence,
             row_provenance=_stamps(evidence),
-            computed_scores={"total_score": total},
+            clingen_adoption=NEK8_ADOPTION if sym == "NEK8" else None,
+            curator_classification_rationale="Expert call matches the point model"
+            if sym == "CLDN16"
+            else None,
+            computed_scores={"total_score": total}
+            | ({"association_total": total} if "|SUSCEPTIBILITY" in key else {}),
             computed_verdict=verdict,
             created_by=alice.id,
             created_at=T[i],
@@ -243,8 +269,44 @@ def test_example_export_page_is_fresh_and_valid(
     ]
     assert page["items"][0]["evidence"]["diagnostics"]
     assert page["items"][0]["synopsis"].startswith("Autosomal recessive")
+    # KGDB reads scores.association_total; association_score is the explicit field (#614)
+    apol1 = page["items"][1]
+    assert apol1["association_score"] == apol1["scores"]["association_total"] == 6
     Draft202012Validator(json.loads(SNAPSHOT.read_text())).validate(page)
     _check(EXAMPLE, json.dumps(page, indent=2, ensure_ascii=False) + "\n")
+
+
+def test_kgdb_reads_these_export_fields(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The fields KGDB's importer reads (kidney-genetics-db#448): never rename them."""
+    monkeypatch.setattr(
+        settings, "GENE_CURATOR_FRONTEND_URL", "https://curator.example"
+    )
+    cldn16, apol1, nek8 = _page(db_session)["items"]
+    adoption = nek8["adoption"]
+    assert (adoption["id"], adoption["classification"]) == (CGGV, "Strong")
+    assert adoption["reportedIn"][0]["urls"][0] == NEK8_ADOPTION["permalink"]
+    [gcep] = [
+        c
+        for c in adoption["contributions"]
+        if c["activityType"]["name"] == "interpreter"
+    ]
+    assert gcep["contributor"]["name"] == NEK8_ADOPTION["expert_panel"]
+    assert gcep["date"].startswith("2021-02-26")
+    [ai] = [
+        c
+        for c in cldn16["contributions"]
+        if c["contributor"]["agentType"] == "software"
+    ]
+    assert ai["contributor"]["name"]
+    assert apol1["scores"]["association_total"] == apol1["association_score"] == 6
+    assert apol1["risk_allele"] == "rs73885319 G"
+    assert cldn16["risk_allele"] is None
+    assert cldn16["curator_classification_rationale"]
+    assert cldn16["computed_verdict"] == "definitive"
+    assert cldn16["evidence"]["diagnostics"]
+    assert cldn16["evidence"]["diagnostics_notes"]["detectability_note"]
 
 
 def test_snapshot_names_the_va_spec_fields() -> None:

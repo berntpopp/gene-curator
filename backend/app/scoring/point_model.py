@@ -12,7 +12,9 @@ in the UI store their fields flat).
 
 ``points_when: [{field, in?, present?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets
 a row's points from its own fields: a matching 0-point rule always wins, otherwise the first
-matching rule fills the points only when the curator left them blank (#576, #582).
+matching rule fills the points only when the curator left them blank (#576, #582); then
+``factor`` / ``max`` rules scale or cap it, and ``group_by`` may list fields or map one
+field's values to named groups (``group_values``): docs/POINT-MODEL.md (#615).
 ``rule: "step"`` sums ``field`` over the type's rows and scores the highest
 ``steps: [{min, points}]`` reached as one item. ``rule: "segregation_sop11"`` scores a
 segregation family table by SOP v11 pp.28-35 and Figure 6 (#447, docs/POINT-MODEL.md). All
@@ -130,20 +132,30 @@ def _points_when(
 ) -> float:
     """A matching exclusion (0 points) wins wherever it stands; otherwise the first
     matching rule fills the points only when the curator left them blank."""
-    hits = [
-        (i, float(rule["points"]))
+    matching = [
+        (i, rule)
         for i, rule in enumerate(type_def.get("points_when", []))
         if all(_holds(c, row) for c in [rule, *rule.get("and", [])])
     ]
-    if not hits:
-        return entered
-    i, points = next((hit for hit in hits if hit[1] == 0), hits[0])
-    keep = points != 0 and not _blank(row.get(type_def.get("points_key", "points")))
-    result = entered if keep else points
-    applied.append(
-        {"path": at, "rule": "points_when", "index": i}
-        | {"entered": entered, "points": result, "applied": not keep}
-    )
+    hits = [(i, float(rule["points"])) for i, rule in matching if "points" in rule]
+    result = entered
+    if hits:
+        i, points = next((hit for hit in hits if hit[1] == 0), hits[0])
+        keep = points != 0 and not _blank(row.get(type_def.get("points_key", "points")))
+        result = entered if keep else points
+        applied.append(
+            {"path": at, "rule": "points_when", "index": i}
+            | {"entered": entered, "points": result, "applied": not keep}
+        )
+    if (r := type_def.get("range")) and not r[0] <= result <= r[1]:
+        return result  # flagged as entered, never scaled into the range (#278)
+    for i, rule in ((i, r) for i, r in matching if "points" not in r):  # factor / max
+        before, factor = result, rule.get("factor", 1)
+        result = min(result * factor, rule.get("max", math.inf))
+        applied.append(
+            {"path": at, "rule": "points_when", "index": i}
+            | {"entered": before, "points": result, "applied": result != before}
+        )
     return result
 
 
@@ -437,6 +449,7 @@ def _type_points(
         return _step_points(path, type_def, data, flags, excluded, applied)
     limits = type_def.get("range")
     group_by = type_def.get("group_by")
+    names = {_norm(k): str(v) for k, v in (type_def.get("group_values") or {}).items()}
     groups: dict[
         str, tuple[str, list[int]]
     ] = {}  # normalised -> (typed, point indexes)
@@ -469,8 +482,8 @@ def _type_points(
         if value > 0 and (why := uncited(row, case_level, by_status=case_row)):
             excluded.append({"path": f"{path}[{i}]", **why})
         elif not flagged:  # flagged rows count nothing (#278); the trace lists them
-            if group_by and (group := _norm(row.get(group_by))):
-                typed = str(row[group_by])  # shown as the curator typed it
+            group, typed = _group(row, group_by, names)
+            if group:
                 groups.setdefault(group, (typed, []))[1].append(len(points))
             points.append(value)
             variant = "variant_1" if "variant_1" in row else "variant"
@@ -491,10 +504,21 @@ def _count_variants(
 ) -> None:
     """Case rows and grouped rows (#557) feed the hotspot flag: per variant its capped
     points and its scoring rows."""
-    if type_def.get("rule") == "case_row" or type_def.get("group_by"):
+    grouped = type_def.get("group_by") and not type_def.get("group_values")
+    if type_def.get("rule") == "case_row" or grouped:
         for key, value, row in zip(keys, points, scored, strict=True):
             total = variants.setdefault(key, [0.0, 0.0])
             total[0], total[1] = total[0] + value, total[1] + row
+
+
+def _group(row: dict[str, Any], group_by: Any, names: Any) -> tuple[str, str]:
+    """(key, label as typed) of the row's group; blank when it has none."""
+    by = [group_by] if isinstance(group_by, str) else group_by or []
+    if not by or not _norm(row.get(by[0])):
+        return "", ""
+    group = "|".join(_norm(row.get(f)) for f in by)
+    typed = " | ".join(str(row.get(f) or "") for f in by)
+    return (names.get(group, ""),) * 2 if names else (group, typed)
 
 
 def _norm(value: Any) -> str:

@@ -3,6 +3,7 @@ Schema validation engine for dynamic form validation and data integrity.
 Validates evidence data against schema definitions and enforces business rules.
 """
 
+import math
 import re
 from datetime import datetime
 from typing import Any
@@ -76,7 +77,7 @@ class SchemaValidator:
         context: dict[str, Any] | None = None,
     ) -> SchemaValidationResult:
         """Validate evidence data (context: gene info, scope info, etc.) against a schema."""
-        result = SchemaValidationResult()
+        result = SchemaValidationResult((context or {}).get("points_keys"))
 
         field_definitions = resolve_conditions(
             flatten_sections(resolve_named_rules(schema_definition)), evidence_data
@@ -238,19 +239,16 @@ class SchemaValidator:
 
         if max_value is not None and num_value > max_value:
             result.add_error(field_name, f"Value must not exceed {max_value}", "range")
-
-        # Decimal places validation
-        decimal_places = config.get("decimal_places")
-        if (
-            decimal_places is not None
-            and "." in str(value)
-            and len(str(value).split(".")[1]) > decimal_places
-        ):
-            result.add_error(
-                field_name,
-                f"Value cannot have more than {decimal_places} decimal places",
-                "precision",
-            )
+        places = config.get("decimal_places")
+        if places is not None and len(f"{value}.".split(".")[1]) > places:
+            msg = f"Value cannot have more than {places} decimal places"
+            result.add_error(field_name, msg, "precision")
+        points = field_name.rsplit(".", 1)[-1] in result.points_keys  # its step holds
+        step = config.get("step") if points else None  # from min (#615); else a hint
+        if isinstance(step, int | float) and step > 0 and math.isfinite(num_value):
+            steps = (num_value - (min_value or 0)) / step
+            if abs(steps - round(steps)) > 1e-6:
+                result.add_error(field_name, f"Use a multiple of {step}", "step")
 
     def _validate_boolean_field(
         self,

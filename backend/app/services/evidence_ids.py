@@ -265,7 +265,16 @@ def evidence_errors(evidence: Any, definition: dict[str, Any]) -> list[EvidenceW
     fields = {
         k: definition.get(k) or {} for k in ("field_definitions", "validation_rules")
     }
-    result = schema_validator.validate_evidence_data(evidence or {}, fields)
+    model = (definition.get("scoring_configuration") or {}).get("point_model") or {}
+    keys = {"points"} | {
+        str(t.get("points_key", "points"))
+        for s in model.get("sections", [])
+        for c in s.get("categories", [])
+        for t in c.get("types", [])
+    }
+    result = schema_validator.validate_evidence_data(
+        evidence or {}, fields, {"points_keys": keys}
+    )
     errors = [
         EvidenceWarning(path=e["field"], message=e["message"])
         for e in result.errors
