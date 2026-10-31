@@ -44,7 +44,8 @@ MCP: the `import_methodology` tool on `/mcp/full` (platform admins only; not on 
 - `workflow_pairs[]`: schemas are named, not referenced by id, and must be in the bundle.
   The precuration schema is of type `precuration` or `combined`, the curation schema
   `curation` or `combined`.
-- `scope_default` (optional): sets that scope's `default_workflow_pair_id`.
+- `scope_default` (optional): sets that scope's `default_workflow_pair_id`; the bundle's
+  other pairs become allowed workflows of that scope (082, #284), so curators can pick them.
 
 The JSON download of a schema in the schema editor is the body of one `schemas[]` entry.
 
