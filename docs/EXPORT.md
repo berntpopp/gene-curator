@@ -70,8 +70,9 @@ harmless).
   field is blank, or `evidence` is hidden from the caller (same rule).
 
 - **Entity:** `entity_key` is `MONDO|MOI`, plus `|SUSCEPTIBILITY` for susceptibility entities
-  (then `|ALLELE` when the precuration names a risk allele, exported exactly as named, e.g.
-  `"rs4664308 A"`, in `risk_allele`, null for Mendelian entities), and `''` without a MONDO id. `mondo_id` is exported as `MONDO:nnnnnnn`
+  (then `|ALLELE` when the precuration names a risk allele, exported in its canonical form,
+  `rs<digits> <BASE>` for an rsID (e.g. `"rs4664308 A"`; other allele names trimmed, whitespace
+  collapsed), in `risk_allele`, null for Mendelian entities), and `''` without a MONDO id. `mondo_id` is exported as `MONDO:nnnnnnn`
   (a typed `MONDO_` is normalised). Treat it as an opaque match key; do not split it on `|`. Use
   `mondo_id`, `moi_hpo_id` and `relationship_type` (`mendelian` or `susceptibility`, default
   `mendelian`) for the parts.

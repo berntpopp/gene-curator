@@ -189,3 +189,34 @@ def test_moi_options_carry_their_hpo_label() -> None:
         ]
         for option in moi["options"]:
             assert option["label"] == f"{hpo[option['value']]} ({option['value']})"
+
+
+@pytest.mark.parametrize(
+    "name", ["KGDB Mendelian Precuration", "KGDB Susceptibility Precuration"]
+)
+def test_required_fields_list_every_required_field(name: str) -> None:
+    """KGDB end-to-end: a field marked required is also in validation_rules."""
+    schema = SCHEMAS[name]
+    required = {
+        f["id"]
+        for s in schema["field_definitions"]["sections"]
+        for f in s["fields"]
+        if f.get("required")
+    }
+    assert set(schema["validation_rules"]["required_fields"]) == required
+
+
+def test_curation_descriptions_name_iteration_8() -> None:
+    """KGDB end-to-end: the Mendelian description still said draft iteration 3."""
+    assert "iteration 8" in SCHEMAS["KGDB Mendelian Curation"]["description"]
+    assert "iteration 3" not in json.dumps(BUNDLE)
+
+
+def test_variant_class_offers_the_prompt_values_and_keeps_old_ones() -> None:
+    """KGDB end-to-end: the prompt's allele classes (null|missense|inframe|splice_other|
+    other) are options; lof and splice stay valid for rows stored before."""
+    probands = SCHEMAS["KGDB Mendelian Curation"]["field_definitions"]["genetic"]
+    column = probands["properties"]["probands"]["columns"]["variant_class"]
+    values = [o["value"] for o in column["options"]]
+    assert values[:5] == ["null", "missense", "inframe", "splice_other", "other"]
+    assert {"lof", "splice"} <= set(values)

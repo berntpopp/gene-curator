@@ -28,9 +28,12 @@ precuration schema, a susceptibility (risk allele) entity with the susceptibilit
 precuration schema belongs to one pair, so approval opens the curation of the right pair
 without routing code. `relationship_type` is fixed per precuration schema and becomes part of
 the entity key. A susceptibility entity is one named allele: the precuration's `risk_allele`
-(rsID, haplotype or genotype) is the key's fourth part, so a second allele of the same gene and
-disease is its own entity (`MONDO|MOI|SUSCEPTIBILITY|RS4664308`; trimmed, spaces removed, upper
-case; migration 088). Both precurations offer MOI Undetermined (HP:0000005, key `UNDETERMINED`); the
+(an rsID with its base, an HGVS allele or a haplotype name) is the key's fourth part, so a
+second allele of the same gene and disease is its own entity
+(`MONDO|MOI|SUSCEPTIBILITY|RS4664308A`; spaces removed, upper case; migration 088). Saves store
+it canonically, `rs<digits> <BASE>` for an rsID (`RS4664308a` and `rs4664308  A` both become
+`rs4664308 A`; other names trimmed, whitespace collapsed; migration 091 for older rows), and an
+rsID without its base is refused at submit. Both precurations offer MOI Undetermined (HP:0000005, key `UNDETERMINED`); the
 susceptibility one also Multifactorial (polygenic) (HP:0010982, Polygenic inheritance, whose
 HPO synonym is multifactorial; key `MULTIFACTORIAL`), the keys these
 labels typed as text already had.

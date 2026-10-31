@@ -518,9 +518,11 @@
                 "id": "risk_allele",
                 "type": "text",
                 "label": "Named risk allele, haplotype or genotype",
-                "placeholder": "rs4664308",
+                "placeholder": "rs4664308 A",
                 "required": true,
-                "help_text": "One allele per entity: part of the entity key, so a second allele of this gene and disease is its own curation"
+                "help_text": "One allele per entity, with its base (rs17831251 C, stored as rs<digits> <BASE>), an HGVS allele or a haplotype name; part of the entity key, so a second allele of this gene and disease is its own curation",
+                "pattern": "^(?!\\s*[Rr][Ss]\\s*\\d+\\s*$)",
+                "pattern_message": "Name the allele's base: rs17831251 C (an rsID alone is not one allele)"
               },
               {
                 "id": "omim_id",
@@ -697,6 +699,7 @@
           "disease_name",
           "mode_of_inheritance",
           "relationship_type",
+          "risk_allele",
           "lumping_splitting_applicable",
           "binning",
           "mechanism"
@@ -749,7 +752,7 @@
       "version": "alpha",
       "schema_type": "curation",
       "institution": "Kidney Genetics",
-      "description": "KGDB gene-disease validity (alpha, draft iteration 3): cited evidence rows, point model, reviewer flags, clinical diagnostics",
+      "description": "KGDB gene-disease validity (alpha, draft iteration 8): cited evidence rows, point model, reviewer flags, clinical diagnostics",
       "field_definitions": {
         "genetic": {
           "type": "object",
@@ -775,8 +778,8 @@
                   "label": "Variant class",
                   "options": [
                     {
-                      "value": "lof",
-                      "label": "Loss of function"
+                      "value": "null",
+                      "label": "Null (LoF: nonsense, frameshift, canonical splice, start loss, deletion)"
                     },
                     {
                       "value": "missense",
@@ -787,15 +790,24 @@
                       "label": "In-frame"
                     },
                     {
-                      "value": "splice",
-                      "label": "Splice"
+                      "value": "splice_other",
+                      "label": "Splice, other than canonical"
                     },
                     {
                       "value": "other",
                       "label": "Other"
+                    },
+                    {
+                      "value": "lof",
+                      "label": "Loss of function (older rows; use Null)"
+                    },
+                    {
+                      "value": "splice",
+                      "label": "Splice (older rows; use Null or Splice, other)"
                     }
                   ],
-                  "llm_share": true
+                  "llm_share": true,
+                  "help_text": "The prompt's allele classes; lof and splice are kept for rows entered before iteration 8"
                 },
                 "alleles": {
                   "type": "array",
