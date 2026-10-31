@@ -166,7 +166,8 @@ def audit(
     entity: tuple[str, UUID],
     details: dict[str, Any] | None = None,
 ) -> None:
-    """Record a permission-relevant action: actor, capability and scope (#284)."""
+    """Record a permission-relevant action: actor, capability and scope (#284). Only adds
+    the row: the caller's commit writes it with the change, in one transaction."""
     entity_type, entity_id = entity
     db.add(
         AuditLogNew(
@@ -180,7 +181,6 @@ def audit(
             ),
         )
     )
-    db.commit()
 
 
 def allowed_pair_ids(scope: Scope) -> set[UUID] | None:

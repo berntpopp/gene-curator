@@ -489,20 +489,23 @@ def update_member_role(
 
     # Update role if provided
     if update_data.role:
-        old_role = membership.role
-        membership = scope_membership_crud.update_role(
-            db,
-            membership_id=membership.id,
-            new_role=update_data.role,
-            updated_by_id=current_user.id,
-        )
-        audit(
+        audit(  # before update_role(), whose commit writes it with the change
             db,
             current_user,
             MANAGE_MEMBERS,
             scope_id,
             ("scope_memberships", membership.id),
-            {"user_id": user_id, "old_role": old_role, "new_role": membership.role},
+            {
+                "user_id": user_id,
+                "old_role": membership.role,
+                "new_role": update_data.role,
+            },
+        )
+        membership = scope_membership_crud.update_role(
+            db,
+            membership_id=membership.id,
+            new_role=update_data.role,
+            updated_by_id=current_user.id,
         )
 
     # Update is_active if provided
@@ -614,19 +617,19 @@ def remove_member(
             detail="Cannot remove the last admin from a scope",
         )
 
-    # Remove member (soft delete)
-    scope_membership_crud.remove_member(
-        db,
-        membership_id=membership.id,
-        removed_by_id=current_user.id,
-    )
-    audit(
+    audit(  # before remove_member(), whose commit writes it with the change
         db,
         current_user,
         MANAGE_MEMBERS,
         scope_id,
         ("scope_memberships", membership.id),
         {"user_id": user_id, "removed": True},
+    )
+    # Remove member (soft delete)
+    scope_membership_crud.remove_member(
+        db,
+        membership_id=membership.id,
+        removed_by_id=current_user.id,
     )
 
     logger.info(
