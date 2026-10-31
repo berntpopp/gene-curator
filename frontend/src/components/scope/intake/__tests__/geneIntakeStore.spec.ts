@@ -22,8 +22,8 @@ describe('geneIntake store', () => {
 
   it('resolves through the API', async () => {
     vi.mocked(geneResolveAPI.resolve).mockResolvedValue({ items: [], counts: {} } as never)
-    await useGeneIntakeStore().resolve(['PKD1'])
-    expect(geneResolveAPI.resolve).toHaveBeenCalledWith(['PKD1'])
+    await useGeneIntakeStore().resolve(['PKD1'], 's1')
+    expect(geneResolveAPI.resolve).toHaveBeenCalledWith(['PKD1'], 's1')
   })
 
   it('assigns local genes directly in one bulk request', async () => {

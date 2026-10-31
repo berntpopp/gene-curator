@@ -204,6 +204,24 @@ def test_list_scopes_carries_the_callers_scope_role(
     assert admin_item["user_role"] is None
 
 
+def test_list_scopes_says_whether_the_ai_second_view_is_on(
+    client: TestClient, db_session: Session, scope_with_admin: Scope, curator: UserNew
+) -> None:
+    """B20: the review queue hides the AI second view link when the scope has it off."""
+    from app.models.llm import ScopeLLMSettings
+
+    def on() -> bool:
+        rows = client.get(f"{BASE}/", headers=auth_headers(curator)).json()
+        return next(i for i in rows if i["id"] == str(scope_with_admin.id))[
+            "llm_second_view"
+        ]
+
+    assert on() is False
+    db_session.add(ScopeLLMSettings(scope_id=scope_with_admin.id, enabled=True))
+    db_session.commit()
+    assert on() is True
+
+
 def test_list_scopes_hides_inactive_scopes_by_default(
     client: TestClient, db_session: Session, owner: UserNew
 ) -> None:

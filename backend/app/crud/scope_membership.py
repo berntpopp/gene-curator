@@ -117,17 +117,28 @@ class ScopeMembershipCRUD(
                 .scalars()
                 .first()
             )
-            reusable = existing is not None and (
-                not existing.is_active or existing.accepted_at is None
+            pending = existing is not None and existing.accepted_at is None
+            expired = pending and is_invitation_expired(
+                existing.expires_at if existing else None, datetime.now(UTC)
             )
-            if existing and not (direct and reusable):
+            # a removed row or an expired invitation is reused by both paths; a pending
+            # invitation only by a direct add
+            if (
+                existing
+                and existing.is_active
+                and not (expired or (direct and pending))
+            ):
                 logger.warning(
                     "Invitation creation failed: user already a member",
                     user_id=str(obj_in.user_id),
                     scope_id=str(scope_id),
                     existing_membership_id=str(existing.id),
                 )
-                raise ValueError("User is already a member of this scope")
+                raise ValueError(
+                    "User already has a pending invitation to this scope"
+                    if pending
+                    else "User is already a member of this scope"
+                )
 
         # Create membership - always pending, user must explicitly accept
         # GitHub-style: invitations require explicit acceptance

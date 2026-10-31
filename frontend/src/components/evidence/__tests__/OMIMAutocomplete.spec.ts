@@ -162,13 +162,18 @@ describe('OMIMAutocomplete', () => {
     expect(vm.detailDisease).toEqual({ omim_id: 'OMIM:1', name: 'Failed to load', error: '404' })
   })
 
-  it('requires a value when marked required', () => {
-    expect(mountOmim({ required: true, multiple: true, modelValue: [] }).vm.errorMessages).toEqual([
+  it('requires a value once the field was left empty, not on an untouched form (R3-1)', async () => {
+    const left = async (props: Record<string, unknown>) => {
+      const { wrapper, vm } = mountOmim(props)
+      expect(vm.errorMessages).toEqual([])
+      wrapper.findComponent({ name: 'VAutocomplete' }).vm.$emit('update:focused', false)
+      await flushPromises()
+      return vm.errorMessages
+    }
+    expect(await left({ required: true, multiple: true, modelValue: [] })).toEqual([
       'At least one OMIM disease is required'
     ])
-    expect(mountOmim({ required: true, modelValue: '' }).vm.errorMessages).toEqual([
-      'OMIM disease is required'
-    ])
+    expect(await left({ required: true, modelValue: '' })).toEqual(['OMIM disease is required'])
   })
 
   it('shows the loading bar on the first open, before any record has loaded', async () => {

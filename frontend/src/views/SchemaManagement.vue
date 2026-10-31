@@ -9,20 +9,12 @@
         </p>
       </div>
       <v-spacer />
-      <input
-        ref="importInput"
-        type="file"
-        accept=".json,application/json"
-        class="d-none"
-        aria-label="Methodology file"
-        @change="onImportFile"
-      />
       <v-btn
         variant="outlined"
         size="large"
         prepend-icon="mdi-file-upload"
         :loading="importing"
-        @click="importInput?.click()"
+        @click="importPicker = true"
       >
         Import methodology
       </v-btn>
@@ -183,6 +175,25 @@
         </v-btn>
       </template></BaseDialog
     >
+
+    <!-- Pick the file in the house file input, with a word on what a bundle is (#587) -->
+    <BaseDialog v-model="importPicker" size="sm">
+      <template #title>Import methodology</template>
+      <p class="text-body-medium mb-4">
+        A methodology bundle is a JSON file with curation schemas and the workflow pairs that link
+        them (for example the KGDB bundle). You see the plan before anything is written.
+      </p>
+      <v-file-input
+        :model-value="null"
+        accept=".json,application/json"
+        label="Methodology bundle (.json)"
+        prepend-icon=""
+        prepend-inner-icon="mdi-file-upload"
+        variant="outlined"
+        :loading="importing"
+        @update:model-value="onImportFile"
+      />
+    </BaseDialog>
 
     <!-- Import plan (dry run) before anything is written -->
     <BaseDialog v-model="importDialog" size="md">
@@ -437,7 +448,7 @@
       )
       .join('; ')
 
-  const importInput = ref<HTMLInputElement | null>(null)
+  const importPicker = ref(false)
   const importDialog = ref(false)
   const importFileName = ref('')
   const methodologyImport = useMethodologyImportStore()
@@ -466,11 +477,10 @@
   }
 
   /** Read the chosen file and show the dry-run plan; nothing is written yet. */
-  const onImportFile = async (event: Event) => {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    input.value = '' // choosing the same file again fires change again
+  const onImportFile = async (picked: File | File[] | null | undefined) => {
+    const file = Array.isArray(picked) ? picked[0] : picked
     if (!file) return
+    importPicker.value = false
     try {
       // the server validates the file (shape, list limits, publish gate)
       const bundle = JSON.parse(await file.text()) as Schema<'MethodologyBundle'>

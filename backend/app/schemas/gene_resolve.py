@@ -24,6 +24,9 @@ def is_gene_token(value: str) -> bool:
 
 class GeneResolveRequest(BaseModel):
     symbols: list[str] = Field(..., min_length=1, max_length=MAX_RESOLVE_INPUTS)
+    scope_id: UUID | None = Field(
+        None, description="Flag candidates already in this scope (caller must see it)"
+    )
 
     @field_validator("symbols")
     @classmethod
@@ -43,6 +46,10 @@ class GeneCandidate(BaseModel):
     name: str | None = None
     gene_id: UUID | None = Field(
         None, description="Local gene row, null if only in HGNC"
+    )
+    in_scope: bool | None = Field(None, description="Already in the request's scope_id")
+    in_scope_curator: str | None = Field(
+        None, description="Its assigned curator there, if any (kept on add)"
     )
 
 

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { authAPI } from '@/api'
+import { isExpired } from '@/api/client'
 import { logService } from '@/services/logService'
 import type { Schema } from '@/types/api'
 import { errorMessage, toApiError } from './apiError'
@@ -42,6 +43,9 @@ export const useAuthStore = defineStore('auth', {
 
     async loadStoredSession() {
       const token = localStorage.getItem('access_token')
+      const refresh = localStorage.getItem('refresh_token')
+      // B21: an expired session that cannot refresh is dropped without a sure-401 round trip
+      if (token && isExpired(token) && (!refresh || isExpired(refresh))) return this.clearAuth()
       if (token) {
         try {
           this.loading = true

@@ -69,7 +69,7 @@ def export_curations(
         .outerjoin(reviewer, CurationNew.approved_by == reviewer.id)
         .outerjoin(WorkflowPair, CurationNew.workflow_pair_id == WorkflowPair.id)
         .outerjoin(CurationSchema, WorkflowPair.curation_schema_id == CurationSchema.id)
-        # RLS hides methodology versions from anonymous callers: version is then null
+        # outer: legacy rows pin no version (085 lets every caller read versions)
         .outerjoin(
             MethodologyVersion,
             CurationNew.methodology_version_id == MethodologyVersion.id,

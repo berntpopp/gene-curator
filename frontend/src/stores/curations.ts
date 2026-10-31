@@ -57,9 +57,6 @@ export interface CurationError {
   message?: string
   isConflict?: boolean
   isAutoSave?: boolean
-  currentVersion?: number
-  yourVersion?: number
-  currentState?: string
   /** A create was refused (409) for this open curation of the same entity or gene */
   openCurationId?: string
 }
@@ -237,15 +234,10 @@ export const useCurationsStore = defineStore('curations', {
         return updated
       } catch (error) {
         // Handle 409 Conflict specially
-        const apiError = toApiError(error)
         if (isStaleSave(error)) {
-          const conflictData = apiError.response?.data ?? {}
           this.error = {
             message: 'Another user has modified this curation. Please refresh and try again.',
-            isConflict: true,
-            currentVersion: conflictData.current_lock_version as number | undefined,
-            yourVersion: conflictData.your_lock_version as number | undefined,
-            currentState: conflictData.current_state as string | undefined
+            isConflict: true
           }
         } else {
           this.error = { message: errorMessage(error, 'Request failed') }
@@ -279,15 +271,11 @@ export const useCurationsStore = defineStore('curations', {
 
         return updated
       } catch (error) {
-        const apiError = toApiError(error)
         if (isStaleSave(error)) {
           // Another tab saved first: never overwrite it; the workspace shows the conflict
-          const data = apiError.response?.data ?? {}
           this.error = {
             message: 'Another user or tab has modified this curation. Reload to see their version.',
-            isConflict: true,
-            currentVersion: data.current_lock_version as number | undefined,
-            yourVersion: data.your_lock_version as number | undefined
+            isConflict: true
           }
         } else {
           // Don't throw for auto-save failures, just log

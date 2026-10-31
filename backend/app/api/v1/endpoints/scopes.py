@@ -33,6 +33,7 @@ from app.crud.scope_counts import get_counts_for_scopes
 from app.crud.scope_membership import scope_membership_crud
 from app.crud.scope_visibility import scope_id_for
 from app.models import Gene, Scope, User, WorkflowPair
+from app.models.llm import ScopeLLMSettings
 from app.schemas.gene import GeneCreate
 from app.schemas.gene_assignment import (
     GeneAddStatus,
@@ -335,6 +336,15 @@ def list_scopes(
         page = [s for s in scopes if matches(s)][skip : skip + limit]
 
     counts = get_counts_for_scopes(db, [sc.id for sc in page])
+    # RLS (065) shows settings to the scope's reviewers only, so others read false
+    ai_on = set(
+        db.scalars(
+            select(ScopeLLMSettings.scope_id).where(
+                ScopeLLMSettings.scope_id.in_([sc.id for sc in page]),
+                ScopeLLMSettings.enabled,
+            )
+        )
+    )
     result = []
     for scope in page:
         c = counts[scope.id]
@@ -351,6 +361,7 @@ def list_scopes(
                     member_count=c["members"],
                 ),
                 user_role=roles.get(scope.id),
+                llm_second_view=scope.id in ai_on,
                 **extra,
             )
         )

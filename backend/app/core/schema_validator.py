@@ -187,11 +187,11 @@ class SchemaValidator:
             result.add_error(field_name, "Value must be a string", "type")
             return
 
-        # Length validation
-        min_length = config.get("min_length", 0)
-        max_length = config.get("max_length")
+        # Length; a bool limit is none (True is an int in Python, as in url_field)
+        lengths = (config.get("min_length"), config.get("max_length"))
+        min_length, max_length = (None if isinstance(n, bool) else n for n in lengths)
 
-        if len(value) < min_length:
+        if min_length and len(value.strip()) < min_length:  # padding is no length
             result.add_error(
                 field_name, f"Text must be at least {min_length} characters", "length"
             )

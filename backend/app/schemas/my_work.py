@@ -1,6 +1,6 @@
 """Schemas for the My Work inbox (GET /me/work)."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -26,6 +26,7 @@ class WorkItem(BaseModel):
     scope_name: str
     link: str = Field(..., description="Frontend route that opens the work")
     updated_at: datetime | None = None
+    due_date: date | None = Field(None, description="Assignment due date")
     disease_name: str | None = None
     mode_of_inheritance: str | None = None
     relationship_type: RelationshipType = "mendelian"

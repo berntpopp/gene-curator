@@ -518,3 +518,42 @@ def test_each_scope_carries_its_declared_classifications(
         ]
         == []
     )
+
+
+def test_labels_come_from_the_pinned_version_not_the_live_schema(
+    client: TestClient, world: World
+) -> None:
+    """A curation pinned to v1 keeps v1's label after the live schema renames the class;
+    a class only the live schema declares is still listed."""
+    from app.models import CurationSchema
+    from app.models.methodology import MethodologyVersion
+
+    def cls(key: str, label: str) -> dict[str, Any]:
+        return {"key": key, "label": label, "order": 1, "tone": "moderate"}
+
+    live = [cls("kidney_candidate", "Renamed later"), cls("new", "New")]
+    schema = CurationSchema(
+        id=uuid4(), name="kidney-pin", version="2", schema_type="curation",
+        field_definitions={}, workflow_states={}, ui_configuration={},
+        scoring_configuration={"classifications": live}, schema_hash=uuid4().hex,
+    )  # fmt: skip
+    world.db.add(schema)
+    world.db.flush()
+    v1 = MethodologyVersion(
+        id=uuid4(), schema_id=schema.id, version=1,
+        snapshot={"scoring_configuration": {"classifications": [
+            cls("kidney_candidate", "Kidney candidate")]}},
+    )  # fmt: skip
+    world.db.add(v1)
+    world.pair.curation_schema_id = schema.id
+    world.pub.default_workflow_pair_id = world.pair.id
+    world.db.commit()
+    c = world.cur(world.pkd1, world.pub, "kidney_candidate")
+    c.methodology_version_id = v1.id
+    world.db.commit()
+
+    [pub] = client.get(URL, params=world.ids(world.pub)).json()["scopes"]
+    assert [(v["key"], v["label"]) for v in pub["classifications"]] == [
+        ("kidney_candidate", "Kidney candidate"),
+        ("new", "New"),
+    ]

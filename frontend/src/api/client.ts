@@ -7,6 +7,7 @@ declare module 'axios' {
   interface InternalAxiosRequestConfig {
     metadata?: { startTime: number }
     _retry?: boolean
+    _refreshFailed?: boolean
   }
 }
 
@@ -33,7 +34,7 @@ function refreshTokens(refreshToken: string): Promise<string> {
 }
 
 /** True for a JWT whose exp is in the past; opaque or malformed tokens count as unknown (false). */
-function isExpired(token: string): boolean {
+export function isExpired(token: string): boolean {
   try {
     // JWT segments are base64url; atob only reads standard base64
     const payload = (token.split('.')[1] ?? '').replace(/-/g, '+').replace(/_/g, '/')
@@ -76,7 +77,12 @@ apiClient.interceptors.request.use(
     let token = localStorage.getItem('access_token')
     const refreshToken = localStorage.getItem('refresh_token')
     if (token && refreshToken && isExpired(token) && !NO_REFRESH_URL.test(config.url ?? '')) {
-      token = await refreshTokens(refreshToken).catch(() => token) // the 401 path handles failure
+      // the 401 path handles failure, without sending a refused or expired refresh again (B21)
+      const fresh = isExpired(refreshToken)
+        ? null
+        : await refreshTokens(refreshToken).catch(() => null)
+      config._refreshFailed = fresh === null
+      token = fresh ?? token
     }
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
@@ -147,6 +153,7 @@ apiClient.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refresh_token')
         if (refreshToken) {
+          if (originalRequest._refreshFailed) throw new Error('Refresh token refused')
           logService.debug('Attempting token refresh', { originalUrl: originalRequest.url })
 
           const access_token = await refreshTokens(refreshToken)

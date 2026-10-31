@@ -2899,10 +2899,11 @@ export interface paths {
          *         gene_id: UUID of the gene
          *
          *     Returns:
-         *         Public gene summary with only public scope data
+         *         Public gene summary with only public scope data; null when the gene has no
+         *         public curation (an empty result, so the signed-out gene page logs no 404)
          *
          *     Raises:
-         *         HTTPException: 404 if no public curations found for gene
+         *         HTTPException: 404 if the gene does not exist
          */
         get: operations["get_gene_public_summary_api_v1_genes__gene_id__summary_get"];
         put?: never;
@@ -6090,7 +6091,7 @@ export interface components {
             schema_name?: string | null;
             /**
              * Version
-             * @description Pinned methodology version; null when the caller may not read methodology versions (anonymous)
+             * @description Pinned methodology version; null only for a row that pins none
              */
             version?: number | null;
             /**
@@ -6312,6 +6313,16 @@ export interface components {
              * @description Local gene row, null if only in HGNC
              */
             gene_id?: string | null;
+            /**
+             * In Scope
+             * @description Already in the request's scope_id
+             */
+            in_scope?: boolean | null;
+            /**
+             * In Scope Curator
+             * @description Its assigned curator there, if any (kept on add)
+             */
+            in_scope_curator?: string | null;
         };
         /**
          * GeneCatalogueEntry
@@ -6633,6 +6644,11 @@ export interface components {
         GeneResolveRequest: {
             /** Symbols */
             symbols: string[];
+            /**
+             * Scope Id
+             * @description Flag candidates already in this scope (caller must see it)
+             */
+            scope_id?: string | null;
         };
         /** GeneResolveResponse */
         GeneResolveResponse: {
@@ -10283,6 +10299,11 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /**
+             * Llm Second View
+             * @description AI second view is on and the caller may review here (RLS)
+             */
+            llm_second_view?: boolean | null;
             /** Description */
             description?: string | null;
             /** Institution */
@@ -11611,6 +11632,11 @@ export interface components {
             link: string;
             /** Updated At */
             updated_at?: string | null;
+            /**
+             * Due Date
+             * @description Assignment due date
+             */
+            due_date?: string | null;
             /** Disease Name */
             disease_name?: string | null;
             /** Mode Of Inheritance */
@@ -17337,7 +17363,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GeneSummaryPublic"];
+                    "application/json": components["schemas"]["GeneSummaryPublic"] | null;
                 };
             };
             /** @description Validation Error */

@@ -132,6 +132,10 @@ class ScopeListItem(BaseModel):
         default=None,
         description="Caller's role from an accepted membership in this scope, if any",
     )
+    llm_second_view: bool | None = Field(
+        default=None,
+        description="AI second view is on and the caller may review here (RLS)",
+    )
     # Only with detail=true (unset fields are left out of the response)
     description: str | None = None
     institution: str | None = None

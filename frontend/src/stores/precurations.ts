@@ -72,8 +72,6 @@ interface PrecurationsState {
     isConflict?: boolean
     /** A 409 naming the precuration this disease entity already has in the scope */
     existingId?: string
-    currentVersion?: number
-    yourVersion?: number
   } | null
   pagination: PrecurationsPagination
   filters: PrecurationsFilters
@@ -295,9 +293,7 @@ export const usePrecurationsStore = defineStore('precurations', {
           this.error = {
             message:
               'Another user or tab has modified this precuration. Reload to see their version.',
-            isConflict: true,
-            currentVersion: data.current_lock_version as number | undefined,
-            yourVersion: data.your_lock_version as number | undefined
+            isConflict: true
           }
         } else {
           this.error = { message: errorMessage(error, 'Request failed'), isAutoSave: true }
@@ -333,14 +329,11 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return submitted
       } catch (error) {
-        const apiError = toApiError(error)
         this.error = isStaleSave(error)
           ? {
               message:
                 'Another user or tab has modified this precuration. Reload to see their version.',
-              isConflict: true,
-              currentVersion: apiError.response?.data?.current_lock_version as number | undefined,
-              yourVersion: apiError.response?.data?.your_lock_version as number | undefined
+              isConflict: true
             }
           : { message: errorMessage(error, 'Request failed') }
         throw error

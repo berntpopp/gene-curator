@@ -17,6 +17,7 @@
     no-filter
     return-object
     @update:search="handleSearch"
+    @update:focused="(f: boolean) => f || (touched = true)"
     @update:model-value="handleSelect"
   >
     <template #item="{ item, props: itemProps }">
@@ -288,10 +289,11 @@
     { immediate: true }
   )
 
-  // Error messages for form validation
+  // Error messages for form validation; "required" waits until the field was left (R3-1)
+  const touched = ref(false)
   const errorMessages = computed<string[]>(() => {
     if (error.value) return [error.value]
-    if (props.required && !props.modelValue) {
+    if (touched.value && props.required && !props.modelValue) {
       return ['MONDO disease is required']
     }
     return []

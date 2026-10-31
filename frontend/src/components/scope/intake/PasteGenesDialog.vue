@@ -97,6 +97,13 @@
               <span v-else class="text-medium-emphasis" data-testid="not-found">
                 {{ reasonText(r.item) }}
               </span>
+              <div
+                v-if="r.duplicateOf === null && r.pick?.in_scope"
+                class="text-body-small text-medium-emphasis"
+                data-testid="in-scope"
+              >
+                {{ inScopeText(r.pick.in_scope_curator) }}
+              </div>
             </td>
           </tr>
         </tbody>
@@ -166,6 +173,9 @@
   const dueDate = ref<string | null>(null)
   const curators = ref<CuratorOption[]>([])
   const summaryEl = ref<HTMLElement | null>(null)
+  // A gene the scope already has keeps its curator when added again
+  const inScopeText = (curator?: string | null) =>
+    curator ? `Already in scope (curator: ${curator}, kept)` : 'Already in scope'
 
   const symbols = computed(() => parseSymbols(text.value))
   const tooMany = computed(() => symbols.value.length > MAX_SYMBOLS)
@@ -200,7 +210,7 @@
   async function resolve() {
     busy.value = true
     try {
-      const r = await store.resolve(symbols.value)
+      const r = await store.resolve(symbols.value, props.scopeId)
       rows.value = toRows(r.items)
       // Screen readers hear the summary (role=status); keyboard focus moves to it
       await nextTick()

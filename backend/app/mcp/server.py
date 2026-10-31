@@ -66,8 +66,8 @@ get_peer_reviewers, get_my_review_assignments); list_scopes(name=) finds the id.
 
 Set up a pipeline: get_workflow_pairs, create_scope (default_workflow_pair_id;
 update_scope changes it later). Two ClinGen SOP v11 pairs exist: "ClinGen
-Gene-Disease Validity" is_default (the full SOP v11 form; create_scope uses it) and
-"ClinGen_Complete_Workflow", the older form of the seeded demo scopes. Curate with
+Gene-Disease Validity" is_default (create_scope uses it) and
+"ClinGen_Complete_Workflow", the older form in the demo scopes. Curate with
 the scope's default_workflow_pair_id. Members: search_users_for_invitation finds a
 user, add_member adds them at once, update_member_role changes a role.
 
@@ -90,30 +90,27 @@ MONDO id + mode of inheritance, each curated on its own.
    get_curation_schema(path=) shows one table's fields.
    get_curation leaves evidence_data out unless fields= names it; precuration
    writes return the record without it (get_precuration reads it).
-4. Research (papers, genotypes, MONDO/HPO lookup): a literature MCP such as GeneFoundry;
+4. Research (papers, ontologies): a literature MCP such as GeneFoundry;
    record the evidence here, validate_pmids(pmids) confirms the PMIDs you cite.
 5. Review: submit_curation(reviewer_email=...) submits and assigns the reviewer.
    The reviewer reads everything in one call with read_curation_for_review, then
    submit_peer_review(decision="approve" or "request_changes", with comments).
-   curation_diff(baseline=): submitted is the latest submission (equal to the
-   evidence right after submit), previous_submission the one before it: what
-   changed since the last review round. Long text changes come as word_diff.
+   curation_diff(baseline=): submitted is the latest submission,
+   previous_submission the one before it (changes since the last review round);
+   long text changes come as word_diff.
 6. Active: one active curation per entity; a re-curation replaces only its entity.
 
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
 to another reviewer of the scope.
 
 Scope roles (yours: user_role on each list_scopes row; everyone's: list_members):
-| role     | may                                                                  |
-| viewer   | read the scope                                                       |
-| curator  | read; add genes; create, edit and submit precurations and curations  |
-| reviewer | read; approve or reject precurations; review others' curations       |
-| admin    | all of the above; members and scope edits                            |
+viewer reads; curator also adds genes and creates, edits and submits precurations and
+curations; reviewer also approves or rejects precurations and reviews others'
+curations; admin does all of that plus members and scope edits.
 
-Queue: read_my_work and get_my_review_assignments.
-Errors start with a closed code (invalid_input, unauthorized, forbidden, not_found,
-conflict, rate_limited, upstream_unavailable, internal, response_too_large), then the
-detail and a next: line naming the tool to call. On conflict, re-read the item and
+Queue: read_my_work.
+Errors start with a code (invalid_input, forbidden, not_found, conflict, ...), then
+the detail and a next: line naming the tool to call. On conflict, re-read the item and
 retry with its lock_version. Results omit null fields. Confirm destructive tools with
 the user.
 """
@@ -158,6 +155,8 @@ _NARROWING = {"skip", "limit", "compact"}
 
 # MCP-only argument defaults; the REST defaults stay as they are
 MCP_DEFAULTS: dict[str, dict[str, Any]] = {"get_curation_schema": {"compact": True}}
+# UI-only arguments: the intake dialog's in-scope flags; agents get them from add_genes_to_scope
+MCP_HIDDEN_ARGS: dict[str, tuple[str, ...]] = {"resolve_genes": ("scope_id",)}
 
 # Where scored evidence lives, so agents need no example curation (token plan 6)
 # variant_type options of the seeded ClinGen schema (046), per case-level table
@@ -327,6 +326,8 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
         if arg in tool.parameters.get("properties", {}):
             tool.parameters["properties"][arg]["description"] = text
     tool.parameters["properties"].update(MCP_ONLY_ARGS.get(tool.name, {}))
+    for arg in MCP_HIDDEN_ARGS.get(tool.name, ()):
+        tool.parameters["properties"].pop(arg, None)
     for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
         tool.parameters["properties"][arg]["default"] = value
     read_only = route.method == "GET"

@@ -108,6 +108,7 @@ class TestTextField:
         ("config", "value", "message"),
         [
             ({"min_length": 5}, "abc", "Text must be at least 5 characters"),
+            ({"min_length": 5}, "  abc  ", "Text must be at least 5 characters"),
             ({"max_length": 3}, "abcdef", "Text must not exceed 3 characters"),
             ({"pattern": "^[A-Z]+$"}, "abc", "Text does not match required pattern"),
             ({}, 42, "Value must be a string"),
@@ -118,6 +119,13 @@ class TestTextField:
 
         assert result.is_valid is False
         assert message in _messages(result)
+
+    def test_boolean_length_limits_are_ignored(self, validator: SchemaValidator):
+        """max_length: true is no limit of 1 (bool is an int in Python), as url_field."""
+        config = {"type": "text", "max_length": True, "min_length": True}
+        result = _run(validator, {"f": "abc"}, {"f": config})
+
+        assert not [m for m in _messages(result) if "characters" in m]
 
     def test_invalid_regex_pattern_is_a_configuration_error(
         self, validator: SchemaValidator
