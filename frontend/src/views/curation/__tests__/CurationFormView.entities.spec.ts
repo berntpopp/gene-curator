@@ -46,15 +46,14 @@ const approvedPrecuration = (id: string) => ({
 async function mountView(
   rows: { id: string; status: string }[],
   query: Record<string, string>,
-  approved: ReturnType<typeof approvedPrecuration>[] = []
+  approved: ReturnType<typeof approvedPrecuration>[] = [],
+  scope: Record<string, unknown> = { default_workflow_pair_id: 'wp1' }
 ) {
   Object.assign(routeState, { params: { scopeId: 'sc1', geneId: 'g1' }, query })
   const curations = useCurationsStore()
   vi.spyOn(useSchemasStore(), 'fetchSchemas').mockResolvedValue(undefined as never)
   vi.spyOn(useSchemasStore(), 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
-  vi.spyOn(useScopesStore(), 'fetchScope').mockResolvedValue({
-    default_workflow_pair_id: 'wp1'
-  } as never)
+  vi.spyOn(useScopesStore(), 'fetchScope').mockResolvedValue(scope as never)
   vi.spyOn(useScopesStore(), 'fetchUserRole').mockResolvedValue('curator' as never)
   vi.spyOn(useGenesStore(), 'fetchGeneById').mockResolvedValue({} as never)
   vi.spyOn(usePrecurationsStore(), 'fetchCurationPrecuration').mockResolvedValue({
@@ -166,6 +165,22 @@ describe('CurationFormView entity choice', () => {
       name: 'curation-edit',
       params: { scopeId: 'sc1', curationId: 'new1' }
     })
+  })
+
+  it("starts a chosen precuration's curation on its own pair (MUI-03)", async () => {
+    useSchemasStore().workflowPairs = [
+      { id: 'wp1', precuration_schema_id: 'pre-a' },
+      { id: 'wp2', precuration_schema_id: 'pre-b' }
+    ] as never
+    vi.spyOn(usePrecurationsStore(), 'fetchPrecurationById').mockResolvedValue({
+      id: 'p2',
+      precuration_schema_id: 'pre-b'
+    } as never)
+    const scope = { default_workflow_pair_id: 'wp1', allowed_workflow_pair_ids: ['wp2'] }
+    await mountView([], { precuration_id: 'p2' }, [], scope)
+    expect(useCurationsStore().createCuration).toHaveBeenCalledWith(
+      expect.objectContaining({ precuration_id: 'p2', workflow_pair_id: 'wp2' })
+    )
   })
 
   it('leaves a refused start (409) to the open-curation redirect', async () => {
