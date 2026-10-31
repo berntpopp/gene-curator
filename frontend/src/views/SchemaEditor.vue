@@ -105,6 +105,18 @@
           </v-card>
 
           <v-alert
+            v-if="conflict"
+            type="warning"
+            variant="tonal"
+            class="mb-6"
+            role="alert"
+            data-testid="conflict-banner"
+          >
+            Someone else saved this schema while you were editing. Your draft is kept: Save again to
+            replace their version, or Cancel to load theirs.
+          </v-alert>
+
+          <v-alert
             v-if="validation"
             :type="validation.is_valid ? 'success' : 'error'"
             variant="tonal"
@@ -337,7 +349,7 @@
   import { useRoute, useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
   import { errorMessage } from '@/stores/apiError'
-  import { showError, showSuccess, showWarning } from '@/composables/useNotifications'
+  import { showError, showSuccess } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
   import { useConfirm } from '@/composables/useConfirm'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -378,6 +390,8 @@
   const validating = ref(false)
   const error = ref<string | null>(null)
   const isEditing = ref(false)
+  // Someone else saved meanwhile: shown until Save replaces theirs or Cancel loads it (MUI-13)
+  const conflict = ref(false)
   const schema = ref<SchemaDetail | null>(null)
   const editableSchema = ref<Partial<Schema<'CurationSchemaUpdate'>>>({})
   // The five JSON blocks being edited; every tab edits this one draft
@@ -439,6 +453,7 @@
     ) as Blocks
     draft.value.field_definitions ??= {}
     jsonErrors.value = {}
+    conflict.value = false
     pristine = snapshot()
   }
 
@@ -478,9 +493,7 @@
   const keepDraftAfterConflict = async () => {
     try {
       schema.value = await schemasStore.fetchSchemaById(schemaId.value)
-      showWarning(
-        'Someone else saved this schema. Your draft is kept: Save again to replace their version, or Cancel to load theirs.'
-      )
+      conflict.value = true
     } catch (error) {
       showError(errorMessage(error, 'Someone else saved this schema; reloading it failed'))
     }

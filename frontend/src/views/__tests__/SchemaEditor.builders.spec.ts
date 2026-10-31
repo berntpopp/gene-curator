@@ -137,18 +137,17 @@ describe('SchemaEditor builders (#282)', () => {
     } as never)
     await call(vm, 'saveSchema')
     await flushPromises()
-    expect(showWarning).toHaveBeenCalledWith(
-      'Someone else saved this schema. Your draft is kept: Save again to replace their version, or Cancel to load theirs.'
-    )
+    expect(vm.conflict).toBe(true)
     expect(showError).not.toHaveBeenCalled()
     expect(vm.isEditing).toBe(true)
     expect((vm.editableSchema as Record<string, unknown>).description).toBe('mine')
     await call(vm, 'saveSchema')
     expect(update.mock.calls[1]![1]).toMatchObject({ description: 'mine', lock_version: 5 })
+    expect(vm.conflict).toBe(false)
   })
 
   it('Cancel after a 409 loads their version', async () => {
-    const { vm, schemas } = await mountView()
+    const { wrapper, vm, schemas } = await mountView()
     vi.spyOn(schemas, 'updateSchema').mockRejectedValueOnce({ response: { status: 409 } })
     vm.isEditing = true
     ;(vm.editableSchema as Record<string, unknown>).description = 'mine'
@@ -159,10 +158,14 @@ describe('SchemaEditor builders (#282)', () => {
     } as never)
     await call(vm, 'saveSchema')
     await flushPromises()
+    // MUI-13: the conflict stays on screen until resolved, not only as a toast
+    expect(wrapper.find('[data-testid="conflict-banner"]').text()).toContain('Someone else saved')
     const cancelled = call(vm, 'cancelEdit')
     confirmState.settle(true) // discarding the draft asks first (MUI-08)
     await cancelled
     expect((vm.editableSchema as Record<string, unknown>).description).toBe('theirs')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="conflict-banner"]').exists()).toBe(false)
   })
 
   it('confirms a save (MUI-12)', async () => {
