@@ -61,6 +61,18 @@ describe('VersionMoveDialog', () => {
     expect(showSuccess).toHaveBeenCalledWith('1 moved to version 2; 1 need review again')
   })
 
+  it('counts skipped rows apart from moved ones (MUI-11)', async () => {
+    post.mockResolvedValueOnce(plan() as never)
+    await openDialog()
+    const skipped = { ...item, id: 'c2', back_to: null, skipped: 'inactive scope' }
+    post.mockResolvedValueOnce({ ...plan(), dry_run: false, items: [item, skipped] } as never)
+    button('Move').click()
+    await flushPromises()
+    expect(showSuccess).toHaveBeenCalledWith(
+      '1 moved to version 2; 1 need review again; 1 skipped (inactive scope)'
+    )
+  })
+
   it('reports a stale plan (409) and keeps the dialog open', async () => {
     post.mockResolvedValueOnce(plan() as never)
     await openDialog()
