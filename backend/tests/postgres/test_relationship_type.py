@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token
@@ -354,3 +355,54 @@ def test_088_keys_susceptibility_by_risk_allele(owner_session: Session) -> None:
             "WHERE filename = '088_susceptibility_allele_key.sql'"
         )
     )
+
+
+def test_088_stops_on_open_precurations_the_new_key_merges(
+    owner_session: Session,
+) -> None:
+    """Review of #619: 'Undetermined' and HP:0000005 were two keys before 088 and are one
+    after; two open precurations of them stop the migration with both ids."""
+    owner_session.execute(
+        text(
+            "DROP INDEX uq_precurations_open_draft; DROP INDEX uq_precurations_open_entity; "
+            "ALTER TABLE precurations DROP COLUMN entity_key"
+        )
+    )
+    owner_session.execute(text((SQL / "067_split_disease_entities.sql").read_text()))
+    owner_session.execute(text((SQL / "072_relationship_type.sql").read_text()))
+    scope = owner_session.scalars(select(Scope)).first()
+    user = owner_session.scalars(select(UserNew)).first()
+    pair = owner_session.scalars(select(WorkflowPair)).first()
+    assert scope and user and pair and pair.precuration_schema_id
+    gene = uuid4()
+    owner_session.execute(
+        text(
+            "INSERT INTO genes (id, hgnc_id, approved_symbol, record_hash) "
+            "VALUES (:g, 'HGNC:999089', 'DUP088', :h)"
+        ),
+        {"g": gene, "h": "9" * 64},
+    )
+    ids = [
+        owner_session.scalar(
+            text(
+                "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id, "
+                "status, evidence_data, created_by) VALUES "
+                "(:g, :s, :ps, 'submitted', CAST(:e AS jsonb), :u) RETURNING id"
+            ),
+            {
+                "g": gene,
+                "s": scope.id,
+                "ps": pair.precuration_schema_id,
+                "e": json.dumps({**ENTITY, "mode_of_inheritance": moi}),
+                "u": user.id,
+            },
+        )
+        for moi in ("Undetermined", "HP:0000005")
+    ]
+    with pytest.raises(DBAPIError) as refused:
+        owner_session.execute(
+            text((SQL / "088_susceptibility_allele_key.sql").read_text())
+        )
+    message = str(refused.value)
+    assert "088: open precurations would share a disease entity" in message
+    assert all(str(i) in message for i in ids)

@@ -10,10 +10,13 @@
 -- ENTITY_KEY_SQL in backend/app/models/curation.py. PostgreSQL 15 cannot change a generation
 -- expression in place: the column and both open-precuration indexes on it are recreated once
 -- (skipped when the expression already has risk_allele); curation and active-curation key
--- copies that equal their precuration's old key follow the new one. Idempotent; records itself.
+-- copies that equal their precuration's old key follow the new one. Open precurations the new
+-- key would merge stop the migration with their ids (as 077). Idempotent; records itself.
 -- =============================================================================
 
 DO $migration$
+DECLARE
+    dupes TEXT;
 BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_attrdef d
@@ -30,6 +33,26 @@ BEGIN
     ALTER TABLE precurations ADD COLUMN entity_key TEXT GENERATED ALWAYS AS (
         CASE WHEN upper(replace(trim(COALESCE(NULLIF(trim(evidence_data ->> 'mondo_id'), ''), evidence_data -> 'entity_definition' ->> 'mondo_id', '')), '_', ':')) = '' THEN '' ELSE upper(replace(trim(COALESCE(NULLIF(trim(evidence_data ->> 'mondo_id'), ''), evidence_data -> 'entity_definition' ->> 'mondo_id', '')), '_', ':')) || '|' || upper(CASE replace(replace(replace(replace(lower(trim(COALESCE(NULLIF(trim(evidence_data ->> 'mode_of_inheritance'), ''), evidence_data -> 'entity_definition' ->> 'mode_of_inheritance', ''))), ' ', ''), '_', ''), '-', ''), 'inheritance', '') WHEN 'autosomaldominant' THEN 'ad' WHEN 'hp:0000006' THEN 'ad' WHEN 'autosomalrecessive' THEN 'ar' WHEN 'hp:0000007' THEN 'ar' WHEN 'xlinked' THEN 'xl' WHEN 'hp:0001417' THEN 'xl' WHEN 'xlinkeddominant' THEN 'xld' WHEN 'hp:0001423' THEN 'xld' WHEN 'xlinkedrecessive' THEN 'xlr' WHEN 'hp:0001419' THEN 'xlr' WHEN 'ylinked' THEN 'yl' WHEN 'hp:0001450' THEN 'yl' WHEN 'semidominant' THEN 'sd' WHEN 'hp:0032113' THEN 'sd' WHEN 'mitochondrial' THEN 'mt' WHEN 'hp:0001427' THEN 'mt' WHEN 'undetermined' THEN 'undetermined' WHEN 'hp:0000005' THEN 'undetermined' WHEN 'multifactorial' THEN 'multifactorial' WHEN 'hp:0001426' THEN 'multifactorial' ELSE replace(replace(replace(replace(lower(trim(COALESCE(NULLIF(trim(evidence_data ->> 'mode_of_inheritance'), ''), evidence_data -> 'entity_definition' ->> 'mode_of_inheritance', ''))), ' ', ''), '_', ''), '-', ''), 'inheritance', '') END) || CASE WHEN lower(trim(COALESCE(NULLIF(trim(evidence_data ->> 'relationship_type'), ''), evidence_data -> 'entity_definition' ->> 'relationship_type', ''))) = 'susceptibility' THEN '|SUSCEPTIBILITY' || CASE WHEN upper(replace(trim(COALESCE(NULLIF(trim(evidence_data ->> 'risk_allele'), ''), evidence_data -> 'entity_definition' ->> 'risk_allele', '')), ' ', '')) = '' THEN '' ELSE '|' || upper(replace(trim(COALESCE(NULLIF(trim(evidence_data ->> 'risk_allele'), ''), evidence_data -> 'entity_definition' ->> 'risk_allele', '')), ' ', '')) END ELSE '' END END
     ) STORED;
+    -- Open precurations the new key merges (e.g. 'Undetermined' and HP:0000005) stop the
+    -- migration with their ids, as 077 does; nothing is changed or deleted.
+    SELECT string_agg(format('gene %s, scope %s, entity %s: %s',
+                             gene_id, scope_id, entity_key, ids), E'\n')
+    INTO dupes
+    FROM (
+        SELECT gene_id, scope_id, entity_key,
+               string_agg(id::text, ', ' ORDER BY created_at) AS ids
+        FROM precurations
+        WHERE entity_key <> ''
+          AND status IN ('draft', 'submitted', 'in_review', 'rejected')
+        GROUP BY gene_id, scope_id, entity_key
+        HAVING count(*) > 1
+    ) d;
+    IF dupes IS NOT NULL THEN
+        RAISE EXCEPTION E'088: open precurations would share a disease entity:\n%', dupes
+            USING HINT = 'Keep one per group and archive the others '
+                '(UPDATE precurations SET status = ''archived'' WHERE id IN (...)), '
+                'or give them distinct MOI or risk_allele values, then re-run.';
+    END IF;
     CREATE UNIQUE INDEX uq_precurations_open_draft
         ON precurations (gene_id, scope_id, created_by, entity_key) WHERE status = 'draft';
     CREATE UNIQUE INDEX uq_precurations_open_entity
