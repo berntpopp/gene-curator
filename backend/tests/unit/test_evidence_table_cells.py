@@ -38,7 +38,7 @@ def test_bad_numbers_and_blank_required_cells_are_named() -> None:
     assert _paths(rows) == [
         ("probands[1].zygosity", "Required field is missing"),
         ("probands[1].points", "Value must be a number"),
-        ("probands[1].count", "Value must be a number"),
+        ("probands[1].count", "Value must be a whole number"),
         ("probands[2].zygosity", "Required field is missing"),
         ("probands[2].points", "Value must not exceed 3"),
         ("probands[2].carrier", "Required field is missing"),
@@ -47,3 +47,14 @@ def test_bad_numbers_and_blank_required_cells_are_named() -> None:
 
 def test_a_complete_table_passes() -> None:
     assert _paths([{"zygosity": "het", "points": "1.5", "carrier": False}]) == []
+
+
+def test_an_integer_column_rejects_a_fraction() -> None:
+    rows = [{"zygosity": "het", "count": 2.5, "carrier": True}]
+    rows.append({"zygosity": "het", "count": "3", "carrier": True})
+    assert _paths(rows) == [("probands[0].count", "Value must be a whole number")]
+
+
+def test_a_fully_blank_row_is_dropped_not_validated() -> None:
+    rows = [{"zygosity": "het", "carrier": True}, {}, {"zygosity": "", "note": " "}]
+    assert _paths(rows) == []

@@ -18,6 +18,7 @@ from app.core.schema_rules import (
     valid_url,
 )
 from app.core.schema_validation_result import SchemaValidationResult
+from app.core.table_cells import cell_errors
 from app.crud.precuration_required import visible_when as _when
 from app.scoring.registry import scoring_registry
 
@@ -172,18 +173,7 @@ class SchemaValidator:
     def _validate_cells(
         self, name: str, rows: Any, config: dict[str, Any], res: SchemaValidationResult
     ) -> None:
-        """Required, number and url cells of an evidence table (#538, monkey L2)."""
-        cols = config.get("columns") or {}
-        if isinstance(cols, list):  # the seeds' [{"id": ..., "type": ...}] form
-            cols = {c.get("id"): c for c in cols}
-        for i, row in enumerate(rows if isinstance(rows, list) else []):
-            for key, col in cols.items() if isinstance(row, dict) else ():
-                at, value, kind = f"{name}[{i}].{key}", row.get(key), col.get("type")
-                # ponytail: a conditional column (visible_when) is never required here
-                if value in (None, "") and col.get("required") and not _when(col):
-                    res.add_error(at, "Required field is missing", "required_cell")
-                elif value not in (None, "") and kind in ("number", "integer", "url"):
-                    self.field_validators[kind](at, value, col, res)
+        cell_errors(name, rows, config, res, self.field_validators)
 
     def _validate_text_field(
         self,
