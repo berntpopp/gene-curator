@@ -101,6 +101,9 @@
               :field-name="subFieldName"
               :field-schema="subFieldSchema"
               :model-value="objectValue[subFieldName]"
+              :backend-errors="
+                subFieldName === 'override_rationale' && overrideUnexplained ? [RATIONALE] : []
+              "
               :depth="depth + 1"
               variant="outlined"
               :disabled="disabled"
@@ -131,7 +134,8 @@
    * parent's depth check) and keeps a local copy of the value so child edits
    * can be emitted as a whole.
    */
-  import { inject, provide, ref, watch } from 'vue'
+  import { computed, getCurrentInstance, inject, onBeforeUnmount, provide, ref, watch } from 'vue'
+  import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import { generateUUID } from '@/utils/uuidPolyfill'
   import DynamicField from './DynamicField.vue'
   import { FORM_DATA, resolveField } from './conditions'
@@ -253,6 +257,28 @@
     arrayValue.value[index]![fieldName] = value
     emit('update:model-value', arrayValue.value)
   }
+
+  // MUI-09: the point model ignores override points without a rationale; say so inline and
+  // keep Submit blocked until one is given (or the override cleared)
+  const RATIONALE = 'Add a rationale for the override, or clear the override points'
+  const overrideUnexplained = computed(() => {
+    const { override_points: points, override_rationale: why } = objectValue.value
+    return (
+      !!props.fieldSchema.properties?.override_rationale &&
+      points != null &&
+      points !== '' &&
+      !String(why ?? '').trim()
+    )
+  })
+  const frame = inject(WORKSPACE_FRAME, null)
+  const blockerId = `override-rationale-${getCurrentInstance()?.uid}`
+  watch(
+    () => overrideUnexplained.value && !props.readonly,
+    missing =>
+      frame?.setBlocker(blockerId, missing ? `${props.label}: ${RATIONALE.toLowerCase()}` : null),
+    { immediate: true }
+  )
+  onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
 
   // Object field methods
   const updateObjectField = (fieldName: string, value: unknown) => {
