@@ -285,10 +285,35 @@ describe('groupDiff, readable names', () => {
   })
 })
 
+describe('evidence table options (monkey R2-7)', () => {
+  it('offers an evidence table column its option labels', () => {
+    const fields = {
+      genetic: {
+        properties: {
+          probands: {
+            type: 'evidence_table',
+            columns: {
+              zygosity: {
+                label: 'Zygosity',
+                options: [{ value: 'compound_heterozygous', label: 'Compound heterozygous' }]
+              }
+            }
+          }
+        }
+      }
+    }
+    const items = [
+      { path: 'genetic.probands[0]', change: 'added', after: { zygosity: 'compound_heterozygous' } }
+    ] as Item[]
+    const field = groupDiff(items, { fields })[0]!.fields[0]!
+    expect(formatValue(field.after, field.options)).toBe('Compound heterozygous')
+  })
+})
+
 describe('formatValue', () => {
   it('renders scalars, objects and nothing', () => {
-    expect(formatValue(null)).toBe('none')
-    expect(formatValue(undefined)).toBe('none')
+    expect(formatValue(null)).toBe('—') // an empty cell shows a dash (monkey R2-7)
+    expect(formatValue(undefined)).toBe('—')
     expect(formatValue(2)).toBe('2')
     expect(formatValue('abc')).toBe('abc')
     expect(formatValue({ a: 1 })).toBe('{"a":1}')
@@ -300,7 +325,7 @@ describe('formatValue', () => {
     expect(formatValue('frameshift', options)).toBe('frameshift')
     expect(formatValue(true)).toBe('Yes')
     expect(formatValue(false)).toBe('No')
-    expect(formatValue('')).toBe('none')
+    expect(formatValue('')).toBe('—')
   })
 })
 

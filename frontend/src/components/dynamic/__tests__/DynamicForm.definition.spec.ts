@@ -101,7 +101,7 @@ describe('DynamicForm from raw config', () => {
       'Line one',
       'Line two',
       'Alpha, Beta',
-      'none',
+      '—',
       'Nested record'
     ])
       expect(wrapper.text()).toContain(value)
