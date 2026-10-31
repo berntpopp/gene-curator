@@ -70,6 +70,12 @@ class WorkflowValidationResult(BaseModel):
         default_factory=list,
         description="Required fields still empty for review (dotted paths, pinned check)",
     )
+    denied: bool = Field(
+        False, description="Refused for who you are (role, 4-eyes): 403"
+    )
+    conflict: bool = Field(
+        False, description="Refused for the item's stage/status: 409"
+    )
 
 
 # Workflow State Information

@@ -211,7 +211,7 @@ def test_two_reviewers_activate_and_the_author_never_counts(
     assert submitted_at == datetime.fromisoformat(r.json()["submitted_at"])
 
     # D1: the author, a platform admin, cannot approve
-    assert _approve(client, w, w.alice).status_code == 400
+    assert _approve(client, w, w.alice).status_code == 403
     first = _approve(client, w, w.bob)
     assert first.status_code == 200, first.text
     assert first.json()["to_stage"] == "review"
@@ -262,7 +262,7 @@ def test_forbidden_edge_is_refused_and_changes_nothing(
 ) -> None:
     before = _row(w.locked)
     r = _submit(client, w, w.locked)
-    assert r.status_code == 400, r.text
+    assert r.status_code == 409, r.text
     assert "Invalid transition from curation to review" in r.text
     assert _row(w.locked) == before
 

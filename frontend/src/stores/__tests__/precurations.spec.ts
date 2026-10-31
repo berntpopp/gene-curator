@@ -333,6 +333,18 @@ describe('usePrecurationsStore', () => {
       await expect(store.submitForReview('p1')).rejects.toBeTruthy()
       expect(store.error).toMatchObject({ isConflict: true, currentVersion: 3, yourVersion: 2 })
     })
+
+    it('shows the server reason for a workflow-state 409 (L6)', async () => {
+      const store = usePrecurationsStore()
+      const detail = 'Invalid transition: Invalid transition from review to review'
+      api.submitPrecuration.mockRejectedValueOnce({
+        isAxiosError: true,
+        message: 'Request failed',
+        response: { status: 409, data: { detail } }
+      })
+      await expect(store.submitForReview('p1')).rejects.toBeTruthy()
+      expect(store.error).toEqual({ message: detail })
+    })
   })
 
   describe('approvePrecuration', () => {

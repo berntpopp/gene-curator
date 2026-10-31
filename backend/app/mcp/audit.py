@@ -129,6 +129,8 @@ _HINTS = {
 _TOOL_HINTS = {
     ("execute_workflow_transition", 400): "get_workflow_state lists the moves you may "
     "make and why the others are blocked",
+    ("execute_workflow_transition", 409): "get_workflow_state lists the moves you may "
+    "make and why the others are blocked",
 }
 # 404s route to the tool that finds or creates the missing thing (round 3, T2/T6);
 # matched on the API detail only: the tool's arguments do not say what is missing

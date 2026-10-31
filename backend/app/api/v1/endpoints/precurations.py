@@ -24,6 +24,7 @@ from app.core.deps import (
     set_rls_context,
 )
 from app.core.logging import api_endpoint, get_logger
+from app.core.workflow_errors import http_error
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_entity import entity_key_of
 from app.crud.precuration_required import MissingRequiredFieldsError, open_fields
@@ -467,10 +468,7 @@ def submit_precuration(
     except InvalidEvidenceError as e:
         raise unprocessable(e) from e
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
+        raise http_error(e) from e
 
     if submitted is None:
         raise _conflict(precuration, submit_in.lock_version)
@@ -567,10 +565,7 @@ def approve_precuration(
         raise_if_rls_denied(e, "Not authorized to approve this precuration")
         raise
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
+        raise http_error(e) from e
 
     return result
 
@@ -595,7 +590,11 @@ def reject_precuration(
             detail="Precuration not found",
         )
 
-    # Verify scope access
+    if precuration.created_by == current_user.id:  # D1, as in approve
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot reject your own precuration (4-eyes principle)",
+        )
     require(db, current_user, precuration.scope_id, REVIEW)
 
     try:
@@ -609,6 +608,8 @@ def reject_precuration(
         db.rollback()
         raise_if_rls_denied(e, "Not authorized to reject this precuration")
         raise
+    except ValueError as e:
+        raise http_error(e) from e
 
     return Precuration.model_validate(rejected)
 

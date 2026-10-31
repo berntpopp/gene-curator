@@ -138,7 +138,7 @@ def test_curator_assigns_reviewer_to_submitted_curation(
     )
     assert r.status_code == 200, r.text
 
-    assert _assign(client, "curation", w.cur, w.alice, w.alice) == 400  # D1
+    assert _assign(client, "curation", w.cur, w.alice, w.alice) == 403  # D1
     assert _assign(client, "curation", w.cur, w.bob, w.vic) == 403
     assert _assign(client, "curation", w.cur, w.bob, w.alice) == 200
     mine = client.get(
@@ -150,7 +150,7 @@ def test_curator_assigns_reviewer_to_submitted_curation(
 def test_curator_routes_submitted_precuration_and_reviewer_approves(
     client: TestClient, w: W
 ) -> None:
-    assert _assign(client, "precuration", w.pre, w.alice, w.alice) == 400  # D1
+    assert _assign(client, "precuration", w.pre, w.alice, w.alice) == 403  # D1
     assert _assign(client, "precuration", w.pre, w.bob, w.vic) == 403
     assert _assign(client, "precuration", w.pre, w.bob, w.alice) == 200
     notes = client.get("/api/v1/notifications/", headers=_h(w.bob))
@@ -181,7 +181,7 @@ def test_submit_with_reviewer_routes_it_in_the_same_transaction(
             json={"lock_version": lock["lock_version"], "reviewer_id": str(bad)},
             headers=_h(w.alice),
         )
-        assert r.status_code == 400, r.text
+        assert r.status_code == 403, r.text
     after = client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.alice)).json()
     assert (after["status"], after["lock_version"]) == ("draft", lock["lock_version"])
     assert _reviewers(w.cur) == []

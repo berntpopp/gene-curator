@@ -99,17 +99,17 @@ def test_precuration_routing_refusals_name_item_status_and_approvers(
         db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=curator
     )
     r = _assign(client, "precuration", draft.id, reviewer, curator)
-    assert r.status_code == 400
+    assert r.status_code == 409
     detail = r.json()["detail"]
     assert str(draft.id) in detail and "draft" in detail and "reviewer" in detail
 
     # D1: never the author
     r = _assign(client, "precuration", submitted_precuration.id, curator, curator)
-    assert r.status_code == 400
+    assert r.status_code == 403
     assert "4-eyes" in r.json()["detail"]
 
     r = _assign(client, "precuration", submitted_precuration.id, viewer, curator)
-    assert r.status_code == 400
+    assert r.status_code == 403
     assert "accepted reviewer or admin" in r.json()["detail"]
 
     # a viewer may not route work
@@ -140,7 +140,7 @@ def test_curation_not_in_review_refusal_names_item_and_status(
         status=CurationStatus.DRAFT,
     )
     r = _assign(client, "curation", c.id, reviewer, curator)
-    assert r.status_code == 400
+    assert r.status_code == 409
     detail = r.json()["detail"]
     assert str(c.id) in detail and "draft" in detail and "reviewer" in detail
 

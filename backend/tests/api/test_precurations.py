@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.models.models import (
     CurationNew,
     CurationSchema,
+    CurationStatus,
     Gene,
     PrecurationNew,
     Scope,
@@ -453,7 +454,7 @@ class TestPrecurationApproval:
         )
 
         # Assert
-        assert response.status_code == 400
+        assert response.status_code == 409
 
 
 class TestPrecurationReject:
@@ -462,26 +463,21 @@ class TestPrecurationReject:
     def test_reject_precuration_success(
         self,
         client: TestClient,
+        db_session: Session,
         admin_token: str,
         test_precuration: PrecurationNew,
     ):
-        """Test rejecting precuration."""
-        # Arrange
-        reject_data = {
-            "reason": "Incomplete disease definition",
-        }
-
-        # Act
+        """Test rejecting a submitted precuration."""
+        test_precuration.status = CurationStatus.SUBMITTED
+        db_session.commit()
         response = client.post(
             f"/api/v1/precurations/{test_precuration.id}/reject",
-            json=reject_data,
+            json={"reason": "Incomplete disease definition"},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
-        # Assert
         assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "rejected"
+        assert response.json()["status"] == "rejected"
 
 
 class TestPrecurationDelete:

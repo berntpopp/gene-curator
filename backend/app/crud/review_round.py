@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.capabilities import REVIEW, ROLE_CAPABILITIES
 from app.core.enums import ScopeRole
+from app.core.workflow_errors import ReviewForbiddenError, WorkflowConflictError
 from app.models import (
     AuditLogNew,
     CurationNew,
@@ -72,13 +73,13 @@ def check_review_open(db: Session, review: Review) -> None:
     """Raise ValueError unless the review is in the open round and its reviewer may review."""
     curation = db.get(CurationNew, review.curation_id)
     if curation is None or curation.status != CurationStatus.IN_REVIEW:
-        raise ValueError("Curation is not in review")
+        raise WorkflowConflictError("Curation is not in review")
     if not holds_review_capability(db, review.reviewer_id, curation.scope_id):
-        raise ValueError("User is not allowed to review in this scope")
+        raise ReviewForbiddenError("User is not allowed to review in this scope")
     if curation.submitted_at is not None and review.assigned_at < curation.submitted_at:
-        raise ValueError("Review belongs to a previous review round")
+        raise WorkflowConflictError("Review belongs to a previous review round")
     if corrected_by(db, curation.id, review.reviewer_id):
-        raise ValueError(CORRECTED_OWN)
+        raise ReviewForbiddenError(CORRECTED_OWN)
 
 
 def all_reviews_approved(db: Session, curation_id: UUID) -> bool:

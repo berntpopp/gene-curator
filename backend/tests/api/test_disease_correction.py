@@ -231,7 +231,7 @@ def test_the_corrector_is_no_peer_reviewer(
         json={"reviewer_id": str(admin.id)},
         headers=auth_headers(world.author),
     )
-    assert r.status_code == 400 and "4-eyes" in r.text, r.text
+    assert r.status_code == 403 and "4-eyes" in r.text, r.text
     # An assignment from before the correction (or a legacy row) is refused at submit
     review = Review(
         curation_id=c.id,
@@ -246,7 +246,7 @@ def test_the_corrector_is_no_peer_reviewer(
         json={"decision": "approve"},
         headers=auth_headers(admin),
     )
-    assert r.status_code == 400 and "corrected" in r.text, r.text
+    assert r.status_code == 403 and "corrected" in r.text, r.text
     db_session.refresh(review)
     assert review.status == ReviewStatus.PENDING
     review.status, review.recommendation = ReviewStatus.APPROVED, "approve"

@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import EDIT, require
+from app.core.workflow_errors import transition_error
 from app.models import (
     CurationNew,
     CurationStatus,
@@ -119,7 +120,7 @@ def _authorize(
         db, item.workflow_stage, WorkflowStage.REVIEW, user_id, item.id, "curation"
     )
     if not validation.is_valid:
-        raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
+        raise transition_error(validation)
 
 
 def preflight_review(

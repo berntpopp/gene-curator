@@ -171,7 +171,7 @@ def test_submit_with_bad_reviewer_changes_nothing(
             json={"lock_version": item.lock_version, "reviewer_id": str(reviewer_id)},
             headers=auth_headers(curator),
         )
-        assert r.status_code == 400, r.text
+        assert r.status_code == 403, r.text
         db_session.expire_all()
         assert item.status == CurationStatus.DRAFT
     assert _reviews(db_session, c.id) == []

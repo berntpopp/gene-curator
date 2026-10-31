@@ -177,7 +177,7 @@ def test_reviewer_approval_uses_scope_default_pair_and_its_review_rules(
     assert sub.status_code == 200, sub.text
     url = f"/api/v1/workflow/curation/{cid}/transition"
     body = {"target_stage": "active", "notes": "ok"}
-    assert client.post(url, json=body, headers=_h(w.alice)).status_code == 400  # D1
+    assert client.post(url, json=body, headers=_h(w.alice)).status_code == 403  # D1
     first = client.post(url, json=body, headers=_h(w.bob))
     assert first.status_code == 200, first.text
     assert first.json()["to_stage"] == "review"
