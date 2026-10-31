@@ -446,6 +446,11 @@ def update_curation(
         curation_in.evidence_data,
         curation.methodology_version_id,
     )
+    if not may_edit_curation(db, current_user, curation):  # same rule as PATCH draft
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the creator or a scope admin can edit this curation",
+        )
     record_edit_by_other(db, current_user, curation)
     updated = curation_crud.update_with_lock(
         db,
