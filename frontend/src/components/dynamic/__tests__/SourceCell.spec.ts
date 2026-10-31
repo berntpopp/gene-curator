@@ -43,6 +43,8 @@ describe('sourceModel', () => {
     expect(sourceError('clingen_allele', 'CA1')).toBe('')
     expect(sourceError('clingen_validity', 'CGGV:1')).toBe('Not a valid ClinGen validity id')
     expect(sourceError('pmid', ' ')).toBe('Enter an id')
+    expect(sourceError('pmid', 'PMID:20414234')).toBe('') // MUI-15
+    expect(sourceHref({ kind: 'pmid', id: 'PMID: 2' })).toBe('https://pubmed.ncbi.nlm.nih.gov/2/')
     expect(sourceError('book', 'x')).toBe('Pick a kind')
   })
 
