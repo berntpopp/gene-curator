@@ -5,13 +5,23 @@ reaches review unassigned)."""
 from uuid import uuid4
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.workflow_errors import WorkflowConflictError
 from app.mcp.audit import request_channel
-from app.models import AuditLogNew, Scope, UserNew
+from app.models import (
+    AuditLogNew,
+    CurationStatus,
+    Review,
+    Scope,
+    UserNew,
+    WorkflowStage,
+)
 from app.schemas.precuration import PrecurationSubmit
 from app.services.review_assignment import submit_reviewer
+from tests.api.scopes.factories import auth_headers, make_curation, make_gene
 from tests.api.test_clingen_adoption import _member
 
 pytestmark = pytest.mark.unit
@@ -57,10 +67,28 @@ def test_the_author_is_never_the_one_reviewer(
 
 
 def test_the_web_ui_still_submits_without_a_reviewer_in_reach(
-    db_session: Session, test_scope: Scope
+    client: TestClient, db_session: Session, test_scope: Scope
 ) -> None:
+    """REST: the submit succeeds and stays unrouted (the UI routes after submit)."""
     author = _member(db_session, test_scope, "admin")
     assert submit_reviewer(db_session, test_scope.id, UNNAMED, author.id) is None
+    curation = make_curation(
+        db_session,
+        scope=test_scope,
+        gene=make_gene(db_session),
+        creator=author,
+        stage=WorkflowStage.CURATION,
+        status=CurationStatus.DRAFT,
+    )
+    response = client.post(
+        f"/api/v1/curations/{curation.id}/submit",
+        json={"lock_version": curation.lock_version},
+        headers=auth_headers(author),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json().get("assigned_reviewer") is None
+    reviews = select(Review.id).where(Review.curation_id == curation.id)
+    assert db_session.scalars(reviews).all() == []
 
 
 def test_several_reviewers_need_reviewer_email(

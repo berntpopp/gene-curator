@@ -313,3 +313,27 @@ def test_mcp_submit_without_reviewer_routes_or_asks(
     )  # fmt: skip
     assert not routed.get("isError"), routed
     assert _reviews(db_session, one.id) == [reviewer.id]
+
+
+@pytest.mark.parametrize("kind", ["curation", "precuration"])
+def test_mcp_submit_nobody_else_may_review_is_409(
+    client: TestClient, db_session: Session, curator: UserNew, kind: str
+) -> None:
+    """Over MCP an item no one else may review is refused, never left unrouted."""
+    from tests.api.scopes.factories import make_member
+    from tests.api.test_mcp import call, pat, status_of
+
+    alone = make_scope(db_session, created_by=curator.id)
+    make_member(db_session, alone, curator, "curator")
+    if kind == "curation":
+        item: CurationNew | PrecurationNew = _draft_curation(db_session, alone, curator)
+    else:
+        item = make_precuration(
+            db_session, scope=alone, gene=make_gene(db_session), creator=curator
+        )
+    result = call(
+        client, pat(db_session, curator), f"submit_{kind}",
+        **{f"{kind}_id": str(item.id)}, lock_version=item.lock_version,
+    )  # fmt: skip
+    assert status_of(result) == 409, result
+    assert "no eligible reviewer" in result["content"][0]["text"]
