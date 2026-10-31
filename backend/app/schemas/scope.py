@@ -77,6 +77,14 @@ class ScopeUpdate(BaseModel):
     )
 
 
+class ScopeWorkflowPairs(BaseModel):
+    """Workflow pairs a scope may use besides its default pair (#284)."""
+
+    workflow_pair_ids: list[UUID] = Field(
+        ..., description="Global or this scope's own active pairs; [] = default only"
+    )
+
+
 # Base Scope with Database Fields
 class ScopeInDBBase(ScopeBase):
     """Base scope schema with database fields."""
@@ -88,6 +96,7 @@ class ScopeInDBBase(ScopeBase):
     # export evidence, scores and summary to non-members of a public scope (#558)
     export_evidence_public: bool = False
     default_workflow_pair_id: UUID | None
+    allowed_workflow_pair_ids: list[UUID] = []
     created_at: datetime
     updated_at: datetime
     created_by: UUID | None

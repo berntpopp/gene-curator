@@ -218,9 +218,11 @@
   import { useWorkCountsStore } from '@/stores/workCounts'
   import { readableApiError } from '@/utils/apiErrorText'
   import { blockedBy, type ApprovalNotice } from './approvalNotice'
+  import { allowedPairs } from '@/components/scope/useWorkflowPairs'
 
   interface ScopeRecord {
     default_workflow_pair_id?: string | null
+    allowed_workflow_pair_ids?: string[] | null
     display_name?: string | null
   }
 
@@ -352,7 +354,11 @@
       scope.value = await scopesAPI.getScopeById(scopeId.value)
 
       const workflowPairs = (await schemasAPI.getWorkflowPairs()) as WorkflowPairRecord[]
-      pairs.value = workflowPairs.filter(wp => wp.precuration_schema_id)
+      // only the pairs this scope allows (#284)
+      pairs.value = allowedPairs(
+        workflowPairs.filter(wp => wp.precuration_schema_id),
+        scope.value
+      )
       pairId.value = scope.value?.default_workflow_pair_id ?? null
 
       logger.debug('Scope and schema loaded', {

@@ -628,14 +628,12 @@ def test_curator_cannot_forge_reviews(
 def test_platform_admin_without_membership_gets_403_not_500_on_create(
     client: TestClient, w: W
 ) -> None:
-    pair, schema = (
-        _owner_scalar(
-            "SELECT id FROM workflow_pairs WHERE is_active ORDER BY id LIMIT 1"
-        ),
-        _owner_scalar(
-            "SELECT precuration_schema_id FROM workflow_pairs WHERE is_active "
-            "ORDER BY id LIMIT 1"
-        ),
+    # the scope's default pair: any other is refused (422) before RLS is reached (#284)
+    pair = _owner_scalar(
+        "SELECT default_workflow_pair_id FROM scopes WHERE id = %s", str(w.scope)
+    )
+    schema = _owner_scalar(
+        "SELECT precuration_schema_id FROM workflow_pairs WHERE id = %s", str(pair)
     )
     body = {"gene_id": str(w.gene2), "scope_id": str(w.scope), "evidence_data": {}}
     r = client.post(

@@ -22,7 +22,7 @@ from app.models.models import (
     UserNew,
     WorkflowStage,
 )
-from app.services.scope_permissions import ScopePermissionService
+from app.services.curation_access import _can_user_edit_curation
 from tests.api.scopes.factories import (
     auth_headers,
     make_curation,
@@ -236,7 +236,7 @@ def test_non_approve_decision_returns_curation_to_curator(
 
     db_session.refresh(curation)
     assert (curation.workflow_stage, curation.status) == (S.CURATION, status)
-    assert ScopePermissionService.can_edit_curation(db_session, creator, curation)
+    assert _can_user_edit_curation(db_session, creator, curation)
 
     engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
     db_session.refresh(curation)

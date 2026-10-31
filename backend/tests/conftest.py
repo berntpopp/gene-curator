@@ -106,7 +106,8 @@ def db_session(test_engine: Engine) -> Generator[Session, None, None]:
         session.close()
         with test_engine.begin() as conn:
             for table in reversed(Base.metadata.sorted_tables):
-                conn.execute(table.delete())
+                if table.name != "role_capabilities":  # the seeded matrix stays
+                    conn.execute(table.delete())
 
 
 @pytest.fixture

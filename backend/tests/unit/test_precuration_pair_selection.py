@@ -22,7 +22,14 @@ from tests.api.scopes.factories import (
 pytestmark = pytest.mark.unit
 
 
-def _setup(db: Session, pairs: int, default: int | None, *, mismatch: bool = False):
+def _setup(
+    db: Session,
+    pairs: int,
+    default: int | None,
+    *,
+    mismatch: bool = False,
+    allow: bool = True,
+):
     author, reviewer = make_user(db), make_user(db)
     scope = make_scope(db)
     make_member(db, scope, author, "curator")
@@ -45,6 +52,8 @@ def _setup(db: Session, pairs: int, default: int | None, *, mismatch: bool = Fal
     db.flush()
     if mismatch:
         scope.default_workflow_pair_id = other.id
+        if allow:  # the scope allows the matching pairs besides its default (082)
+            scope.allowed_workflow_pairs = made
     elif default is not None:
         scope.default_workflow_pair_id = made[default].id
     db.commit()
@@ -88,3 +97,10 @@ def test_ambiguous_pairs_without_applicable_default_refuse_and_change_nothing(
     assert pre.status == CurationStatus.SUBMITTED
     assert pre.workflow_stage == WorkflowStage.REVIEW
     assert db_session.query(CurationNew).count() == 0
+
+
+def test_a_pair_the_scope_does_not_allow_is_never_used(db_session: Session):
+    """#284: with default `other` and no allowed list, the matching pair is not the scope's."""
+    pre, reviewer, _ = _setup(db_session, 1, None, mismatch=True, allow=False)
+    result = _approve(db_session, pre, reviewer)
+    assert result.curation_id is None

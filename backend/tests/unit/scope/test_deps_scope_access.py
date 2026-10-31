@@ -1,4 +1,4 @@
-"""Unit tests for app.core.deps: authentication chain and scope role gates.
+"""Unit tests for app.core.deps: authentication chain and scope capability gates.
 
 The scope gates are called directly (they are plain functions with injected
 arguments). set_rls_context is patched because app.current_user_id is
@@ -14,8 +14,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
-from app.core import deps
-from app.core.enums import ScopeRole
+from app.core import capabilities as caps, deps
 from app.core.security import create_access_token
 from app.models.models import Scope, UserNew
 from tests.api.scopes.factories import make_member, make_scope, make_user, token_for
@@ -36,8 +35,8 @@ def _creds(token: str) -> HTTPAuthorizationCredentials:
     return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
 
 
-def _gate(role: ScopeRole, db: Session, user: UserNew, scope: Scope) -> Scope:
-    checker = deps.require_scope_role(role)
+def _gate(capability: str, db: Session, user: UserNew, scope: Scope) -> Scope:
+    checker = deps.require_capability(capability)
     return checker(scope_id=scope.id, db=db, current_user=user)  # type: ignore[no-any-return]
 
 
@@ -64,17 +63,17 @@ def members(db_session: Session, scope: Scope) -> dict[str, UserNew]:
 @pytest.mark.parametrize(
     ("required", "allowed", "denied"),
     [
-        (ScopeRole.VIEWER, ["admin", "curator", "reviewer", "viewer"], []),
-        (ScopeRole.REVIEWER, ["admin", "reviewer"], ["curator", "viewer"]),
-        (ScopeRole.CURATOR, ["admin", "curator"], ["reviewer", "viewer"]),
-        (ScopeRole.ADMIN, ["admin"], ["curator", "reviewer", "viewer"]),
+        (caps.VIEW, ["admin", "curator", "reviewer", "viewer"], []),
+        (caps.REVIEW, ["admin", "reviewer"], ["curator", "viewer"]),
+        (caps.EDIT, ["admin", "curator"], ["reviewer", "viewer"]),
+        (caps.MANAGE_MEMBERS, ["admin"], ["curator", "reviewer", "viewer"]),
     ],
 )
 def test_scope_role_hierarchy(
     db_session: Session,
     scope: Scope,
     members: dict[str, UserNew],
-    required: ScopeRole,
+    required: str,
     allowed: list[str],
     denied: list[str],
 ) -> None:
@@ -90,10 +89,10 @@ def test_non_member_is_forbidden(db_session: Session, scope: Scope) -> None:
     stranger = make_user(db_session)
 
     with pytest.raises(HTTPException) as exc:
-        _gate(ScopeRole.VIEWER, db_session, stranger, scope)
+        _gate(caps.VIEW, db_session, stranger, scope)
 
     assert exc.value.status_code == 403
-    assert exc.value.detail == "Not a member of this scope"
+    assert exc.value.detail == "Not authorized to access this scope"
 
 
 def test_pending_invitation_does_not_pass_gate(
@@ -103,7 +102,7 @@ def test_pending_invitation_does_not_pass_gate(
     make_member(db_session, scope, invitee, "admin", accepted=False)
 
     with pytest.raises(HTTPException) as exc:
-        _gate(ScopeRole.VIEWER, db_session, invitee, scope)
+        _gate(caps.VIEW, db_session, invitee, scope)
 
     assert exc.value.status_code == 403
 
@@ -115,7 +114,7 @@ def test_deactivated_membership_does_not_pass_gate(
     make_member(db_session, scope, former, "admin", is_active=False)
 
     with pytest.raises(HTTPException):
-        _gate(ScopeRole.VIEWER, db_session, former, scope)
+        _gate(caps.VIEW, db_session, former, scope)
 
 
 def test_application_admin_bypasses_membership(
@@ -123,12 +122,12 @@ def test_application_admin_bypasses_membership(
 ) -> None:
     app_admin = make_user(db_session, role="admin")
 
-    assert _gate(ScopeRole.ADMIN, db_session, app_admin, scope).id == scope.id
+    assert _gate(caps.MANAGE_MEMBERS, db_session, app_admin, scope).id == scope.id
 
 
 def test_gate_for_unknown_scope_is_404_for_admin(db_session: Session) -> None:
     app_admin = make_user(db_session, role="admin")
-    checker = deps.require_scope_role(ScopeRole.VIEWER)
+    checker = deps.require_capability(caps.VIEW)
 
     with pytest.raises(HTTPException) as exc:
         checker(scope_id=uuid4(), db=db_session, current_user=app_admin)

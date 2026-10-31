@@ -5,12 +5,18 @@ import { setActivePinia, createPinia } from 'pinia'
 // Monkey B4: the curator picks the workflow pair (Mendelian or susceptibility) at the start
 vi.mock('@/api', () => ({
   genesAPI: { getGeneById: vi.fn().mockResolvedValue({ approved_symbol: 'APOL1' }) },
-  scopesAPI: { getScopeById: vi.fn().mockResolvedValue({ default_workflow_pair_id: 'men' }) },
+  scopesAPI: {
+    getScopeById: vi.fn().mockResolvedValue({
+      default_workflow_pair_id: 'men',
+      allowed_workflow_pair_ids: ['sus']
+    })
+  },
   schemasAPI: {
     getWorkflowPairs: vi.fn().mockResolvedValue([
       { id: 'men', name: 'KGDB Mendelian', precuration_schema_id: 's-men' },
       { id: 'sus', name: 'KGDB Susceptibility', precuration_schema_id: 's-sus' },
-      { id: 'cur', name: 'Curation only', precuration_schema_id: null }
+      { id: 'cur', name: 'Curation only', precuration_schema_id: null },
+      { id: 'ext', name: 'Not allowed here', precuration_schema_id: 's-ext' }
     ])
   }
 }))
@@ -22,6 +28,7 @@ vi.mock('vue-router', () => ({
   onBeforeRouteLeave: vi.fn()
 }))
 
+import { scopesAPI } from '@/api'
 import { precurationsAPI } from '@/api/precurations'
 import { useAuthStore } from '@/stores/auth'
 import { useScopesStore } from '@/stores/scopes'
@@ -55,6 +62,16 @@ describe('PrecurationFormView workflow pair', () => {
     expect(formSchema(wrapper)).toBe('s-sus')
     // A fresh form: the new pair's schema and defaults (relationship type), nothing of the old one
     expect(wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).vm).not.toBe(before)
+  })
+
+  it('offers only the scope default when the scope allows no other pair (#284)', async () => {
+    vi.mocked(scopesAPI.getScopeById).mockResolvedValueOnce({
+      default_workflow_pair_id: 'men'
+    } as never)
+    route.params = { scopeId: 'sc1', geneId: 'g1' }
+    const wrapper = await mountView()
+    expect(formSchema(wrapper)).toBe('s-men')
+    expect(wrapper.find('[data-testid="workflow-pair"]').exists()).toBe(false)
   })
 
   it('opens a saved precuration with its own schema and no picker', async () => {

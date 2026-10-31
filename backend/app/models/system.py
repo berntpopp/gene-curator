@@ -42,7 +42,12 @@ class AuditLogNew(Base):
 
     __tablename__ = "audit_log"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    # SQLite autoincrements only INTEGER primary keys (tests); BIGSERIAL in Postgres
+    id: Mapped[int] = mapped_column(
+        BigInteger().with_variant(Integer, "sqlite"),
+        primary_key=True,
+        autoincrement=True,
+    )
 
     # Required fields
     entity_type: Mapped[str] = mapped_column(Text, nullable=False, index=True)

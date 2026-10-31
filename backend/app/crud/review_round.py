@@ -13,8 +13,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select, true
 from sqlalchemy.orm import Session
 
-from app.core.capabilities import REVIEW, ROLE_CAPABILITIES
-from app.core.enums import ScopeRole
+from app.core.capabilities import REVIEW, roles_holding
 from app.core.workflow_errors import ReviewForbiddenError, WorkflowConflictError
 from app.models import (
     AuditLogNew,
@@ -190,7 +189,7 @@ def pending_reviews(db: Session, curation_id: UUID) -> list[dict[str, Any]]:
     ]
 
 
-REVIEW_ROLES = [r.value for r in ScopeRole if REVIEW in ROLE_CAPABILITIES[r]]
+REVIEW_ROLES = roles_holding(REVIEW)  # from the capability matrix (082)
 
 
 def holds_review_capability(db: Session, user_id: UUID, scope_id: UUID) -> bool:

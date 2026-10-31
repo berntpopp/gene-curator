@@ -21,10 +21,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import MANAGE_MEMBERS, VIEW, audit
 from app.core.database import get_db
 from app.core.deps import (
     get_current_active_user,
-    require_scope_role,
+    require_capability,
     require_signed_in_approver,
 )
 from app.core.enums import ScopeRole
@@ -99,7 +100,7 @@ def search_users_for_invitation(
         description="Search query (name, email, or institution)",
     ),
     limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
-    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    scope: Scope = Depends(require_capability(MANAGE_MEMBERS, active_only=False)),
 ) -> list[UserNew]:
     """
     Search users for invitation to a scope (scope admin only).
@@ -171,7 +172,7 @@ def invite_member(
     scope_id: UUID,
     invitation_in: ScopeMembershipCreate,
     request: Request,
-    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    scope: Scope = Depends(require_capability(MANAGE_MEMBERS, active_only=False)),
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
@@ -248,7 +249,7 @@ def add_member(
     scope_id: UUID,
     member_in: ScopeMembershipCreate,
     request: Request,
-    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    scope: Scope = Depends(require_capability(MANAGE_MEMBERS, active_only=False)),
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
@@ -380,7 +381,7 @@ def list_members(
     db: Session = Depends(get_db),
     scope_id: UUID,
     include_pending: bool = False,
-    scope: Scope = Depends(require_scope_role(ScopeRole.VIEWER)),
+    scope: Scope = Depends(require_capability(VIEW, active_only=False)),
 ) -> ScopeMemberListResponse:
     """
     List all members of a scope with statistics.
@@ -422,7 +423,7 @@ def update_member_role(
     user_id: UUID,
     update_data: ScopeMembershipUpdate,
     request: Request,
-    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    scope: Scope = Depends(require_capability(MANAGE_MEMBERS, active_only=False)),
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
@@ -488,11 +489,20 @@ def update_member_role(
 
     # Update role if provided
     if update_data.role:
+        old_role = membership.role
         membership = scope_membership_crud.update_role(
             db,
             membership_id=membership.id,
             new_role=update_data.role,
             updated_by_id=current_user.id,
+        )
+        audit(
+            db,
+            current_user,
+            MANAGE_MEMBERS,
+            scope_id,
+            ("scope_memberships", membership.id),
+            {"user_id": user_id, "old_role": old_role, "new_role": membership.role},
         )
 
     # Update is_active if provided
@@ -546,7 +556,7 @@ def remove_member(
     scope_id: UUID,
     user_id: UUID,
     request: Request,
-    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    scope: Scope = Depends(require_capability(MANAGE_MEMBERS, active_only=False)),
     current_user: User = Depends(get_current_active_user),
 ) -> None:
     """
@@ -609,6 +619,14 @@ def remove_member(
         db,
         membership_id=membership.id,
         removed_by_id=current_user.id,
+    )
+    audit(
+        db,
+        current_user,
+        MANAGE_MEMBERS,
+        scope_id,
+        ("scope_memberships", membership.id),
+        {"user_id": user_id, "removed": True},
     )
 
     logger.info(

@@ -36,6 +36,24 @@
         <template #selection="{ item }"> {{ item.name }} ({{ item.version }}) </template>
       </v-select>
 
+      <v-select
+        v-model="allowedPairIds"
+        :items="selectablePairs"
+        item-title="displayName"
+        item-value="id"
+        label="Other allowed workflows"
+        hint="Curators may pick these instead of the default; none selected allows the default only"
+        persistent-hint
+        multiple
+        chips
+        closable-chips
+        :loading="loadingWorkflowPairs"
+        :disabled="saving || !canEditSettings"
+        class="mt-4"
+        data-testid="allowed-workflow-pairs"
+        @update:model-value="markDirty"
+      />
+
       <ul v-if="selectedWorkflowPair" class="text-body-medium mt-3 ml-4">
         <li>
           Precuration schema:
@@ -188,6 +206,7 @@
     export_evidence_public?: boolean | null
     created_by?: string | null
     default_workflow_pair_id?: string | null
+    allowed_workflow_pair_ids?: string[] | null
   }
 
   /** Only the counter used for the delete warning */
@@ -211,7 +230,6 @@
   }>()
 
   const authStore = useAuthStore()
-  const currentUser = computed(() => authStore.user)
   const scopeStore = useScopesStore()
   const { canManageScope } = useScopePermissions(computed(() => scopeStore.currentUserRole))
 
@@ -222,6 +240,7 @@
   const typedName = ref('')
   const isDirty = ref(false)
   const selectedWorkflowPairId = ref<string | null>(null)
+  const allowedPairIds = ref<string[]>([])
   const editableScope = ref({
     display_name: '',
     description: '',
@@ -240,12 +259,8 @@
   // Computed
   const canEditSettings = computed(() => authStore.isAdmin || canManageScope.value)
 
-  const canDeleteScope = computed(() => {
-    // Application admins or scope owners can delete scopes
-    const isAppAdmin = authStore.isAdmin
-    const isScopeOwner = props.scope.created_by === currentUser.value?.id
-    return isAppAdmin || isScopeOwner
-  })
+  // Only platform admins delete scopes (the API and RLS allow nobody else, #284)
+  const canDeleteScope = computed(() => authStore.isAdmin)
 
   const activeGeneCount = computed(() => {
     // Use total_genes_assigned from statistics (this counts active assignments)
@@ -255,6 +270,15 @@
   const hasActiveAssignments = computed(() => {
     return activeGeneCount.value > 0
   })
+
+  // Global pairs and this scope's own, besides the default (#284)
+  const selectablePairs = computed(() =>
+    workflowPairs.value.filter(
+      wp =>
+        wp.id !== selectedWorkflowPairId.value &&
+        (!wp.owner_scope_id || wp.owner_scope_id === props.scope.id)
+    )
+  )
 
   const selectedWorkflowPair = computed(() => {
     return workflowPairs.value.find(wp => wp.id === selectedWorkflowPairId.value)
@@ -285,6 +309,10 @@
       }
 
       await scopesAPI.updateScope(props.scope.id, updateData)
+      const allowed = allowedPairIds.value.filter(id => id !== selectedWorkflowPairId.value)
+      if (allowed.join() !== (props.scope.allowed_workflow_pair_ids ?? []).join()) {
+        await scopesAPI.setAllowedWorkflowPairs(props.scope.id, allowed)
+      }
 
       isDirty.value = false
       showSuccess('Settings saved successfully')
@@ -344,6 +372,7 @@
       export_evidence_public: props.scope.export_evidence_public || false
     }
     selectedWorkflowPairId.value = props.scope.default_workflow_pair_id || null
+    allowedPairIds.value = [...(props.scope.allowed_workflow_pair_ids ?? [])]
     isDirty.value = false
   }
 

@@ -254,6 +254,7 @@ describe('WorkflowManagement', () => {
       precuration_schema_id: 'pre',
       curation_schema_id: 'cur',
       version: '2.1.0',
+      owner_scope_id: null,
       is_active: true
     })
     expect((vm.newWorkflow as { version: string }).version).toBe('1.0.0')

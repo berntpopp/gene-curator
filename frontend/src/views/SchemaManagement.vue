@@ -10,6 +10,7 @@
       </div>
       <v-spacer />
       <v-btn
+        v-if="isPlatformAdmin"
         variant="outlined"
         size="large"
         prepend-icon="mdi-file-upload"
@@ -52,6 +53,17 @@
               density="compact"
               hide-details
               clearable
+            />
+          </v-col>
+          <v-col v-if="ownerOptions.length > 1" cols="12" sm="6" md="4">
+            <v-select
+              v-model="owner"
+              :items="ownerOptions"
+              label="New and derived templates belong to"
+              variant="outlined"
+              density="compact"
+              hide-details
+              data-testid="config-owner"
             />
           </v-col>
           <v-col cols="12" sm="6" md="4">
@@ -97,6 +109,8 @@
 
         <template #item.version="{ item }"> {{ formatVersion(item.version) }} </template>
 
+        <template #item.owner="{ item }">{{ ownerName(item.owner_scope_id) }}</template>
+
         <template #item.created_at="{ item }">
           {{ formatDate(item.created_at) }}
         </template>
@@ -104,6 +118,7 @@
         <template #item.actions="{ item }">
           <div class="d-flex ga-1">
             <v-btn
+              v-if="canManage(item.owner_scope_id)"
               aria-label="Edit schema"
               icon="mdi-pencil"
               size="small"
@@ -119,6 +134,7 @@
             />
             <VersionMoveDialog :schema-id="item.id" :schema-name="item.name" />
             <v-btn
+              v-if="canManage(item.owner_scope_id)"
               aria-label="Delete schema"
               icon="mdi-delete"
               size="small"
@@ -293,6 +309,7 @@
   import type { Schema } from '@/types/api'
   import { useMethodologyImportStore } from '@/stores/methodologyImport'
   import { schemaChanges } from '@/components/schema-editor/importDiff'
+  import { useConfigOwner } from '@/composables/useConfigOwner'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -301,7 +318,11 @@
     response?: { status?: number }
   }
 
-  type SchemaRow = TransformedSchema & { id: string; created_at?: string | null }
+  type SchemaRow = TransformedSchema & {
+    id: string
+    created_at?: string | null
+    owner_scope_id?: string | null
+  }
 
   const router = useRouter()
   const schemasStore = useSchemasStore()
@@ -359,13 +380,17 @@
     { title: 'Type', key: 'type', sortable: true },
     { title: 'Status', key: 'status', sortable: true },
     { title: 'Version', key: 'version', sortable: true },
+    { title: 'Owner', key: 'owner', sortable: false },
     { title: 'Created', key: 'created_at', sortable: true },
     { title: 'Actions', key: 'actions', sortable: false }
   ]
 
   // Transform raw schemas from store using schemaTransformer utility (DRY principle)
   // This handles backend field mapping (schema_type -> type, is_active -> status)
-  const schemas = computed(() => transformSchemas(schemasStore.schemas) as SchemaRow[])
+  // Scope admins see their scopes' templates and the global ones (read-only, #284)
+  const { isPlatformAdmin, ownerOptions, owner, canManage, visible, ownerName, load } =
+    useConfigOwner()
+  const schemas = computed(() => visible(transformSchemas(schemasStore.schemas) as SchemaRow[]))
 
   const filteredSchemas = computed(() => {
     // Defensive: ensure schemas is always an array
@@ -397,7 +422,7 @@
 
   const duplicateSchema = async (schema: SchemaRow) => {
     try {
-      const { derived, source } = await schemasStore.duplicateSchema(schema.id)
+      const { derived, source } = await schemasStore.duplicateSchema(schema.id, owner.value)
       logger.info('Schema derived', {
         originalId: schema.id,
         duplicatedId: derived.id,
@@ -552,6 +577,7 @@
       const created = await schemasStore.createSchema({
         ...basics,
         schema_type: type as string,
+        owner_scope_id: owner.value,
         // Sectioned, so the editor offers Add section (monkey B7)
         field_definitions: {
           sections: [
@@ -599,7 +625,7 @@
   onMounted(async () => {
     loading.value = true
     try {
-      await schemasStore.fetchSchemas({ active_only: false })
+      await Promise.all([schemasStore.fetchSchemas({ active_only: false }), load()])
       logger.info('SchemaManagement mounted', { schemasCount: schemas.value.length })
     } catch (error) {
       const err = error as ApiError

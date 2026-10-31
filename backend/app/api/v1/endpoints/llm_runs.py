@@ -15,18 +15,17 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.capabilities import REVIEW, require
+from app.core.capabilities import MANAGE_SCOPE, REVIEW, holds, require
 from app.core.database import get_db
 from app.core.deps import (
     get_current_active_user,
     get_current_admin_user,
-    require_scope_role,
+    require_capability,
 )
-from app.core.enums import ScopeRole
 from app.llm.prompts import PromptTemplateError
 from app.llm.providers import provider_registry
 from app.llm.ssrf import UnsafeURLError
-from app.models import CurationNew, ScopeMembership, UserNew
+from app.models import CurationNew, UserNew
 from app.models.llm import (
     LLMFinding,
     LLMModel,
@@ -74,21 +73,6 @@ class TestRunOut(BaseModel):
     cases: list[TestRunCase]
 
 
-def _is_scope_admin(db: Session, user: UserNew, scope_id: UUID) -> bool:
-    return (
-        db.scalar(
-            select(ScopeMembership.id).where(
-                ScopeMembership.scope_id == scope_id,
-                ScopeMembership.user_id == user.id,
-                ScopeMembership.role == ScopeRole.ADMIN.value,
-                ScopeMembership.is_active,
-                ScopeMembership.accepted_at.isnot(None),
-            )
-        )
-        is not None
-    )
-
-
 @router.get("/llm-runs/{run_id}", response_model=RunOut)
 def get_run(
     run_id: UUID,
@@ -97,7 +81,7 @@ def get_run(
 ) -> LLMRun:
     run = db.get(LLMRun, run_id)  # RLS hides other scopes' runs in PostgreSQL
     if run is None or not (
-        user.role.value == "admin" or _is_scope_admin(db, user, run.scope_id)
+        user.role.value == "admin" or holds(db, user.id, run.scope_id, MANAGE_SCOPE)
     ):
         raise HTTPException(status_code=404, detail="Run not found")
     return run
@@ -111,7 +95,7 @@ def preview(
     scope_id: UUID,
     curation_id: UUID,
     strategy: Literal["skeptic", "advocate"],
-    _: object = Depends(require_scope_role(ScopeRole.ADMIN)),
+    _: object = Depends(require_capability(MANAGE_SCOPE)),
     db: Session = Depends(get_db),
 ) -> LLMPreview:
     """Exactly what a run would send for this curation with the scope's current choice."""

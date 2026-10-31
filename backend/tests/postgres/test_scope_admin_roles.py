@@ -137,8 +137,10 @@ def test_workflow_and_permission_paths_run_on_postgres(w: W) -> None:
         user = db.get(UserNew, w.admin)
         assert user is not None
         set_rls_context(db, user)
-        # Both helpers filter scope_memberships.role IN (...)
-        assert ScopePermissionService.can_create_precuration(db, user, w.scope)
+        # Both filter scope_memberships.role IN (...) on the scope_role enum
+        assert ScopePermissionService.has_scope_access(
+            db, user, w.scope, required_roles=["admin", "curator"]
+        )
         reviewers = WorkflowEngine().get_eligible_peer_reviewers(db, scope_id=w.scope)
         assert {r["id"] if "id" in r else r.get("user_id") for r in reviewers}
     finally:

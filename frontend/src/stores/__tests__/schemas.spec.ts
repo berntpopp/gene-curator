@@ -233,7 +233,11 @@ describe('useSchemasStore', () => {
 
       const { derived, source } = await store.duplicateSchema('a')
 
-      expect(api.deriveSchema).toHaveBeenCalledWith('a', 'v2', { name: 'orig', version: '1.0.1' })
+      expect(api.deriveSchema).toHaveBeenCalledWith('a', 'v2', {
+        name: 'orig',
+        version: '1.0.1',
+        owner_scope_id: null
+      })
       expect(api.createSchema).not.toHaveBeenCalled()
       expect(derived.id).toBe('b')
       expect(source.id).toBe('v2') // the version actually derived from, for the toast
@@ -249,7 +253,11 @@ describe('useSchemasStore', () => {
 
       await store.duplicateSchema('a')
 
-      expect(api.deriveSchema.mock.calls[0]?.[2]).toEqual({ name: 'a', version: '11.0-beta.1' })
+      expect(api.deriveSchema.mock.calls[0]?.[2]).toEqual({
+        name: 'a',
+        version: '11.0-beta.1',
+        owner_scope_id: null
+      })
     })
 
     it('refuses a schema without a published version', async () => {

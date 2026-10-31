@@ -22,6 +22,7 @@ from app.models.model_enums import (
     UserRoleNew,
     WorkflowStage,
 )
+from app.models.permissions import RoleCapability, ScopeWorkflowPair
 from app.models.schemas import CurationSchema, SchemaSelection, WorkflowPair
 from app.models.system import AuditLogNew, NotificationNew, SystemLog, ValidationCache
 
@@ -47,12 +48,14 @@ __all__ = [
     "Publication",
     "Review",
     "ReviewStatus",
+    "RoleCapability",
     "SchemaMigration",
     "SchemaSelection",
     "SchemaType",
     "Scope",
     "ScopeLLMSettings",
     "ScopeMembership",
+    "ScopeWorkflowPair",
     "SystemLog",
     "UserNew",
     "UserRoleNew",

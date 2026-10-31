@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import SchemaManagement from '@/views/SchemaManagement.vue'
 import { useSchemasStore } from '@/stores/schemas'
 import { useMethodologyImportStore } from '@/stores/methodologyImport'
+import { useAuthStore } from '@/stores/auth'
 import { importMethodology } from '@/api/methodologyImport'
 import { call, vmOf } from './vm'
 
@@ -34,6 +35,7 @@ const fileEvent = (text: string | null) =>
   text === null ? null : ({ name: 'kgdb.json', text: async () => text } as unknown as File)
 
 async function mountView() {
+  useAuthStore().user = { id: 'a', role: 'admin' } as never // import is a platform-admin action
   const schemas = useSchemasStore()
   const fetch = vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
   const w = mount(SchemaManagement, { attachTo: document.body })

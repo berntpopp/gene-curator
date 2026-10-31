@@ -17,6 +17,7 @@ interface RailMeta {
   requiredRoles?: string[]
   navScopeRoles?: string[]
   navAppRoles?: string[]
+  setupRoles?: string[]
   showInMainMenu?: boolean
   showInDropdown?: string
 }
@@ -60,7 +61,8 @@ export function useNavEntries() {
     !(m.requiresGuest && isAuthenticated.value) &&
     (!m.requiredRoles || authStore.hasAnyRole(m.requiredRoles)) &&
     (!m.navAppRoles || authStore.hasAnyRole(m.navAppRoles)) &&
-    (!m.navScopeRoles || hasScopeRole(m.navScopeRoles))
+    (!m.navScopeRoles || hasScopeRole(m.navScopeRoles)) &&
+    (!m.setupRoles || authStore.hasAnyRole(['admin']) || hasScopeRole(m.setupRoles))
 
   const entries = (pick: (m: RailMeta) => boolean) =>
     router

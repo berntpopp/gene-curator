@@ -84,8 +84,10 @@ A membership with `accepted_at IS NULL` is a pending invitation and grants nothi
 `invitations` and `gene_summaries` have no prefix), Pydantic schemas in `schemas/`,
 data access in `crud/` (generic `CRUDBase`), business logic in `services/`. Auth chain in
 `core/deps.py`: `get_db -> get_current_user -> get_current_active_user -> get_current_admin_user`,
-plus `RequireScopeMember/Reviewer/Curator/Admin`. `set_rls_context()` sets `app.current_user_id`
-for the RLS policies in `database/sql/005_rls_setup.sql`. Models use SQLAlchemy 2.0 style with UUID
+plus `require_capability(cap)`. Write endpoints check capabilities, not roles:
+`core/capabilities.require(db, user, scope_id, cap)` (scope `None` = global, platform admins only)
+reads the `role_capabilities` matrix (082), which the RLS helpers (`has_scope_capability`) read
+too. `set_rls_context()` sets `app.current_user_id` for the RLS policies in `database/sql/005_rls_setup.sql`. Models use SQLAlchemy 2.0 style with UUID
 keys and the legacy `New` suffix (`UserNew`, `CurationNew`).
 
 **Schema-driven curation.** Field definitions, validation, scoring and UI layout live in the

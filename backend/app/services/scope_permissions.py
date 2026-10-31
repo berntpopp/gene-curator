@@ -16,24 +16,23 @@ Reference: https://docs.sqlalchemy.org/en/20/orm/queryguide/query
 
 from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar, cast
+from typing import TYPE_CHECKING, ParamSpec, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import and_, exists
-from sqlalchemy.orm import Query, Session
+from sqlalchemy.orm import Session
 
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.models.models import (
     CurationNew,
-    CurationStatus,
     Scope,
     ScopeMembership,
     UserNew,
 )
 
 if TYPE_CHECKING:
-    from app.models.models import PrecurationNew
+    pass
 
 logger = get_logger(__name__)
 
@@ -194,87 +193,6 @@ class ScopePermissionService:
         return can_view
 
     @staticmethod
-    def can_edit_curation(db: Session, user: UserNew, curation: CurationNew) -> bool:
-        """Check if user can edit curation
-
-        Editing rules:
-        - Nobody, admins included, edits unless status is draft/rejected (4-eyes)
-        - Admins can edit all curations
-        - Creators can edit own curations (if not in review/active stage)
-        - Scope admins can edit any curation in their scope (if not in review/active stage)
-
-        Args:
-            db: Database session
-            user: Current user (must be authenticated)
-            curation: Curation to check
-
-        Returns:
-            True if user can edit curation, False otherwise
-        """
-        if curation.status not in (CurationStatus.DRAFT, CurationStatus.REJECTED):
-            return False
-        if not curation.scope.is_active:  # read-only for everyone (RLS 054)
-            return False
-
-        # Admin can edit all
-        if user.role.value == "admin":
-            logger.debug(
-                "Admin can edit all curations",
-                user_id=str(user.id),
-                curation_id=str(curation.id),
-            )
-            return True
-
-        # Creator can edit own curations (if not in review/active)
-        if curation.created_by == user.id and curation.workflow_stage.value not in [
-            "review",
-            "active",
-            "archived",
-        ]:
-            logger.debug(
-                "Creator can edit own curation",
-                user_id=str(user.id),
-                curation_id=str(curation.id),
-                stage=curation.workflow_stage.value,
-            )
-            return True
-
-        # Scope admin can edit any curation in their scope
-        scope_member = (
-            db.query(ScopeMembership)
-            .filter(
-                ScopeMembership.scope_id == curation.scope_id,
-                ScopeMembership.user_id == user.id,
-                ScopeMembership.is_active,
-            )
-            .first()
-        )
-
-        # Same stage guard as creators: no evidence edits while in review/active (4-eyes)
-        if (
-            scope_member
-            and scope_member.role == ScopeRole.ADMIN.value
-            and curation.workflow_stage.value not in ["review", "active", "archived"]
-        ):
-            logger.debug(
-                "Scope admin can edit curation",
-                user_id=str(user.id),
-                curation_id=str(curation.id),
-                scope_id=str(curation.scope_id),
-            )
-            return True
-
-        logger.debug(
-            "User cannot edit curation",
-            user_id=str(user.id),
-            curation_id=str(curation.id),
-            created_by=str(curation.created_by) if curation.created_by else None,
-            stage=curation.workflow_stage.value,
-        )
-
-        return False
-
-    @staticmethod
     def get_visible_scopes(db: Session, user: UserNew | None) -> list[Scope]:
         """Get all scopes visible to user
 
@@ -340,36 +258,6 @@ class ScopePermissionService:
         )
 
         return all_scopes
-
-    @staticmethod
-    def filter_visible_curations(
-        db: Session, query: Query[Any], user: UserNew | None
-    ) -> Query[Any]:
-        """Apply visibility filter to curation query
-
-        Filters the query to only include curations from scopes visible to the user.
-
-        Args:
-            db: Database session
-            query: SQLAlchemy query to filter
-            user: Current user (None for anonymous)
-
-        Returns:
-            Filtered query
-        """
-        visible_scope_ids = [
-            s.id for s in ScopePermissionService.get_visible_scopes(db, user)
-        ]
-
-        filtered_query = query.filter(CurationNew.scope_id.in_(visible_scope_ids))
-
-        logger.debug(
-            "Filtered curation query by visible scopes",
-            visible_scope_count=len(visible_scope_ids),
-            user_id=str(user.id) if user else None,
-        )
-
-        return filtered_query
 
     @staticmethod
     @admin_bypass_returns_true
@@ -491,80 +379,3 @@ class ScopePermissionService:
             count=len(scope_ids),
         )
         return scope_ids
-
-    @staticmethod
-    def get_user_scope_role(
-        db: Session,
-        user_id: UUID,
-        scope_id: UUID,
-    ) -> str | None:
-        """Get user's role in a specific scope.
-
-        Args:
-            db: Database session
-            user_id: User UUID
-            scope_id: Scope UUID
-
-        Returns:
-            Role string or None if not a member
-        """
-        logger.debug(
-            "Getting user scope role",
-            user_id=str(user_id),
-            scope_id=str(scope_id),
-        )
-
-        membership = (
-            db.query(ScopeMembership)
-            .filter(
-                ScopeMembership.user_id == user_id,
-                ScopeMembership.scope_id == scope_id,
-                ScopeMembership.is_active == True,  # noqa: E712
-            )
-            .first()
-        )
-
-        role = membership.role if membership else None
-        logger.debug(
-            "User scope role retrieved",
-            user_id=str(user_id),
-            scope_id=str(scope_id),
-            role=role,
-        )
-        return role
-
-    @staticmethod
-    def can_create_precuration(db: Session, user: UserNew, scope_id: UUID) -> bool:
-        """Check if user can create precuration in scope.
-
-        Requires curator or admin role in the scope.
-        """
-        return ScopePermissionService.has_scope_access(
-            db, user, scope_id, required_roles=["admin", "curator"]
-        )
-
-    @staticmethod
-    def can_approve_precuration(
-        db: Session, user: UserNew, precuration: "PrecurationNew"
-    ) -> bool:
-        """Check if user can approve precuration (4-eyes principle).
-
-        Requirements:
-        - User must NOT be the creator (4-eyes principle)
-        - User must have reviewer, curator, or admin role in scope
-        """
-        # Cannot approve own work - 4-eyes principle
-        if precuration.created_by == user.id:
-            logger.debug(
-                "Cannot approve own precuration (4-eyes)",
-                user_id=str(user.id),
-                precuration_id=str(precuration.id),
-            )
-            return False
-
-        return ScopePermissionService.has_scope_access(
-            db,
-            user,
-            precuration.scope_id,
-            required_roles=["admin", "curator", "reviewer"],
-        )

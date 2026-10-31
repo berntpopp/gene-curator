@@ -384,3 +384,21 @@ def test_import_bumps_the_stored_lock_version_not_a_stale_copy(
     )
     db_session.refresh(row)
     assert row.lock_version == 6
+
+
+def test_the_bundles_other_pairs_become_allowed_in_the_default_scope(
+    client: TestClient, db_session: Session, admin_token: str, test_scope: Scope
+) -> None:
+    """#284: a scope uses its default pair plus its allowed list; a bundle's second pair
+    (e.g. susceptibility next to Mendelian) is selectable there after the import."""
+    body = bundle(test_scope.name)
+    body["workflow_pairs"].append({**body["workflow_pairs"][0], "name": "Kidney Risk"})
+    r = client.post(URL, json=body, headers=auth(admin_token))
+    assert r.status_code == 200, r.text
+    risk = r.json()["items"][3]["id"]
+    db_session.refresh(test_scope)
+    assert [str(i) for i in test_scope.allowed_workflow_pair_ids] == [risk]
+    again = client.post(URL, json=body, headers=auth(admin_token))
+    assert again.status_code == 200, again.text
+    db_session.refresh(test_scope)
+    assert [str(i) for i in test_scope.allowed_workflow_pair_ids] == [risk]

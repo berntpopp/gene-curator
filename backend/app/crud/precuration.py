@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.capabilities import allowed_pair_ids
 from app.core.logging import get_logger
 from app.core.workflow_errors import WorkflowConflictError, transition_error
 from app.crud.base import CRUDBase
@@ -606,6 +607,8 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         )
         pairs = list(db.execute(stmt).scalars())
         scope = db.get(Scope, precuration.scope_id)
+        allowed = allowed_pair_ids(scope) if scope else None  # 082 (#284)
+        pairs = [p for p in pairs if allowed is None or p.id in allowed]
         default_id = scope.default_workflow_pair_id if scope else None
         for pair in pairs:
             if pair.id == default_id:

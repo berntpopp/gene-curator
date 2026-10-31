@@ -26,6 +26,14 @@ export const scopesAPI = {
     return response.data
   },
 
+  /** Replace the workflow pairs the scope may use besides its default (#284) */
+  async setAllowedWorkflowPairs(id: string, workflowPairIds: string[]): Promise<Schema<'Scope'>> {
+    const response = await apiClient.put<Schema<'Scope'>>(`/scopes/${id}/workflow-pairs`, {
+      workflow_pair_ids: workflowPairIds
+    })
+    return response.data
+  },
+
   /**
    * Delete scope
    * @param id - Scope ID

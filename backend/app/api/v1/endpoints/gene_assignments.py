@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import ASSIGN_GENES, EDIT, require
 from app.core.constants import (
     ASSIGNMENTS_DEFAULT_LIMIT,
     ASSIGNMENTS_MAX_LIMIT,
@@ -38,7 +39,6 @@ from app.schemas.gene_assignment import (
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
-_ADMINS = ["admin"]
 
 
 def _summary(db: Session, assignment: AssignmentRow) -> GeneScopeAssignmentSummary:
@@ -137,17 +137,9 @@ def create_gene_assignment(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignment:
     """
-    Create new gene-scope assignment. Available to all authenticated users with scope access.
+    Create new gene-scope assignment (curation.edit, like adding genes to the scope).
     """
-    # All authenticated users can create assignments in their scopes
-    # Check if user has access to the target scope
-    if not ScopePermissionService.has_scope_access(
-        db, current_user, assignment_in.scope_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions for this scope",
-        )
+    require(db, current_user, assignment_in.scope_id, EDIT)
 
     try:
         assignment_model = gene_assignment_crud.create_assignment(
@@ -233,7 +225,7 @@ def update_gene_assignment(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignment:
     """
-    Update gene-scope assignment. Available to all authenticated users with scope access.
+    Update gene-scope assignment (gene.assign: scope admins).
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
@@ -242,12 +234,7 @@ def update_gene_assignment(
         )
 
     # Editing an assignment is a scope-admin action, like reassigning
-    if not ScopePermissionService.has_scope_access(
-        db, current_user, assignment.scope_id, required_roles=_ADMINS
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    require(db, current_user, assignment.scope_id, ASSIGN_GENES)
 
     assignment_model = gene_assignment_crud.update(
         db, db_obj=assignment, obj_in=assignment_in
@@ -265,7 +252,7 @@ def deactivate_gene_assignment(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> dict[str, str]:
     """
-    Deactivate gene-scope assignment. Requires admin privileges.
+    Deactivate gene-scope assignment (gene.assign: scope admins).
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
@@ -273,11 +260,7 @@ def deactivate_gene_assignment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
-    # Only admins can deactivate assignments
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
-        )
+    require(db, current_user, assignment.scope_id, ASSIGN_GENES)
 
     try:
         gene_assignment_crud.deactivate_assignment(
@@ -301,7 +284,7 @@ def reactivate_gene_assignment(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> dict[str, str]:
     """
-    Reactivate gene-scope assignment. Requires admin privileges.
+    Reactivate gene-scope assignment (gene.assign: scope admins).
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
@@ -309,11 +292,7 @@ def reactivate_gene_assignment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
-    # Only admins can reactivate assignments
-    if current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
-        )
+    require(db, current_user, assignment.scope_id, ASSIGN_GENES)
 
     gene_assignment_crud.reactivate_assignment(
         db, assignment_id=assignment_id, reactivated_by=current_user.id
@@ -365,13 +344,7 @@ def bulk_create_gene_assignments(
 ) -> BulkGeneScopeAssignmentResponse:
     """Bulk create gene-scope assignments. Scope admins and application admins only;
     curators add genes one at a time with create_gene_assignment."""
-    if not ScopePermissionService.has_scope_access(
-        db, current_user, bulk_request.scope_id, required_roles=_ADMINS
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions for this scope",
-        )
+    require(db, current_user, bulk_request.scope_id, ASSIGN_GENES)
 
     try:
         result = gene_assignment_crud.bulk_assign_genes(
@@ -415,12 +388,7 @@ def assign_curator_to_gene(
         )
 
     # Reassigning is a scope-admin action (curators may not hand work around)
-    if not ScopePermissionService.has_scope_access(
-        db, current_user, assignment.scope_id, required_roles=_ADMINS
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    require(db, current_user, assignment.scope_id, ASSIGN_GENES)
 
     try:
         gene_assignment_crud.assign_curator(
@@ -453,12 +421,7 @@ def unassign_curator_from_gene(
         )
 
     # Reassigning is a scope-admin action (curators may not hand work around)
-    if not ScopePermissionService.has_scope_access(
-        db, current_user, assignment.scope_id, required_roles=_ADMINS
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    require(db, current_user, assignment.scope_id, ASSIGN_GENES)
 
     gene_assignment_crud.unassign_curator(
         db, assignment_id=assignment_id, unassigned_by=current_user.id

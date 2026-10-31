@@ -447,7 +447,7 @@ class TestValidationSmokeRunner:
         response = client.post(f"{BASE}/test-validation", headers=_auth(curator_token))
 
         assert response.status_code == 403
-        assert response.json()["detail"] == "Admin privileges required"
+        assert response.json()["detail"].startswith("Needs a platform admin")
 
     def test_admin_runs_examples(self, client: TestClient, admin_token: str):
         response = client.post(f"{BASE}/test-validation", headers=_auth(admin_token))

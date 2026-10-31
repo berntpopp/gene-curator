@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app.core.capabilities import MANAGE_MEMBERS, require
+from app.core.capabilities import MANAGE_SCOPE, require
 from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
@@ -36,8 +36,7 @@ def correct_curation_disease(
     curation = db.get(CurationNew, curation_id)
     if curation is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Curation not found")
-    # Scope admins: scope.members.manage is the capability only they hold
-    require(db, current_user, curation.scope_id, MANAGE_MEMBERS)
+    require(db, current_user, curation.scope_id, MANAGE_SCOPE)  # scope admins
     try:
         saved = correct_disease(db, curation, body, current_user)
     except DBAPIError as e:

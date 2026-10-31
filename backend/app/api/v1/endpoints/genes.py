@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.gene_search import summarize_genes
 from app.core import deps
-from app.core.capabilities import CREATE_GENE, require_anywhere
+from app.core.capabilities import CREATE_GENE, PLATFORM, require, require_anywhere
 from app.core.constants import (
     DEFAULT_GENE_SORT_FIELD,
     DEFAULT_SKIP,
@@ -220,11 +220,8 @@ def update_gene(
         )
 
     # Repointing to another HGNC record rewrites the gene for every scope (#478)
-    if gene_in.hgnc_id not in (None, gene.hgnc_id) and current_user.role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only platform admins can change a gene's HGNC ID",
-        )
+    if gene_in.hgnc_id not in (None, gene.hgnc_id):
+        require(db, current_user, None, PLATFORM)
     gene_in = verified_update(db, gene_in, gene.hgnc_id)
 
     try:
@@ -246,17 +243,13 @@ def delete_gene(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> dict[str, str]:
     """
-    Delete gene. Requires admin privileges.
+    Delete gene (global data: platform admins).
     """
+    require(db, current_user, None, PLATFORM)
     gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
-        )
-
-    if current_user.role not in ["admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
     # Check if gene has assignments or active work
@@ -505,12 +498,9 @@ def merge_genes(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneMergeResponse:
     """
-    Merge duplicate genes. Requires admin privileges.
+    Merge duplicate genes (global data: platform admins).
     """
-    if current_user.role not in ["admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    require(db, current_user, None, PLATFORM)
 
     # Basic implementation - in a real system this would be much more sophisticated
     primary_gene = gene_crud.get(db, id=merge_request.primary_gene_id)

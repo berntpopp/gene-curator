@@ -7,11 +7,18 @@ Follows patterns from curations.py.
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
-from app.core.capabilities import EDIT, MANAGE_MEMBERS, REVIEW, require
+from app.core.capabilities import (
+    EDIT,
+    MANAGE_SCOPE,
+    REVIEW,
+    require,
+    require_allowed_pair,
+)
 from app.core.constants import (
     DEFAULT_SKIP,
     PRECURATIONS_DEFAULT_LIMIT,
@@ -29,7 +36,7 @@ from app.crud.precuration import precuration_crud
 from app.crud.precuration_entity import entity_key_of
 from app.crud.precuration_required import MissingRequiredFieldsError, open_fields
 from app.crud.scope_visibility import scope_id_for
-from app.models import CurationStatus, PrecurationNew, Scope, UserNew
+from app.models import CurationStatus, PrecurationNew, Scope, UserNew, WorkflowPair
 from app.schemas.curation import collapse_warnings
 from app.schemas.precuration import (
     Precuration,
@@ -223,8 +230,8 @@ def create_precuration(
     precuration_in = precuration_in.model_copy(update={"scope_id": scope_id})
     require(db, current_user, scope_id, EDIT)
 
+    scope = db.get(Scope, scope_id)
     if precuration_in.precuration_schema_id is None:
-        scope = db.get(Scope, scope_id)
         pair = scope.default_workflow_pair if scope else None
         if pair is None or pair.precuration_schema_id is None:
             raise HTTPException(
@@ -235,6 +242,15 @@ def create_precuration(
             update={"precuration_schema_id": pair.precuration_schema_id}
         )
 
+    require_allowed_pair(
+        scope,
+        *db.scalars(
+            select(WorkflowPair.id).where(
+                WorkflowPair.precuration_schema_id
+                == precuration_in.precuration_schema_id
+            )
+        ),
+    )
     existing = precuration_crud.get_open_draft(
         db,
         gene_id=precuration_in.gene_id,
@@ -642,8 +658,7 @@ def delete_precuration(
     # Verify scope access
     require(db, current_user, precuration.scope_id, EDIT)
     if precuration.created_by != current_user.id:
-        # Someone else's precuration: scope admins only (#284; members.manage is theirs)
-        require(db, current_user, precuration.scope_id, MANAGE_MEMBERS)
+        require(db, current_user, precuration.scope_id, MANAGE_SCOPE)  # scope admins
 
     # Only allow deletion of drafts (or by admin)
     if precuration.status != CurationStatus.DRAFT and current_user.role != "admin":

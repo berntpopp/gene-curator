@@ -132,7 +132,7 @@ describe('SchemaManagement', () => {
       .mockResolvedValue({ derived: { id: 's2' }, source: { version: 3 } } as never)
     await call(vm, 'duplicateSchema', row)
     expect(pinned).not.toHaveBeenCalled() // the store reports the version it derived from
-    expect(duplicate).toHaveBeenCalledWith('s1')
+    expect(duplicate).toHaveBeenCalledWith('s1', null)
     expect(showSuccess).toHaveBeenCalledWith('Derived from v3 (unpublished edits not included)')
   })
 
@@ -172,6 +172,7 @@ describe('SchemaManagement', () => {
       description: 'd',
       version: '1.0.0',
       schema_type: 'curation',
+      owner_scope_id: null,
       // Sectioned, so the editor offers Add section (monkey B7)
       field_definitions: {
         sections: [

@@ -23,7 +23,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm }) }))
 
 vi.mock('@/api/scopes', () => ({
-  scopesAPI: { updateScope: vi.fn(), deleteScope: vi.fn() }
+  scopesAPI: { updateScope: vi.fn(), deleteScope: vi.fn(), setAllowedWorkflowPairs: vi.fn() }
 }))
 
 vi.mock('@/api/schemas', () => ({
@@ -44,6 +44,8 @@ interface SettingsInternals {
     export_evidence_public: boolean
   }
   selectedWorkflowPairId: string | null
+  allowedPairIds: string[]
+  selectablePairs: { id: string }[]
   canEditSettings: boolean
   canDeleteScope: boolean
   hasActiveAssignments: boolean
@@ -76,7 +78,8 @@ const baseScope = {
   institution: 'Charité',
   is_public: false,
   created_by: 'user-1',
-  default_workflow_pair_id: null as string | null
+  default_workflow_pair_id: null as string | null,
+  allowed_workflow_pair_ids: [] as string[]
 }
 
 describe('ScopeSettings', () => {
@@ -93,6 +96,8 @@ describe('ScopeSettings', () => {
     vi.mocked(schemasAPI.getSchemas).mockResolvedValue(schemas)
     vi.mocked(scopesAPI.updateScope).mockReset()
     vi.mocked(scopesAPI.updateScope).mockResolvedValue({} as never)
+    vi.mocked(scopesAPI.setAllowedWorkflowPairs).mockReset()
+    vi.mocked(scopesAPI.setAllowedWorkflowPairs).mockResolvedValue({} as never)
     vi.mocked(scopesAPI.deleteScope).mockReset()
     vi.mocked(scopesAPI.deleteScope).mockResolvedValue({} as never)
   })
@@ -199,6 +204,24 @@ describe('ScopeSettings', () => {
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
 
+  it('offers global and own pairs besides the default and saves the allowed list (#284)', async () => {
+    const own = { ...pair, id: 'wp-own', is_default: false, owner_scope_id: 'scope-1' }
+    const foreign = { ...pair, id: 'wp-foreign', is_default: false, owner_scope_id: 'other' }
+    vi.mocked(schemasAPI.getWorkflowPairs).mockResolvedValue([pair, own, foreign])
+    const { vm } = await mountSettings({
+      role: 'admin',
+      scope: { default_workflow_pair_id: 'wp-1' }
+    })
+    expect(vm.selectablePairs.map(p => p.id)).toEqual(['wp-own'])
+
+    await vm.saveSettings()
+    expect(scopesAPI.setAllowedWorkflowPairs).not.toHaveBeenCalled() // unchanged
+
+    vm.allowedPairIds = ['wp-own']
+    await vm.saveSettings()
+    expect(scopesAPI.setAllowedWorkflowPairs).toHaveBeenCalledWith('scope-1', ['wp-own'])
+  })
+
   it('reports a failed save with the error message', async () => {
     vi.mocked(scopesAPI.updateScope).mockRejectedValueOnce(new Error('conflict'))
     const { wrapper, vm } = await mountSettings({ role: 'admin' })
@@ -221,9 +244,9 @@ describe('ScopeSettings', () => {
     expect(vm.isDirty).toBe(false)
   })
 
-  it('lets app admins and the scope creator delete, but not other users', async () => {
+  it('lets only platform admins delete, not even the scope creator (#284)', async () => {
     const creator = await mountSettings({ role: 'curator', userId: 'user-1' })
-    expect(creator.vm.canDeleteScope).toBe(true)
+    expect(creator.vm.canDeleteScope).toBe(false)
 
     const admin = await mountSettings({ role: 'admin', userId: 'someone' })
     expect(admin.vm.canDeleteScope).toBe(true)
