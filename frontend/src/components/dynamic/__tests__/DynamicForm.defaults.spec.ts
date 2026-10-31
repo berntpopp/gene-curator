@@ -101,7 +101,14 @@ describe('declared defaults in editable evidence', () => {
       }
     })
     await flushPromises()
-    expect(store.validateEvidence).toHaveBeenCalledWith(input, 'defaults', 'form', undefined)
+    // an unpinned definition is a draft: validated as rendered (#282)
+    expect(store.validateEvidence).toHaveBeenCalledWith(
+      input,
+      'defaults',
+      'form',
+      undefined,
+      wrapper.props('definition')
+    )
     expect(model(wrapper)).toBeUndefined()
     expect(input.nested).toBeNull()
     expect(input.rows).toEqual([{ score: null }, {}])

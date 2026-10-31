@@ -329,7 +329,7 @@ class TestCurationSchemaWrite:
 
         response = client.put(
             f"{BASE}/curation-schemas/{other.id}",
-            json={"name": "Taken"},
+            json={"lock_version": 0, "name": "Taken"},
             headers=auth(admin_token),
         )
 
@@ -363,7 +363,7 @@ class TestCurationSchemaWrite:
         """Required response fields: omitting keeps the value, explicit null is invalid."""
         response = client.put(
             f"{BASE}/curation-schemas/{owned_schema.id}",
-            json={field: None},
+            json={"lock_version": 0, field: None},
             headers=auth(admin_token),
         )
 
@@ -423,7 +423,7 @@ class TestCurationSchemaWrite:
         )
         updated = client.put(
             f"{BASE}/curation-schemas/{owned_schema.id}",
-            json={"description": "hijack"},
+            json={"lock_version": 0, "description": "hijack"},
             headers=headers,
         )
 
@@ -435,7 +435,7 @@ class TestCurationSchemaWrite:
     ):
         response = client.put(
             f"{BASE}/curation-schemas/{owned_schema.id}",
-            json={"is_active": False},
+            json={"lock_version": 0, "is_active": False},
             headers=auth(admin_token),
         )
 
@@ -448,17 +448,53 @@ class TestCurationSchemaWrite:
         """The editor's Last Modified shows the save, not a dash (monkey B17)."""
         response = client.put(
             f"{BASE}/curation-schemas/{owned_schema.id}",
-            json={"description": "edited"},
+            json={"lock_version": 0, "description": "edited"},
             headers=auth(admin_token),
         )
 
         assert response.status_code == 200
         assert response.json()["updated_at"] is not None
 
+    def test_stale_lock_version_is_409_and_changes_nothing(
+        self, client: TestClient, owned_schema: CurationSchema, admin_token: str
+    ):
+        """Two editors open v0; the second save must not overwrite the first (#282)."""
+        url = f"{BASE}/curation-schemas/{owned_schema.id}"
+        loaded = client.get(url, headers=auth(admin_token)).json()["lock_version"]
+        first = client.put(
+            url,
+            json={"description": "first", "lock_version": loaded},
+            headers=auth(admin_token),
+        )
+        assert first.status_code == 200, first.text
+        assert first.json()["lock_version"] == loaded + 1
+        stale = client.put(
+            url,
+            json={"description": "second", "lock_version": loaded},
+            headers=auth(admin_token),
+        )
+        assert stale.status_code == 409, stale.text
+        assert client.get(url, headers=auth(admin_token)).json()["description"] == (
+            "first"
+        )
+
+    def test_save_without_lock_version_is_422_and_changes_nothing(
+        self, client: TestClient, owned_schema: CurationSchema, admin_token: str
+    ):
+        """Every writer (UI, MCP, scripts) must say which copy it saved (#282)."""
+        url = f"{BASE}/curation-schemas/{owned_schema.id}"
+        r = client.put(url, json={"description": "x"}, headers=auth(admin_token))
+        assert r.status_code == 422, r.text
+        kept = client.get(url, headers=auth(admin_token)).json()
+        assert (kept["description"], kept["lock_version"]) == (
+            owned_schema.description,
+            0,
+        )
+
     def test_update_unknown_is_404(self, client: TestClient, admin_token: str):
         response = client.put(
             f"{BASE}/curation-schemas/{uuid4()}",
-            json={"description": "x"},
+            json={"lock_version": 0, "description": "x"},
             headers=auth(admin_token),
         )
 

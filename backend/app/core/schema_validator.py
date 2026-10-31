@@ -15,10 +15,10 @@ from app.core.schema_rules import (
     check_schema_definition,
     resolve_conditions,
     resolve_named_rules,
-    valid_url,
 )
 from app.core.schema_validation_result import SchemaValidationResult
 from app.core.table_cells import cell_errors
+from app.core.url_field import url_errors
 from app.crud.precuration_required import visible_when as _when
 from app.scoring.registry import scoring_registry
 
@@ -445,8 +445,8 @@ class SchemaValidator:
         result: SchemaValidationResult,
     ) -> None:
         """An http(s) URL with a host, or blank (#538: a regex rejected valid URLs)."""
-        if not valid_url(value):
-            result.add_error(field_name, "Enter an http(s) URL with a host", "format")
+        for message, kind in url_errors(value, config):
+            result.add_error(field_name, message, kind)
 
     def _validate_pmid_field(
         self,

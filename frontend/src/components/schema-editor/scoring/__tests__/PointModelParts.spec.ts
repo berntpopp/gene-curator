@@ -3,13 +3,21 @@ import { mount } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
 import PointModelTypes from '../PointModelTypes.vue'
 import PointModelRowRules from '../PointModelRowRules.vue'
+import RuleCondition from '../RuleCondition.vue'
 import PointModelSections from '../PointModelSections.vue'
 import PointModelBands from '../PointModelBands.vue'
 import PointModelReviewFlags from '../PointModelReviewFlags.vue'
 import PointModelVocabulary from '../PointModelVocabulary.vue'
 import PointModelTests from '../PointModelTests.vue'
 import { call, vmOf } from '@/views/__tests__/vm'
-import { keepTypes, setNumber, setText, type ItemType, type PointModel } from '../pointModel'
+import {
+  keepTypes,
+  setNumber,
+  setText,
+  type ItemType,
+  type PointModel,
+  type PointsWhen
+} from '../pointModel'
 
 const diag = (path: string) => (path.endsWith('[0].path') ? ['Unknown evidence path'] : [])
 const model = (): PointModel => ({
@@ -122,14 +130,10 @@ describe('PointModelRowRules', () => {
   })
 })
 
-describe('PointModelRowRules comparisons', () => {
+describe('RuleCondition comparisons', () => {
   it('switches a condition between a value list and a numeric bound', async () => {
-    const item = reactive<ItemType>({
-      path: 'probands',
-      points_when: [{ field: 'allele_frequency', in: ['x'], points: 0 }]
-    })
-    const cond = item.points_when![0]!
-    const w = mount(PointModelRowRules, { props: { item, base: 'b', diag: () => [] } })
+    const cond = reactive<PointsWhen>({ field: 'allele_frequency', in: ['x'], points: 0 })
+    const w = mount(RuleCondition, { props: { cond, path: 'b', diag: () => [] } })
     const vm = vmOf(w)
     await call(vm, 'setOp', cond, 'in', 'gt')
     expect(cond).toEqual({ field: 'allele_frequency', gt: 0, points: 0 })
@@ -140,31 +144,59 @@ describe('PointModelRowRules comparisons', () => {
     expect(cond).toEqual({ field: 'allele_frequency', gte: 0.0001, lte: 0, points: 0 })
     expect((vm.bounds as (c: unknown) => string[])(cond)).toEqual(['gte', 'lte'])
     await nextTick()
-    expect(w.findAll('input[type="number"]').length).toBeGreaterThanOrEqual(3) // 2 bounds + points
+    expect(w.findAll('input[type="number"]').length).toBe(2) // 2 bounds
     await call(vm, 'setOp', cond, 'gte', 'gte')
     expect(cond.gte).toBe(0.0001)
-    ;(cond as Record<string, unknown>).and = [{ field: 'moi', in: ['AD'] }]
-    await nextTick()
-    expect(w.text()).toContain('and 1 more (edit in Code)')
     await call(vm, 'setOp', cond, 'lte', 'in')
     expect(cond).toMatchObject({ in: [] })
     expect('gte' in cond || 'lte' in cond).toBe(false)
     await call(vm, 'addBound', { field: 'x', lt: 1, points: 0 })
     await call(vm, 'setOp', cond, 'in', 'present')
-    expect(cond).toEqual({ field: 'allele_frequency', present: true, points: 0, and: cond.and })
+    expect(cond).toEqual({ field: 'allele_frequency', present: true, points: 0 })
     expect((vm.listOp as (c: unknown) => string)(cond)).toBe('present')
     await nextTick()
     const lists = w
       .findAllComponents({ name: 'VCombobox' })
       .filter(c => c.props('label') === 'Values')
     expect(lists).toHaveLength(0) // no values to list
-    expect(w.text()).toContain('0 points always wins')
     await call(vm, 'setOp', cond, 'present', 'gte')
     expect(cond).toMatchObject({ gte: 0 })
     expect('present' in cond).toBe(false)
     await call(vm, 'setOp', cond, 'gte', 'present')
     expect(cond).toMatchObject({ present: true })
     expect('gte' in cond).toBe(false)
+  })
+})
+
+describe('PointModelRowRules and-conditions (#282)', () => {
+  it('adds, edits and removes and-conditions, each with its own diagnostics', async () => {
+    const item = reactive<ItemType>({
+      path: 'probands',
+      points_when: [{ field: 'af', gt: 0.01, points: 0 }]
+    })
+    const diag = (path: string) => (path === 'b.points_when[0].and[0].field' ? ['Unknown'] : [])
+    const w = mount(PointModelRowRules, { props: { item, base: 'b', diag } })
+    expect(w.text()).toContain('0 points always wins')
+    await w
+      .findAll('button')
+      .find(b => b.text() === 'And')!
+      .trigger('click')
+    const cond = item.points_when![0]!
+    expect(cond.and).toEqual([{ field: '', in: [] }])
+    await nextTick()
+    expect(w.findAllComponents(RuleCondition)).toHaveLength(2)
+    expect(w.findAllComponents(RuleCondition)[1]!.props('path')).toBe('b.points_when[0].and[0]')
+    expect(w.text()).toContain('Unknown')
+    await call(vmOf(w.findAllComponents(RuleCondition)[1]!), 'setOp', cond.and![0], 'in', 'lte')
+    expect(cond.and).toEqual([{ field: '', lte: 0 }])
+    await w.find('[aria-label="Remove and-condition 1"]').trigger('click')
+    expect('and' in cond).toBe(false)
+    cond.and = [
+      { field: 'a', in: [1] },
+      { field: 'b', present: true }
+    ]
+    await call(vmOf(w), 'removeAnd', cond, 0)
+    expect(cond.and).toEqual([{ field: 'b', present: true }])
   })
 })
 

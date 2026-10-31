@@ -8,8 +8,7 @@
       class="mb-4"
     >
       This schema stores its fields as one list. Sections below follow its form layout (UI
-      configuration); new fields are added to that layout. Nested groups are edited in Advanced
-      JSON.
+      configuration); new fields are added to that layout.
     </v-alert>
     <v-alert v-if="!layout.sections.length" type="info" variant="tonal" class="mb-4">
       No fields yet. {{ readonly ? 'Edit the schema to add one.' : 'Add a section to start.' }}
@@ -80,7 +79,24 @@
               Conditional
             </v-chip>
             <v-chip v-if="field.llm_share" size="x-small" label color="info">LLM</v-chip>
+            <v-chip
+              v-if="fieldDiag(si, fi).length"
+              size="x-small"
+              label
+              color="error"
+              prepend-icon="mdi-alert-circle"
+            >
+              {{ fieldDiag(si, fi).length }}
+            </v-chip>
           </v-list-item-subtitle>
+          <div
+            v-for="m in fieldDiag(si, fi)"
+            :key="m"
+            class="text-body-small text-error mt-1"
+            data-testid="field-diagnostic"
+          >
+            {{ m }}
+          </div>
           <template v-if="!readonly" #append>
             <v-btn
               v-for="action in fieldActions(si, fi)"
@@ -124,6 +140,7 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue'
   import FieldDialog from './FieldDialog.vue'
+  import type { Diagnostic } from './scoring/usePointModelChecks'
   import { useConfirm } from '@/composables/useConfirm'
   import {
     dropField,
@@ -134,12 +151,12 @@
     renameInLayout
   } from './layoutRefs'
   import {
-    FIELD_TYPES,
     clone,
     fieldIds,
     move,
     readLayout,
     renumber,
+    typeTitle,
     writeLayout,
     type FieldDef,
     type Layout
@@ -155,6 +172,8 @@
     /** The schema has a published version: saved records may hold values under a field id */
     published?: boolean
     readonly?: boolean
+    /** Validator diagnostics of the draft; a field shows those at or under its JSON path */
+    diagnostics?: Diagnostic[]
   }>()
   const emit = defineEmits<{
     'update:modelValue': [value: Record<string, unknown>]
@@ -165,9 +184,6 @@
   const layout = computed(() => readLayout(props.modelValue, props.uiConfiguration))
   const editing = ref<{ si: number; fi: number; field: FieldDef } | null>(null)
 
-  const typeTitle = (type: unknown) =>
-    FIELD_TYPES.find(t => t.value === type)?.title ?? String(type ?? 'no type')
-
   /** Change copies of the layout and UI configuration; emit them in the stored shape */
   const edit = (change: (l: Layout, ui: unknown) => void) => {
     const next = clone(layout.value)
@@ -177,6 +193,16 @@
     if (!next.sectioned && JSON.stringify(ui) !== JSON.stringify(props.uiConfiguration ?? null)) {
       emit('update:uiConfiguration', ui)
     }
+  }
+
+  /** Messages for one field: its stored path is by section index, or by id in a flat map */
+  const fieldDiag = (si: number, fi: number) => {
+    const path = layout.value.sectioned
+      ? `field_definitions.sections[${si}].fields[${fi}]`
+      : `field_definitions.${layout.value.sections[si]!.fields[fi]!.id}`
+    return (props.diagnostics ?? [])
+      .filter(d => d.field === path || d.field.startsWith(`${path}.`))
+      .map(d => d.message)
   }
 
   const otherIds = computed(() => {

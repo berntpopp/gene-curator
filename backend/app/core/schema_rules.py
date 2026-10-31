@@ -1,7 +1,6 @@
 """Resolve a field's named validation rule (`"validation": "<rule>"`) into a regex pattern."""
 
 from typing import Any
-from urllib.parse import urlsplit
 
 from app.core.schema_defaults import check_default_mappings, finite_number
 from app.core.schema_validation_result import SchemaValidationResult
@@ -123,21 +122,6 @@ VALID_FIELD_TYPES = (
 Diagnostic = tuple[str, str, str]  # (severity, JSON path, message)
 
 
-def valid_url(value: Any) -> bool:
-    """Blank (a cleared optional field: `required` is its own rule) or an http(s) URL with a
-    host without whitespace, like the form's `new URL` check (#538). Only spaces is not blank,
-    so a required url of spaces fails here."""
-    if value == "":
-        return True
-    text = value.strip() if isinstance(value, str) else None
-    try:
-        parts = urlsplit(text) if text else None
-    except ValueError:  # e.g. an unclosed IPv6 bracket
-        return False
-    host = parts.hostname if parts and parts.scheme in ("http", "https") else None
-    return bool(host) and not any(c.isspace() for c in host or "")
-
-
 def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
     """Static checks of a schema definition; each diagnostic names a JSON path (#269)."""
     out: list[Diagnostic] = []
@@ -212,14 +196,15 @@ def field_exists(fields: dict[str, Any], path: str) -> bool:
 
 
 def _check_conditions(fields: dict[str, Any]) -> list[Diagnostic]:
-    """A ``visible_when``/``show_when`` path that names no field never holds (#576)."""
+    """A ``visible_when``/``show_when``/``required_when`` path that names no field never
+    holds (#576, #282)."""
     out: list[Diagnostic] = []
     todo = [(path, cfg) for path, _, cfg in _field_items(fields)]
     while todo:
         path, cfg = todo.pop()
         if not isinstance(cfg, dict):
             continue
-        for key in ("visible_when", "show_when"):
+        for key in ("visible_when", "show_when", "required_when"):
             condition = cfg.get(key)
             for target in condition if isinstance(condition, dict) else ():
                 if not field_exists(fields, str(target)):

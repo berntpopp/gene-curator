@@ -93,6 +93,8 @@
           :results="checks.results.value"
           :running="checks.running.value"
           :class-keys="classKeys"
+          :definition="definition"
+          :schema-id="schemaId"
           @run="runTests"
         />
       </v-window-item>
@@ -154,7 +156,12 @@
    * tests) with server diagnostics inline and a code view of the same object (#282).
    * Pass the schema's `fieldDefinitions` so path cross-checks see the evidence tables.
    */
-  const props = defineProps<{ fieldDefinitions?: Record<string, unknown> }>()
+  const props = defineProps<{
+    fieldDefinitions?: Record<string, unknown>
+    /** The whole draft schema and its id: tests are filled in its form */
+    definition?: Record<string, unknown>
+    schemaId?: string
+  }>()
   const value = defineModel<ScoringConfig | null>({ default: null })
   // The host blocks Save while the code view holds text that is not JSON
   const emit = defineEmits<{ error: [message: string] }>()

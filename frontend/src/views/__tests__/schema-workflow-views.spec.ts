@@ -260,7 +260,8 @@ describe('SchemaEditor', () => {
       ui_configuration: { sections: [] },
       validation_rules: {},
       workflow_states: {},
-      scoring_configuration: null
+      scoring_configuration: null,
+      lock_version: 0
     })
     expect(vm.isEditing).toBe(false)
   })
