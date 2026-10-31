@@ -50,6 +50,21 @@ function mountForm(
 beforeEach(() => vi.clearAllMocks())
 
 describe('DynamicForm from raw config', () => {
+  it('gives every flat field the full width on a phone (390 px)', async () => {
+    const wrapper = mountForm({
+      field_definitions: {
+        summary: { type: 'textarea', label: 'Evidence summary' },
+        note: { type: 'text', label: 'Note' }
+      }
+    })
+    await flushPromises()
+    const cols = wrapper
+      .findAllComponents({ name: 'VCol' })
+      .filter(c => c.find('.dynamic-field').exists())
+    expect(cols.length).toBeGreaterThan(1)
+    for (const col of cols) expect(String(col.props('cols'))).toBe('12')
+  })
+
   it('renders readonly scalar and nested evidence as selectable values, preserving false and zero', async () => {
     const wrapper = mountForm(
       {

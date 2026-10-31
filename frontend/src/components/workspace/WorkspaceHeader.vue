@@ -188,4 +188,22 @@
   .mono {
     font-family: 'IBM Plex Mono', ui-monospace, monospace;
   }
+
+  /* Phones: a sticky header would take half the screen; Save and Submit sit in a bar above the
+     bottom tabs instead, always in reach (390 px monkey) */
+  @media (max-width: 599.98px) {
+    .ws-header--sticky {
+      position: static;
+    }
+
+    .ws-header--sticky .ws-actions {
+      position: fixed;
+      inset: auto 0 var(--v-layout-bottom, 0px) 0;
+      z-index: 5;
+      justify-content: flex-end;
+      padding: 8px 16px;
+      background: rgb(var(--v-theme-surface));
+      border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    }
+  }
 </style>
