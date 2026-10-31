@@ -1,0 +1,789 @@
+{
+  "$defs": {
+    "ActivityType": {
+      "properties": {
+        "name": {
+          "description": "SEPIO contributory role",
+          "enum": [
+            "curator",
+            "assessor",
+            "approver",
+            "interpreter",
+            "publisher"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "primaryCoding": {
+          "$ref": "#/$defs/Coding"
+        }
+      },
+      "required": [
+        "name",
+        "primaryCoding"
+      ],
+      "title": "ActivityType",
+      "type": "object"
+    },
+    "Agent": {
+      "description": "VA-Spec Agent: a person, an organization or software (an AI model).",
+      "properties": {
+        "agentType": {
+          "enum": [
+            "person",
+            "organization",
+            "software"
+          ],
+          "title": "Agenttype",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Software: the agent (client)",
+          "title": "Description"
+        },
+        "extensions": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Extension"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Software: tools_used, as the client reported them",
+          "title": "Extensions"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Person's name, or the model",
+          "title": "Name"
+        }
+      },
+      "required": [
+        "agentType"
+      ],
+      "title": "Agent",
+      "type": "object"
+    },
+    "Coding": {
+      "properties": {
+        "code": {
+          "description": "SEPIO or SEPIO-CG code of the role",
+          "title": "Code",
+          "type": "string"
+        },
+        "system": {
+          "default": "SEPIO",
+          "description": "Code system",
+          "title": "System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code"
+      ],
+      "title": "Coding",
+      "type": "object"
+    },
+    "Contribution": {
+      "description": "VA-Spec Contribution.",
+      "properties": {
+        "actedOnBehalfOf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Agent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "PROV-O: the person a software agent acted for"
+        },
+        "activityType": {
+          "$ref": "#/$defs/ActivityType"
+        },
+        "contributor": {
+          "$ref": "#/$defs/Agent"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        }
+      },
+      "required": [
+        "contributor",
+        "activityType"
+      ],
+      "title": "Contribution",
+      "type": "object"
+    },
+    "EvidenceLine": {
+      "description": "One evidence table row (VA-Spec EvidenceLine): its sources and contributions.",
+      "properties": {
+        "contributions": {
+          "items": {
+            "$ref": "#/$defs/Contribution"
+          },
+          "title": "Contributions",
+          "type": "array"
+        },
+        "directionOfEvidenceProvided": {
+          "anyOf": [
+            {
+              "enum": [
+                "supports",
+                "disputes",
+                "neutral"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Directionofevidenceprovided"
+        },
+        "path": {
+          "description": "Row path in evidence, e.g. genetic.probands[0]",
+          "title": "Path",
+          "type": "string"
+        },
+        "row_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Row Id"
+        },
+        "sources": {
+          "description": "VA-Spec reportedIn: the row's documents",
+          "items": {
+            "$ref": "#/$defs/ExportSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "EvidenceLine",
+      "type": "object"
+    },
+    "ExportCuration": {
+      "properties": {
+        "activated_at": {
+          "format": "date-time",
+          "title": "Activated At",
+          "type": "string"
+        },
+        "approved_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved At"
+        },
+        "approved_symbol": {
+          "title": "Approved Symbol",
+          "type": "string"
+        },
+        "archive_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why it was archived: 'Curation deleted' (retract it) or 'Replaced by new active curation'",
+          "title": "Archive Reason"
+        },
+        "archived_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archived At"
+        },
+        "computed_verdict": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Computed Verdict"
+        },
+        "contributions": {
+          "description": "VA-Spec Contribution[]: curator and approver (persons) and any software agent that wrote evidence rows",
+          "items": {
+            "$ref": "#/$defs/Contribution"
+          },
+          "title": "Contributions",
+          "type": "array"
+        },
+        "curation_id": {
+          "format": "uuid",
+          "title": "Curation Id",
+          "type": "string"
+        },
+        "curator_classification_rationale": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the curator's class differs from the computed one",
+          "title": "Curator Classification Rationale"
+        },
+        "curator_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Curator Name"
+        },
+        "disease_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disease Name"
+        },
+        "entity_key": {
+          "description": "MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility; '' when the curation has no MONDO id",
+          "title": "Entity Key",
+          "type": "string"
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Evidence as stored, keyed by the methodology's field ids",
+          "title": "Evidence"
+        },
+        "evidence_lines": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/EvidenceLine"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "VA-Spec EvidenceLine per evidence row with sources (reportedIn), directionOfEvidenceProvided or contributions",
+          "title": "Evidence Lines"
+        },
+        "experimental_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experimental Score"
+        },
+        "final_classification": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Curator classification confirmed at approval, else computed",
+          "title": "Final Classification"
+        },
+        "genetic_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Genetic Score"
+        },
+        "hgnc_id": {
+          "title": "Hgnc Id",
+          "type": "string"
+        },
+        "methodology": {
+          "$ref": "#/$defs/ExportMethodology"
+        },
+        "mode_of_inheritance": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "As entered",
+          "title": "Mode Of Inheritance"
+        },
+        "moi_hpo_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "HPO CURIE of the canonical MOI",
+          "title": "Moi Hpo Id"
+        },
+        "mondo_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mondo Id"
+        },
+        "pmids": {
+          "description": "Cited PMIDs, deduplicated, sorted",
+          "items": {
+            "type": "string"
+          },
+          "title": "Pmids",
+          "type": "array"
+        },
+        "relationship_type": {
+          "default": "mendelian",
+          "description": "mendelian or susceptibility (#539)",
+          "enum": [
+            "mendelian",
+            "susceptibility"
+          ],
+          "title": "Relationship Type",
+          "type": "string"
+        },
+        "reviewer_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Who approved the curation",
+          "title": "Reviewer Name"
+        },
+        "scope_name": {
+          "title": "Scope Name",
+          "type": "string"
+        },
+        "scores": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Computed scores as stored: section totals and per-row trace",
+          "title": "Scores"
+        },
+        "status": {
+          "description": "Curation status: active or archived",
+          "title": "Status",
+          "type": "string"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Computed summary of the verdict",
+          "title": "Summary"
+        },
+        "synopsis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The entity's synopsis: the text field the schema names in ui_configuration.synopsis_field; null like evidence",
+          "title": "Synopsis"
+        },
+        "total_score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Score"
+        },
+        "updated_at": {
+          "description": "Last change; the paging key",
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        },
+        "url": {
+          "description": "Link back to the curation in Gene Curator",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "curation_id",
+        "entity_key",
+        "url",
+        "status",
+        "scope_name",
+        "hgnc_id",
+        "approved_symbol",
+        "methodology",
+        "pmids",
+        "activated_at",
+        "updated_at"
+      ],
+      "title": "ExportCuration",
+      "type": "object"
+    },
+    "ExportMethodology": {
+      "properties": {
+        "schema_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Curation schema name",
+          "title": "Schema Name"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned methodology version; null when the caller may not read methodology versions (anonymous)",
+          "title": "Version"
+        },
+        "version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pinned methodology version id",
+          "title": "Version Id"
+        }
+      },
+      "title": "ExportMethodology",
+      "type": "object"
+    },
+    "ExportSource": {
+      "description": "VA-Spec Document, plus the GeneFoundry provenance of the record.",
+      "properties": {
+        "citation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "recommended_citation, verbatim",
+          "title": "Citation"
+        },
+        "documentType": {
+          "description": "Source kind: pmid, doi, clinvar, clingen_allele, clingen_validity, url or database",
+          "title": "Documenttype",
+          "type": "string"
+        },
+        "doi": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doi"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Identifier as recorded",
+          "title": "Id"
+        },
+        "pmid": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pmid"
+        },
+        "record_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Sha256"
+        },
+        "retrieved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieved At"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "e.g. genefoundry:clinvar_get_variant",
+          "title": "Tool"
+        },
+        "urls": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Urls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "documentType"
+      ],
+      "title": "ExportSource",
+      "type": "object"
+    },
+    "Extension": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "title": "Extension",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "export_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Export Version",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ExportCuration"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "next_cursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Pass as cursor for the next page; null on the last page",
+      "title": "Next Cursor"
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "title": "CurationExportPage",
+  "type": "object"
+}
