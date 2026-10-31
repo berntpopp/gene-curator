@@ -22,12 +22,13 @@ Step 0 is answered; do not ask again.
   builder, import, curation flow, intake, roles), then improvements are made with the impeccable skill based on the
   monkey findings and the review, followed by a narrow re-check.
 - Orchestrator call (monkey round 1): the hotspot review flag means recurrence: the top max_variants variants carry at least
-  min_share of proband points and one of them appears in 2+ scoring probands. L6 (400 vs 403/409 for 4-eyes refusals) left as
-  is pending an owner decision; 12 tests and several views depend on 400.
+  min_share of proband points and one of them appears in 2+ scoring probands.
+- L6 (owner, 2026-10-31): 4-eyes refusals return 403 when the actor may not act (own work, disease corrector) and 409
+  when the workflow state forbids it; tests and views updated (fix/l6-review-status-codes).
 
 ## Releases
 
-- v0.12.0: [#588](https://github.com/berntpopp/gene-curator/pull/588), notes `docs/releases/v0.12.0.md` (tag pending owner go).
+- v0.12.0: [#588](https://github.com/berntpopp/gene-curator/pull/588), notes `docs/releases/v0.12.0.md` (signed tag v0.12.0 on d602d747, published).
 
 ## Issues
 
@@ -91,7 +92,7 @@ Every PR got a `ponytail:ponytail-review`. Must-fix items caught before merge:
   "SOP v11" label on KGDB, R2-5 corrector not told why, R2-6 Escape opens discard, R2-7 raw enums and "none" cells,
   R2-8 validation box on a duplicate draft). KGDB import, flows and the two-reviewer approval pass end to end.
 - Round 2 fixes: R2-1 to R2-8, the M4 and B6 rest and B13 fixed in
-  [#589](https://github.com/berntpopp/gene-curator/pull/589). Left: B20 (follow-up), L6 (owner decision).
+  [#589](https://github.com/berntpopp/gene-curator/pull/589). Left: B20 (follow-up); L6 fixed after the release (403/409).
 - Round 3 (narrow re-check on ab07af6a, MONKEY-R3.md): 9 of 11 fixed, 2 mostly fixed; Escape in dialogs keeps the form.
   New: R3-1, R3-2 (low). Not checked: second approval activating WT1, phone width of KGDB forms.
 - UX scores (senior product designer), R1 -> R2: schema builder 4 -> 7, import 7 -> 8, KGDB curation 3 -> 7, intake
@@ -127,7 +128,6 @@ This wave:
 - Schema editor is last writer wins; no validate-unsaved-draft endpoint.
 - Nested groups and plain objects only in Advanced JSON; `and` conditions only in the Code view.
 - B20 reviewer-visible LLM setting (AI second view link with AI off); B21 stale-session 401s on load.
-- L6 status codes for 4-eyes refusals (400 vs 403/409): owner decision.
 - URL `max_length` not enforced; hotspot `group_by` assumes the variant field; `required_when` targets not cross-checked.
 - Test-order flake: `test_review_assignment` after `test_workflow_config`.
 - Missing test: corrector plus a real reviewer both approve.
@@ -165,11 +165,10 @@ files or full diffs into your context.
 Read first (only these): .planning/waves/wave10/WAVE10-REPORT.md (triage table, follow-ups),
 .planning/waves/wave10/MONKEY-R2.md, docs/releases/v0.12.0.md, .planning/orchestration/rules.md.
 
-## Step 0: owner decisions (one AskUserQuestion, max 4 questions, recommended option first)
-1. L6: 4-eyes refusals stay 400 (Recommended) / move to 403 (self-approval) and 409 (state), updating tests and views.
-2. Allowed pairs: a per-scope list of allowed workflow pairs; create refuses others (Recommended) / keep any pair.
-3. #105 take-over: a marker field and help text in the KGDB/ClinGen schemas, no fetch (Recommended) / leave open.
-4. Per-row import diff: build it in W11C (Recommended) / drop it.
+## Step 0: owner decisions (one AskUserQuestion, max 3 questions, recommended option first)
+1. Allowed pairs: a per-scope list of allowed workflow pairs; create refuses others (Recommended) / keep any pair.
+2. #105 take-over: a marker field and help text in the KGDB/ClinGen schemas, no fetch (Recommended) / leave open.
+3. Per-row import diff: build it in W11C (Recommended) / drop it.
 Record the answers at the top of WAVE11-REPORT.md. Ask nothing else.
 
 ## Step 1: workstreams (parallel, disjoint files, migration numbers fixed up front; next free is 078)
