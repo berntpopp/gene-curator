@@ -259,7 +259,16 @@ export const useCurationsStore = defineStore('curations', {
     async saveDraft(id: string, data: Schema<'CurationDraftSave'>) {
       this.error = null
       try {
-        const updated = await curationsAPI.saveDraft(id, data)
+        const current = this.currentCuration?.id === id ? this.currentCuration : null
+        // An adoption in review takes evidence through PUT only; its class is ClinGen's (#613)
+        const updated =
+          current?.clingen_adoption && current.status === 'in_review'
+            ? await curationsAPI.updateCuration(id, {
+                evidence_data: data.evidence_data,
+                lock_version: data.lock_version,
+                ...(data.merge != null && { merge: data.merge })
+              })
+            : await curationsAPI.saveDraft(id, data)
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)

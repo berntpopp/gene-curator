@@ -268,6 +268,29 @@ describe('useCurationsStore', () => {
       expect(store.loading).toBe(false)
     })
 
+    it('saves an adoption in review through PUT, evidence only (#613)', async () => {
+      const store = useCurationsStore()
+      const adoption = { status: 'in_review', clingen_adoption: { cggv_id: 'CGGV:x' } }
+      store.currentCuration = detail('c1', adoption as Partial<CurationDetail>)
+      api.updateCuration.mockResolvedValue(saved('c1', { lock_version: 3 }))
+
+      const result = await store.saveDraft('c1', {
+        evidence_data: { diagnostics: {} },
+        curator_classification: 'definitive',
+        lock_version: 2,
+        merge: true
+      })
+
+      expect(result).toMatchObject({ lock_version: 3 })
+      expect(api.saveDraft).not.toHaveBeenCalled()
+      // the class is ClinGen's: sending it would 409
+      expect(api.updateCuration).toHaveBeenCalledWith('c1', {
+        evidence_data: { diagnostics: {} },
+        lock_version: 2,
+        merge: true
+      })
+    })
+
     it('swallows failures, flags auto-save and returns null', async () => {
       const store = useCurationsStore()
       api.saveDraft.mockRejectedValue(new Error('offline'))
