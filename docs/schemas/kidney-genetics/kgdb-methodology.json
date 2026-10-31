@@ -122,9 +122,14 @@
                   {
                     "value": "HP:0001450",
                     "label": "Y-linked (HP:0001450)"
+                  },
+                  {
+                    "value": "HP:0000005",
+                    "label": "Undetermined (HP:0000005)"
                   }
                 ],
-                "required": true
+                "required": true,
+                "help_text": "Undetermined: score probands as reported and explain in the rationale"
               },
               {
                 "id": "relationship_type",
@@ -483,9 +488,18 @@
                   {
                     "value": "HP:0001450",
                     "label": "Y-linked (HP:0001450)"
+                  },
+                  {
+                    "value": "HP:0000005",
+                    "label": "Undetermined (HP:0000005)"
+                  },
+                  {
+                    "value": "HP:0001426",
+                    "label": "Multifactorial (HP:0001426)"
                   }
                 ],
-                "required": true
+                "required": true,
+                "help_text": "A common risk allele without a Mendelian mode: undetermined or multifactorial"
               },
               {
                 "id": "relationship_type",
@@ -499,6 +513,14 @@
                 ],
                 "required": true,
                 "default": "susceptibility"
+              },
+              {
+                "id": "risk_allele",
+                "type": "text",
+                "label": "Named risk allele, haplotype or genotype",
+                "placeholder": "rs4664308",
+                "required": true,
+                "help_text": "One allele per entity: part of the entity key, so a second allele of this gene and disease is its own curation"
               },
               {
                 "id": "omim_id",
@@ -736,7 +758,7 @@
             "probands": {
               "type": "evidence_table",
               "label": "Probands",
-              "help_text": "One row per unrelated proband whose genotype fits the MOI; a sib-pair or one consanguineous family is one proband",
+              "help_text": "One row per unrelated proband whose genotype fits the MOI, scored per allele (SOP v12, max 3); a sib-pair is one proband",
               "columns": {
                 "proband_label": {
                   "type": "text",
@@ -775,6 +797,12 @@
                   ],
                   "llm_share": true
                 },
+                "alleles": {
+                  "type": "array",
+                  "label": "Alleles, one entry each: variant | class | nmd_expected | functional_support | functional_pmid | functional_quote | also_scored_as_experimental",
+                  "help_text": "Two entries for a recessive genotype (a homozygote lists the allele twice); class null, missense, inframe, splice_other or other. Null 1.5 (1.0 when nmd_expected is false), other 0.1 or 0.5 with functional support",
+                  "llm_share": true
+                },
                 "zygosity": {
                   "type": "select",
                   "label": "Zygosity",
@@ -798,6 +826,25 @@
                   ],
                   "required": true,
                   "help_text": "Required: the allele-frequency cutoff keys on it (heterozygous/hemizygous 1e-4, otherwise 2.5e-3)"
+                },
+                "consanguinity": {
+                  "type": "select",
+                  "label": "Consanguinity",
+                  "options": [
+                    {
+                      "value": "yes",
+                      "label": "Yes"
+                    },
+                    {
+                      "value": "no",
+                      "label": "No"
+                    },
+                    {
+                      "value": "unknown",
+                      "label": "Unknown"
+                    }
+                  ],
+                  "llm_share": true
                 },
                 "phase": {
                   "type": "select",
@@ -849,6 +896,10 @@
                       "label": "ClinVar OMIM summary"
                     },
                     {
+                      "value": "clinvar_lab_summary",
+                      "label": "ClinVar lab summary"
+                    },
+                    {
                       "value": "secondary_table",
                       "label": "Secondary table"
                     },
@@ -859,11 +910,21 @@
                   ],
                   "llm_share": true
                 },
+                "population": {
+                  "type": "text",
+                  "label": "Population (ancestry or country)",
+                  "llm_share": true
+                },
                 "allele_frequency": {
                   "type": "number",
                   "label": "gnomAD popmax filtering AF",
                   "min": 0,
                   "max": 1,
+                  "llm_share": true
+                },
+                "af_checked": {
+                  "type": "boolean",
+                  "label": "Allele frequency checked in gnomAD",
                   "llm_share": true
                 },
                 "duplicate_of": {
@@ -877,13 +938,19 @@
                   "required": true,
                   "validation": "pmid_format"
                 },
+                "evidence_quote": {
+                  "type": "textarea",
+                  "label": "Evidence quote (<= 40 words, verbatim)",
+                  "help_text": "Copied from the abstract, passage or ClinVar text that supports the row; no quote, no points",
+                  "llm_share": true
+                },
                 "points": {
                   "type": "number",
                   "label": "Points",
                   "min": 0,
-                  "max": 1.5,
-                  "step": 0.5,
-                  "help_text": "Leave blank for the default (1) or the row rules"
+                  "max": 3,
+                  "step": 0.1,
+                  "help_text": "Sum of the allele points (SOP v12), max 3; leave blank for the default (1) or the row rules"
                 },
                 "explanation": {
                   "type": "textarea",
@@ -943,6 +1010,12 @@
                   "label": "PMID",
                   "required": true,
                   "validation": "pmid_format"
+                },
+                "evidence_quote": {
+                  "type": "textarea",
+                  "label": "Evidence quote (<= 40 words, verbatim)",
+                  "help_text": "Copied from the abstract, passage or ClinVar text that supports the row; no quote, no points",
+                  "llm_share": true
                 },
                 "sources": {
                   "type": "source",
@@ -1017,6 +1090,12 @@
                   "label": "PMID",
                   "required": true,
                   "validation": "pmid_format"
+                },
+                "evidence_quote": {
+                  "type": "textarea",
+                  "label": "Evidence quote (<= 40 words, verbatim)",
+                  "help_text": "Copied from the abstract, passage or ClinVar text that supports the row; no quote, no points",
+                  "llm_share": true
                 },
                 "points": {
                   "type": "number",
@@ -1105,6 +1184,12 @@
                   "required": true,
                   "validation": "pmid_format"
                 },
+                "evidence_quote": {
+                  "type": "textarea",
+                  "label": "Evidence quote (<= 40 words, verbatim)",
+                  "help_text": "Copied from the abstract, passage or ClinVar text that supports the row; no quote, no points",
+                  "llm_share": true
+                },
                 "points": {
                   "type": "number",
                   "label": "Points",
@@ -1143,8 +1228,40 @@
             "functional": {
               "type": "evidence_table",
               "label": "Functional",
-              "help_text": "Assay or rescue showing disrupted relevant function",
+              "help_text": "One row per line of evidence: function 0.5, functional alteration 1 (patient cells) or 0.5, rescue 2",
               "columns": {
+                "subtype": {
+                  "type": "select",
+                  "label": "Subtype",
+                  "required": true,
+                  "options": [
+                    {
+                      "value": "biochemical",
+                      "label": "Biochemical function (0.5)"
+                    },
+                    {
+                      "value": "interaction",
+                      "label": "Protein interaction (0.5)"
+                    },
+                    {
+                      "value": "expression",
+                      "label": "Expression (0.5)"
+                    },
+                    {
+                      "value": "patient_cells",
+                      "label": "Functional alteration, patient cells (1)"
+                    },
+                    {
+                      "value": "non_patient_cells",
+                      "label": "Functional alteration, non-patient cells (0.5)"
+                    },
+                    {
+                      "value": "rescue",
+                      "label": "Rescue (2)"
+                    }
+                  ],
+                  "llm_share": true
+                },
                 "assay": {
                   "type": "text",
                   "label": "Assay or rescue",
@@ -1162,13 +1279,19 @@
                   "required": true,
                   "validation": "pmid_format"
                 },
+                "evidence_quote": {
+                  "type": "textarea",
+                  "label": "Evidence quote (<= 40 words, verbatim)",
+                  "help_text": "Copied from the abstract, passage or ClinVar text that supports the row; no quote, no points",
+                  "llm_share": true
+                },
                 "points": {
                   "type": "number",
                   "label": "Points",
                   "min": 0,
-                  "max": 1,
+                  "max": 2,
                   "step": 0.5,
-                  "help_text": "Leave blank for the default (1) or the row rules"
+                  "help_text": "Leave blank for the subtype's default"
                 },
                 "sources": {
                   "type": "source",
@@ -1298,24 +1421,32 @@
           "help_text": "STRING, GTEx/Descartes, MGI and other gene-level context",
           "llm_share": true
         },
+        "reviewer_flags": {
+          "type": "textarea",
+          "label": "Reviewer flags",
+          "help_text": "Calculated class differs from your call; near a band edge; experimental above genetic; >= 50% of genetic points from <= 2 variants; susceptibility; unchecked AF on a point-carrying variant; key paper unread"
+        },
         "evidence_summary": {
           "type": "textarea",
-          "label": "Evidence summary"
+          "label": "Evidence summary",
+          "max_length": 2000
         },
         "diagnostics_notes": {
           "type": "object",
-          "label": "Diagnostics notes (not part of KGDB diagnostics)",
+          "label": "Diagnostics notes (KGDB: verified_via, detectability_note)",
           "properties": {
             "transcript_verified_via": {
               "type": "text",
               "label": "Transcript verified via (tool and field)",
-              "llm_share": true
+              "llm_share": true,
+              "max_length": 300
             },
             "detectability_note": {
               "type": "textarea",
               "label": "Detectability note",
               "help_text": "e.g. standard short-read testing adequate (CNV calling recommended)",
-              "llm_share": true
+              "llm_share": true,
+              "max_length": 500
             }
           }
         },
@@ -1581,6 +1712,13 @@
                   "max_length": 500,
                   "llm_share": true
                 },
+                "country_or_scope": {
+                  "type": "text",
+                  "label": "Country or scope",
+                  "placeholder": "Germany, EU, international",
+                  "max_length": 100,
+                  "llm_share": true
+                },
                 "verified_method": {
                   "type": "select",
                   "label": "Verified by",
@@ -1679,7 +1817,7 @@
                   "fields": [
                     "genetic.probands"
                   ],
-                  "help_text": "Default 1, de novo confirmed 1.5, cap 10; at most 2 points per recurrent variant"
+                  "help_text": "Per allele (SOP v12): null 1.5, other 0.1 / 0.5 with functional support, de novo confirmed +0.5; max 3 per proband, cap 12; at most 3 points per recurrent variant and population; unknown phase halved, consanguineous homozygote at most 2"
                 },
                 {
                   "name": "Segregation",
@@ -1693,7 +1831,7 @@
                   "fields": [
                     "genetic.cohort"
                   ],
-                  "help_text": "Default 2, cap 4"
+                  "help_text": "Default 2, cap 6"
                 }
               ]
             },
@@ -1715,7 +1853,7 @@
                   "fields": [
                     "experimental.functional"
                   ],
-                  "help_text": "Default 1, cap 2"
+                  "help_text": "Function 0.5 (cap 2), functional alteration 1 / 0.5 (cap 2), rescue 2; category cap 4"
                 }
               ]
             },
@@ -1735,7 +1873,8 @@
                   "fields": [
                     "replicated_over_time",
                     "reported_not_scored",
-                    "context_notes"
+                    "context_notes",
+                    "reviewer_flags"
                   ]
                 }
               ]
@@ -1774,7 +1913,7 @@
       "scoring_configuration": {
         "engine": "point_model",
         "point_model": {
-          "name": "KGDB point model (alpha)",
+          "name": "KGDB point model (alpha, iteration 8)",
           "total_cap": 18,
           "sections": [
             {
@@ -1783,18 +1922,21 @@
               "categories": [
                 {
                   "key": "probands",
-                  "cap": 10,
+                  "cap": 12,
                   "types": [
                     {
                       "path": "probands",
                       "default": 1,
                       "range": [
                         0,
-                        1.5
+                        3
                       ],
                       "require_variant": true,
-                      "group_by": "variant",
-                      "group_cap": 2,
+                      "group_by": [
+                        "variant",
+                        "population"
+                      ],
+                      "group_cap": 3,
                       "points_when": [
                         {
                           "field": "de_novo",
@@ -1828,7 +1970,7 @@
                               ]
                             }
                           ],
-                          "points": 0
+                          "factor": 0.5
                         },
                         {
                           "field": "phase",
@@ -1841,7 +1983,22 @@
                               ]
                             }
                           ],
-                          "points": 0
+                          "factor": 0.5
+                        },
+                        {
+                          "field": "consanguinity",
+                          "in": [
+                            "yes"
+                          ],
+                          "and": [
+                            {
+                              "field": "zygosity",
+                              "in": [
+                                "homozygous"
+                              ]
+                            }
+                          ],
+                          "max": 2
                         },
                         {
                           "field": "zygosity",
@@ -1865,6 +2022,11 @@
                               ]
                             }
                           ],
+                          "points": 0
+                        },
+                        {
+                          "field": "evidence_quote",
+                          "present": false,
                           "points": 0
                         }
                       ]
@@ -1898,7 +2060,7 @@
                 },
                 {
                   "key": "cohort",
-                  "cap": 4,
+                  "cap": 6,
                   "types": [
                     {
                       "path": "cohort",
@@ -1906,6 +2068,13 @@
                       "range": [
                         0,
                         2
+                      ],
+                      "points_when": [
+                        {
+                          "field": "evidence_quote",
+                          "present": false,
+                          "points": 0
+                        }
                       ]
                     }
                   ]
@@ -1941,6 +2110,11 @@
                             true
                           ],
                           "points": 1
+                        },
+                        {
+                          "field": "evidence_quote",
+                          "present": false,
+                          "points": 0
                         }
                       ]
                     }
@@ -1948,14 +2122,51 @@
                 },
                 {
                   "key": "functional",
-                  "cap": 2,
+                  "cap": 4,
                   "types": [
                     {
                       "path": "functional",
                       "default": 1,
                       "range": [
                         0,
-                        1
+                        2
+                      ],
+                      "points_when": [
+                        {
+                          "field": "subtype",
+                          "in": [
+                            "biochemical",
+                            "interaction",
+                            "expression"
+                          ],
+                          "points": 0.5
+                        },
+                        {
+                          "field": "subtype",
+                          "in": [
+                            "patient_cells"
+                          ],
+                          "points": 1
+                        },
+                        {
+                          "field": "subtype",
+                          "in": [
+                            "non_patient_cells"
+                          ],
+                          "points": 0.5
+                        },
+                        {
+                          "field": "subtype",
+                          "in": [
+                            "rescue"
+                          ],
+                          "points": 2
+                        },
+                        {
+                          "field": "evidence_quote",
+                          "present": false,
+                          "points": 0
+                        }
                       ]
                     }
                   ]
@@ -1984,42 +2195,45 @@
           "bands": [
             {
               "class": "definitive",
-              "min": 12,
+              "min": 11.5,
               "requires": "replicated_over_time",
               "section_min": {
                 "genetic": 4
               },
-              "description": "Total score of at least 12 points (at least 4 genetic) with replication over time supports a DEFINITIVE gene-disease relationship."
+              "description": "Total score of at least 11.5 points (at least 4 genetic) with replication over time supports a DEFINITIVE gene-disease relationship."
             },
             {
               "class": "strong",
-              "min": 12,
+              "min": 11.5,
               "section_min": {
                 "genetic": 4
               },
-              "description": "Total score of at least 12 points (at least 4 genetic) supports a STRONG gene-disease relationship."
+              "description": "Total score of at least 11.5 points (at least 4 genetic) supports a STRONG gene-disease relationship."
             },
             {
               "class": "moderate",
-              "min": 7,
+              "min": 6.5,
               "section_min": {
                 "genetic": 4
               },
-              "description": "Total score of 7 to 11.9 points (at least 4 genetic) supports a MODERATE gene-disease relationship."
+              "description": "Total score of 6.5 to 11.4 points (at least 4 genetic) supports a MODERATE gene-disease relationship."
             },
             {
               "class": "limited",
               "min": 0.1,
-              "description": "Total score below 7 points, or too little genetic evidence for a higher class, supports a LIMITED gene-disease relationship."
+              "description": "Some genetic evidence, below 6.5 points or too little for a higher class: a LIMITED gene-disease relationship.",
+              "section_min": {
+                "genetic": 0.1
+              }
             },
             {
               "class": "no_known",
               "min": 0,
-              "description": "No scored evidence: NO KNOWN disease relationship."
+              "description": "No genetic points, whatever the experimental evidence: NO KNOWN disease relationship."
             }
           ],
           "review_flags": {
-            "band_margin": 2,
+            "band_margin": 1,
             "hotspot": {
               "max_variants": 2,
               "min_share": 0.5
@@ -2085,70 +2299,80 @@
                     "proband_label": "P1",
                     "variant": "c.101G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000002",
                     "proband_label": "P2",
                     "variant": "c.102G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000003",
                     "proband_label": "P3",
                     "variant": "c.103G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000004",
                     "proband_label": "P4",
                     "variant": "c.104G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000005",
                     "proband_label": "P5",
                     "variant": "c.105G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000006",
                     "proband_label": "P6",
                     "variant": "c.106G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000007",
                     "proband_label": "P7",
                     "variant": "c.107G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000008",
                     "proband_label": "P8",
                     "variant": "c.108G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000009",
                     "proband_label": "P9",
                     "variant": "c.109G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000010",
                     "proband_label": "P10",
                     "variant": "c.110G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               },
@@ -2157,22 +2381,26 @@
                   {
                     "pmid": "31000020",
                     "organism": "mouse",
-                    "mechanism_fit": "yes"
+                    "mechanism_fit": "yes",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000021",
                     "organism": "zebrafish",
-                    "mechanism_fit": "yes"
+                    "mechanism_fit": "yes",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ],
                 "functional": [
                   {
                     "pmid": "31000022",
-                    "assay": "paracellular Mg2+ flux"
+                    "assay": "paracellular Mg2+ flux",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000023",
-                    "assay": "tight junction localisation"
+                    "assay": "tight junction localisation",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               },
@@ -2193,70 +2421,80 @@
                     "proband_label": "P1",
                     "variant": "c.201C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000002",
                     "proband_label": "P2",
                     "variant": "c.202C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000003",
                     "proband_label": "P3",
                     "variant": "c.203C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000004",
                     "proband_label": "P4",
                     "variant": "c.204C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000005",
                     "proband_label": "P5",
                     "variant": "c.205C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000006",
                     "proband_label": "P6",
                     "variant": "c.206C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000007",
                     "proband_label": "P7",
                     "variant": "c.207C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000008",
                     "proband_label": "P8",
                     "variant": "c.208C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000009",
                     "proband_label": "P9",
                     "variant": "c.209C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000010",
                     "proband_label": "P10",
                     "variant": "c.210C>T",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ],
                 "segregation": [
@@ -2272,7 +2510,8 @@
                   {
                     "pmid": "31000031",
                     "organism": "mouse",
-                    "mechanism_fit": "yes"
+                    "mechanism_fit": "yes",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               },
@@ -2290,7 +2529,8 @@
                 "functional": [
                   {
                     "pmid": "31000040",
-                    "assay": "reporter assay"
+                    "assay": "reporter assay",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               },
@@ -2319,14 +2559,16 @@
                     "variant": "c.500A>G / c.501del",
                     "zygosity": "compound_heterozygous",
                     "variant_source": "primary",
-                    "phase": "confirmed"
+                    "phase": "confirmed",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000051",
                     "proband_label": "P51",
                     "variant": "c.502C>T",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               },
@@ -2335,22 +2577,26 @@
                   {
                     "pmid": "31000052",
                     "organism": "mouse",
-                    "mechanism_fit": "yes"
+                    "mechanism_fit": "yes",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000053",
                     "organism": "zebrafish",
-                    "mechanism_fit": "yes"
+                    "mechanism_fit": "yes",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ],
                 "functional": [
                   {
                     "pmid": "31000054",
-                    "assay": "ER chaperone assay"
+                    "assay": "ER chaperone assay",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000055",
-                    "assay": "secretion assay"
+                    "assay": "secretion assay",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               }
@@ -2361,7 +2607,7 @@
             }
           },
           {
-            "name": "Hotspot: 6 probands with one recurrent variant score 2",
+            "name": "Hotspot: 6 probands with one recurrent variant score 3 (group cap)",
             "evidence_data": {
               "genetic": {
                 "probands": [
@@ -2370,53 +2616,59 @@
                     "proband_label": "P60",
                     "variant": "p.(Arg137His)",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000061",
                     "proband_label": "P61",
                     "variant": "p.(Arg137His)",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000062",
                     "proband_label": "P62",
                     "variant": "p.(Arg137His)",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000063",
                     "proband_label": "P63",
                     "variant": "p.(Arg137His)",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000064",
                     "proband_label": "P64",
                     "variant": "p.(Arg137His)",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000065",
                     "proband_label": "P65",
                     "variant": "p.(Arg137His)",
                     "zygosity": "heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               }
             },
             "expect": {
-              "total": 2,
+              "total": 3,
               "class": "limited"
             }
           },
           {
-            "name": "Compound het without a phase scores 0 (only confirmed or suspected count)",
+            "name": "Compound het without a phase scores half (0.5 when blank; only confirmed or suspected count fully)",
             "evidence_data": {
               "genetic": {
                 "probands": [
@@ -2425,7 +2677,8 @@
                     "proband_label": "P90",
                     "variant": "c.90G>A / c.91del",
                     "zygosity": "compound_heterozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000092",
@@ -2433,13 +2686,14 @@
                     "variant": "c.92G>A / c.93del",
                     "zygosity": "compound_heterozygous",
                     "variant_source": "primary",
-                    "phase": "suspected"
+                    "phase": "suspected",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               }
             },
             "expect": {
-              "total": 1,
+              "total": 1.5,
               "class": "limited"
             }
           },
@@ -2454,7 +2708,8 @@
                     "variant": "c.94G>A",
                     "zygosity": null,
                     "variant_source": "primary",
-                    "allele_frequency": 0.001
+                    "allele_frequency": 0.001,
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000095",
@@ -2462,7 +2717,8 @@
                     "variant": "c.95G>A",
                     "zygosity": "heterozygous",
                     "variant_source": "primary",
-                    "allele_frequency": 1e-05
+                    "allele_frequency": 1e-05,
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               }
@@ -2473,7 +2729,7 @@
             }
           },
           {
-            "name": "Row rules: de novo 1.5, not_given/duplicate/AF/phase unknown/no PMID 0, AR AF below 2.5e-3 counts; models partial and morpholino 1",
+            "name": "Row rules: de novo 1.5, phase unknown 0.5, not_given/duplicate/AF/no PMID 0, AR AF below 2.5e-3 counts; models partial and morpholino 1",
             "evidence_data": {
               "genetic": {
                 "probands": [
@@ -2483,14 +2739,16 @@
                     "variant": "c.70G>A",
                     "zygosity": "heterozygous",
                     "variant_source": "primary",
-                    "de_novo": "confirmed"
+                    "de_novo": "confirmed",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000071",
                     "proband_label": "P71",
                     "variant": "c.71G>A",
                     "zygosity": "heterozygous",
-                    "variant_source": "not_given"
+                    "variant_source": "not_given",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000072",
@@ -2498,7 +2756,8 @@
                     "variant": "c.72G>A",
                     "zygosity": "heterozygous",
                     "variant_source": "primary",
-                    "duplicate_of": "P70"
+                    "duplicate_of": "P70",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000073",
@@ -2506,7 +2765,8 @@
                     "variant": "c.73G>A",
                     "zygosity": "heterozygous",
                     "variant_source": "primary",
-                    "allele_frequency": 0.001
+                    "allele_frequency": 0.001,
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000074",
@@ -2514,7 +2774,8 @@
                     "variant": "c.74G>A",
                     "zygosity": "homozygous",
                     "variant_source": "primary",
-                    "allele_frequency": 0.001
+                    "allele_frequency": 0.001,
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000075",
@@ -2522,14 +2783,16 @@
                     "variant": "c.75G>A / c.76del",
                     "zygosity": "compound_heterozygous",
                     "variant_source": "primary",
-                    "phase": "unknown"
+                    "phase": "unknown",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "",
                     "proband_label": "P76",
                     "variant": "c.77G>A",
                     "zygosity": "homozygous",
-                    "variant_source": "primary"
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               },
@@ -2538,18 +2801,220 @@
                   {
                     "pmid": "31000077",
                     "organism": "mouse",
-                    "mechanism_fit": "partial"
+                    "mechanism_fit": "partial",
+                    "evidence_quote": "Quoted from the source."
                   },
                   {
                     "pmid": "31000078",
                     "organism": "zebrafish",
-                    "morpholino_only": true
+                    "morpholino_only": true,
+                    "evidence_quote": "Quoted from the source."
                   }
                 ]
               }
             },
             "expect": {
-              "total": 4.5,
+              "total": 5,
+              "class": "limited"
+            }
+          },
+          {
+            "name": "Iteration 8: per-allele rows up to 3, Strong from 11.5; a row without a quote scores 0",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000101",
+                    "proband_label": "P101",
+                    "variant": "c.101del / c.101del",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary",
+                    "points": 3,
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000102",
+                    "proband_label": "P102",
+                    "variant": "c.102del / c.102del",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary",
+                    "points": 3,
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000103",
+                    "proband_label": "P103",
+                    "variant": "c.103del / c.103del",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary",
+                    "points": 3,
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000104",
+                    "proband_label": "P104",
+                    "variant": "c.104del / c.104del",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary",
+                    "points": 2.5,
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000105",
+                    "proband_label": "P105",
+                    "variant": "c.105del / c.105del",
+                    "zygosity": "homozygous",
+                    "variant_source": "primary",
+                    "points": 3
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 11.5,
+              "class": "strong"
+            }
+          },
+          {
+            "name": "Functional subtypes: expression and interaction 0.5, patient cells 1, rescue 2, cap 4; no genetic points is No Known",
+            "evidence_data": {
+              "experimental": {
+                "functional": [
+                  {
+                    "pmid": "31000110",
+                    "subtype": "expression",
+                    "assay": "kidney expression",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000111",
+                    "subtype": "interaction",
+                    "assay": "co-IP",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000112",
+                    "subtype": "patient_cells",
+                    "assay": "cilia in patient fibroblasts",
+                    "evidence_quote": "Quoted from the source."
+                  },
+                  {
+                    "pmid": "31000113",
+                    "subtype": "rescue",
+                    "assay": "zebrafish rescue",
+                    "evidence_quote": "Quoted from the source."
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 4,
+              "class": "no_known"
+            }
+          },
+          {
+            "name": "Iteration 8 rules: unknown phase halves entered points, consanguineous homozygote at most 2 (6.5 is Moderate)",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000201",
+                    "proband_label": "P201",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.201del / c.202del",
+                    "zygosity": "compound_heterozygous",
+                    "phase": "unknown",
+                    "points": 3
+                  },
+                  {
+                    "pmid": "31000202",
+                    "proband_label": "P202",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.203del / c.203del",
+                    "zygosity": "homozygous",
+                    "consanguinity": "yes",
+                    "points": 3
+                  },
+                  {
+                    "pmid": "31000203",
+                    "proband_label": "P203",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.204del / c.204del",
+                    "zygosity": "homozygous",
+                    "consanguinity": "no",
+                    "points": 3
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 6.5,
+              "class": "moderate"
+            }
+          },
+          {
+            "name": "Recurrent variant capped at 3 per population: 3 x 1.5 in Japan + 2 x 1.5 in Finland",
+            "evidence_data": {
+              "genetic": {
+                "probands": [
+                  {
+                    "pmid": "31000210",
+                    "proband_label": "P210",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.210G>A",
+                    "zygosity": "heterozygous",
+                    "population": "Japan",
+                    "points": 1.5
+                  },
+                  {
+                    "pmid": "31000211",
+                    "proband_label": "P211",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.210G>A",
+                    "zygosity": "heterozygous",
+                    "population": "Japan",
+                    "points": 1.5
+                  },
+                  {
+                    "pmid": "31000212",
+                    "proband_label": "P212",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.210G>A",
+                    "zygosity": "heterozygous",
+                    "population": "Japan",
+                    "points": 1.5
+                  },
+                  {
+                    "pmid": "31000220",
+                    "proband_label": "P220",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.210G>A",
+                    "zygosity": "heterozygous",
+                    "population": "Finland",
+                    "points": 1.5
+                  },
+                  {
+                    "pmid": "31000221",
+                    "proband_label": "P221",
+                    "variant_source": "primary",
+                    "evidence_quote": "Quoted from the source.",
+                    "variant": "c.210G>A",
+                    "zygosity": "heterozygous",
+                    "population": "Finland",
+                    "points": 1.5
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 6,
               "class": "limited"
             }
           }
@@ -2625,6 +3090,18 @@
                   "label": "Odds ratio",
                   "min": 0
                 },
+                "ci_lower": {
+                  "type": "number",
+                  "label": "95% CI lower",
+                  "min": 0,
+                  "llm_share": true
+                },
+                "ci_upper": {
+                  "type": "number",
+                  "label": "95% CI upper",
+                  "min": 0,
+                  "llm_share": true
+                },
                 "p_value": {
                   "type": "number",
                   "label": "p value",
@@ -2636,6 +3113,12 @@
                   "label": "PMID",
                   "required": true,
                   "validation": "pmid_format"
+                },
+                "evidence_quote": {
+                  "type": "textarea",
+                  "label": "Evidence quote (<= 40 words, verbatim)",
+                  "help_text": "Copied from the source that supports the row",
+                  "llm_share": true
                 },
                 "significant_after_correction": {
                   "type": "boolean",
@@ -2870,24 +3353,32 @@
           "help_text": "STRING, GTEx/Descartes, MGI and other gene-level context",
           "llm_share": true
         },
+        "reviewer_flags": {
+          "type": "textarea",
+          "label": "Reviewer flags",
+          "help_text": "Calculated class differs from your call; near a band edge; experimental above genetic; >= 50% of genetic points from <= 2 variants; susceptibility; unchecked AF on a point-carrying variant; key paper unread"
+        },
         "evidence_summary": {
           "type": "textarea",
-          "label": "Evidence summary"
+          "label": "Evidence summary",
+          "max_length": 2000
         },
         "diagnostics_notes": {
           "type": "object",
-          "label": "Diagnostics notes (not part of KGDB diagnostics)",
+          "label": "Diagnostics notes (KGDB: verified_via, detectability_note)",
           "properties": {
             "transcript_verified_via": {
               "type": "text",
               "label": "Transcript verified via (tool and field)",
-              "llm_share": true
+              "llm_share": true,
+              "max_length": 300
             },
             "detectability_note": {
               "type": "textarea",
               "label": "Detectability note",
               "help_text": "e.g. standard short-read testing adequate (CNV calling recommended)",
-              "llm_share": true
+              "llm_share": true,
+              "max_length": 500
             }
           }
         },
@@ -3153,6 +3644,13 @@
                   "max_length": 500,
                   "llm_share": true
                 },
+                "country_or_scope": {
+                  "type": "text",
+                  "label": "Country or scope",
+                  "placeholder": "Germany, EU, international",
+                  "max_length": 100,
+                  "llm_share": true
+                },
                 "verified_method": {
                   "type": "select",
                   "label": "Verified by",
@@ -3279,7 +3777,8 @@
                     "meets_very_strong",
                     "replicated_over_time",
                     "reported_not_scored",
-                    "context_notes"
+                    "context_notes",
+                    "reviewer_flags"
                   ]
                 }
               ]

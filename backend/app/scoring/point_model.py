@@ -12,7 +12,9 @@ in the UI store their fields flat).
 
 ``points_when: [{field, in?, present?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets
 a row's points from its own fields: a matching 0-point rule always wins, otherwise the first
-matching rule fills the points only when the curator left them blank (#576, #582).
+matching rule fills the points only when the curator left them blank (#576, #582). A rule
+with ``factor`` or ``max`` instead of ``points`` then scales or caps the result, entered or
+not (#615). ``group_by`` names one field or a list of them (the first must be set).
 ``rule: "step"`` sums ``field`` over the type's rows and scores the highest
 ``steps: [{min, points}]`` reached as one item. ``rule: "segregation_sop11"`` scores a
 segregation family table by SOP v11 pp.28-35 and Figure 6 (#447, docs/POINT-MODEL.md). All
@@ -130,20 +132,31 @@ def _points_when(
 ) -> float:
     """A matching exclusion (0 points) wins wherever it stands; otherwise the first
     matching rule fills the points only when the curator left them blank."""
-    hits = [
-        (i, float(rule["points"]))
+    matching = [
+        (i, rule)
         for i, rule in enumerate(type_def.get("points_when", []))
         if all(_holds(c, row) for c in [rule, *rule.get("and", [])])
     ]
-    if not hits:
-        return entered
-    i, points = next((hit for hit in hits if hit[1] == 0), hits[0])
-    keep = points != 0 and not _blank(row.get(type_def.get("points_key", "points")))
-    result = entered if keep else points
-    applied.append(
-        {"path": at, "rule": "points_when", "index": i}
-        | {"entered": entered, "points": result, "applied": not keep}
-    )
+    hits = [(i, float(rule["points"])) for i, rule in matching if "points" in rule]
+    result = entered
+    if hits:
+        i, points = next((hit for hit in hits if hit[1] == 0), hits[0])
+        keep = points != 0 and not _blank(row.get(type_def.get("points_key", "points")))
+        result = entered if keep else points
+        applied.append(
+            {"path": at, "rule": "points_when", "index": i}
+            | {"entered": entered, "points": result, "applied": not keep}
+        )
+    for i, rule in ((i, r) for i, r in matching if "points" not in r):  # factor / max
+        before = result
+        if "factor" in rule:
+            result *= float(rule["factor"])
+        else:
+            result = min(result, float(rule["max"]))
+        applied.append(
+            {"path": at, "rule": "points_when", "index": i}
+            | {"entered": before, "points": result, "applied": result != before}
+        )
     return result
 
 
@@ -469,8 +482,10 @@ def _type_points(
         if value > 0 and (why := uncited(row, case_level, by_status=case_row)):
             excluded.append({"path": f"{path}[{i}]", **why})
         elif not flagged:  # flagged rows count nothing (#278); the trace lists them
-            if group_by and (group := _norm(row.get(group_by))):
-                typed = str(row[group_by])  # shown as the curator typed it
+            by = [group_by] if isinstance(group_by, str) else group_by or []
+            if by and _norm(row.get(by[0])):
+                group = "|".join(_norm(row.get(f)) for f in by)
+                typed = " | ".join(str(row.get(f) or "") for f in by)  # as typed
                 groups.setdefault(group, (typed, []))[1].append(len(points))
             points.append(value)
             variant = "variant_1" if "variant_1" in row else "variant"

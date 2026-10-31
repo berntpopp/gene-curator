@@ -55,8 +55,26 @@ Order of operations per row:
    wherever it stands in the list.
 3. Otherwise the first matching rule fills the points only when the curator left the points
    blank; points the curator entered (0 included) stand.
-4. The range check (#278), the citation policy (no PMID scores 0) and `group_cap` apply to the
+4. Every matching rule with `factor` or `max` instead of `points` (#615) then scales the
+   result (`"factor": 0.5`) or caps it (`"max": 2`), in list order, whether the curator
+   entered the points or not; an exclusion stays 0. Each is traced like a fill rule.
+5. The range check (#278), the citation policy (no PMID scores 0) and `group_cap` apply to the
    result, then category, section and total caps.
+
+A rule has exactly one of `points`, `factor` or `max`:
+
+```json
+{"field": "phase", "in": ["unknown"], "and": [{"field": "zygosity", "in": ["compound_heterozygous"]}], "factor": 0.5},
+{"field": "consanguinity", "in": ["yes"], "and": [{"field": "zygosity", "in": ["homozygous"]}], "max": 2}
+```
+
+## Groups: `group_by`
+
+`group_by` + `group_cap`: rows sharing a group score at most `group_cap` together (#557).
+`group_by` is one field (`"variant"`) or a list (`["variant", "population"]`, #615): the
+group is every listed value after trimming and case folding; a row whose first field is blank
+is never grouped, while blank later fields group together. The trace's `capped_groups` shows
+the values as typed, joined by ` | `.
 
 ## Step rule
 

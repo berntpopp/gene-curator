@@ -163,6 +163,30 @@ def test_susceptibility_curation_exports_its_type_and_moi(
     assert item["moi_hpo_id"] == "HP:0000006"
 
 
+def test_mondo_id_is_exported_as_a_curie(
+    client: TestClient,
+    db_session: Session,
+    pair: WorkflowPair,
+    test_gene: Gene,
+    test_public_scope: Scope,
+) -> None:
+    """#615: mondo_id as typed (MONDO_, lower case, spaces) is exported as MONDO:."""
+    _point(
+        db_session,
+        pair,
+        test_gene,
+        test_public_scope,
+        T0,
+        entity_key="MONDO:0009633|AD",
+        evidence_data={
+            "mondo_id": " mondo_0009633",
+            "mode_of_inheritance": "AD",
+        },
+    )
+    [item] = client.get(URL, params={"scope_name": "public-scope"}).json()["items"]
+    assert item["mondo_id"] == "MONDO:0009633"
+
+
 def test_private_scope_hidden_from_anonymous_and_archived_shown_to_members(
     client: TestClient,
     db_session: Session,

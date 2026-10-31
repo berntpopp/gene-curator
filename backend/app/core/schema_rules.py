@@ -566,7 +566,10 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
             ("error", f"{path}.blank_at", "blank_at must be null or a finite number")
         )
     if "group_by" in item or "group_cap" in item:  # one never works without the other
-        out += _need(item, path, {"group_by": str})
+        by = item.get("group_by")
+        fields = by if isinstance(by, list) else [by]
+        if not by or not all(isinstance(f, str) for f in fields):
+            out.append(("error", f"{path}.group_by", "group_by: a field or fields"))
         if not _is_number(item.get("group_cap")):
             out.append(("error", f"{path}.group_cap", "group_cap must be a number"))
     out += _check_point_rules(item, path)
@@ -619,9 +622,9 @@ def _check_point_rules(item: dict[str, Any], path: str) -> list[Diagnostic]:
         out.append(("error", f"{path}.points_when", "points_when must be a list"))
     for i, rule in _items(_as(list, rules), f"{path}.points_when", out):
         at = f"{path}.points_when[{i}]"
-        out += _check_condition(rule, at, {"points", "and"})
-        if not _is_number(rule.get("points")):
-            out.append(("error", f"{at}.points", "points must be a number"))
+        out += _check_condition(rule, at, {"points", "factor", "max", "and"})
+        if sum(_is_number(rule.get(k)) for k in ("points", "factor", "max")) != 1:
+            out.append(("error", f"{at}.points", "points, factor or max: one number"))
         for j, cond in _items(_as(list, rule.get("and", [])), f"{at}.and", out):
             out += _check_condition(cond, f"{at}.and[{j}]", set())
         if not isinstance(rule.get("and", []), list):

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.schemas.curation import RelationshipType
 from app.schemas.provenance import Contribution, EvidenceLine
@@ -32,7 +32,9 @@ class ExportCuration(BaseModel):
     hgnc_id: str
     approved_symbol: str
     disease_name: str | None = None
-    mondo_id: str | None = None
+    mondo_id: str | None = Field(
+        None, description="MONDO:nnnnnnn (MONDO_ typed is normalised)"
+    )
     mode_of_inheritance: str | None = Field(None, description="As entered")
     moi_hpo_id: str | None = Field(None, description="HPO CURIE of the canonical MOI")
     relationship_type: RelationshipType = Field(
@@ -91,6 +93,12 @@ class ExportCuration(BaseModel):
         description="VA-Spec EvidenceLine per evidence row with sources (reportedIn), "
         "directionOfEvidenceProvided or contributions",
     )
+
+    @field_validator("mondo_id")
+    @classmethod
+    def _mondo_curie(cls, v: str | None) -> str | None:
+        """As the entity_key: trimmed, upper case, MONDO_ -> MONDO: (#615)."""
+        return (v.strip().upper().replace("_", ":") or None) if v else v
 
 
 class CurationExportPage(BaseModel):
