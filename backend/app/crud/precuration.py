@@ -47,7 +47,7 @@ from app.schemas.precuration import (
 )
 from app.services.evidence_ids import check_ids
 from app.services.review_assignment import submit_reviewer
-from app.services.review_guards import check_review_content
+from app.services.review_guards import check_review_content, save_warnings
 
 logger = get_logger(__name__)
 
@@ -353,7 +353,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         if not write_draft(db, db_obj, lock_version, values):
             return None
         db.refresh(db_obj)
-        return db_obj, warnings
+        return db_obj, save_warnings(db, db_obj, evidence_data, warnings)
 
     def _check_submittable(
         self, db: Session, db_obj: PrecurationNew, user_id: UUID
@@ -383,7 +383,9 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         user_id: UUID,
     ) -> PrecurationNew | None:
         """Submit precuration for review via workflow engine. None if lock_version is stale."""
-        reviewer_id = submit_reviewer(db, db_obj.scope_id, submit_data)
+        reviewer_id = submit_reviewer(
+            db, db_obj.scope_id, submit_data, db_obj.created_by
+        )
         # Compare-and-bump in one UPDATE first: a stale submit matches no row and changes nothing
         if not claim_version(db, PrecurationNew, db_obj.id, submit_data.lock_version):
             return None

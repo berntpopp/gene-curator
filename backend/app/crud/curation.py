@@ -51,7 +51,7 @@ from app.services.evidence_ids import (
     shrunk_arrays,
 )
 from app.services.review_assignment import submit_reviewer
-from app.services.review_guards import check_review_content
+from app.services.review_guards import check_review_content, save_warnings
 from app.services.row_provenance import stamped
 
 logger = get_logger(__name__)
@@ -580,7 +580,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         ):
             return None
         db.refresh(db_obj)
-        return db_obj, warnings
+        return db_obj, save_warnings(db, db_obj, evidence, warnings)
 
     def submit_for_review(
         self,
@@ -613,7 +613,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             user_id,
             submit_data.notes,
             expected_version=submit_data.lock_version,
-            reviewer_id=submit_reviewer(db, db_obj.scope_id, submit_data),
+            reviewer_id=submit_reviewer(
+                db, db_obj.scope_id, submit_data, db_obj.created_by
+            ),
         )
         db.refresh(db_obj)
 

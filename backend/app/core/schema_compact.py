@@ -44,16 +44,20 @@ def _compact_option(option: Any) -> Any:
 
 
 def subtree(fields: dict[str, Any], path: str) -> Any:
-    """The field at a dotted path through properties and array items.
+    """The field at a dotted path through properties, array items and table columns.
 
     Raises KeyError naming the missing key and the keys that exist there.
     """
     node: Any = {"properties": fields}
     for key in path.split("."):
         items = node.get("items") if isinstance(node, dict) else None
+        columns = node.get("columns") if isinstance(node, dict) else None
+        if isinstance(columns, list):  # the seeds' [{"id": ...}] form
+            columns = {c.get("id"): c for c in columns if isinstance(c, dict)}
         children = (
             (node.get("properties") if isinstance(node, dict) else None)
             or (items.get("properties") if isinstance(items, dict) else None)
+            or columns  # evidence-table columns (#612)
             or {}
         )
         if key not in children:

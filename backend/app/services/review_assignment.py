@@ -5,6 +5,7 @@ notifies the reviewer, who approves or rejects it via /precurations/{id}/approve
 """
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -20,6 +21,7 @@ from app.crud.review_round import (
     has_pending_review,
     holds_review_capability,
 )
+from app.mcp.audit import request_channel
 from app.models import (
     CurationNew,
     CurationStatus,
@@ -62,29 +64,60 @@ def check_reviewer(
         )
 
 
-def submit_reviewer(
-    db: Session, scope_id: UUID, data: CurationSubmit | PrecurationSubmit
-) -> UUID | None:
-    """The reviewer a submit names: reviewer_id, or reviewer_email matched only against the
-    scope's accepted reviewers and admins (so it never reveals other accounts)."""
-    if data.reviewer_id or not data.reviewer_email:
-        return data.reviewer_id
-    found = db.scalar(
-        select(UserNew.id)
+def _reviewers(db: Session, scope_id: UUID) -> Any:
+    """The scope's accepted reviewers and admins."""
+    return (
+        select(UserNew.id, UserNew.email)
         .join(ScopeMembership, ScopeMembership.user_id == UserNew.id)
         .where(
-            func.lower(UserNew.email) == data.reviewer_email.strip().lower(),
             ScopeMembership.scope_id == scope_id,
             ScopeMembership.is_active,
             ScopeMembership.accepted_at.isnot(None),
             ScopeMembership.role.in_(REVIEW_ROLES),
         )
     )
+
+
+def submit_reviewer(
+    db: Session,
+    scope_id: UUID,
+    data: CurationSubmit | PrecurationSubmit,
+    author: UUID | None,
+) -> UUID | None:
+    """The reviewer a submit names: reviewer_id, or reviewer_email matched only against the
+    scope's accepted reviewers and admins (so it never reveals other accounts). Over MCP,
+    naming none picks the only eligible reviewer besides the author and refuses when there
+    are several (KGDB QA: nothing reaches review unassigned); the web UI submits first
+    and routes after."""
+    if data.reviewer_id:
+        return data.reviewer_id
+    if not data.reviewer_email and _over_mcp():
+        others = db.execute(
+            _reviewers(db, scope_id).where(UserNew.id != author, UserNew.is_active)
+        ).all()
+        if len(others) > 1:
+            raise ValueError(
+                "Several reviewers can review this; name one with reviewer_email: "
+                + ", ".join(sorted(row.email for row in others))
+            )
+        return others[0].id if others else None
+    if not data.reviewer_email:
+        return None
+    found: UUID | None = db.scalar(
+        _reviewers(db, scope_id)
+        .with_only_columns(UserNew.id)
+        .where(func.lower(UserNew.email) == data.reviewer_email.strip().lower())
+    )
     if found is None:
         raise ValueError(
             f"No reviewer of this scope has the email {data.reviewer_email}: {APPROVERS}"
         )
     return found
+
+
+def _over_mcp() -> bool:
+    found = request_channel.get()
+    return found is not None and found[0] == "mcp"
 
 
 def assigned_reviewer(db: Session, reviewer_id: UUID | None) -> AssignedReviewer | None:

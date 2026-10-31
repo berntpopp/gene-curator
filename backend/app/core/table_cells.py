@@ -1,9 +1,11 @@
 """Evidence-table cells checked at submit as the form does (#538, monkey L2): blank
-required cells, numbers, whole numbers and URLs, each named table[row].column. A fully
-blank row is dropped, not validated."""
+required cells, whole numbers, calendar dates, and every column kind the validator knows
+(number, url, source, select, text length, ...; #611), each named table[row].column. A
+fully blank row is dropped, not validated."""
 
 import re
 from collections.abc import Callable
+from datetime import date
 from typing import Any
 
 from app.core.schema_validation_result import SchemaValidationResult
@@ -11,6 +13,7 @@ from app.crud.precuration_required import visible_when
 from app.scoring.evidence_items import has_content
 
 Check = Callable[..., None]  # (path, value, config, result)
+_TEXT = ("text", "string", "textarea")
 _WHOLE = re.compile(r"\s*[+-]?\d+(\.0*)?\s*")
 
 
@@ -38,5 +41,21 @@ def cell_errors(
                 isinstance(value, bool) or not _WHOLE.fullmatch(str(value))
             ):
                 res.add_error(at, "Value must be a whole number", "type")
-            elif kind in ("number", "integer", "url", "source"):
-                checks[kind](at, value, col, res)
+            elif kind == "date" and not _calendar_date(value):
+                res.add_error(at, "Use a date: YYYY-MM-DD", "format")
+            elif kind in checks:
+                checks[kind](at, _as_text(kind, value), col, res)
+
+
+def _as_text(kind: Any, value: Any) -> Any:
+    """A PMID typed as a number in a text column is its digits (KGDB QA)."""
+    return str(value) if kind in _TEXT and type(value) is int else value
+
+
+def _calendar_date(value: Any) -> bool:
+    """A date cell holds a day, not a timestamp (KGDB's Diagnostics schema, #611)."""
+    try:
+        date.fromisoformat(str(value))
+    except ValueError:
+        return False
+    return len(str(value)) == 10

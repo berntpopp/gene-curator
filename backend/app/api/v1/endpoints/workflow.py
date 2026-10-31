@@ -303,8 +303,8 @@ def get_my_review_assignments(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Sequence[PeerReviewRequest]:
     """Get the current user's curation review assignments, with gene symbol and scope name.
-    Precurations are not listed (no review row): find routed ones in read_my_work or
-    list_precurations with pending_review=true."""
+    Precurations, and curations moved to review without a reviewer, have no review row:
+    read_my_work lists them (a curation's curator calls assign_peer_reviewer)."""
 
     query = (
         select(Review, Gene.approved_symbol, Scope.name)

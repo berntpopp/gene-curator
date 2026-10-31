@@ -58,3 +58,93 @@ def test_an_integer_column_rejects_a_fraction() -> None:
 def test_a_fully_blank_row_is_dropped_not_validated() -> None:
     rows = [{"zygosity": "het", "carrier": True}, {}, {"zygosity": "", "note": " "}]
     assert _paths(rows) == []
+
+
+# #611: every column kind with a validator; the KGDB diagnostics shapes
+RESOURCES = {
+    "field_definitions": {
+        "resources": {
+            "type": "evidence_table",
+            "columns": {
+                "type": {"type": "select", "options": [{"value": "registry"}]},
+                "name": {"type": "text", "max_length": 5},
+                "audiences": {"type": "multiselect", "options": ["patients"]},
+                "verified_date": {"type": "date"},
+                "sources": {"type": "source"},
+            },
+        },
+        "evidence_summary": {"type": "textarea", "max_length": 10},
+    }
+}
+
+
+def test_select_date_length_and_source_cells_are_checked() -> None:
+    evidence = {
+        "resources": [
+            {
+                "type": "patient_organization",
+                "name": "too long",
+                "audiences": ["doctors"],
+                "verified_date": "2026-10-30T12:00:00Z",
+                "sources": "PMID:1",
+            },
+            {"type": "registry", "name": "ok", "verified_date": "2026-10-30"},
+        ],
+        "evidence_summary": "x" * 11,
+    }
+    assert [e.path for e in evidence_errors(evidence, RESOURCES)] == [
+        "resources[0].type",
+        "resources[0].name",
+        "resources[0].audiences",
+        "resources[0].verified_date",
+        "resources[0].sources",
+        "evidence_summary",
+    ]
+
+
+def test_valid_kgdb_diagnostics_still_pass() -> None:
+    """KGDB reads evidence.diagnostics: the bundle's valid rows are never refused."""
+    from tests.unit.test_kgdb_methodology import SCHEMAS
+
+    definition = SCHEMAS["KGDB Mendelian Curation"]
+    diagnostics = {
+        "recommended_transcript": {"refseq": "NM_006580.4", "mane_status": "select"},
+        "detectability": [
+            {
+                "challenge": next(
+                    o["value"]
+                    for o in definition["field_definitions"]["diagnostics"][
+                        "properties"
+                    ]["detectability"]["columns"]["challenge"]["options"]
+                ),
+                "methods": ["long_read_sequencing"],
+                "tools": ["VNtyper | https://github.com/x | PMID:1"],
+                "sources": ["PMID:31558469"],
+                "negative_report_does_not_exclude": True,
+            }
+        ],
+        "resources": [
+            {
+                "type": "other",
+                "name": "ERKNet",
+                "url": "https://www.erknet.org",
+                "audiences": ["patients", "clinicians"],
+                "verified_method": "fetched",
+                "verified_date": "2026-10-30",
+            }
+        ],
+    }
+    evidence = {
+        "diagnostics": diagnostics,
+        "diagnostics_notes": {"detectability_note": "short-read testing adequate"},
+    }
+    assert evidence_errors(evidence, definition) == []
+
+
+def test_an_integer_pmid_in_a_text_column_is_accepted() -> None:
+    definition = {
+        "field_definitions": {
+            "rows": {"type": "evidence_table", "columns": {"pmid": {"type": "text"}}}
+        }
+    }
+    assert evidence_errors({"rows": [{"pmid": 31558469}]}, definition) == []
