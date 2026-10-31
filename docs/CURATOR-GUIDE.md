@@ -19,8 +19,17 @@ pick the *With results* preset. Your column choice is saved to your account.
 2. **Curation.** Enter evidence in the form. Fields show errors only after you edit or submit;
    the score panel updates as you type. Evidence tables cite their sources (PMID, DOI, ClinVar,
    ClinGen, URL, database) and say whether a row supports, disputes or is neutral.
+   A case-level variant is HGVS, an rsID or a coordinate; a CNV or a repeat-region insertion
+   the paper describes only in words counts when the text names its extent ("deletion of exons
+   2-29", "whole-gene deletion", "C insertion in the VNTR"). Vague text ("large deletion")
+   scores 0. A save warns when a row scores 0 because a field its rule needs (such as
+   `evidence_quote`) is blank.
 3. **Submit for review** and pick a reviewer. A save that clashes with someone else's newer
    save is refused; reload, then re-apply your change.
+
+To revise an active curation, create a new curation of the entity: it starts empty (re-enter or
+copy the rows you keep) and is pinned to the latest version of its methodology, which can be
+newer than the active one's. The active curation stays published until the new one is approved.
 
 The curation's History panel shows who added or changed each evidence row, including an AI
 agent working through MCP on someone's behalf.

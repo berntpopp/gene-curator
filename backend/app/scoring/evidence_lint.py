@@ -131,7 +131,37 @@ def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[
             f"evidence_summary: claims a total of {claimed:g} points; the computed total "
             f"is {total:g}"
         )
-    return warnings + _misfiled_patients(evidence) + review_flags(result)
+    return (
+        warnings
+        + _misfiled_patients(evidence)
+        + zeroed_rows(result)
+        + review_flags(result)
+    )
+
+
+def zeroed_rows(result: dict[str, Any]) -> list[str]:
+    """Rows with points that a points_when rule set to 0 because a field it needs is
+    blank (``present: false``), naming the field (KGDB e2e: evidence_quote)."""
+    model = result.get("model") or {}
+    types = {
+        key: t
+        for s in model.get("sections", [])
+        for c in s["categories"]
+        for t in c["types"]
+        for key in (f"{s['key']}.{t['path']}", t["path"])
+    }
+    out = []
+    for hit in (result.get("trace") or {}).get("rules_applied", []):
+        if hit.get("rule") != "points_when" or hit["points"] != 0 or not hit["entered"]:
+            continue
+        rules = types.get(hit["path"].rpartition("[")[0], {}).get("points_when", [])
+        rule = rules[hit["index"]] if hit["index"] < len(rules) else {}
+        out += [
+            f"{hit['path']}.{c['field']}: missing, so this row scores 0"
+            for c in [rule, *rule.get("and", [])]
+            if c.get("present") is False
+        ]
+    return out
 
 
 def review_flags(result: dict[str, Any]) -> list[str]:
