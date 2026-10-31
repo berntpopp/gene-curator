@@ -38,7 +38,7 @@
         badge-color="warning"
       />
       <template v-if="admin.length > 0">
-        <v-list-subheader>Admin</v-list-subheader>
+        <v-list-subheader>Setup</v-list-subheader>
         <BaseNavigationItem
           v-for="item in admin"
           :key="item.name"

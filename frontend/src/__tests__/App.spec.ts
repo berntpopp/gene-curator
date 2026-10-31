@@ -89,6 +89,21 @@ describe('App', () => {
     wrapper.unmount()
   })
 
+  it('keeps the page mounted when only the query changes (MUI-21)', async () => {
+    const route = reactive({ path: '/genes', fullPath: '/genes' })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: route } } })
+    await flushPromises()
+    const page = () => wrapper.findComponent({ name: 'ErrorBoundary' }).vm.$.uid
+    const before = page()
+    route.fullPath = '/genes?scopes=s2&scopes=s1' // a table filter or the catalogue's column order
+    await flushPromises()
+    expect(page()).toBe(before)
+    route.path = route.fullPath = '/scopes'
+    await flushPromises()
+    expect(page()).not.toBe(before) // a new page starts with a clean error state
+    wrapper.unmount()
+  })
+
   it('shows the bottom tabs, not the rail, below md', async () => {
     display.mdAndUp = ref(false)
     const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
@@ -208,7 +223,7 @@ describe('App', () => {
         throw new Error('view exploded')
       }
     })
-    const route = reactive({ fullPath: '/a' })
+    const route = reactive({ path: '/a', fullPath: '/a' })
     const view = shallowRef<Component>(Throwing)
     const RouterView = defineComponent({ render: () => h(view.value) })
     const wrapper = mount(App, {
@@ -221,7 +236,7 @@ describe('App', () => {
     expect(wrapper.text()).toContain('view exploded')
 
     view.value = defineComponent({ render: () => h('p', 'fine') })
-    route.fullPath = '/b'
+    route.path = route.fullPath = '/b'
     await flushPromises()
     expect(wrapper.text()).toContain('fine')
     expect(wrapper.text()).not.toContain('view exploded')

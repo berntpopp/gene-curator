@@ -116,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, type Component } from 'vue'
+  import { computed, inject, provide, type Component } from 'vue'
   import { VCombobox, VSelect } from 'vuetify/components'
   import { componentRegistry, fieldTypes } from './componentRegistry'
   import { useLogger } from '@/composables/useLogger'
@@ -124,6 +124,7 @@
   import DynamicNestedField from './DynamicNestedField.vue'
   import ReadonlyValue from './ReadonlyValue.vue'
   import FieldInput, { type FieldInputKind } from './FieldInput.vue'
+  import { FIELD_PATH } from './rowAuthorship'
   import type { ComponentFallbackEvent, FieldSchema, FieldValidation, FieldVariant } from './types'
 
   const logger = useLogger()
@@ -134,6 +135,8 @@
   const props = withDefaults(
     defineProps<{
       fieldName: string
+      /** Dotted path of the parent object ("genetic.") when placed by path, e.g. in a tab */
+      fieldPrefix?: string
       fieldSchema: FieldSchema
       modelValue?: unknown
       validationResult?: FieldValidation | null
@@ -145,6 +148,7 @@
     }>(),
     {
       modelValue: undefined,
+      fieldPrefix: '',
       validationResult: null,
       backendErrors: () => [],
       variant: 'filled',
@@ -152,6 +156,9 @@
       depth: 0
     }
   )
+
+  // Row provenance is keyed by the table's full data path (MUI-02)
+  if (props.fieldPrefix) provide(FIELD_PATH, `${inject(FIELD_PATH, '')}${props.fieldPrefix}`)
 
   const emit = defineEmits<{
     'update:model-value': [value: unknown]

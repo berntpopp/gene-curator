@@ -10,6 +10,7 @@ import { call, vmOf } from './vm'
 import SchemaManagement from '@/views/SchemaManagement.vue'
 import SchemaEditor from '@/views/SchemaEditor.vue'
 import { useSchemasStore } from '@/stores/schemas'
+import { useAuthStore } from '@/stores/auth'
 import AdvancedJson from '@/components/schema-editor/AdvancedJson.vue'
 import PointModelBuilder from '@/components/schema-editor/scoring/PointModelBuilder.vue'
 
@@ -82,6 +83,15 @@ describe('SchemaManagement', () => {
     return { wrapper, schemas, vm: vmOf(wrapper) }
   }
   const row = { id: 's1', name: 'ClinGen curation' }
+
+  it('offers Move curations to platform admins only (MUI-07)', async () => {
+    const move = '[aria-label="Move curations to the latest version"]'
+    const { wrapper } = await mountView()
+    expect(wrapper.find(move).exists()).toBe(false)
+    useAuthStore().user = { id: 'a', role: 'admin' } as never
+    await nextTick()
+    expect(wrapper.find(move).exists()).toBe(true)
+  })
 
   it('filters the table by type and status', async () => {
     const { wrapper, vm } = await mountView()
@@ -193,6 +203,10 @@ describe('SchemaManagement', () => {
       use_dynamic_form: true
     })
     expect(showSuccess).toHaveBeenCalledWith('Schema "Fresh" created successfully')
+    // MUI-14: a new template opens ready to edit, not in View mode
+    expect(routerPush).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'SchemaEditor', query: { edit: '1' } })
+    )
     expect(vm.createSchemaDialog).toBe(false)
     expect((vm.newSchema as { name: string }).name).toBe('')
   })
@@ -228,6 +242,16 @@ describe('SchemaEditor', () => {
     await flushPromises()
     return { wrapper, schemas, vm: vmOf(wrapper) }
   }
+
+  it('opens in edit mode when asked to (MUI-14)', async () => {
+    routeState.query = { edit: '1' }
+    try {
+      const { vm } = await mountView()
+      expect(vm.isEditing).toBe(true)
+    } finally {
+      routeState.query = {}
+    }
+  })
 
   it('shows the real schema fields and their count', async () => {
     const { wrapper } = await mountView()
@@ -356,12 +380,27 @@ describe('SchemaEditor', () => {
     expect(text.replace(/\s+/g, ' ')).toContain('Last Modified:—')
   })
 
+  it('cancels without asking when nothing changed', async () => {
+    const { vm } = await mountView()
+    vm.isEditing = true
+    await call(vm, 'cancelEdit')
+    expect(confirmMock).not.toHaveBeenCalled()
+    expect(vm.isEditing).toBe(false)
+  })
+
   it('restores the original values on cancel', async () => {
     const { vm } = await mountView()
     vm.isEditing = true
     vm.editableSchema = { name: 'Changed' }
     call(vm, 'setBlock', 'field_definitions', { junk: { type: 'text' } })
-    call(vm, 'cancelEdit')
+    confirmMock.mockResolvedValueOnce(false)
+    await call(vm, 'cancelEdit')
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Discard your edits?' })
+    )
+    expect(vm.isEditing).toBe(true) // MUI-08: unsaved edits are not dropped without asking
+    confirmMock.mockResolvedValueOnce(true)
+    await call(vm, 'cancelEdit')
     expect(vm.isEditing).toBe(false)
     expect((vm.editableSchema as { name: string }).name).toBe('ClinGen curation')
     expect((vm.draft as Record<string, unknown>).field_definitions).toEqual(

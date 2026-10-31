@@ -37,11 +37,15 @@
             :class="{ 'text-cell': col.schema.type === 'string' }"
           >
             <SourceCell
-              v-if="readonly && col.schema.type === 'source'"
+              v-if="(readonly || wide) && col.schema.type === 'source'"
               readonly
               :model-value="row[col.key]"
             />
-            <ReadonlyValue v-else-if="readonly" :schema="col.schema" :model-value="row[col.key]" />
+            <ReadonlyValue
+              v-else-if="readonly || wide"
+              :schema="col.schema"
+              :model-value="row[col.key]"
+            />
             <component
               :is="col.cell.is"
               v-else
@@ -86,7 +90,15 @@
           >
             {{ rowAuthorship(stampOf(stamps, path, row, index)) }}
           </td>
-          <td v-if="!disabled && !readonly">
+          <td v-if="!disabled && !readonly" class="text-no-wrap">
+            <v-btn
+              v-if="wide"
+              :aria-label="`Edit row ${index + 1}`"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editing = rowKey(row, index)"
+            />
             <v-btn
               :aria-label="`Remove row ${index + 1}`"
               icon="mdi-delete"
@@ -114,6 +126,13 @@
     <div v-if="errorMessages?.length" class="text-error text-body-small mt-1" role="alert">
       {{ errorMessages.join(', ') }}
     </div>
+    <EvidenceRowEditor
+      :row="editedRow"
+      :title="editedTitle"
+      :columns="columns"
+      @update="updateCell"
+      @close="closeEditor"
+    />
   </div>
 </template>
 
@@ -138,6 +157,7 @@
   import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import PubmedLinkButton from './PubmedLinkButton.vue'
   import ReadonlyValue from './ReadonlyValue.vue'
+  import EvidenceRowEditor from './EvidenceRowEditor.vue'
   import SourceCell from './SourceCell.vue'
   import { FIELD_PATH, ROW_PROVENANCE, rowAuthorship, rowTools, stampOf } from './rowAuthorship'
   import {
@@ -190,6 +210,31 @@
       url: schema.type === 'url'
     }))
   )
+
+  // Wide tables (UX): rows read inline and edit one at a time in a side sheet
+  const WIDE_COLUMNS = 6
+  const wide = computed(() => columns.value.length > WIDE_COLUMNS && !props.readonly)
+  const editing = ref<string | number | null>(null)
+  const editedIndex = computed(() => rows.value.findIndex((r, i) => rowKey(r, i) === editing.value))
+  const editedRow = computed(() => rows.value[editedIndex.value] ?? null)
+  const editedTitle = computed(() => {
+    const own = Object.entries(editedRow.value ?? {}).find(
+      ([k, v]) => (k === 'label' || k.endsWith('_label')) && typeof v === 'string' && v.trim()
+    )?.[1]
+    return `${props.label} · ${own ?? `Row ${editedIndex.value + 1}`}`
+  })
+  // Like an inline cell: a hand-set suggested column stops following its selector
+  function updateCell(column: string, value: unknown) {
+    const key = editing.value!
+    if (columns.value.find(c => c.key === column)?.schema.default_by) automaticDefaults.delete(key)
+    commit(key, column, value)
+  }
+  // Back to the row's pencil (a new row's too), as a dialog returns focus to its opener
+  function closeEditor() {
+    const index = editedIndex.value
+    editing.value = null
+    focus(`[aria-label="Edit row ${index + 1}"]`)
+  }
 
   // #593: who added and changed each row, from the curation's row_provenance
   const stamps = inject(ROW_PROVENANCE, null)
@@ -371,6 +416,10 @@
     automaticDefaults.add(rowKey(row, rows.value.length))
     const position = rows.value.length + 1
     emit('update:model-value', [...rows.value, row])
+    if (wide.value) {
+      editing.value = row.id as string
+      return
+    }
     const first = columns.value[0]
     if (first) focus(`[aria-label=${CSS.escape(`${first.label}, row ${position}`)}]`)
   }

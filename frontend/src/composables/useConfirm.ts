@@ -39,3 +39,12 @@ export function useConfirm() {
   }
   return { confirm }
 }
+
+/** Ask before a builder removal (MUI-08); resolves true when the user confirms */
+export const confirmRemoval = (what: string): Promise<boolean> =>
+  useConfirm().confirm({
+    title: `Remove this ${what}?`,
+    text: 'Its settings leave the draft. Cancel in the editor still restores the saved version.',
+    confirmText: 'Remove',
+    destructive: true
+  })

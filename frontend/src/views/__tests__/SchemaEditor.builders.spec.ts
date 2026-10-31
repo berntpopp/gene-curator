@@ -1,6 +1,7 @@
 /** SchemaEditor builders (#282): draft diagnostics, workflow stages and the stale-save lock */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { confirmState } from '@/composables/useConfirm'
 import { createPinia, setActivePinia } from 'pinia'
 import { vmOf, call } from './vm'
 import SchemaEditor from '@/views/SchemaEditor.vue'
@@ -17,13 +18,14 @@ vi.mock('vue-router', async importOriginal => ({
 vi.mock('@/composables/useLogger', () => ({
   useLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })
 }))
-const { showError, showWarning } = vi.hoisted(() => ({
+const { showError, showWarning, showSuccess } = vi.hoisted(() => ({
   showError: vi.fn(),
-  showWarning: vi.fn()
+  showWarning: vi.fn(),
+  showSuccess: vi.fn()
 }))
 vi.mock('@/composables/useNotifications', () => ({
   showError,
-  showSuccess: vi.fn(),
+  showSuccess,
   showInfo: vi.fn(),
   showWarning
 }))
@@ -135,18 +137,17 @@ describe('SchemaEditor builders (#282)', () => {
     } as never)
     await call(vm, 'saveSchema')
     await flushPromises()
-    expect(showWarning).toHaveBeenCalledWith(
-      'Someone else saved this schema. Your draft is kept: Save again to replace their version, or Cancel to load theirs.'
-    )
+    expect(vm.conflict).toBe(true)
     expect(showError).not.toHaveBeenCalled()
     expect(vm.isEditing).toBe(true)
     expect((vm.editableSchema as Record<string, unknown>).description).toBe('mine')
     await call(vm, 'saveSchema')
     expect(update.mock.calls[1]![1]).toMatchObject({ description: 'mine', lock_version: 5 })
+    expect(vm.conflict).toBe(false)
   })
 
   it('Cancel after a 409 loads their version', async () => {
-    const { vm, schemas } = await mountView()
+    const { wrapper, vm, schemas } = await mountView()
     vi.spyOn(schemas, 'updateSchema').mockRejectedValueOnce({ response: { status: 409 } })
     vm.isEditing = true
     ;(vm.editableSchema as Record<string, unknown>).description = 'mine'
@@ -157,7 +158,21 @@ describe('SchemaEditor builders (#282)', () => {
     } as never)
     await call(vm, 'saveSchema')
     await flushPromises()
-    await call(vm, 'cancelEdit')
+    // MUI-13: the conflict stays on screen until resolved, not only as a toast
+    expect(wrapper.find('[data-testid="conflict-banner"]').text()).toContain('Someone else saved')
+    const cancelled = call(vm, 'cancelEdit')
+    confirmState.settle(true) // discarding the draft asks first (MUI-08)
+    await cancelled
     expect((vm.editableSchema as Record<string, unknown>).description).toBe('theirs')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="conflict-banner"]').exists()).toBe(false)
+  })
+
+  it('confirms a save (MUI-12)', async () => {
+    const { vm, schemas } = await mountView()
+    vi.spyOn(schemas, 'updateSchema').mockResolvedValueOnce(structuredClone(schema) as never)
+    vm.isEditing = true
+    await call(vm, 'saveSchema')
+    expect(showSuccess).toHaveBeenCalledWith('Schema saved')
   })
 })

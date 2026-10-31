@@ -91,6 +91,30 @@ describe('ApproveChecklistDialog', () => {
     expect(text).not.toContain('Accept or resolve')
   })
 
+  it('accepts every unaccepted item at once, never queried ones (UX: Accept all)', async () => {
+    const w = mount(
+      ApproveChecklistDialog,
+      opts({
+        ...approveProps,
+        blockers: [
+          { key: 'a', label: 'Case C1', queried: false },
+          { key: 'c', label: 'Case C3', queried: false },
+          { key: 'b', label: 'Case C2', queried: true }
+        ]
+      })
+    )
+    const all = w.find('[data-testid=accept-all]')
+    expect(all.text()).toBe('Accept all 2')
+    await all.trigger('click')
+    expect(w.emitted('accept-all')).toEqual([[['a', 'c']]])
+  })
+
+  it('offers no Accept all when nothing can be accepted', () => {
+    const notLoaded = [{ key: '', label: 'The review has not loaded' }]
+    const w = mount(ApproveChecklistDialog, opts({ ...approveProps, blockers: notLoaded }))
+    expect(w.find('[data-testid=accept-all]').exists()).toBe(false)
+  })
+
   it('emits approve with the note, and cancel', async () => {
     const w = mount(ApproveChecklistDialog, opts({ ...approveProps, classification: 'Strong' }))
     for (const cb of w.findAll('input[type=checkbox]')) await cb.setValue(true)

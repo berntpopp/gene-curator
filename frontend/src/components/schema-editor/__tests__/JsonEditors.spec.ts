@@ -62,6 +62,8 @@ describe('AdvancedJson', () => {
     const editors = wrapper.findAllComponents(JsonBlockEditor)
     expect(editors).toHaveLength(5)
     expect(wrapper.text()).toContain('Workflow states')
+    // The editor already has a Scoring tab; its JSON block is named apart (MUI-23)
+    expect(wrapper.findAll('.v-tab').map(t => t.text())).toContain('Scoring configuration')
     editors[1]!.vm.$emit('update:modelValue', { x: 1 })
     editors[3]!.vm.$emit('error', 'nope')
     expect(wrapper.emitted('update')?.[0]).toEqual(['ui_configuration', { x: 1 }])

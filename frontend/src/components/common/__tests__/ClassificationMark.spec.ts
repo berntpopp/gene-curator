@@ -20,6 +20,12 @@ describe('ClassificationMark', () => {
     )
   })
 
+  it('draws a stepped meter, not four equal boxes that read as missing glyphs (MUI-10)', () => {
+    const w = mount(ClassificationMark, { props: { classification: 'no_known' } })
+    const heights = w.findAll('.cls-mark__bars i').map(i => i.attributes('style'))
+    expect(new Set(heights).size).toBe(4)
+  })
+
   it('renders unknown values as hollow neutral', () => {
     const w = mount(ClassificationMark, { props: { classification: null } })
     expect(w.text()).toBe('Not classified')

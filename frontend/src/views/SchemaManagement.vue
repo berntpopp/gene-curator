@@ -132,7 +132,12 @@
               variant="text"
               @click="duplicateSchema(item)"
             />
-            <VersionMoveDialog :schema-id="item.id" :schema-name="item.name" />
+            <!-- Moving curations between versions is a platform-admin action (API: admin only) -->
+            <VersionMoveDialog
+              v-if="isPlatformAdmin"
+              :schema-id="item.id"
+              :schema-name="item.name"
+            />
             <v-btn
               v-if="canManage(item.owner_scope_id)"
               aria-label="Delete schema"
@@ -608,7 +613,7 @@
         version: '1.0.0'
       }
       // Straight into the builders: the skeleton is only a start (#282)
-      router.push({ name: 'SchemaEditor', params: { id: created.id } })
+      router.push({ name: 'SchemaEditor', params: { id: created.id }, query: { edit: '1' } })
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to create schema', {

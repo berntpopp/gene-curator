@@ -97,7 +97,7 @@
                 size="small"
                 variant="text"
                 color="error"
-                @click="types.splice(k, 1)"
+                @click="remove(k)"
               />
             </td>
           </tr>
@@ -122,6 +122,7 @@
 
 <script setup lang="ts">
   import { reactive } from 'vue'
+  import { confirmRemoval } from '@/composables/useConfirm'
   import FieldPicker from './FieldPicker.vue'
   import PointModelRowRules from './PointModelRowRules.vue'
   import type { ColumnOption, TableOption } from './evidenceFields'
@@ -138,6 +139,8 @@
     props.tables.find(t => t.value === item.path)?.columns ?? []
   const types = defineModel<ItemType[]>({ required: true })
   const open = reactive<Record<number, boolean>>({})
+  const remove = async (k: number) =>
+    (await confirmRemoval('evidence type')) && types.value.splice(k, 1)
 
   // '' is the default rule: the row's points (or the type default)
   const RULES = [

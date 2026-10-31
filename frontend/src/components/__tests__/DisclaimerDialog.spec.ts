@@ -11,7 +11,7 @@ import DisclaimerDialog from '../DisclaimerDialog.vue'
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 
-const ACCEPT_LABEL = 'Accept disclaimer and continue to application'
+const ACCEPT = '[data-testid="accept-disclaimer"]'
 
 describe('DisclaimerDialog', () => {
   let wrapper: VueWrapper | undefined
@@ -33,6 +33,18 @@ describe('DisclaimerDialog', () => {
     return wrapper
   }
 
+  it('names every button by its visible text (MUI-20)', () => {
+    mountDialog()
+    const buttons = [...document.querySelectorAll('.disclaimer-dialog button')]
+    expect(buttons.length).toBeGreaterThanOrEqual(2)
+    for (const b of buttons) {
+      const text = b.textContent!.trim()
+      expect(text).not.toBe('')
+      // An aria-label replaces the text for screen readers; it must not hide what is shown
+      expect(b.getAttribute('aria-label') ?? text).toContain(text)
+    }
+  })
+
   it('shows the research-use disclaimer when open', () => {
     mountDialog()
 
@@ -42,7 +54,7 @@ describe('DisclaimerDialog', () => {
 
   it('acknowledges immediately and closes', async () => {
     const w = mountDialog()
-    const button = document.querySelector<HTMLButtonElement>(`[aria-label="${ACCEPT_LABEL}"]`)
+    const button = document.querySelector<HTMLButtonElement>(ACCEPT)
 
     button?.click()
     await w.vm.$nextTick()
@@ -63,10 +75,10 @@ describe('DisclaimerDialog', () => {
   it('reflects the modelValue prop in the dialog visibility', async () => {
     const w = mountDialog({ modelValue: false })
 
-    expect(document.querySelector(`[aria-label="${ACCEPT_LABEL}"]`)).toBeNull()
+    expect(document.querySelector(ACCEPT)).toBeNull()
 
     await w.setProps({ modelValue: true })
 
-    expect(document.querySelector(`[aria-label="${ACCEPT_LABEL}"]`)).not.toBeNull()
+    expect(document.querySelector(ACCEPT)).not.toBeNull()
   })
 })

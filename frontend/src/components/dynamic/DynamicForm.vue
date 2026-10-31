@@ -1,5 +1,5 @@
 <template>
-  <v-form ref="formRef" @submit.prevent="handleSubmit">
+  <v-form ref="formRef" class="dynamic-form" @submit.prevent="handleSubmit">
     <v-row>
       <!-- Main form content -->
       <v-col cols="12" :lg="showScoring ? 8 : 12">
@@ -77,7 +77,8 @@
                 <v-col
                   v-for="(field, fieldName) in shownProperties"
                   :key="fieldName"
-                  :cols="getFieldCols(field)"
+                  cols="12"
+                  :sm="getFieldCols(field)"
                 >
                   <DynamicField
                     :field-name="fieldName"
@@ -181,6 +182,7 @@
   import { registerClassifications } from '@/config/classification'
   import DynamicField from './DynamicField.vue'
   import TabContent from './TabContent.vue'
+  import { missingRequiredPaths } from '@/components/forms/requiredFields'
   import ScoreDisplay from './ScoreDisplay.vue'
   import { useFormTabs } from './composables/useFormTabs'
   import { errorDetails } from './errorDetails'
@@ -317,7 +319,22 @@
     nextTab,
     prevTab,
     findFirstInvalidTab
-  } = useFormTabs({ jsonSchema, validationResult: storedValidation, backendErrors, activeTab })
+  } = useFormTabs({
+    jsonSchema,
+    validationResult: storedValidation,
+    backendErrors,
+    activeTab,
+    // The raw methodology knows which fields are required (MUI-16)
+    missingPaths: computed(() =>
+      props.definition
+        ? missingRequiredPaths(
+            props.definition.field_definitions,
+            formData.value,
+            props.definition.validation_rules
+          )
+        : []
+    )
+  })
 
   const showScoring = computed(() => {
     return !props.hideScoring && jsonSchema.value?.scoring_configuration?.engine != null
@@ -638,6 +655,23 @@
 </script>
 
 <style scoped>
+  /* Phones: nested cards each add padding until a textarea is ~130 px wide; the form's own
+     cards and panels give their width to the fields instead (390 px monkey) */
+  @media (max-width: 599.98px) {
+    .dynamic-form :deep(.v-card-text) {
+      padding-inline: 0;
+    }
+
+    /* An outlined group still needs a gap between its border and its fields */
+    .dynamic-form :deep(.v-card--variant-outlined > .v-card-text) {
+      padding-inline: 8px;
+    }
+
+    .dynamic-form :deep(.v-expansion-panel-text__wrapper) {
+      padding-inline: 8px;
+    }
+  }
+
   .sticky-sidebar {
     position: sticky;
     top: 80px;

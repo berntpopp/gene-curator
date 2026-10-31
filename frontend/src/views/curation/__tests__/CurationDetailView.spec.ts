@@ -284,7 +284,9 @@ describe('CurationDetailView', () => {
       can_review: true,
       computed_scores: { total_score: 10, warnings: [flag] }
     })
-    expect(wrapper.find('[data-testid=score-warnings]').text()).toContain(flag)
+    expect(wrapper.find('[data-testid=score-warnings]').text()).toContain(
+      'Near a class boundary: the total of 10 points is within 2 points'
+    )
     const none = await load({ computed_scores: { total_score: 10 } })
     expect(none.find('[data-testid=score-warnings]').exists()).toBe(false)
   })

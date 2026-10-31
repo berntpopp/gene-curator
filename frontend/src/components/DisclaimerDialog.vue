@@ -96,7 +96,7 @@
       <v-divider class="my-4"></v-divider>
 
       <p class="text-body-medium text-medium-emphasis">
-        <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
+        <v-icon size="small" class="mr-1" aria-hidden="true">mdi-information-outline</v-icon>
         For questions about Gene Curator's intended use, supported methodologies, or limitations,
         please refer to the documentation or contact your institutional administrator.
       </p>
@@ -107,10 +107,10 @@
         color="primary"
         variant="elevated"
         size="large"
-        aria-label="Accept disclaimer and continue to application"
+        data-testid="accept-disclaimer"
         @click="acknowledgeDisclaimer"
       >
-        <v-icon left class="mr-2">mdi-check-circle</v-icon>
+        <v-icon left class="mr-2" aria-hidden="true">mdi-check-circle</v-icon>
         I Understand and Agree
       </v-btn>
     </template></BaseDialog

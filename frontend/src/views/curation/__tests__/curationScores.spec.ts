@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { storedScores } from '../curationScores'
+import { storedScores, warningText } from '../curationScores'
 
 describe('storedScores', () => {
   it('preserves arbitrary categories and historical separate caps without recalculating', () => {
@@ -39,5 +39,18 @@ describe('storedScores', () => {
       }).trace?.sections
     ).toHaveLength(2)
     expect(storedScores({ trace: [] }).trace).toBeNull()
+  })
+})
+
+describe('warningText (MUI-18)', () => {
+  it('names review flags and evidence rows for people', () => {
+    expect(warningText('review_flags.band_margin: the total of 6 points is near')).toBe(
+      'Near a class boundary: the total of 6 points is near'
+    )
+    expect(warningText('review_flags.new_flag: x')).toBe('New flag: x')
+    expect(warningText('genetic.probands[0].points = 5 is above')).toBe(
+      'Genetic › probands #1 › Points = 5 is above'
+    )
+    expect(warningText('plain text')).toBe('plain text')
   })
 })

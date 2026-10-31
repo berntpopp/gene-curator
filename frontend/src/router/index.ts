@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useScopesStore } from '@/stores/scopes'
 import { logService } from '@/services/logService'
 import { TERMINOLOGY } from '@/config/terminology'
 import { safeRedirect } from '@/utils/safeRedirect'
@@ -17,7 +18,7 @@ declare module 'vue-router' {
     navScopeRoles?: string[]
     /** Menu entry only: application roles that may see it (the route itself stays reachable). */
     navAppRoles?: string[]
-    /** Menu entry only: platform admins, or these scope roles in any scope (Setup, #284). */
+    /** Platform admins, or these scope roles in any scope (Setup, #284; guarded, MUI-06). */
     setupRoles?: string[]
     showInMainMenu?: boolean
     showInUserMenu?: boolean
@@ -316,7 +317,8 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'Schema Editor',
-      requiresAuth: true
+      requiresAuth: true,
+      setupRoles: ['admin']
     }
   },
   {
@@ -469,6 +471,15 @@ router.beforeEach(async to => {
     if (to.meta.requiredRoles) {
       const hasRequiredRole = to.meta.requiredRoles.some(role => authStore.hasRole(role))
       if (!hasRequiredRole) {
+        return { name: 'NotAuthorized', query: { redirect: to.fullPath } }
+      }
+    }
+
+    const setupRoles = to.meta.setupRoles
+    if (setupRoles && !authStore.hasRole('admin')) {
+      const scopes = useScopesStore()
+      if (!scopes.scopes.length) await scopes.fetchUserScopes().catch(() => undefined)
+      if (!scopes.scopes.some(s => setupRoles.includes(s.user_role ?? ''))) {
         return { name: 'NotAuthorized', query: { redirect: to.fullPath } }
       }
     }
