@@ -2871,10 +2871,11 @@ export interface paths {
          *         gene_id: UUID of the gene
          *
          *     Returns:
-         *         Public gene summary with only public scope data
+         *         Public gene summary with only public scope data; null when the gene has no
+         *         public curation (an empty result, so the signed-out gene page logs no 404)
          *
          *     Raises:
-         *         HTTPException: 404 if no public curations found for gene
+         *         HTTPException: 404 if the gene does not exist
          */
         get: operations["get_gene_public_summary_api_v1_genes__gene_id__summary_get"];
         put?: never;
@@ -17198,7 +17199,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GeneSummaryPublic"];
+                    "application/json": components["schemas"]["GeneSummaryPublic"] | null;
                 };
             };
             /** @description Validation Error */
