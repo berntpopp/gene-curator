@@ -5799,6 +5799,11 @@ export interface components {
             genetic_score: number;
             /** Experimental Score */
             experimental_score: number;
+            /**
+             * Association Score
+             * @description Susceptibility: the association points the bands read
+             */
+            association_score?: number | null;
             /** Breakdown */
             breakdown: {
                 [key: string]: unknown;

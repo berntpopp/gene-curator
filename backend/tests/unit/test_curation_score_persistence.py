@@ -59,6 +59,7 @@ def test_scope_list_reads_persisted_engine_scores(
         "total_score": 7,
         "genetic_score": 5,
         "experimental_score": 2,
+        "association_score": None,  # Mendelian: no association section
     }
 
 

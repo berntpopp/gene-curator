@@ -70,3 +70,41 @@ def test_list_and_get_send_the_stored_verdict(
     listed = client.get("/api/v1/curations/", headers=_h(curator_token)).json()
     [row] = [c for c in listed["curations"] if c["id"] == str(test_curation.id)]
     assert row["computed_verdict"] == detail["computed_verdict"] == "no_known"
+
+
+def _kgdb_susceptibility(db: Session, c: CurationNew) -> None:
+    """Pin the KGDB susceptibility model; 600 cases: association 3, functional 2."""
+    from tests.unit.test_kgdb_methodology import SCHEMAS
+    from tests.unit.test_point_model import _version
+
+    config = SCHEMAS["KGDB Susceptibility Curation"]["scoring_configuration"]
+    c.methodology_version_id = _version(db, c, 1, config).id
+    study = {"pmid": "12345678", "study_label": "A", "variant": "rs1"}
+    study |= {"cases_total": 600, "controls_total": 600}
+    study |= {"significant_after_correction": True}
+    functional = [{"pmid": "12345678", "assay": a} for a in "ab"]
+    c.evidence_data = {
+        **SUSCEPTIBLE,
+        "association": {"studies": [study]},
+        "experimental": {"functional": functional},
+    }
+    db.commit()
+
+
+def test_susceptibility_scores_name_the_association_points(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    susceptible: CurationNew,
+) -> None:
+    _kgdb_susceptibility(db_session, susceptible)
+    score = client.get(
+        f"/api/v1/curations/{susceptible.id}/score", headers=_h(curator_token)
+    )
+    assert score.status_code == 200, score.text
+    assert (score.json()["association_score"], score.json()["total_score"]) == (3, 5)
+    susceptible.computed_scores = {"association_total": 3, "total_score": 5}
+    db_session.commit()
+    listed = client.get("/api/v1/curations/", headers=_h(curator_token)).json()
+    [row] = [c for c in listed["curations"] if c["id"] == str(susceptible.id)]
+    assert row["computed_scores"]["association_score"] == 3

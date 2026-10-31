@@ -355,6 +355,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         "genetic_score": section_total(scores, "genetic") or 0.0,
                         "experimental_score": section_total(scores, "experimental")
                         or 0.0,
+                        "association_score": section_total(scores, "association"),
                     },
                     disease_name=disease["disease_name"],
                     relationship_type=relationship_of_key(key),
@@ -646,6 +647,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             classification=result.verdict,
             genetic_score=genetic_score,
             experimental_score=experimental_score,
+            association_score=section_total(result.scores, "association"),
             breakdown=result.evidence_breakdown,
             warnings=result.warnings,
             calculated_at=_utc_now(),

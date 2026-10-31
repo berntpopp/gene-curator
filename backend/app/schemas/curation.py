@@ -457,6 +457,9 @@ class CurationScoreResponse(BaseModel):
     classification: str
     genetic_score: float
     experimental_score: float
+    association_score: float | None = Field(
+        None, description="Susceptibility: the association points the bands read"
+    )
     breakdown: dict[str, Any]
     trace: dict[str, Any] | None = (
         None  # point model trace: sections > categories > types
