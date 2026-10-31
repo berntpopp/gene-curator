@@ -307,6 +307,18 @@ describe('api client', () => {
     }
   )
 
+  it('logs a 401 without a session to refresh as a warning, not an error (MUI-19)', async () => {
+    handler = config => fail(config, 401)
+
+    await expect(apiClient.get('/auth/me')).rejects.toMatchObject({ response: { status: 401 } })
+
+    expect(logService.error).not.toHaveBeenCalled()
+    expect(logService.warn).toHaveBeenCalledWith(
+      'API unauthorized',
+      expect.objectContaining({ url: '/auth/me', status: 401 })
+    )
+  })
+
   it('does not log a cancelled request as an API error', async () => {
     handler = config => Promise.reject(new axios.CanceledError('canceled', config))
 
