@@ -863,7 +863,8 @@
                       "label": "Unknown"
                     }
                   ],
-                  "llm_share": true
+                  "llm_share": true,
+                  "help_text": "Unknown or blank on a compound het: GC halves the row's points; do not halve them yourself"
                 },
                 "de_novo": {
                   "type": "select",
@@ -950,7 +951,7 @@
                   "min": 0,
                   "max": 3,
                   "step": 0.1,
-                  "help_text": "Sum of the allele points (SOP v12), max 3; leave blank for the default (1) or the row rules"
+                  "help_text": "Enter the full allele sum (SOP v12), max 3; GC halves a compound het with unknown phase (x0.5) and caps a consanguineous homozygote at 2. Blank: the default (1) or the row rules"
                 },
                 "explanation": {
                   "type": "textarea",
@@ -1818,7 +1819,7 @@
                   "fields": [
                     "genetic.probands"
                   ],
-                  "help_text": "Per allele (SOP v12): null 1.5, other 0.1 / 0.5 with functional support, de novo confirmed +0.5; max 3 per proband, cap 12; at most 3 points per recurrent variant and population; unknown phase halved, consanguineous homozygote at most 2"
+                  "help_text": "Per allele (SOP v12): null 1.5, other 0.1 / 0.5 with functional support, de novo confirmed +0.5; enter the full allele sum, max 3 per proband, cap 12; GC halves unknown phase (x0.5), caps a consanguineous homozygote at 2 and a recurrent variant at 3 per population"
                 },
                 {
                   "name": "Segregation",

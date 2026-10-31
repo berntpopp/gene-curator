@@ -159,3 +159,13 @@ def test_kgdb_text_and_list_limits_are_refused(name: str) -> None:
     # "diagnostics.detectability[0].sources" to the set above
     detectability = SCHEMAS[name]["field_definitions"]["diagnostics"]["properties"]
     assert detectability["detectability"]["columns"]["sources"]["max_items"] == 10
+
+
+def test_proband_help_says_enter_the_full_allele_sum() -> None:
+    """Review of #619: the engine halves unknown phase, so the agent must not halve too."""
+    schema = SCHEMAS["KGDB Mendelian Curation"]
+    points = schema["field_definitions"]["genetic"]["properties"]["probands"]["columns"]
+    tabs = schema["ui_configuration"]["layout"]["tabs"]
+    [section] = [s for t in tabs for s in t["sections"] if s.get("name") == "Probands"]
+    for text in (points["points"]["help_text"], section["help_text"]):
+        assert "full allele sum" in text and "halves" in text, text
