@@ -29,6 +29,8 @@ def _paths(evidence: dict) -> list[str]:
         ({"score": 0.2}, ["score"]),
         ({"score": 1.5, "offset": 0.75}, []),
         ({"offset": 0.5}, ["offset"]),  # the step counts from min
+        ({"score": float("nan")}, []),  # not a step question (the range check owns it)
+        ({"score": float("inf")}, []),
         (
             {"rows": [{"points": 0.3}, {"points": 1.6}, {"points": 0.15}]},
             ["rows[2].points"],

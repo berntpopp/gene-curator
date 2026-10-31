@@ -3,6 +3,7 @@ Schema validation engine for dynamic form validation and data integrity.
 Validates evidence data against schema definitions and enforces business rules.
 """
 
+import math
 import re
 from datetime import datetime
 from typing import Any
@@ -244,7 +245,7 @@ class SchemaValidator:
             msg = f"Value cannot have more than {places} decimal places"
             result.add_error(field_name, msg, "precision")
         step = config.get("step")  # counted from min, as the form's input (#615)
-        if isinstance(step, int | float) and step > 0:
+        if isinstance(step, int | float) and step > 0 and math.isfinite(num_value):
             steps = (num_value - (min_value or 0)) / step
             if abs(steps - round(steps)) > 1e-6:
                 result.add_error(field_name, f"Use a multiple of {step}", "step")
