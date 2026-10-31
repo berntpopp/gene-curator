@@ -117,10 +117,19 @@ def test_adopt_then_only_another_reviewer_approves(client: TestClient, w: W) -> 
     assert again.json()["items"][0]["action"] == "unchanged"
 
     detail = client.get(f"/api/v1/curations/{cid}", headers=_h(w.bob)).json()
-    assert (detail["status"], detail["final_classification"]) == (
-        "in_review",
-        "definitive",
-    )
+    assert (detail["status"], detail["final_classification"]) == ("in_review", None)
+    assert (detail["computed_verdict"], detail["computed_scores"]) == (None, {})
+    # #613: diagnostics still go in while it waits for review, by its curator only
+    diagnostics = {"diagnostics": {"recommended_transcript": {"refseq": "NM_138694.4"}}}
+    put = {"evidence_data": diagnostics, "merge": True}
+    cur = f"/api/v1/curations/{cid}"
+    lock = {"lock_version": detail["lock_version"]}
+    assert client.put(cur, json=put | lock, headers=_h(w.bob)).status_code == 403
+    r = client.put(cur, json=put | lock, headers=_h(w.alice))
+    assert r.status_code == 200, r.text
+    lock = {"lock_version": r.json()["lock_version"]}
+    moved = {"curator_classification": "limited"} | lock
+    assert client.put(cur, json=moved, headers=_h(w.alice)).status_code == 409
     assert detail["clingen_adoption"]["cggv_id"] == CGGV
     comments = client.get(f"/api/v1/curations/{cid}/review-comments", headers=_h(w.bob))
     assert [c["body"] for c in comments.json()] == [ADOPTION_COMMENT]
@@ -138,3 +147,10 @@ def test_adopt_then_only_another_reviewer_approves(client: TestClient, w: W) -> 
     ).json()["items"]
     roles = [c["activityType"]["name"] for c in items[0]["adoption"]["contributions"]]
     assert roles == ["interpreter", "curator", "approver"]
+    item = items[0]
+    assert (item["final_classification"], item["computed_verdict"]) == (
+        "definitive",
+        None,
+    )
+    assert [item[k] for k in ("genetic_score", "total_score", "scores")] == [None] * 3
+    assert item["evidence"]["diagnostics"] == diagnostics["diagnostics"]

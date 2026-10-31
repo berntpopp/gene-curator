@@ -22,6 +22,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    case,
     text,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -309,16 +310,29 @@ class CurationNew(Base):
     # Adopted ClinGen record, verbatim from GeneFoundry (#105, migration 079)
     clingen_adoption: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
 
+    @property
+    def proposed_classification(self) -> str | None:
+        """The curator's call, else the computed verdict; a blank call is no call, here
+        and in SQL alike (trim: spaces only)."""
+        return (self.curator_classification or "").strip(" ") or self.computed_verdict
+
     @hybrid_property
     def final_classification(self) -> str | None:
-        # a blank curator call is no call, here and in SQL alike (trim: spaces only)
-        return (self.curator_classification or "").strip(" ") or self.computed_verdict
+        # #613: what approval published; none before approval
+        return self.proposed_classification if self.approved_at else None
 
     @final_classification.inplace.expression
     @classmethod
     def _final_classification_expression(cls) -> ColumnElement[str | None]:
-        return func.coalesce(
-            func.nullif(func.trim(cls.curator_classification), ""), cls.computed_verdict
+        return case(
+            (
+                cls.approved_at.isnot(None),
+                func.coalesce(
+                    func.nullif(func.trim(cls.curator_classification), ""),
+                    cls.computed_verdict,
+                ),
+            ),
+            else_=None,
         )
 
     # Auto-save functionality (nullable)

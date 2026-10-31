@@ -360,7 +360,7 @@
         status: c.status,
         workflow_stage: c.workflow_stage,
         total_score: Number(c.computed_scores?.total_score) || 0,
-        classification: c.final_classification ?? c.computed_verdict,
+        classification: c.final_classification ?? c.curator_classification ?? c.computed_verdict,
         updated_at: c.updated_at,
         created_at: c.created_at,
         created_by: c.created_by

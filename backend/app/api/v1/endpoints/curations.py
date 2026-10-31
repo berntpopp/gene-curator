@@ -33,9 +33,9 @@ from app.crud.curation import (
     EntityRequiredError,
     OpenCurationExistsError,
     curation_crud,
-    merge_patch,
 )
 from app.crud.curator_classification import classification_choices
+from app.crud.merge_patch import merge_patch
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
@@ -77,6 +77,7 @@ from app.schemas.curation import (
 )
 from app.schemas.scope import SCOPE_NAME
 from app.scoring.point_limits import enforce_clingen_point_ranges, scoring_configuration
+from app.services.clingen_adoption import adopted_edit_allowed
 from app.services.curation_access import (
     _can_user_delete_curation,
     _can_user_edit_curation,
@@ -434,7 +435,10 @@ def update_curation(
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 
-    if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
+    if curation.status not in [
+        CurationStatus.DRAFT,
+        CurationStatus.REJECTED,
+    ] and not adopted_edit_allowed(curation, curation_in):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only draft or rejected curations can be edited",

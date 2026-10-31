@@ -40,9 +40,10 @@ def _curation(
     cid = uuid4()
     cur.execute(
         "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
-        "workflow_stage, computed_verdict) "
-        "VALUES (%s, %s, %s, %s, %s::curation_status, %s::workflow_stage, %s)",
-        (str(cid), str(gene), str(scope), str(w.pair), status, stage, verdict),
+        "workflow_stage, computed_verdict, approved_at) "
+        "VALUES (%s, %s, %s, %s, %s::curation_status, %s::workflow_stage, %s, "
+        "CASE WHEN %s::text = 'active' THEN now() END)",  # approved once active (#613)
+        (str(cid), str(gene), str(scope), str(w.pair), status, stage, verdict, status),
     )
     if status == "active":
         cur.execute(

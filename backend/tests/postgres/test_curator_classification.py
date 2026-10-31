@@ -142,7 +142,11 @@ def test_final_classification_is_proposed_approved_and_published(
     computed = read["computed_verdict"]
     final = override.lower() if override else computed  # stored as its key
     assert final  # the empty evidence still classifies
-    assert read["final_classification"] == final
+    # #613: the reviewer sees the proposal; the final class only exists once approved
+    assert (read["curator_classification"], read["final_classification"]) == (
+        override.lower() if override else None,
+        None,
+    )
     assert read["curator_classification_rationale"] == (
         "Replicated over time" if override else None
     )
@@ -155,6 +159,8 @@ def test_final_classification_is_proposed_approved_and_published(
         headers=_h(w.bob),
     )
     assert r.status_code == 200, r.text
+    approved = client.get(url, headers=_h(w.bob)).json()
+    assert approved["final_classification"] == final
 
     cat = client.get(
         "/api/v1/gene-catalogue/",

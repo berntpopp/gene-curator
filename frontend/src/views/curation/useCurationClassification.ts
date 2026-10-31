@@ -4,6 +4,7 @@ import { storedScores } from './curationScores'
 export interface ScoredCuration {
   computed_scores?: unknown
   computed_verdict?: string | null
+  curator_classification?: string | null
   final_classification?: string | null
   curator_classification_rationale?: string | null
 }
@@ -12,7 +13,12 @@ const labelOf = (v: string | null | undefined) => (v ? getClassification(v).labe
 export function useCurationClassification(curation: () => ScoredCuration | null | undefined) {
   const scores = computed(() => storedScores(curation()?.computed_scores))
   const classification = computed(() => labelOf(curation()?.computed_verdict))
-  const final = computed(() => labelOf(curation()?.final_classification) || classification.value)
+  // before approval (#613) the curator's proposal stands in for the final class
+  const final = computed(
+    () =>
+      labelOf(curation()?.final_classification ?? curation()?.curator_classification) ||
+      classification.value
+  )
   const rationale = computed(() => curation()?.curator_classification_rationale ?? '')
   return { scores, classification, final, rationale }
 }

@@ -8,7 +8,7 @@ from pytest import MonkeyPatch
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.crud.curation import merge_patch
+from app.crud.merge_patch import merge_patch
 from app.models import CurationNew, PrecurationNew
 from app.models.models import Publication
 from app.schemas.validation import PMIDValidationResult, PublicationData

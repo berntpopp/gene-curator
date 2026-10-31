@@ -32,4 +32,13 @@ describe('useCurationClassification', () => {
     const plain = useCurationClassification(() => ({ computed_verdict: 'moderate' }))
     expect([plain.final.value, plain.rationale.value]).toEqual(['Moderate', ''])
   })
+
+  it("shows the curator's proposal until approval sets the final class (#613)", () => {
+    const pending = useCurationClassification(() => ({
+      computed_verdict: null,
+      curator_classification: 'definitive',
+      final_classification: null
+    }))
+    expect([pending.classification.value, pending.final.value]).toEqual(['', 'Definitive'])
+  })
 })

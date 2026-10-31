@@ -4925,7 +4925,7 @@ export interface components {
             curator_classification_rationale?: string | null;
             /**
              * Final Classification
-             * @description curator_classification if set, else computed_verdict
+             * @description Once approved: curator_classification if set, else computed_verdict; null before approval
              */
             final_classification?: string | null;
             /**
@@ -5105,7 +5105,7 @@ export interface components {
             curator_classification_rationale?: string | null;
             /**
              * Final Classification
-             * @description curator_classification if set, else computed_verdict
+             * @description Once approved: curator_classification if set, else computed_verdict; null before approval
              */
             final_classification?: string | null;
             /**
@@ -5286,7 +5286,7 @@ export interface components {
             curator_classification_rationale?: string | null;
             /**
              * Final Classification
-             * @description curator_classification if set, else computed_verdict
+             * @description Once approved: curator_classification if set, else computed_verdict; null before approval
              */
             final_classification?: string | null;
             /**
@@ -5870,6 +5870,8 @@ export interface components {
             workflow_stage: components["schemas"]["WorkflowStage"];
             /** Computed Verdict */
             computed_verdict: string | null;
+            /** Curator Classification */
+            curator_classification?: string | null;
             /** Final Classification */
             final_classification?: string | null;
             /** Clingen Adoption */

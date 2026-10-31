@@ -132,7 +132,9 @@ class CurationInDBBase(CurationBase):
     curator_classification: str | None = None
     curator_classification_rationale: str | None = None
     final_classification: str | None = Field(
-        None, description="curator_classification if set, else computed_verdict"
+        None,
+        description="Once approved: curator_classification if set, else "
+        "computed_verdict; null before approval",
     )
     clingen_adoption: dict[str, Any] | None = Field(
         None, description="ClinGen record this curation adopted (#105), else null"
@@ -394,6 +396,7 @@ class CurationSummary(BaseModel):
     status: CurationStatus
     workflow_stage: WorkflowStage
     computed_verdict: str | None
+    curator_classification: str | None = None  # proposed, until approval makes it final
     final_classification: str | None = None
     clingen_adoption: dict[str, Any] | None = None  # adopted ClinGen record (#105)
     computed_scores: dict[str, Any] | None = None

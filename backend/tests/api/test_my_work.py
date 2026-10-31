@@ -27,6 +27,7 @@ def _cur(scope, gene, pair, creator, status, stage="curation") -> CurationNew:
     return CurationNew(
         id=uuid4(), scope_id=scope.id, gene_id=gene.id, workflow_pair_id=pair.id,
         workflow_stage=stage, status=status, evidence_data={}, created_by=creator.id,
+        approved_at=datetime.now(UTC) if status == "active" else None,  # #613
     )  # fmt: skip
 
 

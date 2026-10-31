@@ -105,7 +105,10 @@ harmless).
   activityType: {name, primaryCoding: {system: SEPIO, code}}, date}]` (the ClinGen expert panel
   as organization `interpreter` SEPIO:0000331, the adopting curator as person `curator`
   SEPIO:0000156, the approving reviewer as person `approver` SEPIO:0000155) and `extensions`
-  with the record's `retrieved_at` and `record_sha256`.
+  with the record's `retrieved_at` and `record_sha256`. An adoption is not scored here: `computed_verdict`,
+  the scores and `scores` are `null` and `final_classification` is ClinGen's class (#613). An
+  AI agent that adopted it over MCP appears in the top-level `contributions` as software
+  `curator` on behalf of the curator.
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
   `"Curation deleted"`; `null` on active rows.
 

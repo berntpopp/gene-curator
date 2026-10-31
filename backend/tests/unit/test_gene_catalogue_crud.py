@@ -47,6 +47,7 @@ def _curation(
         workflow_pair_id=pair.id,
         workflow_stage="curation",
         status="active" if active else "draft",  # one open curation per entity
+        approved_at=datetime.now(UTC) if active else None,  # #613
         evidence_data=evidence or {},
         computed_verdict=verdict,
         computed_scores=scores or {},

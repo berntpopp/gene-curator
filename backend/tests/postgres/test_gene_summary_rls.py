@@ -110,8 +110,9 @@ def world() -> Generator[World, None, None]:
         ):
             cur.execute(
                 "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
-                "workflow_stage, computed_verdict, created_by, evidence_data) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "workflow_stage, computed_verdict, created_by, evidence_data, "
+                "approved_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, "
+                "CASE WHEN %s::text = 'active' THEN now() END)",  # #613
                 (
                     str(cid),
                     str(w.gene),
@@ -122,6 +123,7 @@ def world() -> Generator[World, None, None]:
                     verdict,
                     str(w.bob),
                     json.dumps({"n": str(cid)}),
+                    status,
                 ),
             )
         for cid, sid in ((w.active_b, w.scope_b), (w.active_pub, w.scope_pub)):
