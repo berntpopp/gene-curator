@@ -105,7 +105,7 @@
 
             <!-- Validation Errors (shown for both layouts) -->
             <v-alert
-              v-if="validationResult && !validationResult.is_valid"
+              v-if="submitAttempted && validationResult && !validationResult.is_valid"
               type="error"
               variant="tonal"
               class="mt-4"
@@ -304,6 +304,8 @@
   // saved record loads (monkey B13); validity is still reported to the parent from the start
   const touched = ref(Object.keys(props.initialData ?? {}).length > 0)
   const validationResult = computed(() => (touched.value ? storedValidation.value : undefined))
+  // The error summary is for a submit; while drafting, the fields show their own errors (R2-8)
+  const submitAttempted = ref(false)
   const shownBackendErrors = computed(() => (touched.value ? backendErrors.value : {}))
 
   const {
@@ -501,7 +503,7 @@
 
   const handleSubmit = async () => {
     submitting.value = true
-    touched.value = true
+    touched.value = submitAttempted.value = true
     try {
       // Validate using v-form ref (VALD-06)
       const { valid } = await formRef.value!.validate()

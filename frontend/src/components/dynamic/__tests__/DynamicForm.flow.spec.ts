@@ -146,8 +146,25 @@ describe('DynamicForm flow', () => {
 
     fieldStub(wrapper, 'age').vm.$emit('update:model-value', 3)
     await flushPromises()
-    expect(wrapper.text()).toContain('Form Validation Errors')
     expect(fieldStub(wrapper, 'name').props('validationResult')).toMatchObject({ is_valid: false })
+  })
+
+  it('lists the form errors in a box only after a submit, not while drafting (monkey R2-8)', async () => {
+    const invalid = {
+      is_valid: false,
+      errors: [{ field: 'name', message: 'Required field is missing' }],
+      field_validations: { name: { errors: [{ message: 'Required field is missing' }] } }
+    }
+    store.result = invalid
+    store.validateEvidence.mockResolvedValue(invalid)
+    const wrapper = mountForm()
+    await flushPromises()
+    await buttonWithText(wrapper, 'Save').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Form Validation Errors')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Form Validation Errors')
   })
 
   it('renders one field per property of a flat schema', () => {
@@ -468,7 +485,7 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
     expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('typed')
   })
 
-  it('labels error paths with the schema title, not the raw path', () => {
+  it('labels error paths with the schema title, not the raw path', async () => {
     store.schema = {
       properties: {
         entity_definition: {
@@ -489,6 +506,7 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
       ]
     }
     const wrapper = mountForm()
+    await wrapper.find('form').trigger('submit') // the error box lists errors after a submit
 
     expect(wrapper.findComponent({ name: 'ValidationWarnings' }).props('messages')).toEqual([
       'Disease name: Short'
