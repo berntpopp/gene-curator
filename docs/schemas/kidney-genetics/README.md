@@ -22,7 +22,8 @@ the entity key (`MONDO|MOI|SUSCEPTIBILITY`).
 ## Import
 
 Platform admins only. The import is idempotent: the same file again changes nothing; changed
-content publishes the next methodology version, and existing curations keep theirs. Every
+content publishes the next methodology version, and existing curations keep theirs. A changed
+schema `description` is written without a new version. Every
 schema runs the publish gate, including the scoring tests embedded below.
 
 - **UI:** Schema Management, *Import methodology*, with a dry run first.
@@ -78,11 +79,14 @@ disease + one named risk allele, haplotype or genotype; studies of different all
 | `association.studies` | significant study of the named allele, OR and 95% CI oriented to it | 1; 2 if >= 50 cases and >= 50 controls; 3 if >= 500 and >= 500 or `design` `meta_analysis` | 9 |
 | `experimental.functional` | assay, expression/eQTL or model supporting the allele | 1 | 2 |
 
-Total 11. A study row scores 0 when `significant_after_correction` is false or blank, `p_value`
-is blank, `included_in` names a meta-analysis row (so a cohort is not counted twice), or
+Total 11. A study row scores 0 when `significant_after_correction` is false or blank,
+`included_in` names a meta-analysis row (so a cohort is not counted twice), or
 `effect_direction` is `protective` (protective alleles are recorded, not scored). Effect size is
-recorded, not scored; an OR < 1 for the curated risk allele is contradictory evidence. The
-curator may enter fewer points for bias or poor ancestry matching.
+recorded, not scored (`p_value` is stored only; a blank one does not change the points); an OR
+< 1 for the curated risk allele is contradictory evidence. The size tier is only the default: the
+form accepts any entered value from 0 to 3 (e.g. fewer for bias or poor ancestry matching), and
+an entered value stands. The reviewer must check, in the score trace, any entered value above the
+row's size tier.
 
 Bands use the association section only, so functional data never move the class: Established
 >= 6 and `meets_very_strong` (ClinGen Very Strong: > 1000 individuals, extensive replication,
@@ -105,7 +109,18 @@ Embedded `scoring_configuration.tests` (run at every publish and import):
 | Compound het without a phase | 1 | limited |
 | Proband without zygosity (AF cutoff) | 1 | limited |
 | Row rules (de novo, zero rules, AF caps, models 1) | 4.5 | limited |
-| Susceptibility: established, likely, uncertain, refuted, meta-analysis double count, protective excluded, functional only | 6, 5, 1, 6, 3, 0, 2 | established, likely, uncertain, refuted, uncertain x3 |
+| Susceptibility: established (two 600/700 studies, Very Strong) | 6 | established |
+| Susceptibility: likely (600/700 + 120/150, not Very Strong) | 5 | likely |
+| Susceptibility: small study; not significant after correction, or blank, scores 0 | 1 | uncertain |
+| Susceptibility: refuted overrides an established score | 6 | refuted |
+| Susceptibility: meta-analysis, its included cohorts not counted again | 3 | uncertain |
+| Susceptibility: protective study recorded, not scored | 0 | uncertain |
+| Susceptibility: functional only | 2 | uncertain |
+| Susceptibility: three 600/700 studies, not Very Strong | 9 | likely |
+| Susceptibility: one 600/700 study + two functional rows (`section_min`) | 5 | uncertain |
+| Susceptibility: disputed overrides an established score | 6 | uncertain |
+| Susceptibility: blank p value, significant after correction, scores by size | 2 | uncertain |
+| Susceptibility: Very Strong, 5 association + 2 functional (`section_min`) | 7 | likely |
 
 ## LLM sharing
 

@@ -38,7 +38,7 @@ def test_schema_publishes_with_its_scoring_tests(name: str) -> None:
 
 @pytest.mark.parametrize(
     ("name", "tests"),
-    [("KGDB Mendelian Curation", 8), ("KGDB Susceptibility Curation", 7)],
+    [("KGDB Mendelian Curation", 8), ("KGDB Susceptibility Curation", 12)],
 )
 def test_embedded_tests_score_as_expected(name: str, tests: int) -> None:
     config = SCHEMAS[name]["scoring_configuration"]

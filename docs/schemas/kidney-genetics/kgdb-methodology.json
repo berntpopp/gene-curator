@@ -3124,11 +3124,6 @@
                           "points": 0
                         },
                         {
-                          "field": "p_value",
-                          "present": false,
-                          "points": 0
-                        },
-                        {
                           "field": "included_in",
                           "present": true,
                           "points": 0
@@ -3336,7 +3331,7 @@
             }
           },
           {
-            "name": "Uncertain: a small significant study; one not significant after correction scores 0",
+            "name": "Uncertain: a small significant study; not significant after correction, or blank, scores 0",
             "evidence_data": {
               "association": {
                 "studies": [
@@ -3356,6 +3351,15 @@
                     "variant": "rs4844573",
                     "p_value": 0.01,
                     "significant_after_correction": false,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  },
+                  {
+                    "pmid": "31000091",
+                    "study_label": "Cohort H",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
                     "effect_direction": "risk",
                     "cases_total": 600,
                     "controls_total": 700
@@ -3498,6 +3502,194 @@
             "expect": {
               "total": 2,
               "class": "uncertain"
+            }
+          },
+          {
+            "name": "Likely: 9 association points without ClinGen Very Strong",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  },
+                  {
+                    "pmid": "31000081",
+                    "study_label": "Cohort B",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  },
+                  {
+                    "pmid": "31000089",
+                    "study_label": "Cohort F",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 9,
+              "class": "likely"
+            }
+          },
+          {
+            "name": "Uncertain: functional points do not lift association to a band (section_min)",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  }
+                ]
+              },
+              "experimental": {
+                "functional": [
+                  {
+                    "pmid": "31000083",
+                    "assay": "complement assay"
+                  },
+                  {
+                    "pmid": "31000088",
+                    "assay": "eQTL"
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 5,
+              "class": "uncertain"
+            }
+          },
+          {
+            "name": "Uncertain: disputed evidence overrides an established score",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  },
+                  {
+                    "pmid": "31000081",
+                    "study_label": "Cohort B",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  }
+                ]
+              },
+              "meets_very_strong": true,
+              "contradictory_evidence": [
+                {
+                  "pmid": "31000086",
+                  "impact": "disputed",
+                  "description": "Large cohort with the OR oriented against the allele"
+                }
+              ]
+            },
+            "expect": {
+              "total": 6,
+              "class": "uncertain"
+            }
+          },
+          {
+            "name": "Blank p value: a study significant after correction scores by size",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000090",
+                    "study_label": "Cohort G",
+                    "variant": "rs4844573",
+                    "p_value": null,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 120,
+                    "controls_total": 150
+                  }
+                ]
+              }
+            },
+            "expect": {
+              "total": 2,
+              "class": "uncertain"
+            }
+          },
+          {
+            "name": "Likely: Very Strong, but functional points do not complete Established (section_min)",
+            "evidence_data": {
+              "association": {
+                "studies": [
+                  {
+                    "pmid": "31000080",
+                    "study_label": "Cohort A",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 600,
+                    "controls_total": 700
+                  },
+                  {
+                    "pmid": "31000081",
+                    "study_label": "Cohort B",
+                    "variant": "rs4844573",
+                    "p_value": 1e-09,
+                    "significant_after_correction": true,
+                    "effect_direction": "risk",
+                    "cases_total": 120,
+                    "controls_total": 150
+                  }
+                ]
+              },
+              "experimental": {
+                "functional": [
+                  {
+                    "pmid": "31000083",
+                    "assay": "complement assay"
+                  },
+                  {
+                    "pmid": "31000088",
+                    "assay": "eQTL"
+                  }
+                ]
+              },
+              "meets_very_strong": true
+            },
+            "expect": {
+              "total": 7,
+              "class": "likely"
             }
           }
         ]
