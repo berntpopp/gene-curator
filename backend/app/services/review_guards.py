@@ -167,7 +167,8 @@ def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> Non
                 "has been made. Please select LUMP, SPLIT, or NOT_APPLICABLE "
                 "before submitting."
             )
-        if decision not in LS_DECISIONS:
+        # Bundles name their own option case (KGDB: lump/split, #610)
+        if str(decision).upper() not in LS_DECISIONS:
             raise ValueError(
                 f"Invalid lumping/splitting decision '{decision}'. "
                 f"Must be one of: {', '.join(LS_DECISIONS)}."
