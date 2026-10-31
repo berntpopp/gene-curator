@@ -30,6 +30,7 @@ from app.crud.precuration_entity import entity_key_of
 from app.crud.review_round import reassign_earlier_reviewers
 from app.mcp.audit import request_agent
 from app.models import (
+    AuditLogNew,
     CurationNew,
     CurationStatus,
     Gene,
@@ -50,6 +51,7 @@ from app.schemas.clingen_adoption import (
 from app.schemas.curation import CurationUpdate, class_key
 from app.schemas.provenance import Agent, Contribution, contribution
 from app.scoring.point_limits import scoring_configuration
+from app.services.evidence_diff import NEW_REVIEW_ROUND
 from app.services.export_provenance import _software
 
 logger = get_logger(__name__)
@@ -269,6 +271,19 @@ def restart_review_round(db: Session, curation: CurationNew, user_id: UUID) -> N
     """After an edit in review, as on resubmit: approvals of the old content no longer
     count and each earlier reviewer is asked again (a round starts at submitted_at)."""
     curation.submitted_at = datetime.now(UTC)
+    db.add(  # the new round is a submission: diff baseline=previous_submission (KGDB e2e)
+        AuditLogNew(
+            entity_type="curations",
+            entity_id=curation.id,
+            scope_id=curation.scope_id,
+            operation="UPDATE",
+            change_type=NEW_REVIEW_ROUND,
+            user_id=user_id,
+            previous_status=curation.status.value,
+            new_status=curation.status.value,
+            changes={"evidence_data": curation.evidence_data},
+        )
+    )
     db.flush()
     gene = db.get(Gene, curation.gene_id)
     for reviewer_id in reassign_earlier_reviewers(db, curation, user_id):

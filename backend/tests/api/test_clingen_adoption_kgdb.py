@@ -344,3 +344,22 @@ def test_a_failed_new_review_round_rolls_the_edit_back(
     c = db_session.get(CurationNew, cid)
     assert c is not None
     assert (c.lock_version, c.evidence_data, c.submitted_at) == before
+
+
+def test_can_edit_matches_what_update_curation_allows_in_review(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_scope: Scope,
+    row: dict,
+) -> None:
+    """KGDB e2e: an adoption in review takes diagnostics, so its creator may edit it."""
+    cid = _adopt(client, curator_token, row)
+    detail = client.get(f"/api/v1/curations/{cid}", headers=_h(curator_token)).json()
+    assert detail["can_edit"] is True
+    other = _member(db_session, test_scope, "curator", "Other Curator")
+    token = create_access_token(data={"sub": str(other.id)})
+    assert (
+        client.get(f"/api/v1/curations/{cid}", headers=_h(token)).json()["can_edit"]
+        is False
+    )

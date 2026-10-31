@@ -78,7 +78,11 @@ def _can_user_edit_curation(
 ) -> bool:
     """Same rule as save-draft and submit: the creator (curator or scope admin), a scope
     admin of its scope or a platform admin."""
-    if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
+    # an adoption in review still takes diagnostics (update_curation, #613)
+    adopted = curation.clingen_adoption and curation.status == CurationStatus.IN_REVIEW
+    if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED] and not (
+        adopted
+    ):
         return False
     if not curation.scope.is_active:
         return False
