@@ -109,7 +109,13 @@ def submit_reviewer(
                 "Several reviewers can review this; name one with reviewer_email: "
                 + ", ".join(sorted(row.email for row in others))
             )
-        return others[0].id if others else None
+        if not others:  # reviewers cannot self-assign: unrouted, it would be stuck
+            raise WorkflowConflictError(
+                "There is no eligible reviewer in this scope: everyone who may review "
+                "has written, submitted or corrected this item; invite another reviewer"
+            )
+        picked: UUID = others[0].id
+        return picked
     if not data.reviewer_email:
         return None
     found: UUID | None = db.scalar(
