@@ -36,8 +36,8 @@ _CLAIM = re.compile(
 
 
 def _texts(node: Any, path: str = "", row: bool = False) -> Iterator[tuple[str, str]]:
-    """(path, text) of every free-text string in a scoring row (one with a pmid field)
-    under ``node``; notes, source citations and diagnostics cite papers by design (#612)."""
+    """(path, text) of every free-text string in an evidence row under ``node``; notes,
+    source citations and diagnostics cite papers by design (#612)."""
     if isinstance(node, dict):
         for key, value in node.items():
             sub = f"{path}.{key}" if path else str(key)
@@ -48,7 +48,11 @@ def _texts(node: Any, path: str = "", row: bool = False) -> Iterator[tuple[str, 
                 yield from _texts(value, sub)
     elif isinstance(node, list):
         for i, value in enumerate(node):
-            scoring = isinstance(value, dict) and "pmid" in value
+            scoring = (
+                isinstance(value, dict)
+                and "kind" not in value  # a source object
+                and not path.startswith("diagnostics")
+            )
             yield from _texts(value, f"{path}[{i}]", scoring)
 
 
