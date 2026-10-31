@@ -49,7 +49,8 @@ vi.mock('@/api/auth', () => ({ authApi: { changePassword: vi.fn() } }))
 vi.mock('@/services/scopeService', () => ({
   scopeService: {
     fetchScopes: vi.fn(async () => [{ id: 's1', name: 'kidney-genetics' }]),
-    fetchMembers: vi.fn(async () => [{ user_id: 'u1', role: 'curator' }])
+    fetchMembers: vi.fn(async () => [{ user_id: 'u1', role: 'curator' }]),
+    inviteMember: vi.fn(async () => ({}))
   }
 }))
 
@@ -323,6 +324,50 @@ describe('UserManagement', () => {
       expect.objectContaining({ email: 'bob@example.org' })
     )
     expect(showSnackbar).toHaveBeenCalledWith('User created successfully', 'success')
+  })
+
+  it('adds a new user to a first scope, and keeps the account when that grant fails', async () => {
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    const vm = vmOf(wrapper)
+    const form = {
+      name: 'Bob',
+      email: 'bob@example.org',
+      role: 'user',
+      password: 'longpassword',
+      is_active: true
+    }
+    call(vm, 'openCreateUserDialog')
+    vm.userFormData = { ...form }
+    users.createUser.mockResolvedValueOnce({ id: 'new1' })
+    vm.firstScopeId = 's1'
+    vm.firstRole = 'reviewer'
+    await flushPromises()
+    await call(vm, 'saveUser')
+    expect(scopeService.inviteMember).toHaveBeenCalledWith(
+      's1',
+      { user_id: 'new1', role: 'reviewer' },
+      true
+    )
+    expect(showSnackbar).toHaveBeenCalledWith(
+      'User created and added to kidney-genetics as reviewer',
+      'success'
+    )
+
+    call(vm, 'openCreateUserDialog')
+    expect(vm.firstScopeId).toBeNull()
+    vm.userFormData = { ...form }
+    users.createUser.mockResolvedValueOnce({ id: 'new2' })
+    vi.mocked(scopeService.inviteMember).mockRejectedValueOnce({
+      response: { data: { detail: 'Scope is archived' } }
+    })
+    vm.firstScopeId = 's1'
+    await flushPromises()
+    await call(vm, 'saveUser')
+    expect(showSnackbar).toHaveBeenLastCalledWith(
+      'User created, but not added to kidney-genetics: Scope is archived',
+      'warning'
+    )
   })
 
   it('opens the details dialog and loads the user activity', async () => {

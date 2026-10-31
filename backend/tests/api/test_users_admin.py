@@ -86,3 +86,18 @@ def test_non_uuid_user_id_is_422(
         method, f"{URL}{path}", headers=auth_headers(test_user_admin), **body
     )
     assert r.status_code == 422
+
+
+def test_user_list_and_search_page_in_a_stable_name_order(
+    client: TestClient, db_session: Session, test_user_admin: UserNew
+) -> None:
+    """Pages never repeat or skip a user between loads (monkey B19)."""
+    for name in ("Zed Order", "Amy Order", "Max Order"):
+        make_user(db_session, name=name)
+    headers = auth_headers(test_user_admin)
+    names = [u["name"] for u in client.get(f"{URL}/", headers=headers).json()]
+    assert names == sorted(names, key=str.lower)
+    found = client.get(f"{URL}/search?q=Order", headers=headers).json()
+    assert [u["name"] for u in found] == ["Amy Order", "Max Order", "Zed Order"]
+    page = client.get(f"{URL}/?skip=1&limit=1", headers=headers).json()
+    assert [u["name"] for u in page] == [names[1]]

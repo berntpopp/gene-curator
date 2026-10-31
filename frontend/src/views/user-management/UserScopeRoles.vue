@@ -1,11 +1,12 @@
 <template>
   <div data-testid="scope-roles">
+    <v-divider class="mb-4" />
     <div class="text-title-small mb-1">Scope roles</div>
     <p class="text-body-small text-medium-emphasis mb-3">
       {{
         disabled
           ? 'You cannot change your own scope roles.'
-          : 'Takes effect immediately; no invitation to accept.'
+          : 'Each change here saves at once, with no invitation to accept. Update and Cancel apply to the fields above.'
       }}
     </p>
     <div v-for="r in roles" :key="r.scope_id" class="d-flex align-center ga-2 mb-2">
@@ -34,7 +35,7 @@
         :aria-label="`Remove from ${r.scope_name}`"
         :disabled="disabled || busy"
         :data-testid="`remove-${r.scope_id}`"
-        @click="run(() => scopes.removeMember(r.scope_id, userId), `Removed from ${r.scope_name}`)"
+        @click="remove(r)"
       />
     </div>
     <div class="d-flex align-center ga-2">
@@ -42,7 +43,7 @@
         v-model="scopeId"
         :items="freeScopes"
         item-value="id"
-        item-title="name"
+        :item-title="scopeTitle"
         label="Add to scope"
         :disabled="disabled || busy"
         density="compact"
@@ -83,6 +84,7 @@
   import { useScopesStore, type ScopeRecord, type ScopeRole } from '@/stores/scopes'
   import { showSnackbar } from '@/composables/useNotifications'
   import { readableApiError } from '@/utils/apiErrorText'
+  import { useConfirm } from '@/composables/useConfirm'
   import type { UserScopeRole } from './useUserScopeRoles'
 
   const props = defineProps<{
@@ -118,12 +120,27 @@
     }
   }
 
+  const scopeTitle = (s: ScopeRecord) => s.display_name || s.name
+  const { confirm } = useConfirm()
+
+  // Removing takes the user's rights in that scope away at once, so it asks first
+  async function remove(r: UserScopeRole) {
+    const ok = await confirm({
+      title: `Remove from ${r.scope_name}?`,
+      text: `They lose their ${r.role} rights in ${r.scope_name} now. You can add them again later.`,
+      confirmText: 'Remove',
+      destructive: true
+    })
+    if (ok)
+      await run(() => scopes.removeMember(r.scope_id, props.userId), `Removed from ${r.scope_name}`)
+  }
+
   async function grant() {
     const scope = props.allScopes.find(s => s.id === scopeId.value)
     if (!scope) return
     const ok = await run(
       () => scopes.inviteMember(scope.id, { user_id: props.userId, role: role.value }, true),
-      `Added to ${scope.name} as ${role.value}`
+      `Added to ${scopeTitle(scope)} as ${role.value}`
     )
     if (ok) scopeId.value = null
   }

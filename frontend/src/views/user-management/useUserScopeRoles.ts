@@ -21,7 +21,11 @@ export function useUserScopeRoles() {
     const map: Record<string, UserScopeRole[]> = {}
     scopes.value.forEach((s, i) => {
       for (const m of lists[i] ?? []) {
-        ;(map[m.user_id] ??= []).push({ scope_id: s.id, scope_name: s.name, role: m.role })
+        ;(map[m.user_id] ??= []).push({
+          scope_id: s.id,
+          scope_name: s.display_name || s.name,
+          role: m.role
+        })
       }
     })
     rolesByUser.value = map
