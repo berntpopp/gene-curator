@@ -139,3 +139,12 @@ def test_valid_kgdb_diagnostics_still_pass() -> None:
         "diagnostics_notes": {"detectability_note": "short-read testing adequate"},
     }
     assert evidence_errors(evidence, definition) == []
+
+
+def test_an_integer_pmid_in_a_text_column_is_accepted() -> None:
+    definition = {
+        "field_definitions": {
+            "rows": {"type": "evidence_table", "columns": {"pmid": {"type": "text"}}}
+        }
+    }
+    assert evidence_errors({"rows": [{"pmid": 31558469}]}, definition) == []

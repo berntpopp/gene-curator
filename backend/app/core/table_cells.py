@@ -13,6 +13,7 @@ from app.crud.precuration_required import visible_when
 from app.scoring.evidence_items import has_content
 
 Check = Callable[..., None]  # (path, value, config, result)
+_TEXT = ("text", "string", "textarea")
 _WHOLE = re.compile(r"\s*[+-]?\d+(\.0*)?\s*")
 
 
@@ -43,7 +44,12 @@ def cell_errors(
             elif kind == "date" and not _calendar_date(value):
                 res.add_error(at, "Use a date: YYYY-MM-DD", "format")
             elif kind in checks:
-                checks[kind](at, value, col, res)
+                checks[kind](at, _as_text(kind, value), col, res)
+
+
+def _as_text(kind: Any, value: Any) -> Any:
+    """A PMID typed as a number in a text column is its digits (KGDB QA)."""
+    return str(value) if kind in _TEXT and type(value) is int else value
 
 
 def _calendar_date(value: Any) -> bool:
