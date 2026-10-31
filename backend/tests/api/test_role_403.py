@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import _denied
 from app.core.security import create_access_token
 from app.models import CurationSchema, Gene, PrecurationNew, Scope, UserNew
 
@@ -78,3 +79,10 @@ def test_detail_names_the_role(
         "Your scope role curator cannot do curation.review; it needs the admin or "
         "reviewer role"
     )
+
+
+def test_a_capability_no_role_holds_names_no_role(
+    db_session: Session, test_scope: Scope, test_user_curator: UserNew
+) -> None:
+    detail = _denied(db_session, test_user_curator.id, test_scope.id, "platform.manage")
+    assert detail == "Not authorized to access this scope"

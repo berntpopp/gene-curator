@@ -145,9 +145,9 @@ def _denied(db: Session, user_id: UUID, scope_id: UUID, capability: str) -> str:
             ScopeMembership.accepted_at.isnot(None),
         )
     )
-    if role is None:
-        return "Not authorized to access this scope"
     needed = " or ".join(sorted(str(r) for r in db.scalars(roles_holding(capability))))
+    if role is None or not needed:  # no scope role holds it: nothing to name
+        return "Not authorized to access this scope"
     return f"Your scope role {role} cannot do {capability}; it needs the {needed} role"
 
 
