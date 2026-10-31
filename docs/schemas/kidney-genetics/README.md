@@ -56,6 +56,8 @@ schema runs the publish gate, including the scoring tests embedded below.
 - **MCP:** `import_methodology` on `/mcp/full` (not on core `/mcp`).
 
 `scope_default` makes `KGDB Mendelian` the default pair of the seeded `kidney-genetics` scope.
+That is the scope's default (`scopes.default_workflow_pair_id`); `get_workflow_pairs` shows
+`is_default: false` for it, because `is_default` marks the platform-wide default pair.
 Remove it from the file to import without touching a scope.
 
 ## Scoring
@@ -89,7 +91,8 @@ population]`); the same variant in another population is its own group, and rows
 population form one group per variant. Rows are grouped by the text after trimming and case
 folding only, so write a recurrent variant identically on every row: `c.100C>T` and
 `NM_006580.4:c.100C>T` are two variants (not HGVS-normalised). `af_checked` is recorded. Cohort, model and functional rows also
-score 0 without an `evidence_quote`; segregation rows carry one but the step rule does not
+score 0 without an `evidence_quote` (the save warns `...evidence_quote: missing, so this row scores
+0`); segregation rows carry one but the step rule does not
 check it. A row without a PMID scores nothing. A functional row's `subtype` sets its default
 and its maximum (function 0.5, non-patient cells 0.5, patient cells 1, rescue 2; `max` rules);
 function rows (biochemical, interaction, expression) score at most 2 together and functional

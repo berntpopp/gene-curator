@@ -1,19 +1,30 @@
 """Case-level row checks (MCP study round 3, owner decision 2026-10-28): a variant is an HGVS
 c./g./m./n./r./p. notation, an rsID or a genomic coordinate, not prose such as "truncating variant
-(as reported)". Warnings name the row's path; placeholder rows also score 0 (evidence_items)."""
+(as reported)". A CNV or a repeat-region insertion described in prose counts when the text names its
+extent or region (KGDB owner decision 2026-10-31: "deletion of exons 2-29", "C insertion in the
+VNTR"). Warnings name the row's path; placeholder rows also score 0 (evidence_items)."""
 
 import re
 from collections import defaultdict
 from typing import Any
 
 # HGVS (optionally on a reference sequence), rsID, chr1:123 / 1-12345 (bare: 5+ digits), and
-# structural: exon-level or whole-gene del/dup, ISCN (arr[GRCh37] 6p12.3(...)x1) or a cytoband
+# structural: exon-level or whole-gene del/dup, ISCN (arr[GRCh37] 6p12.3(...)x1) or a cytoband,
+# in either word order; a base inserted or duplicated in a named repeat region (MUC1 VNTR)
+_BASE = (
+    r"(?:(?-i:[ACGT]{1,3})|(?:cytosine|guanine|adenine|thymine)s?)"  # "a" is no base
+)
+_REPEAT = r"[^.;]{0,40}\b(?:VNTR|tandem repeat|repeat region)"
 _VARIANT = re.compile(
     r"(?:^|[\s:(\[,;])(?:[cgmnr]\.\[?[\d*(?-]|p\.\[?\(?(?:[A-Z][a-z]{2}|[A-Z*])\d)"
     r"|\brs\d+\b"
     r"|\bchr(?:\d{1,2}|X|Y|MT?)[:-]\d{3,}|\b(?:\d{1,2}|X|Y|MT?)[:-]\d{5,}"
     r"|\bexons?\s*\d+(?:\s*[-\u2013]\s*\d+)?\s*(?:del|dup)"
-    r"|\bwhole[- ]gene\s*(?:del|dup)"
+    r"|\b(?:whole|entire)[- ]gene\s*(?:del|dup)"
+    r"|\b(?:deletion|duplication)s?\s+(?:of|spanning|encompassing|including)\s+(?:the\s+)?"
+    r"(?:exons?\s*\d+|(?:whole|entire)[- ]gene)"
+    rf"|\b{_BASE}\s*(?:insertion|duplication|ins|dup)\b{_REPEAT}"
+    rf"|\b(?:insertion|duplication)\s+of\s+(?:an?\s+|one\s+|\d+\s+)?{_BASE}\b{_REPEAT}"
     r"|\b(?:arr|seq)\s*\[|\b(?:\d{1,2}|X|Y)[pq]\d{1,2}(?:\.\d+)?\b"
     r"|\b(?:del|dup|inv|ins|t)\([\dXY;]+\)\([pq]\d",
     re.IGNORECASE,
@@ -22,7 +33,8 @@ _DIGIT_GROUPS = re.compile(r"(?<=\d),(?=\d{3})")  # chr6:51,775,000 -> chr6:5177
 # Predicted null: frameshift, stop gain, canonical +/-1,2 splice, exon or whole-gene deletion
 _NULL = re.compile(
     r"fs\b|fs\*|p\.\(?[A-Z](?:[a-z]{2})?\d+(?:Ter|\*|X\b)"
-    r"|c\.[\d*-]+[+-][12][ACGT]?>|exons?\s*\d+(?:-\d+)?\s*del|whole[- ]gene"
+    r"|c\.[\d*-]+[+-][12][ACGT]?>|exons?\s*\d+(?:-\d+)?\s*del|(?:whole|entire)[- ]gene"
+    r"|\bdeletions?\s+(?:of|spanning|encompassing|including)\s+(?:the\s+)?exons?"
     r"|\b(?:nonsense|frameshift|stop[- ]gain)",
     re.IGNORECASE,
 )
@@ -68,8 +80,8 @@ def _counted(row: dict[str, Any]) -> bool:
 def _row_warnings(at: str, table: str, row: dict[str, Any]) -> list[str]:
     variants = {k: row[k] for k in _VARIANT_KEYS if str(row.get(k) or "").strip()}
     warnings = [
-        f"{at}.{key}: {value!r} is not a variant; enter HGVS (c./p./g.), an rsID or a "
-        "genomic coordinate"
+        f"{at}.{key}: {value!r} is not a variant; enter HGVS (c./p./g.), an rsID, a "
+        "genomic coordinate, or a CNV or repeat insertion naming its extent"
         for key, value in variants.items()
         if not is_variant(value)
     ]

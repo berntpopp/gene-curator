@@ -220,3 +220,17 @@ def test_variant_class_offers_the_prompt_values_and_keeps_old_ones() -> None:
     values = [o["value"] for o in column["options"]]
     assert values[:5] == ["null", "missense", "inframe", "splice_other", "other"]
     assert {"lof", "splice"} <= set(values)
+
+
+def test_a_row_without_its_quote_warns_that_it_scores_0() -> None:
+    """KGDB e2e (NPHS2): a row zeroed for a missing evidence_quote names the field."""
+    config = SCHEMAS["KGDB Mendelian Curation"]["scoring_configuration"]
+    [cldn16] = [t for t in config["tests"] if t["name"].startswith("CLDN16")]
+    evidence = json.loads(json.dumps(cldn16["evidence_data"]))
+    assert not [w for w in _score(evidence, config).warnings if "scores 0" in w]
+    del evidence["genetic"]["probands"][0]["evidence_quote"]
+    result = _score(evidence, config)
+    assert result.total_score < cldn16["expect"]["total"]
+    assert "genetic.probands[0].evidence_quote: missing, so this row scores 0" in (
+        result.warnings
+    )

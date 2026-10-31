@@ -42,6 +42,13 @@ def test_get_curation_is_concise_on_mcp_and_fields_picks_paths(
         "status": concise["status"],
         "unknown_fields": ["nope"],
     }
+    # KGDB e2e: a field that is null is not unknown
+    empty = read(
+        "/mcp", fields=["final_classification", "curator_classification_rationale"]
+    )
+    assert empty["final_classification"] is None
+    assert empty["curator_classification_rationale"] is None
+    assert "unknown_fields" not in empty
     refused = call(client, token, "get_curation", curation_id=cid, fields="x")
     assert refused["content"][0]["text"].startswith("invalid_input: get_curation")
 

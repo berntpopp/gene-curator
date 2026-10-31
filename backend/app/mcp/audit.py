@@ -294,16 +294,14 @@ def lean(value: Any, drop: frozenset[str] = frozenset()) -> Any:
     return value
 
 
-def _lean_block(
-    block: mt.ContentBlock, drop: frozenset[str], shaped: Any
-) -> mt.ContentBlock:
+def _lean_block(block: mt.ContentBlock, shaped: Any) -> mt.ContentBlock:
     if not isinstance(block, mt.TextContent):
         return block
     try:
         data = json.loads(block.text)
     except ValueError:
         return block
-    data = shaped(lean(data, drop))
+    data = shaped(data)
     text = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     return mt.TextContent(type="text", text=text)
 
@@ -477,10 +475,12 @@ class ToolAuditMiddleware(Middleware):
                 request_agent.reset(agent)
 
             def shaped(data: Any) -> Any:
-                return shape(name, data, lean=self.lean, args=extra)
+                # picked fields keep their nulls: null is an answer, not unknown
+                kept = data if extra.get("fields") is not None else lean(data, drop)
+                return shape(name, kept, lean=self.lean, args=extra)
 
             # Text only: clients bill structuredContent again on top of its text copy
-            content = [_lean_block(block, drop, shaped) for block in result.content]
+            content = [_lean_block(block, shaped) for block in result.content]
             size = sum(len(b.text) for b in content if isinstance(b, mt.TextContent))
             if self.lean and name in self.capped and size > MAX_RESULT_CHARS:
                 outcome = "response_too_large"
