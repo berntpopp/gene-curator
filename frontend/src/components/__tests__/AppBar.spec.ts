@@ -63,7 +63,7 @@ describe('AppBar', () => {
   it('shows the app version and build', () => {
     mountAppBar()
 
-    expect(wrapper?.text()).toContain('Version: 0.13.2 - Build: dev')
+    expect(wrapper?.text()).toContain('Version: 0.13.3 - Build: dev')
   })
 
   it('links logo and title to home with one keyboard-reachable link', () => {

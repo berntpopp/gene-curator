@@ -122,6 +122,7 @@ body:
         - v0.13.0 (ClinGen adoption, provenance, capability matrix and SOP v11 segregation)
         - v0.13.1 (Production images and deployment)
         - v0.13.2 (ClinGen reference export and KGDB re-curation fixes)
+        - v0.13.3 (fastmcp 4)
         - Future (Post v1.0)
         - Not sure
 
