@@ -122,14 +122,18 @@
     try {
       const result = await store.applyMove(props.schemaId)
       const reopened = result.items.filter(i => i.back_to).length
+      const skipped = result.items.filter(i => i.skipped).length
+      const moved = result.items.length - skipped
       logger.info('Moved to version', {
         schemaId: props.schemaId,
         version: result.to_version,
-        moved: result.items.length,
+        moved,
+        skipped,
         reopened
       })
+      const note = skipped ? `; ${skipped} skipped (inactive scope)` : ''
       showSuccess(
-        `${result.items.length} moved to version ${result.to_version}; ${reopened} need review again`
+        `${moved} moved to version ${result.to_version}; ${reopened} need review again${note}`
       )
       open.value = false
     } catch (error) {
