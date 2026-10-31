@@ -130,11 +130,14 @@ describe('DynamicForm flow', () => {
     store.schema = {
       properties: { ...flatSchema.properties, age: { type: 'integer', default: 1 } }
     }
+    store.validateEvidence.mockResolvedValue(store.result)
     const wrapper = mountForm({ initialData: {} })
     await flushPromises()
     expect(wrapper.emitted('update:modelValue')?.at(-1)?.[0]).toEqual({ age: 1 })
     expect(wrapper.text()).not.toContain('Form Validation Errors')
     expect(fieldStub(wrapper, 'name').props('validationResult')).toBeUndefined()
+    // The server's reply is not shown on an untouched form either (monkey B13 rest)
+    expect(fieldStub(wrapper, 'name').props('backendErrors')).toEqual([])
     // Validity still reaches the parent, so submit stays gated
     expect(wrapper.emitted('validation-change')?.at(-1)?.[0]).toMatchObject({ is_valid: false })
     // The parent echoing the form's own defaults back is not a load

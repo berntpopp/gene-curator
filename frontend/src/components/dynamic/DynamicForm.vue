@@ -49,7 +49,7 @@
                       :schema="jsonSchema"
                       :form-data="formData"
                       :validation-result="validationResult"
-                      :backend-errors="backendErrors"
+                      :backend-errors="shownBackendErrors"
                       :readonly="readonly"
                       @update:field="handleTabFieldUpdate"
                       @disease-name="fillDiseaseName"
@@ -84,7 +84,7 @@
                     :field-schema="field"
                     :model-value="formData[fieldName]"
                     :validation-result="getFieldValidation(fieldName)"
-                    :backend-errors="backendErrors[fieldName] || []"
+                    :backend-errors="shownBackendErrors[fieldName] || []"
                     :disabled="readonly"
                     :readonly="readonly"
                     @update:model-value="updateField(fieldName, $event)"
@@ -304,6 +304,7 @@
   // saved record loads (monkey B13); validity is still reported to the parent from the start
   const touched = ref(Object.keys(props.initialData ?? {}).length > 0)
   const validationResult = computed(() => (touched.value ? storedValidation.value : undefined))
+  const shownBackendErrors = computed(() => (touched.value ? backendErrors.value : {}))
 
   const {
     hasTabs,
