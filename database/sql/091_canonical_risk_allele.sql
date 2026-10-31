@@ -51,10 +51,13 @@ BEGIN
     -- The key part the generated column will compute from the canonical value
     ALTER TABLE allele_fix ADD COLUMN new_key TEXT;
     UPDATE allele_fix SET new_key = CASE
-        WHEN old_key ~ '\|SUSCEPTIBILITY\|' THEN regexp_replace(old_key, '[^|]*$', upper(replace(
-            trim(COALESCE(NULLIF(trim(fixed ->> 'risk_allele'), ''),
-                          fixed -> 'entity_definition' ->> 'risk_allele', '')), ' ', '')))
-        ELSE old_key END;
+        WHEN old_key ~ '\|SUSCEPTIBILITY\|' THEN regexp_replace(old_key, '\|[^|]*$',
+            CASE WHEN part = '' THEN '' ELSE '|' || part END)
+        ELSE old_key END
+    FROM (SELECT id AS fid, upper(replace(trim(COALESCE(NULLIF(trim(fixed ->> 'risk_allele'), ''),
+              fixed -> 'entity_definition' ->> 'risk_allele', '')), ' ', '')) AS part
+          FROM allele_fix) parts
+    WHERE parts.fid = allele_fix.id;
     SELECT string_agg(format('gene %s, scope %s, entity %s: %s',
                              gene_id, scope_id, k, ids), E'\n')
     INTO dupes
