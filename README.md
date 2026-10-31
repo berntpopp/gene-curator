@@ -223,8 +223,8 @@ Gene Curator also includes genes that ClinGen has already curated; an adopted cu
 or agent sends one row per entity to `POST /api/v1/curations/clingen-adoptions` (MCP
 `adopt_clingen_classifications`, `dry_run=true` first): the gene, scope, workflow pair, MONDO id
 and MOI, plus the ClinGen record exactly as GeneFoundry `clingen_get_gene_validity` returns it
-(`perm_id` as `cggv_id`, `raw_sha256` as `record_sha256`, `recommended_citation` as `citation`,
-`provenance.retrieved_at` as `retrieved_at`, with `permalink`, `classification`, `moi`, `mondo`,
+(`perm_id` as `cggv_id`, `disease_name.raw_sha256` as `record_sha256`, `recommended_citation` as
+`citation`, `disease_name.provenance.retrieved_at` as `retrieved_at`, with `permalink`, `classification`, `moi`, `mondo`,
 `hgnc_id`, `expert_panel`, `classified_date`). Gene Curator never fetches the record; it checks
 that gene, MONDO id and MOI match the entity and that the class is one of the schema's. Any
 invalid row refuses the whole batch (422 listing each row's errors); an entity with an open

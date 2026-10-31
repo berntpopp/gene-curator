@@ -4805,8 +4805,8 @@ export interface components {
         };
         /**
          * ClinGenRecord
-         * @description One ClinGen assertion as GeneFoundry returns it (perm_id -> cggv_id,
-         *     raw_sha256 -> record_sha256, recommended_citation -> citation).
+         * @description From GeneFoundry: perm_id->cggv_id, recommended_citation->citation,
+         *     disease_name.raw_sha256->record_sha256, disease_name.provenance.retrieved_at->retrieved_at.
          */
         ClinGenRecord: {
             /**
@@ -6004,7 +6004,7 @@ export interface components {
              * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
              */
             merge?: boolean | null;
-            /** @description GeneFoundry clingen_get_gene_validity record of this entity, cited beside our class; a class other than ClinGen's needs a rationale */
+            /** @description ClinGen record of this entity, cited beside our class; a different class needs a rationale */
             clingen_reference?: components["schemas"]["ClinGenRecord"] | null;
         };
         /**

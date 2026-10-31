@@ -89,8 +89,8 @@ class CurationUpdate(CuratorClassificationIn):
     merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
     clingen_reference: ClinGenRecord | None = Field(
         None,
-        description="GeneFoundry clingen_get_gene_validity record of this entity, cited "
-        "beside our class; a class other than ClinGen's needs a rationale",
+        description="ClinGen record of this entity, cited beside our class; a "
+        "different class needs a rationale",
     )
 
     model_config = ConfigDict(extra="forbid")

@@ -15,8 +15,8 @@ _ID = Field(..., min_length=1, max_length=500)
 
 
 class ClinGenRecord(BaseModel):
-    """One ClinGen assertion as GeneFoundry returns it (perm_id -> cggv_id,
-    raw_sha256 -> record_sha256, recommended_citation -> citation)."""
+    """From GeneFoundry: perm_id->cggv_id, recommended_citation->citation,
+    disease_name.raw_sha256->record_sha256, disease_name.provenance.retrieved_at->retrieved_at."""
 
     source: Literal["clingen"] = "clingen"
     cggv_id: str = Field(..., pattern=r"^CGGV:assertion_\S+$", max_length=200)
