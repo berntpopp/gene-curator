@@ -30,6 +30,8 @@ export interface UseFormTabsOptions {
   /** Backend errors keyed by dot-notation field path */
   backendErrors: Ref<Record<string, string[]>>
   activeTab: Ref<string | null>
+  /** Dotted paths of required fields left empty; their tab is marked too (MUI-16) */
+  missingPaths?: ComputedRef<string[]>
 }
 
 /**
@@ -40,7 +42,8 @@ export function useFormTabs({
   jsonSchema,
   validationResult,
   backendErrors,
-  activeTab
+  activeTab,
+  missingPaths
 }: UseFormTabsOptions) {
   const logger = useLogger()
 
@@ -143,8 +146,11 @@ export function useFormTabs({
     validTabs.value.forEach(tab => {
       // Get all field paths in this tab
       const fieldsInTab = getTabFieldPaths(tab)
+      const missing = missingPaths?.value ?? []
       const hasErrors = fieldsInTab.some(
-        fieldPath => (backendErrors.value[fieldPath]?.length ?? 0) > 0
+        fieldPath =>
+          (backendErrors.value[fieldPath]?.length ?? 0) > 0 ||
+          missing.some(m => m === fieldPath || m.startsWith(`${fieldPath}.`))
       )
       errors[tab.id] = hasErrors
     })

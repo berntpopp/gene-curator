@@ -181,6 +181,7 @@
   import { registerClassifications } from '@/config/classification'
   import DynamicField from './DynamicField.vue'
   import TabContent from './TabContent.vue'
+  import { missingRequiredPaths } from '@/components/forms/requiredFields'
   import ScoreDisplay from './ScoreDisplay.vue'
   import { useFormTabs } from './composables/useFormTabs'
   import { errorDetails } from './errorDetails'
@@ -317,7 +318,22 @@
     nextTab,
     prevTab,
     findFirstInvalidTab
-  } = useFormTabs({ jsonSchema, validationResult: storedValidation, backendErrors, activeTab })
+  } = useFormTabs({
+    jsonSchema,
+    validationResult: storedValidation,
+    backendErrors,
+    activeTab,
+    // The raw methodology knows which fields are required (MUI-16)
+    missingPaths: computed(() =>
+      props.definition
+        ? missingRequiredPaths(
+            props.definition.field_definitions,
+            formData.value,
+            props.definition.validation_rules
+          )
+        : []
+    )
+  })
 
   const showScoring = computed(() => {
     return !props.hideScoring && jsonSchema.value?.scoring_configuration?.engine != null
