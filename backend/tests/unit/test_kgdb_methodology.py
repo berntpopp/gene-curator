@@ -204,3 +204,9 @@ def test_required_fields_list_every_required_field(name: str) -> None:
         if f.get("required")
     }
     assert set(schema["validation_rules"]["required_fields"]) == required
+
+
+def test_curation_descriptions_name_iteration_8() -> None:
+    """KGDB end-to-end: the Mendelian description still said draft iteration 3."""
+    assert "iteration 8" in SCHEMAS["KGDB Mendelian Curation"]["description"]
+    assert "iteration 3" not in json.dumps(BUNDLE)

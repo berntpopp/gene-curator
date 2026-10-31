@@ -750,7 +750,7 @@
       "version": "alpha",
       "schema_type": "curation",
       "institution": "Kidney Genetics",
-      "description": "KGDB gene-disease validity (alpha, draft iteration 3): cited evidence rows, point model, reviewer flags, clinical diagnostics",
+      "description": "KGDB gene-disease validity (alpha, draft iteration 8): cited evidence rows, point model, reviewer flags, clinical diagnostics",
       "field_definitions": {
         "genetic": {
           "type": "object",
