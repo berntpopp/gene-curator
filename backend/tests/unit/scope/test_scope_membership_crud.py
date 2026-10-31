@@ -294,3 +294,39 @@ def test_remove_member_unknown_raises(db_session: Session) -> None:
         scope_membership_crud.remove_member(
             db_session, membership_id=uuid4(), removed_by_id=uuid4()
         )
+
+
+def test_a_removed_member_can_be_invited_again(db_session: Session) -> None:
+    scope = make_scope(db_session)
+    member = make_user(db_session)
+    removed = make_member(db_session, scope, member, "viewer")
+    removed.is_active = False
+    db_session.commit()
+
+    again = _pending_for(db_session, scope, member)
+
+    assert again.id == removed.id  # the unique (scope, user) row is reused
+    assert again.is_active is True
+    assert again.accepted_at is None
+
+
+def test_a_second_invitation_says_it_is_pending(db_session: Session) -> None:
+    scope = make_scope(db_session)
+    invitee = make_user(db_session)
+    _pending_for(db_session, scope, invitee)
+
+    with pytest.raises(ValueError, match="already has a pending invitation"):
+        _pending_for(db_session, scope, invitee)
+
+
+def test_an_expired_invitation_can_be_sent_again(db_session: Session) -> None:
+    scope = make_scope(db_session)
+    invitee = make_user(db_session)
+    old = _pending_for(db_session, scope, invitee)
+    old.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+    db_session.commit()
+
+    again = _pending_for(db_session, scope, invitee)
+
+    assert again.id == old.id
+    assert not is_invitation_expired(again.expires_at, datetime.now(UTC))
