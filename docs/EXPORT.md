@@ -26,7 +26,8 @@ always set. Use a personal access token of a scope member to see archived rows a
 `evidence`, `scores` and `summary` are set for scope members. Anyone else, anonymous callers
 included, gets them only when the scope is public and a scope admin turned on **Export
 evidence publicly** (`export_evidence_public`, off by default; turning it on needs a
-signed-in person, not a token or MCP call); otherwise they are `null`.
+signed-in person, not a token or MCP call, as does making a scope with it on public); otherwise
+they are `null`.
 
 ## Parameters
 
@@ -79,7 +80,8 @@ harmless).
   findings are stored elsewhere and never exported.
 - **Score trace:** `scores` is the engine output as stored: the totals above plus, for
   point-model engines, `trace`, whose `sections[].categories[].types[]` give each evidence
-  path's item count and summed points; `trace.total` is `total_score`. `scores.warnings`
+  path's item count and summed points; `trace.total` is `total_score`. `trace.rules_applied`
+  lists the row rules and step rules that set points, `trace.capped_groups` the capped groups. `scores.warnings`
   holds the scoring warnings.
   `summary` is the engine's verdict summary.
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
@@ -100,7 +102,7 @@ harmless).
 ## Versioning
 
 `export_version` is `"1"`. Fields may be added within v1 (v0.11.0 added `relationship_type`,
-`final_classification` and `curator_classification_rationale`; #558 added `evidence`, `scores`
+`final_classification` and `curator_classification_rationale`; v0.12.0 added `evidence`, `scores`
 and `summary`); consumers must ignore unknown
 fields. Renaming, removing or changing the meaning of a
 field publishes a new version at a new path.
