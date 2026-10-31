@@ -315,7 +315,7 @@ def test_viewer_cannot_start_remote_lookup_for_private_work(client, w, monkeypat
 
     monkeypatch.setattr(PublicationService, "fetch_publication", fetch)
     response = _submit(client, w, item, "direct")
-    assert response.status_code == 400, response.text
+    assert response.status_code == 403, response.text
     assert not fetched
 
 

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.capabilities import VIEW, require
 from app.core.database import get_db
 from app.core.deps import get_current_active_user, require_signed_in_approver
+from app.core.workflow_errors import http_error
 from app.crud.review_round import in_current_round
 from app.crud.scope_visibility import scope_id_for
 from app.crud.workflow_engine import workflow_engine
@@ -212,7 +213,7 @@ def execute_workflow_transition(
         )
         return transition
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise http_error(e) from e
 
 
 # ========================================
@@ -247,7 +248,7 @@ def assign_peer_reviewer(
             assignment_request.review_type,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise http_error(e) from e
 
 
 @router.post("/reviews/{review_id}/submit", response_model=PeerReviewResult)
@@ -278,7 +279,7 @@ def submit_peer_review(
         )
         return PeerReviewResult(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise http_error(e) from e
 
 
 @router.get("/reviews/my-assignments", response_model=list[PeerReviewRequest])

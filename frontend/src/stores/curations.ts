@@ -5,7 +5,7 @@
  * Handles CRUD operations, optimistic locking conflicts, and draft auto-save.
  */
 import { defineStore } from 'pinia'
-import { errorMessage, toApiError } from './apiError'
+import { errorMessage, isStaleSave, toApiError } from './apiError'
 import { curationsAPI } from '@/api/curations'
 import type { Schema } from '@/types/api'
 
@@ -320,8 +320,7 @@ export const useCurationsStore = defineStore('curations', {
 
         return submitted
       } catch (error) {
-        const apiError = toApiError(error)
-        if (apiError.response?.status === 409) {
+        if (isStaleSave(error)) {
           this.error = {
             message: 'Curation was modified. Please refresh and try again.',
             isConflict: true

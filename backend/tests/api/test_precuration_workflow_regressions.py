@@ -244,11 +244,14 @@ def test_complete_unknown_precuration_is_404(
 @pytest.mark.parametrize(("length", "expected"), [(2000, 200), (2001, 422)])
 def test_reject_reason_is_bounded_like_review_text(
     client: TestClient,
+    db_session: Session,
     test_precuration: PrecurationNew,
     test_user_admin: UserNew,
     length: int,
     expected: int,
 ):
+    test_precuration.status = CurationStatus.SUBMITTED
+    db_session.commit()
     response = client.post(
         f"/api/v1/precurations/{test_precuration.id}/reject",
         json={"reason": "x" * length},

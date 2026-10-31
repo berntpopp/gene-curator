@@ -153,7 +153,7 @@ def test_curator_submits_curation_for_review(
     assert curation_in_curation.workflow_stage == S.REVIEW
 
 
-def test_invalid_transition_is_400(
+def test_invalid_transition_is_409(
     client: TestClient, curator: UserNew, curation_in_curation: CurationNew
 ) -> None:
     response = client.post(
@@ -162,7 +162,7 @@ def test_invalid_transition_is_400(
         headers=auth_headers(curator),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 409
     assert "Invalid transition" in response.json()["detail"]
 
 
@@ -177,7 +177,7 @@ def test_viewer_cannot_transition(
         headers=auth_headers(viewer),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 403
     assert "not authorized" in response.json()["detail"]
 
 
@@ -190,7 +190,7 @@ def test_creator_cannot_approve_own_curation(
         headers=auth_headers(curator),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 403
     assert "4-eyes" in response.json()["detail"]
 
 
@@ -310,7 +310,7 @@ def test_assign_reviewer_then_reviewer_submits_approval(
     assert submitted.json()["auto_transitioned"] is True
 
 
-def test_assign_reviewer_to_creator_is_400(
+def test_assign_reviewer_to_creator_is_403(
     client: TestClient,
     curator: UserNew,
     curation_in_review: CurationNew,
@@ -321,11 +321,11 @@ def test_assign_reviewer_to_creator_is_400(
         headers=auth_headers(curator),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 403
     assert "4-eyes principle violation" in response.json()["detail"]
 
 
-def test_assign_reviewer_to_precuration_is_400(
+def test_assign_reviewer_to_unsubmitted_precuration_is_409(
     client: TestClient,
     db_session: Session,
     curator: UserNew,
@@ -346,10 +346,10 @@ def test_assign_reviewer_to_precuration_is_400(
         headers=auth_headers(curator),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 409
 
 
-def test_submit_review_by_wrong_user_is_400(
+def test_submit_review_by_wrong_user_is_403(
     client: TestClient,
     curator: UserNew,
     reviewer: UserNew,
@@ -367,7 +367,58 @@ def test_submit_review_by_wrong_user_is_400(
         headers=auth_headers(curator),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 403
+
+
+def test_submit_review_twice_is_409(
+    client: TestClient,
+    curator: UserNew,
+    reviewer: UserNew,
+    curation_in_review: CurationNew,
+) -> None:
+    review_id = client.post(
+        f"{BASE}/curation/{curation_in_review.id}/assign-reviewer",
+        json={"reviewer_id": str(reviewer.id)},
+        headers=auth_headers(curator),
+    ).json()["review_id"]
+    body = {"decision": "request_changes", "comments": "Add segregation data"}
+    url = f"{BASE}/reviews/{review_id}/submit"
+
+    first = client.post(url, json=body, headers=auth_headers(reviewer))
+    assert first.status_code == 200, first.text
+    again = client.post(url, json=body, headers=auth_headers(reviewer))
+
+    assert again.status_code == 409
+    assert "already been completed" in again.json()["detail"]
+
+
+@pytest.mark.parametrize("kind", ["curations", "precurations"])
+def test_submitting_an_item_already_in_review_is_409(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    scope_with_admin: Scope,
+    kind: str,
+) -> None:
+    make = make_curation if kind == "curations" else make_precuration
+    item = make(
+        db_session,
+        scope=scope_with_admin,
+        gene=make_gene(db_session),
+        creator=curator,
+        stage=S.REVIEW,
+    )
+    item.status = CurationStatus.SUBMITTED if kind == "precurations" else item.status
+    db_session.commit()
+
+    again = client.post(
+        f"/api/v1/{kind}/{item.id}/submit",
+        json={"lock_version": item.lock_version},
+        headers=auth_headers(curator),
+    )
+
+    assert again.status_code == 409, again.text
+    assert "Invalid transition" in again.json()["detail"]
 
 
 def test_submit_review_rejects_unknown_decision(

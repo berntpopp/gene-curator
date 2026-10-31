@@ -3,6 +3,7 @@ scope admin only, and nobody decides on their own work (D1, admins included)."""
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy.orm import Session
 
 from app.models.models import CurationStatus, Scope, UserNew, WorkflowStage as S
@@ -35,7 +36,7 @@ def test_scope_admin_cannot_send_back_own_curation(
         db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=owner
     )
     sent = _transition(client, owner, "curation", own.id, target_stage="curation")
-    assert sent.status_code == 400
+    assert sent.status_code == 403
     assert "4-eyes" in sent.json()["detail"]
 
 
@@ -61,7 +62,7 @@ def test_owner_cannot_approve_own_precuration_by_transition(
     db_session.commit()
 
     sent = _transition(client, author, "precuration", pre.id, target_stage="curation")
-    assert sent.status_code == 400, sent.text
+    assert sent.status_code == 403, sent.text
     db_session.refresh(pre)
     assert (pre.workflow_stage, pre.status) == (stage, CurationStatus.SUBMITTED)
 
@@ -119,7 +120,7 @@ def test_review_decision_refused_without_review_capability(
     )
     user = _refused_decider(who, db_session, scope_with_admin, curator)
     sent = _transition(client, user, "curation", curation.id, target_stage=target)
-    assert sent.status_code == 400, sent.text
+    assert sent.status_code == 403, sent.text
     db_session.refresh(curation)
     assert (curation.workflow_stage, curation.status) == (
         S.REVIEW,
@@ -148,7 +149,7 @@ def test_precuration_approval_refused_without_review_capability(
     db_session.commit()
     user = _refused_decider(who, db_session, scope_with_admin, curator)
     sent = _transition(client, user, "precuration", pre.id, target_stage="curation")
-    assert sent.status_code == 400, sent.text
+    assert sent.status_code == 403, sent.text
     db_session.refresh(pre)
     assert pre.status == CurationStatus.SUBMITTED
 
@@ -168,7 +169,7 @@ def test_reviewer_cannot_approve_an_unsubmitted_precuration(
     pre.status = status
     db_session.commit()
     sent = _transition(client, reviewer, "precuration", pre.id, target_stage="curation")
-    assert sent.status_code == 400
+    assert sent.status_code == 409
     assert "submitted" in sent.json()["detail"]
     db_session.refresh(pre)
     assert (pre.workflow_stage, pre.status) == (S.PRECURATION, status)
@@ -241,4 +242,41 @@ def test_curation_in_review_cannot_go_back_to_precuration(
     assert (curation.workflow_stage, curation.status) == (
         S.REVIEW,
         CurationStatus.IN_REVIEW,
+    )
+
+
+def test_precuration_reject_refuses_own_work_and_unsubmitted(
+    client: TestClient,
+    db_session: Session,
+    owner: UserNew,
+    curator: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    def reject(pre_id: object, user: UserNew) -> Response:
+        return client.post(
+            f"/api/v1/precurations/{pre_id}/reject",
+            json={"reason": "no"},
+            headers=auth_headers(user),
+        )
+
+    own = make_precuration(
+        db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=owner
+    )
+    own.status = CurationStatus.SUBMITTED
+    db_session.commit()
+    r = reject(own.id, owner)  # a scope admin holds the review role; D1 still applies
+    assert r.status_code == 403, r.text
+    assert "4-eyes" in r.json()["detail"]
+
+    draft = make_precuration(
+        db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=curator
+    )
+    r = reject(draft.id, reviewer)
+    assert r.status_code == 409, r.text
+    db_session.refresh(own)
+    db_session.refresh(draft)
+    assert (own.status, draft.status) == (
+        CurationStatus.SUBMITTED,
+        CurationStatus.DRAFT,
     )

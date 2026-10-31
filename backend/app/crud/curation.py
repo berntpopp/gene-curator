@@ -13,6 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
+from app.core.workflow_errors import transition_error
 from app.crud.activation import same_entity
 from app.crud.base import CRUDBase
 from app.crud.curator_classification import curator_call
@@ -590,7 +591,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         )
 
         if not validation.is_valid:
-            raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
+            raise transition_error(validation)
 
         workflow_engine.execute_transition(
             db,

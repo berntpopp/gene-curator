@@ -308,15 +308,24 @@ describe('useCurationsStore', () => {
       expect(store.currentCuration?.status).toBe('submitted')
     })
 
-    it('flags a 409 as conflict', async () => {
+    it('flags a stale-version 409 as conflict', async () => {
       const store = useCurationsStore()
-      api.submitCuration.mockRejectedValue(httpError(409))
+      api.submitCuration.mockRejectedValue(httpError(409, { detail: { current_lock_version: 2 } }))
 
       await expect(store.submitCuration('c1')).rejects.toThrow('HTTP 409')
       expect(store.error).toEqual({
         message: 'Curation was modified. Please refresh and try again.',
         isConflict: true
       })
+    })
+
+    it('shows the server reason for a workflow-state 409 (L6)', async () => {
+      const store = useCurationsStore()
+      const detail = 'Invalid transition: Invalid transition from review to review'
+      api.submitCuration.mockRejectedValue(httpError(409, { detail }))
+
+      await expect(store.submitCuration('c1')).rejects.toThrow('HTTP 409')
+      expect(store.error).toEqual({ message: detail })
     })
 
     it('stores plain messages for other failures', async () => {

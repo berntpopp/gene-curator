@@ -7,7 +7,7 @@
 import { defineStore } from 'pinia'
 import { precurationsAPI } from '@/api/precurations'
 import { logService } from '@/services/logService'
-import { errorMessage, toApiError } from './apiError'
+import { errorMessage, isStaleSave, toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 /** A precuration row as listed by the API. */
@@ -334,16 +334,15 @@ export const usePrecurationsStore = defineStore('precurations', {
         return submitted
       } catch (error) {
         const apiError = toApiError(error)
-        this.error =
-          apiError.response?.status === 409
-            ? {
-                message:
-                  'Another user or tab has modified this precuration. Reload to see their version.',
-                isConflict: true,
-                currentVersion: apiError.response.data?.current_lock_version as number | undefined,
-                yourVersion: apiError.response.data?.your_lock_version as number | undefined
-              }
-            : { message: errorMessage(error, 'Request failed') }
+        this.error = isStaleSave(error)
+          ? {
+              message:
+                'Another user or tab has modified this precuration. Reload to see their version.',
+              isConflict: true,
+              currentVersion: apiError.response?.data?.current_lock_version as number | undefined,
+              yourVersion: apiError.response?.data?.your_lock_version as number | undefined
+            }
+          : { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false

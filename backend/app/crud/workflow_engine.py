@@ -12,6 +12,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
+from app.core import workflow_errors as wfe
 from app.core.capabilities import require_active_scope
 from app.core.database import raise_if_rls_denied
 from app.core.enums import ScopeRole
@@ -165,6 +166,13 @@ class WorkflowEngine:
             errors.append(
                 f"Invalid transition from {current_stage.value} to {target_stage.value}"
             )
+        if (
+            isinstance(item, PrecurationNew)
+            and target_stage == WorkflowStage.CURATION
+            and item.status not in (CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW)
+        ):
+            errors.append("Only a submitted precuration can be approved")
+        conflict, before_roles = bool(errors), len(errors)
 
         user = (
             db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
@@ -186,13 +194,12 @@ class WorkflowEngine:
                 f"{', '.join(role_requirements)})"
             )
 
-        # 4-eyes principle validation
         if self._requires_peer_review(current_stage, target_stage, item_type):
             errors.extend(
                 self._validate_4_eyes_principle(db, user, user_id, item, item_type)
             )
 
-        # Content validation requirements
+        denied = len(errors) > before_roles
         requirements.extend(self._get_content_requirements(current_stage, target_stage))
 
         # Stage-specific validations
@@ -208,6 +215,8 @@ class WorkflowEngine:
             warnings=warnings,
             requirements=requirements,
             missing_fields=stage_validation.get("missing_fields", []),
+            denied=denied,
+            conflict=conflict,
         )
 
     def execute_transition(
@@ -228,14 +237,14 @@ class WorkflowEngine:
 
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
         if not item or current_stage is None:
-            raise ValueError(f"{item_type} not found")
+            raise wfe.ItemNotFoundError(f"{item_type} not found")
         require_active_scope(item.scope)
 
         validation = self.validate_transition(
             db, current_stage, target_stage, user_id, item_id, item_type
         )
         if not validation.is_valid:
-            raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
+            raise wfe.transition_error(validation)
 
         try:
             if isinstance(item, CurationNew) and target_stage == WorkflowStage.REVIEW:
@@ -364,7 +373,7 @@ class WorkflowEngine:
         if not curation_result:
             raise ValueError(f"Curation {item_id} not found")
         if current_stage != WorkflowStage.REVIEW:
-            raise ValueError(
+            raise wfe.WorkflowConflictError(
                 f"Curation {item_id} is {curation_result.status.value}; submit it for "
                 f"review before assigning a reviewer: {APPROVERS}"
             )
@@ -422,17 +431,17 @@ class WorkflowEngine:
         )
         if not review:
             raise ValueError("Review not found")
-
         if review.reviewer_id != reviewer_id:
-            raise ValueError("Only assigned reviewer can submit this review")
+            raise wfe.ReviewForbiddenError(
+                "Only assigned reviewer can submit this review"
+            )
         require_active_scope(review.curation.scope)
 
         if review.status != ReviewStatus.PENDING:
-            raise ValueError("Review has already been completed")
+            raise wfe.WorkflowConflictError("Review has already been completed")
 
         check_review_open(db, review)
 
-        # Valid decisions
         valid_decisions = ["approve", "request_changes", "reject"]
         if decision not in valid_decisions:
             raise ValueError(f"Invalid decision. Must be one of: {valid_decisions}")
@@ -701,9 +710,7 @@ class WorkflowEngine:
         warnings: list[str] = []
         missing: list[str] = []  # required paths still empty, for the form (#453)
         errors.extend(
-            self._review_exit_errors(
-                db, item_type, current_stage, target_stage, item_id
-            )
+            self._review_exit_errors(item_type, current_stage, target_stage, item_id)
         )
 
         if target_stage == WorkflowStage.REVIEW:
@@ -726,14 +733,12 @@ class WorkflowEngine:
 
     @staticmethod
     def _review_exit_errors(
-        db: Session,
         item_type: str,
         current: WorkflowStage,
         target: WorkflowStage,
         item_id: UUID,
     ) -> list[str]:
-        """Moves the endpoint must not make: they leave an inconsistent item or lose the reason.
-        Precurations are approved only once submitted."""
+        """Moves the endpoint must not make: they leave an inconsistent item or lose the reason."""
         back = current == WorkflowStage.REVIEW and target == WorkflowStage.PRECURATION
         if item_type == "curation":
             return (
@@ -745,10 +750,6 @@ class WorkflowEngine:
             return [f"Send a precuration back with POST /precurations/{item_id}/reject"]
         if target == WorkflowStage.ACTIVE:
             return ["A precuration is approved to curation, not activated"]
-        pre = db.get(PrecurationNew, item_id)
-        submitted = (CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW)
-        if target == WorkflowStage.CURATION and pre and pre.status not in submitted:
-            return ["Only a submitted precuration can be approved"]
         return []
 
     def _transition_to_precuration(
