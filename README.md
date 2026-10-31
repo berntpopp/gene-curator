@@ -376,9 +376,10 @@ ADMIN_PASSWORD='<12+ characters>' docker compose -f docker-compose.yml -f docker
   backend python scripts/create_default_user.py
 ```
 
-The web image calls `/api/v1` on its own origin. Proxy `gene-curator.org` to
-`gene_curator_frontend:80` and the paths `/api`, `/mcp`, `/authorize`, `/token`, `/register` and
-`/.well-known` to `gene_curator_backend:8000`. With `ENVIRONMENT=production` the API refuses a
+The web image calls `/api/v1` on its own origin: proxy `gene-curator.org` to
+`gene_curator_frontend:80`, nothing else. Its nginx forwards `/api`, `/mcp` and the MCP OAuth
+endpoints (`/authorize`, `/token`, `/.well-known`, `POST /register`) to the backend, which stays
+on the internal network and trusts forwarded client addresses only from it. With `ENVIRONMENT=production` the API refuses a
 `SECRET_KEY` shorter than 32 characters or a placeholder.
 
 ## Documentation

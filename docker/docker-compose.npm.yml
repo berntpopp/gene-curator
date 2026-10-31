@@ -9,14 +9,14 @@
 #
 # This overlay:
 # - publishes no host ports (NPM reaches the containers by container_name)
-# - joins the external NPM network (npm_default) with backend and frontend
+# - joins the external NPM network (npm_default) with the frontend only
 # - gives the internal network an explicit subnet (the VPS default address pools are exhausted)
 # - applies the schema with a one-shot migrate service before the backend starts
 # - never mounts the dev fixtures (seeded admin123 logins) or initdb scripts
 #
-# NPM: one proxy host gene-curator.org -> gene_curator_frontend:80, with custom locations to
-# gene_curator_backend:8000 for /api, /mcp, /authorize, /token, /register and /.well-known
-# (the OAuth endpoints of the MCP server live at the API root).
+# NPM: one plain proxy host gene-curator.org -> gene_curator_frontend:80, no custom locations.
+# The frontend's nginx routes /api, /mcp and the MCP OAuth endpoints to the backend over the
+# internal network (frontend/nginx.conf); the backend is not on the NPM network at all.
 #
 # Prerequisites:
 # 1. .env.docker from .env.docker.example with production values
@@ -105,8 +105,9 @@ services:
       GENE_CURATOR_PUBLIC_URL: ${GENE_CURATOR_PUBLIC_URL:-https://gene-curator.org}
       GENE_CURATOR_FRONTEND_URL: ${GENE_CURATOR_FRONTEND_URL:-https://gene-curator.org}
       GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING: "true"
-      # NPM's address only: X-Forwarded-For from anyone else (npm_default is shared) is ignored
-      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:?FORWARDED_ALLOW_IPS required (NPM address)}
+      # Only the frontend's nginx reaches the backend (internal network); it sends one clean
+      # client address, resolved from NPM's X-Forwarded-For (frontend/nginx.conf)
+      FORWARDED_ALLOW_IPS: 10.251.10.0/24
     depends_on:
       postgres:
         condition: service_healthy
@@ -118,7 +119,6 @@ services:
       - /tmp:uid=1000,gid=1000,size=100M,mode=1777
     networks:
       - gene_curator_network
-      - npm_proxy_network
     deploy:
       resources:
         limits:
