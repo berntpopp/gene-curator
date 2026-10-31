@@ -239,18 +239,15 @@ class SchemaValidator:
         if max_value is not None and num_value > max_value:
             result.add_error(field_name, f"Value must not exceed {max_value}", "range")
 
-        # Decimal places validation
-        decimal_places = config.get("decimal_places")
-        if (
-            decimal_places is not None
-            and "." in str(value)
-            and len(str(value).split(".")[1]) > decimal_places
-        ):
-            result.add_error(
-                field_name,
-                f"Value cannot have more than {decimal_places} decimal places",
-                "precision",
-            )
+        places = config.get("decimal_places")
+        if places is not None and len(f"{value}.".split(".")[1]) > places:
+            msg = f"Value cannot have more than {places} decimal places"
+            result.add_error(field_name, msg, "precision")
+        step = config.get("step")  # counted from min, as the form's input (#615)
+        if isinstance(step, int | float) and step > 0:
+            steps = (num_value - (min_value or 0)) / step
+            if abs(steps - round(steps)) > 1e-6:
+                result.add_error(field_name, f"Use a multiple of {step}", "step")
 
     def _validate_boolean_field(
         self,
