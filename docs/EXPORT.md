@@ -168,7 +168,8 @@ agent under `agent`) is computed by the server and kept beside the evidence (the
 
 `export_version` is `"1"`. Fields may be added within v1 (v0.11.0 added `relationship_type`,
 `final_classification` and `curator_classification_rationale`; v0.12.0 added `evidence`, `scores`
-and `summary`; #105 added `adoption`; #593 added `contributions`, `evidence_lines` and
-`synopsis`; #614 added `risk_allele` and `association_score`); consumers must ignore unknown
-fields. Renaming, removing or changing the meaning of a
+and `summary`; v0.13.0 added `adoption` (#105), `contributions`, `evidence_lines` and
+`synopsis` (#593), `risk_allele` and `association_score` (#614)); consumers must ignore unknown
+fields. A generated example page and its JSON Schema are in `docs/examples/`
+(`export-page.json`, `export-page.schema.json`). Renaming, removing or changing the meaning of a
 field publishes a new version at a new path.

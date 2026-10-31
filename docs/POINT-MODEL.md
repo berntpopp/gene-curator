@@ -23,6 +23,8 @@ evidence table. Other type keys: `points_key`, `rule` (`case_row`, `explicit_poi
 The `review_flags.hotspot` warning (`max_variants`, `min_share`) means recurrence: the top
 `max_variants` variants carry at least `min_share` of the proband points and at least one
 of them appears in 2 or more scoring proband rows (counted before a group cap).
+The `review_flags.band_margin` distance to a band edge is the band's binding check: the largest
+shortfall across its total `min` and each `section_min` (the total wins a tie).
 
 ## Row rules: `points_when`
 
