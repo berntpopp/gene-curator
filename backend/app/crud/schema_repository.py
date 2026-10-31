@@ -110,6 +110,15 @@ def _test_failures(config: Any) -> list[str]:
     return out
 
 
+def _commit_or_flush(db: Session, obj: Any, commit: bool) -> None:
+    """commit=False: flush only, so the caller adds its audit row to the same transaction."""
+    if commit:
+        db.commit()
+        db.refresh(obj)
+    else:
+        db.flush()
+
+
 class CRUDCurationSchema(
     CRUDBase[CurationSchema, CurationSchemaCreate, CurationSchemaUpdate]
 ):
@@ -162,9 +171,14 @@ class CRUDCurationSchema(
         )
 
     def create_with_owner(
-        self, db: Session, *, obj_in: CurationSchemaCreate, owner_id: UUID
+        self,
+        db: Session,
+        *,
+        obj_in: CurationSchemaCreate,
+        owner_id: UUID,
+        commit: bool = True,
     ) -> CurationSchema:
-        """Create schema with owner."""
+        """Create schema with owner (commit=False only flushes, for the caller's audit)."""
         obj_in_data = obj_in.model_dump()
         obj_in_data["created_by"] = owner_id
         # schema_hash is NOT NULL in the database and not supplied by clients
@@ -172,8 +186,7 @@ class CRUDCurationSchema(
             obj_in_data["schema_hash"] = _schema_content_hash(obj_in_data)
         db_obj = CurationSchema(**obj_in_data)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        _commit_or_flush(db, db_obj, commit)
         return db_obj
 
     def list_versions(
@@ -187,7 +200,7 @@ class CRUDCurationSchema(
         ).all()
 
     def publish_version(
-        self, db: Session, *, schema: CurationSchema, user_id: UUID
+        self, db: Session, *, schema: CurationSchema, user_id: UUID, commit: bool = True
     ) -> MethodologyVersion:
         """Publish the schema's current content as its next, immutable version."""
         # Lock the schema row so concurrent publishes serialize on the next number
@@ -210,8 +223,7 @@ class CRUDCurationSchema(
             owner_scope_id=schema.owner_scope_id,  # Postgres: the 082 trigger sets it too
         )
         db.add(version)
-        db.commit()
-        db.refresh(version)
+        _commit_or_flush(db, version, commit)
         return version
 
     def version_impact(
@@ -272,6 +284,7 @@ class CRUDCurationSchema(
         version: str,
         user_id: UUID,
         owner_scope_id: UUID | None = None,
+        commit: bool = True,
     ) -> CurationSchema:
         """Copy a version's snapshot into a new inactive schema whose v1 points back at it."""
         parent = db.get(CurationSchema, source.schema_id)
@@ -313,8 +326,7 @@ class CRUDCurationSchema(
                     owner_scope_id=owner_scope_id,
                 )
             )
-        db.commit()
-        db.refresh(schema)
+        _commit_or_flush(db, schema, commit)
         return schema
 
     def is_schema_in_use(self, db: Session, *, schema_id: UUID) -> bool:
@@ -420,15 +432,19 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         )
 
     def create_with_owner(
-        self, db: Session, *, obj_in: WorkflowPairCreate, owner_id: UUID
+        self,
+        db: Session,
+        *,
+        obj_in: WorkflowPairCreate,
+        owner_id: UUID,
+        commit: bool = True,
     ) -> WorkflowPair:
-        """Create workflow pair with owner."""
+        """Create workflow pair with owner (commit=False only flushes)."""
         obj_in_data = obj_in.model_dump()
         obj_in_data["created_by"] = owner_id
         db_obj = WorkflowPair(**obj_in_data)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        _commit_or_flush(db, db_obj, commit)
         return db_obj
 
     def is_workflow_pair_in_use(self, db: Session, *, workflow_pair_id: UUID) -> bool:

@@ -7,18 +7,26 @@ scope's admin and a platform admin; allowed workflow pairs; audit rows. RLS: the
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from httpx import Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core import capabilities as caps
 from app.crud.schema_repository import SNAPSHOT_KEYS
-from app.models import AuditLogNew, CurationSchema, Scope, UserNew, WorkflowPair
+from app.models import (
+    AuditLogNew,
+    CurationSchema,
+    Scope,
+    ScopeMembership,
+    UserNew,
+    WorkflowPair,
+)
 from app.models.methodology import MethodologyVersion
 from app.models.permissions import RoleCapability
 from tests.api.schema_api_support import insert_pair, insert_schema, schema_payload
@@ -417,3 +425,97 @@ def test_member_changes_and_default_pair_changes_are_audited(
         caps.MANAGE_MEMBERS,
         caps.MANAGE_SCOPE,
     ]
+
+
+# #604 review: the audit row commits with its change; a failed insert leaves no
+# unaudited change behind (it used to commit after it)
+def _state(db: Session, w: World) -> tuple[Any, ...]:
+    db.expire_all()
+    counts = tuple(
+        db.scalar(select(func.count()).select_from(m))
+        for m in (CurationSchema, MethodologyVersion, WorkflowPair)
+    )
+    edited = db.scalar(
+        select(func.count()).where(CurationSchema.description == "edited")
+    )
+    roles = sorted(
+        (str(m.user_id), str(m.role), m.is_active)
+        for m in db.scalars(
+            select(ScopeMembership).where(ScopeMembership.scope_id == w.scope.id)
+        )
+    )
+    scope = w.scope
+    return (
+        *counts,
+        edited,
+        roles,
+        scope.default_workflow_pair_id,
+        sorted(map(str, scope.allowed_workflow_pair_ids)),
+    )
+
+
+class AuditDownError(Exception):
+    pass
+
+
+def _broken(*_: Any, **__: Any) -> None:
+    raise AuditDownError
+
+
+def _member_role(c: TestClient, db: Session, w: World, h: dict) -> Any:
+    url = f"/api/v1/scopes/{w.scope.id}/members/{w.users['viewer'].id}"
+    return c.patch(url, headers=h, json={"role": "curator"})
+
+
+def _member_remove(c: TestClient, db: Session, w: World, h: dict) -> Any:
+    url = f"/api/v1/scopes/{w.scope.id}/members/{w.users['viewer'].id}"
+    return c.delete(url, headers=h)
+
+
+CALLS: dict[str, Call] = {
+    **SCOPE_CONFIG,
+    "member role": _member_role,
+    "member remove": _member_remove,
+}
+
+
+@pytest.mark.parametrize("action", [*CALLS, "default pair"])
+def test_a_failed_audit_insert_rolls_the_change_back(
+    client: TestClient,
+    db_session: Session,
+    w: World,
+    pairs: tuple[WorkflowPair, WorkflowPair],
+    monkeypatch: pytest.MonkeyPatch,
+    action: str,
+) -> None:
+    h = auth_headers(w.users["scope_admin"])
+    if action == "default pair":
+        call: Call = lambda c, db, w, h: c.patch(  # noqa: E731
+            f"/api/v1/scopes/{w.scope.id}",
+            headers=h,
+            json={"default_workflow_pair_id": str(pairs[1].id)},
+        )
+    else:
+        call = CALLS[action]
+    seen: list[tuple[Any, ...]] = []
+    send = client.request
+
+    def snapshot_then_send(*a: Any, **k: Any) -> Any:
+        seen.append(_state(db_session, w))  # after the call's own setup rows
+        return send(*a, **k)
+
+    monkeypatch.setattr(client, "request", snapshot_then_send)
+    monkeypatch.setattr("app.core.capabilities.AuditLogNew", _broken)
+    with pytest.raises(AuditDownError):
+        call(client, db_session, w, h)
+    db_session.rollback()
+    assert _state(db_session, w) == seen[-1], action
+
+
+def test_audited_changes_still_commit(
+    client: TestClient, db_session: Session, w: World
+) -> None:
+    h = auth_headers(w.users["scope_admin"])
+    for action, call in CALLS.items():
+        r = call(client, db_session, w, h)
+        assert r.status_code in (200, 201, 204), (action, r.text)

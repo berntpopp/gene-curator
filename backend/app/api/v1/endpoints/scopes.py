@@ -515,9 +515,9 @@ def update_scope(
         )
     _usable_pairs(db, scope, [scope_in.default_workflow_pair_id])
     old_default = scope.default_workflow_pair_id
-    updated_scope = scope_crud.update(db, db_obj=scope, obj_in=scope_in)
-    if updated_scope.default_workflow_pair_id != old_default:
-        audit(
+    sent = "default_workflow_pair_id" in scope_in.model_fields_set
+    if sent and scope_in.default_workflow_pair_id != old_default:
+        audit(  # before update(), whose commit writes it with the change
             db,
             current_user,
             MANAGE_SCOPE,
@@ -530,6 +530,7 @@ def update_scope(
                 ]
             },
         )
+    updated_scope = scope_crud.update(db, db_obj=scope, obj_in=scope_in)
 
     logger.info(
         "Scope updated",
@@ -554,7 +555,6 @@ def set_allowed_workflow_pairs(
     """Replace the workflow pairs the scope may use besides its default (global or this
     scope's own pairs); an empty list allows the default pair only."""
     scope.allowed_workflow_pairs = _usable_pairs(db, scope, body.workflow_pair_ids)
-    db.commit()
     audit(
         db,
         current_user,
@@ -563,6 +563,7 @@ def set_allowed_workflow_pairs(
         ("scopes", scope_id),
         {"allowed_workflow_pair_ids": body.workflow_pair_ids},
     )
+    db.commit()
     db.refresh(scope)
     return scope
 
