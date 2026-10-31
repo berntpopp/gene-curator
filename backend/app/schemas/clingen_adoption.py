@@ -9,6 +9,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.models.curation import _MOI_SYNONYMS
+
 _ID = Field(..., min_length=1, max_length=500)
 
 
@@ -28,6 +30,35 @@ class ClinGenRecord(BaseModel):
     retrieved_at: str = _ID
     record_sha256: str = Field(..., pattern=r"^[0-9a-f]{64}$")
     citation: str = Field(..., min_length=1, max_length=2000)
+
+
+def _moi(value: str) -> str:
+    """AD, 'Autosomal dominant inheritance' and HP:0000006 alike, as the entity key squashes."""
+    squashed = "".join(c for c in value.lower() if c not in " _-").replace(
+        "inheritance", ""
+    )
+    for abbr, synonyms in _MOI_SYNONYMS.items():
+        if squashed == abbr or squashed in synonyms:
+            return abbr.upper()
+    return squashed.upper()
+
+
+def _mondo(value: str) -> str:
+    return value.strip().upper().replace("_", ":")
+
+
+def entity_errors(
+    record: ClinGenRecord, hgnc_id: str, mondo_id: str, moi: str, path: str
+) -> list[str]:
+    """Where the ClinGen record names another gene, disease or MOI than the entity."""
+    errors = []
+    if hgnc_id != record.hgnc_id:
+        errors.append(f"{path}.hgnc_id: {record.hgnc_id} is not {hgnc_id}")
+    if _mondo(record.mondo) != _mondo(mondo_id):
+        errors.append(f"{path}.mondo: {record.mondo} is not the entity's {mondo_id}")
+    if _moi(record.moi) != _moi(moi):
+        errors.append(f"{path}.moi: {record.moi} is not the entity's {moi}")
+    return errors
 
 
 class ClinGenAdoptionRow(BaseModel):

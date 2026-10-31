@@ -43,6 +43,15 @@ confirms it. It shows an *Adopted from ClinGen* badge. Gene Curator never fetche
 PubMed or ClinVar records itself: use GeneFoundry and record what it returns. Details in the
 [README](../README.md#adopting-a-clingen-classification).
 
+## Cite ClinGen beside your own curation
+
+To curate a ClinGen-covered entity yourself and show ClinGen's class next to yours, set
+`clingen_reference` on the curation to the GeneFoundry `clingen_get_gene_validity` record (`PUT`,
+MCP `update_curation`). It must name the curation's gene, MONDO id and MOI, or
+the save is refused with 422; `null` removes it. If your class differs from ClinGen's (or the
+entity is a susceptibility), submit asks for `curator_classification_rationale`. The export
+cites it as `clingen_reference` ([EXPORT](EXPORT.md)).
+
 ## Working with an AI agent
 
 Connect Claude or another MCP client with a personal access token or OAuth

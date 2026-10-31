@@ -297,6 +297,20 @@
           "description": "Susceptibility association points (scores.association_total)",
           "title": "Association Score"
         },
+        "clingen_reference": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ClinGen's classification of the same entity, cited beside ours, as a statement shaped like adoption (contributions: the GCEP interpreter only); null when the curation cites none",
+          "title": "Clingen Reference"
+        },
         "computed_verdict": {
           "anyOf": [
             {

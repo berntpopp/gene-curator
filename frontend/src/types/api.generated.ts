@@ -4946,6 +4946,13 @@ export interface components {
             clingen_adoption?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Clingen Reference
+             * @description ClinGen record cited beside our classification, else null
+             */
+            clingen_reference?: {
+                [key: string]: unknown;
+            } | null;
             /** Lock Version */
             lock_version: number;
             /**
@@ -5135,6 +5142,13 @@ export interface components {
              * @description ClinGen record this curation adopted (#105), else null
              */
             clingen_adoption?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Clingen Reference
+             * @description ClinGen record cited beside our classification, else null
+             */
+            clingen_reference?: {
                 [key: string]: unknown;
             } | null;
             /** Lock Version */
@@ -5327,6 +5341,13 @@ export interface components {
              * @description ClinGen record this curation adopted (#105), else null
              */
             clingen_adoption?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Clingen Reference
+             * @description ClinGen record cited beside our classification, else null
+             */
+            clingen_reference?: {
                 [key: string]: unknown;
             } | null;
             /** Lock Version */
@@ -5983,6 +6004,8 @@ export interface components {
              * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
              */
             merge?: boolean | null;
+            /** @description GeneFoundry clingen_get_gene_validity record of this entity, cited beside our class; a class other than ClinGen's needs a rationale */
+            clingen_reference?: components["schemas"]["ClinGenRecord"] | null;
         };
         /**
          * CurationWriteResult
@@ -6325,6 +6348,13 @@ export interface components {
              * @description Adopted ClinGen classification (#105) as a VA-Spec statement: id (CGGV), reportedIn [Document], contributions [GCEP interpreter, curator, approver]; null for a curation of our own
              */
             adoption?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Clingen Reference
+             * @description ClinGen's classification of the same entity, cited beside ours, as a statement shaped like adoption (contributions: the GCEP interpreter only); null when the curation cites none
+             */
+            clingen_reference?: {
                 [key: string]: unknown;
             } | null;
             /**
