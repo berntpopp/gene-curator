@@ -332,7 +332,6 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         summaries = []
         for row in results:
             scores = row.CurationNew.computed_scores or {}
-            verdict = row.CurationNew.computed_verdict
 
             evidence, pre = row.CurationNew.evidence_data, row.precuration_evidence
             disease = get_disease_fields(evidence, pre)
@@ -347,13 +346,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                     scope_name=row.scope_name,
                     status=row.CurationNew.status,
                     workflow_stage=row.CurationNew.workflow_stage,
-                    computed_verdict=(
-                        "No Known Disease Relationship"
-                        if verdict == "no_known"
-                        else verdict.title()
-                        if verdict
-                        else None
-                    ),
+                    computed_verdict=row.CurationNew.computed_verdict,  # the key
                     curator_classification=row.CurationNew.curator_classification,
                     final_classification=row.CurationNew.final_classification,
                     clingen_adoption=row.CurationNew.clingen_adoption,

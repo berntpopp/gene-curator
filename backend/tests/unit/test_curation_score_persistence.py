@@ -54,7 +54,7 @@ def test_scope_list_reads_persisted_engine_scores(
     db_session.commit()
     summaries, _ = curation_crud.get_multi_filtered(db_session)
     summary = next(row for row in summaries if row.id == test_curation.id)
-    assert summary.computed_verdict == "Moderate"
+    assert summary.computed_verdict == "moderate"  # the stored key
     assert summary.computed_scores == {
         "total_score": 7,
         "genetic_score": 5,

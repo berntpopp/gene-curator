@@ -53,3 +53,20 @@ def test_reads_name_the_entity_key_and_risk_allele(
     ).json()
     assert pre["risk_allele"] == "G1"
     assert pre["entity_key"] == test_precuration.entity_key
+
+
+def test_list_and_get_send_the_stored_verdict(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_curation: CurationNew,
+) -> None:
+    """One canonical form everywhere (the stored key); labels are the UI's."""
+    test_curation.computed_verdict = "no_known"
+    db_session.commit()
+    detail = client.get(
+        f"/api/v1/curations/{test_curation.id}", headers=_h(curator_token)
+    ).json()
+    listed = client.get("/api/v1/curations/", headers=_h(curator_token)).json()
+    [row] = [c for c in listed["curations"] if c["id"] == str(test_curation.id)]
+    assert row["computed_verdict"] == detail["computed_verdict"] == "no_known"
