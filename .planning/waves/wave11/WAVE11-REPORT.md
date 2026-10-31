@@ -49,7 +49,8 @@ Step 0 is answered; do not ask again.
 | #284 capability matrix, scope-owned configuration, allowed pairs | #604 |
 | #276 catalogue column order, With results, saved view | #605 |
 | #447 SOP v11 segregation | #606 |
-| Release v0.13.0 | this PR (release/v0.13.0) |
+| Re-check findings and remaining UX nits (fix/w11-final) | #TBD-final |
+| Release v0.13.0 | #607 (release/v0.13.0) |
 | UI monkey findings and UX polish (fix/w11-ui-polish) | #608 |
 | API/MCP monkey findings, polish queue, migration 086 (fix/w11-polish) | #609 |
 
@@ -105,12 +106,49 @@ Round 1:
 UX scores (out of 10): KGDB journey 5, builders 5, permissions 5, mobile 6, version move 7,
 segregation 7, catalogue 8. Fixed in #608 (UI) and #609 (API/MCP).
 
-TODO(owner): re-check results.
+Round 2 re-check at d1267b62: 32 of 34 findings fixed, 2 partial (MUI-15: the `PMID:` prefix
+is stored; MUI-18: raw keys left in two places), none still broken. Every round-1 untested item
+passes: #594 (an author in an inactive scope sees the read-only reason), the anonymous gene
+page synopsis, plain objects, viewer and reviewer buttons, a scope admin who edited cannot
+approve, the row side sheet, source chip kind detection, and the 390 px sticky Save bar.
+Two new lows: an inactive-scope member gets 403 on review-comments, audit-trail and diff; the
+source chip accepts junk as `Database`.
+
+| UX area | R1 | R2 |
+| --- | --- | --- |
+| KGDB journey | 5 | 7 |
+| Builders | 5 | 8 |
+| Permissions | 5 | 8 |
+| Mobile | 6 | 7 |
+| Version move | 7 | 8 |
+| Segregation | 7 | 8 |
+| Catalogue | 8 | 8 |
+
+The partials, the two new lows and the remaining UX nits go into the final fix PR
+(fix/w11-final, #TBD-final).
 
 ## KGDB readiness
 
-TODO(owner): KGDB readiness.
+Checked end to end on a fresh stack:
+
+- Bundle import: dry run, write, idempotent re-import, a new version on change.
+- Intake with curator and due date.
+- Bulk ClinGen adoption from GeneFoundry records, confirmed under 4-eyes, with the `adoption`
+  export block.
+- Mendelian and Susceptibility curations with source cells (ClinVar, PMID, DOI) and the
+  approved susceptibility tiering.
+- An MCP-written curation with an agent block, shown in History and the export.
+- Approval by two reviewers.
+- Version move with an active curation.
+- Export with `synopsis`, `contributions` and sources, validating against the JSON Schema
+  snapshot and `docs/examples/export-page.json`.
 
 ## Remaining follow-ups
 
-TODO(owner)
+None after fix/w11-final (#TBD-final).
+
+Orchestration notes:
+
+- `merge.sh` did not delete remote branches; they were deleted through the API.
+- Subagents cannot write report files; findings were relayed in their replies.
+- GitHub shows the SSH-signed tags as unverified until the key is added as a signing key.
