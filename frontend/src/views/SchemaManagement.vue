@@ -125,6 +125,7 @@
               variant="text"
               @click="duplicateSchema(item)"
             />
+            <VersionMoveDialog :schema-id="item.id" :schema-name="item.name" />
             <v-btn
               aria-label="Delete schema"
               icon="mdi-delete"
@@ -276,6 +277,7 @@
   import { curationStatusColor } from '@/config/status'
   import { useConfirm } from '@/composables/useConfirm'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import VersionMoveDialog from '@/components/schema-editor/VersionMoveDialog.vue'
   import { storeToRefs } from 'pinia'
   import type { Schema } from '@/types/api'
   import { useMethodologyImportStore } from '@/stores/methodologyImport'

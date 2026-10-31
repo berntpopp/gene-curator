@@ -124,7 +124,8 @@ class PrecurationNew(Base):
         nullable=False,
         index=True,
     )
-    # Pinned at creation by a DB trigger (042); NOT NULL and immutable in PostgreSQL
+    # Pinned at creation by a DB trigger (042); NOT NULL; only an admin move to a later
+    # version of the same schema re-pins it in PostgreSQL (078)
     methodology_version_id: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(),
         ForeignKey("methodology_versions.id"),
@@ -262,7 +263,8 @@ class CurationNew(Base):
     entity_key: Mapped[str] = mapped_column(
         Text, nullable=False, default="", server_default=""
     )
-    # Pinned at creation by a DB trigger (042); NOT NULL and immutable in PostgreSQL
+    # Pinned at creation by a DB trigger (042); NOT NULL; only an admin move to a later
+    # version of the same schema re-pins it in PostgreSQL (078)
     methodology_version_id: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(),
         ForeignKey("methodology_versions.id"),

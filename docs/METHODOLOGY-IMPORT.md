@@ -89,3 +89,36 @@ The JSON download of a schema in the schema editor is the body of one `schemas[]
   ]
 }
 ```
+
+## Move curations to a newer version
+
+Existing work stays on the version it was started on. A platform admin moves one
+schema's curations and precurations to its latest published version:
+
+```
+POST /api/v1/schemas/curation-schemas/{schema_id}/move-to-version[?dry_run=false&version=N]
+```
+
+MCP: `move_to_version` on `/mcp/full` (platform admins only, marked destructive; not on
+core `/mcp`). UI: the redo icon ("Move curations to the latest version") on a schema row
+in Schema Management.
+
+- **Dry run** (the default) writes nothing. Per row: fields kept (same id), fields
+  dropped (id gone in the new version), new required fields now empty, old -> new score
+  and class.
+- **Apply** (`dry_run=false`; `version` is the planned target and must still be the
+  latest, else 409), one transaction: re-pin, drop the gone fields (their values are
+  kept in the audit log), rescore as a save does and audit-log every row
+  (`change_type = version_move`, old/new version and class).
+- An **active** curation whose class changes, or that misses a new required field, is
+  never edited: it stays active and exported while an open copy on the new version goes
+  to review (its earlier reviewers get a pending review and a notification) or to draft.
+  The copy replaces it only once a second person approves it; the admin who moved it may
+  not review it (4-eyes). Unchanged active curations are re-pinned in place.
+- An active curation that already has an open re-curation is left alone: the
+  re-curation is moved and replaces it. Archived curations are not moved. Rows of an
+  inactive scope are read-only: dry run and apply both list them with `skipped` set to
+  the reason and leave them as they are.
+- Running it twice changes nothing. Field renames and moves between methodologies are
+  out of scope (field ids are never renamed). PostgreSQL (078) allows a re-pin only to
+  a later version of the same schema, and the copy insert, to a platform admin.

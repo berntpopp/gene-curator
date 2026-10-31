@@ -40,6 +40,7 @@ from app.api.v1.endpoints import (
     scopes,
     search,
     users,
+    version_move,
     workflow,
 )
 
@@ -68,6 +69,7 @@ api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     methodology_import.router, prefix="/schemas", tags=["schemas"]
 )
+api_router.include_router(version_move.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     schema_validation.router, prefix="/validation", tags=["validation"]
 )

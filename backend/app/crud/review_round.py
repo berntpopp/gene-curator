@@ -49,15 +49,17 @@ in_current_round: Any = and_(
 
 
 CORRECTED_OWN = (
-    "4-eyes principle violation: you corrected this curation's disease entity"
+    "4-eyes principle violation: you corrected this curation's disease entity "
+    "or moved it to a new methodology version"
 )
 
 
 def correctors(curation_id: Any) -> Any:
-    """Who made a disease correction (#453) of the curation: their work too (D1)."""
+    """Who corrected the disease (#453) or moved the curation to a new methodology
+    version (#591): their work too (D1)."""
     return select(AuditLogNew.user_id).where(
         AuditLogNew.entity_id == curation_id,
-        AuditLogNew.change_type == "disease_correction",
+        AuditLogNew.change_type.in_(("disease_correction", "version_move")),
         AuditLogNew.user_id.isnot(None),
     )
 
@@ -131,18 +133,19 @@ def reviewers_required(workflow_states: dict[str, Any]) -> int:
 
 
 def reassign_earlier_reviewers(
-    db: Session, curation: CurationNew, assigned_by: UUID
+    db: Session, curation: CurationNew, assigned_by: UUID, source_id: UUID | None = None
 ) -> list[UUID]:
     """On resubmit, give each earlier reviewer a new PENDING review in the new round.
 
-    Never the curation's own curator (4-eyes, admins included).
+    Never the curation's own curator (4-eyes, admins included). ``source_id``: whose
+    reviews are the earlier ones, for a copy of an active curation (#591); default its own.
     """
     if curation.submitted_at is None:
         return []
     earlier = db.scalars(
         select(Review.reviewer_id)
         .where(
-            Review.curation_id == curation.id,
+            Review.curation_id == (source_id or curation.id),
             Review.assigned_at < curation.submitted_at,
             Review.reviewer_id != curation.created_by,
             Review.reviewer_id.notin_(correctors(curation.id)),

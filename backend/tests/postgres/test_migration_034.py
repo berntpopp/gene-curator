@@ -102,6 +102,8 @@ def test_067_on_fresh_and_legacy_data(owner_session: Session) -> None:
         text(
             "DROP INDEX uq_curations_one_open; "
             "DROP INDEX uq_precurations_open_draft; "
+            # 078's policy reads entity_key; the test rolls back
+            "DROP POLICY curation_version_move_insert_policy ON curations; "
             "ALTER TABLE precurations DROP COLUMN entity_key; "
             "ALTER TABLE curations DROP COLUMN entity_key; "
             "ALTER TABLE active_curations DROP COLUMN entity_key; "
