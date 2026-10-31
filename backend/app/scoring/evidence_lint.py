@@ -142,13 +142,18 @@ def review_flags(result: dict[str, Any]) -> list[str]:
     if (margin := flags.get("band_margin")) is not None:
         sections = result.get("sections") or {}
 
-        def gap(band: dict[str, Any]) -> tuple[float, str]:
+        def gap(band: dict[str, Any]) -> tuple[float, str, str]:
             """The binding check (largest shortfall; negative is a margin) of the band's
-            total min and section_min; the total wins a tie, as before section_min."""
-            checks = [(band["min"] - total, "")] + [
-                (low - sections.get(k, 0), f" ({k} {sections.get(k, 0):g} of {low:g})")
-                for k, low in band.get("section_min", {}).items()
+            total min and section_min, as (shortfall, points read, edge); the total wins
+            a tie, as before section_min."""
+            checks = [
+                (band["min"] - total, f"the total of {total:g}", f"{band['min']:g}")
             ]
+            checks += [
+                (low - sections.get(k, 0), f"the {k} score of {sections.get(k, 0):g}",
+                 f"{low:g} {k} points")
+                for k, low in band.get("section_min", {}).items()
+            ]  # fmt: skip
             return max(checks, key=lambda c: c[0])
 
         # The lowest floor within the margin of 0 (limited at 0.1) parts some evidence from
@@ -158,12 +163,11 @@ def review_flags(result: dict[str, Any]) -> list[str]:
         edges = [(b, gap(b)) for b in bands if b["min"] > floor or floor > margin]
         near = min(edges, key=lambda e: abs(e[1][0]), default=None)
         if near and abs(near[1][0]) <= margin:
-            band, (_, note) = near
+            band, (_, points, edge) = near
             out.append(
-                f"review_flags.band_margin: the total of {total:g} points is within "
+                f"review_flags.band_margin: {points} points is within "
                 f"{margin:g} point{'' if margin == 1 else 's'} of the {band['class']} "
-                f"band edge at {band['min']:g}"
-                f"{note}; check the evidence near the boundary"
+                f"band edge at {edge}; check the evidence near the boundary"
             )
     if hotspot := flags.get("hotspot"):
         points, rows = result.get("variant_points", {}), result.get("variant_rows", {})
