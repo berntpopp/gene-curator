@@ -62,7 +62,8 @@
     <div class="text-label-large">Points when</div>
     <p class="text-body-small text-medium-emphasis mb-2">
       A matching rule worth 0 points always wins (e.g. no variant source). A rule worth more only
-      fills rows where the curator left the points blank.
+      fills rows where the curator left the points blank. Times and At most then scale or cap the
+      row's points, entered or not.
     </p>
     <div
       v-for="(cond, c) in item.points_when ?? []"
@@ -77,14 +78,23 @@
           :diag="diag"
           :columns="columns"
         />
+        <v-select
+          :model-value="effectOf(cond)"
+          :items="EFFECTS"
+          label="Effect"
+          aria-label="Rule effect"
+          density="compact"
+          variant="outlined"
+          @update:model-value="v => setEffect(cond, v)"
+        />
         <v-text-field
-          :model-value="cond.points"
-          label="Points"
+          :model-value="cond[effectOf(cond)]"
+          :label="EFFECTS.find(e => e.value === effectOf(cond))?.title"
           type="number"
           density="compact"
           variant="outlined"
           :error-messages="diag(`${base}.points_when[${c}].points`)"
-          @update:model-value="v => (cond.points = Number(v))"
+          @update:model-value="v => (cond[effectOf(cond)] = Number(v))"
         />
         <v-btn
           aria-label="Remove condition"
@@ -130,7 +140,15 @@
   import FieldPicker from './FieldPicker.vue'
   import RuleCondition from './RuleCondition.vue'
   import type { ColumnOption } from './evidenceFields'
-  import { setText, type DiagFn, type ItemType, type PointsWhen } from './pointModel'
+  import {
+    EFFECTS,
+    effectOf,
+    setEffect,
+    setText,
+    type DiagFn,
+    type ItemType,
+    type PointsWhen
+  } from './pointModel'
 
   withDefaults(defineProps<{ base: string; diag: DiagFn; columns?: ColumnOption[] }>(), {
     columns: () => []
