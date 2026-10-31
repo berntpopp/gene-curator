@@ -231,15 +231,17 @@ describe('useCurationsStore', () => {
       })
     })
 
-    it('handles a 409 without a response body', async () => {
+    it('shows the server reason for a 409 that is not a stale save (inactive scope)', async () => {
       const store = useCurationsStore()
-      api.updateCuration.mockRejectedValue(
-        Object.assign(new Error('conflict'), { response: { status: 409 } })
-      )
+      const detail = 'This scope is inactive; its curations are read-only'
+      api.updateCuration.mockRejectedValue({
+        message: 'x',
+        response: { status: 409, data: { detail } }
+      })
 
-      await expect(store.updateCuration('c1', { lock_version: 1 })).rejects.toThrow('conflict')
-      expect(store.error?.isConflict).toBe(true)
-      expect(store.error?.currentVersion).toBeUndefined()
+      await expect(store.updateCuration('c1', { lock_version: 1 })).rejects.toBeTruthy()
+      expect(store.error).toEqual({ message: detail })
+      expect(store.isConflictError).toBe(false)
     })
 
     it('stores plain messages for other failures', async () => {
@@ -290,6 +292,18 @@ describe('useCurationsStore', () => {
       ).resolves.toBeNull()
       expect(store.error).toMatchObject({ isConflict: true, currentVersion: 5, yourVersion: 4 })
       expect(store.isConflictError).toBe(true)
+    })
+
+    it('shows the server reason for an inactive-scope 409, not a conflict', async () => {
+      const store = useCurationsStore()
+      const detail = 'This scope is inactive; its curations are read-only'
+      api.saveDraft.mockRejectedValue({ message: 'x', response: { status: 409, data: { detail } } })
+
+      await expect(
+        store.saveDraft('c1', { evidence_data: {}, lock_version: 4 })
+      ).resolves.toBeNull()
+      expect(store.error).toEqual({ message: detail, isAutoSave: true })
+      expect(store.isConflictError).toBe(false)
     })
   })
 

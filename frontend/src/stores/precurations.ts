@@ -291,7 +291,7 @@ export const usePrecurationsStore = defineStore('precurations', {
         const detail = data.detail as { message?: string; precuration_id?: string } | undefined
         if (apiError.response?.status === 409 && detail?.precuration_id) {
           this.error = { message: detail.message, existingId: detail.precuration_id }
-        } else if (apiError.response?.status === 409) {
+        } else if (isStaleSave(error)) {
           this.error = {
             message:
               'Another user or tab has modified this precuration. Reload to see their version.',
