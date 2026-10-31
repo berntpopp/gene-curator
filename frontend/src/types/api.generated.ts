@@ -4937,6 +4937,13 @@ export interface components {
             } | null;
             /** Lock Version */
             lock_version: number;
+            /**
+             * Row Provenance
+             * @description #593: per evidence row (key: path#row id, else path[index]) added_by/added_at/changed_by/changed_at; an MCP agent under by.agent
+             */
+            row_provenance?: {
+                [key: string]: unknown;
+            } | null;
             /** Methodology Version Id */
             methodology_version_id?: string | null;
             /**
@@ -5110,6 +5117,13 @@ export interface components {
             } | null;
             /** Lock Version */
             lock_version: number;
+            /**
+             * Row Provenance
+             * @description #593: per evidence row (key: path#row id, else path[index]) added_by/added_at/changed_by/changed_at; an MCP agent under by.agent
+             */
+            row_provenance?: {
+                [key: string]: unknown;
+            } | null;
             /** Methodology Version Id */
             methodology_version_id?: string | null;
             /**
@@ -5199,13 +5213,6 @@ export interface components {
              * @description In review: who still has to review it
              */
             assigned_reviewers?: components["schemas"]["AssignedReviewer"][];
-            /**
-             * Row Provenance
-             * @description #593: per evidence row (key: path#row id, else path[index]) added_by/added_at/changed_by/changed_at; an MCP agent under by.agent
-             */
-            row_provenance?: {
-                [key: string]: unknown;
-            } | null;
         };
         /**
          * CurationDiff
@@ -5291,6 +5298,13 @@ export interface components {
             } | null;
             /** Lock Version */
             lock_version: number;
+            /**
+             * Row Provenance
+             * @description #593: per evidence row (key: path#row id, else path[index]) added_by/added_at/changed_by/changed_at; an MCP agent under by.agent
+             */
+            row_provenance?: {
+                [key: string]: unknown;
+            } | null;
             /** Methodology Version Id */
             methodology_version_id?: string | null;
             /**

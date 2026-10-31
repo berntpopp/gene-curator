@@ -140,6 +140,11 @@ class CurationInDBBase(CurationBase):
 
     # Optimistic locking
     lock_version: int
+    row_provenance: dict[str, Any] | None = Field(
+        None,
+        description="#593: per evidence row (key: path#row id, else path[index]) "
+        "added_by/added_at/changed_by/changed_at; an MCP agent under by.agent",
+    )
 
     # Methodology version pinned at creation (None only without the 042 trigger, e.g. SQLite)
     methodology_version_id: UUID | None = None
@@ -309,11 +314,6 @@ class CurationDetail(CurationInDBBase):
     corrected_disease: bool = False
     assigned_reviewers: list[AssignedReviewer] = Field(
         default_factory=list, description="In review: who still has to review it"
-    )
-    row_provenance: dict[str, Any] | None = Field(
-        None,
-        description="#593: per evidence row (key: path#row id, else path[index]) "
-        "added_by/added_at/changed_by/changed_at; an MCP agent under by.agent",
     )
 
     @classmethod
