@@ -80,6 +80,10 @@ describe('VersionMoveDialog', () => {
     expect(showSuccess).toHaveBeenCalledWith(
       '1 moved to version 2; 1 need review again; 1 skipped (inactive scope)'
     )
+    // the result stays open: each skipped row says why, and nothing is left to move
+    expect(document.body.textContent).toContain('inactive scope')
+    expect(button('Move')).toBeUndefined()
+    expect(button('Close')).toBeDefined()
   })
 
   it('reports a stale plan (409) and keeps the dialog open', async () => {
@@ -102,6 +106,7 @@ describe('VersionMoveDialog', () => {
     expect(document.body.textContent).toContain('Copy to draft')
     expect(document.body.textContent).toContain('Moves')
     expect(document.body.textContent).toContain('Skipped')
+    expect(document.body.textContent).toContain('This scope is inactive')
     document.body.innerHTML = ''
 
     post.mockResolvedValueOnce({ ...plan(), items: [] } as never)

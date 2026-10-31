@@ -12,7 +12,7 @@
     <p v-if="!plan?.items.length" class="text-body-medium">
       Every curation is already on version {{ plan?.to_version }}; nothing to move.
     </p>
-    <p v-else class="text-body-medium mb-3">
+    <p v-else-if="plan.dry_run" class="text-body-medium mb-3">
       Nothing is written until you confirm. Active curations whose class changes go back to review;
       those missing a new required field go back to draft.
     </p>
@@ -46,21 +46,20 @@
             </div>
           </td>
           <td>
-            <v-chip
-              :color="OUTCOME[outcome(item)].color"
-              :title="item.skipped ?? undefined"
-              size="small"
-              variant="tonal"
-            >
+            <v-chip :color="OUTCOME[outcome(item)].color" size="small" variant="tonal">
               {{ OUTCOME[outcome(item)].label }}
             </v-chip>
+            <div v-if="item.skipped" class="text-body-small text-medium-emphasis mt-1">
+              {{ item.skipped }}
+            </div>
           </td>
         </tr>
       </tbody>
     </v-table>
     <template #actions>
-      <v-btn variant="text" @click="open = false">Cancel</v-btn>
+      <v-btn variant="text" @click="open = false">{{ plan?.dry_run ? 'Cancel' : 'Close' }}</v-btn>
       <v-btn
+        v-if="plan?.dry_run"
         color="primary"
         variant="flat"
         :loading="moving"
@@ -97,7 +96,7 @@
     stays: { label: 'Moves', color: undefined },
     skipped: { label: 'Skipped', color: 'error' }
   }
-  /** An inactive scope's row is not moved (read-only); the chip's title says why. */
+  /** An inactive scope's row is not moved (read-only); the row says why. */
   const outcome = (item: VersionMoveItem) => (item.skipped ? 'skipped' : (item.back_to ?? 'stays'))
 
   const logger = useLogger()
@@ -136,7 +135,8 @@
       showSuccess(
         `${moved} moved to version ${result.to_version}; ${reopened} need review again${note}`
       )
-      open.value = false
+      // Skipped rows stay in view with their reason; the result has nothing left to move
+      open.value = skipped > 0
     } catch (error) {
       // 409: a newer version was published since the plan; plan again
       logger.error('Move to version failed', { schemaId: props.schemaId, error: String(error) })
