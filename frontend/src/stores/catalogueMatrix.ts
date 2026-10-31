@@ -87,8 +87,7 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
   /** The server's saved view wins over this browser's, so it follows the user (#276). */
   async function loadSavedView() {
     try {
-      const ids = await catalogueMatrixAPI.getSavedView()
-      if (ids.length) saved.value = ids
+      saved.value = await catalogueMatrixAPI.getSavedView()
     } catch (err) {
       logService.warn('Failed to load the saved catalogue view', {
         error: errorMessage(err, 'Could not load the saved view')

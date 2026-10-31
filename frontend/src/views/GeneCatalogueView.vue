@@ -154,7 +154,7 @@
     const valid = Array.isArray(urlScopes) ? urlScopes.filter(id => known.has(id)).slice(0, 50) : []
     return valid.length ? valid : store.defaultShownIds
   })
-  // the public scopes list holds only scopes with an active curation
+  // the scopes list holds every visible scope (public or the member's own) with an active curation
   const withResultsIds = computed(() => store.availableScopes.map(s => s.id))
   const mineIds = computed(() => scopesStore.userScopes.filter(s => s.user_role).map(s => s.id))
 

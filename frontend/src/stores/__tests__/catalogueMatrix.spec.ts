@@ -34,20 +34,21 @@ describe('catalogueMatrix store', () => {
     expect(store.defaultShownIds).toEqual(['c', 'a'])
   })
 
-  it('prefers the server view, keeps the local one when the server has none or fails (#276)', async () => {
+  it('prefers the server view, keeps the local one when the server fails (#276)', async () => {
     api.getScopes.mockResolvedValue(scopes)
     localStorage.setItem(KEY, JSON.stringify(['b']))
     const store = useCatalogueMatrixStore()
     await store.loadScopes()
-    api.getSavedView.mockResolvedValueOnce([])
-    await store.loadSavedView()
-    expect(store.defaultShownIds).toEqual(['b'])
     api.getSavedView.mockRejectedValueOnce(new Error('down'))
     await store.loadSavedView()
     expect(store.defaultShownIds).toEqual(['b'])
     api.getSavedView.mockResolvedValueOnce(['c', 'a'])
     await store.loadSavedView()
     expect(store.defaultShownIds).toEqual(['c', 'a'])
+    // an empty server view replaces the old browser copy: back to the defaults
+    api.getSavedView.mockResolvedValueOnce([])
+    await store.loadSavedView()
+    expect(store.defaultShownIds).toEqual(['a', 'b', 'c'])
   })
 
   it('saves remotely only when asked and survives a failed save (#276)', async () => {

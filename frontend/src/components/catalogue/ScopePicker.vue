@@ -61,9 +61,11 @@
           v-for="(id, i) in modelValue"
           :key="id"
           :data-testid="`order-${id}`"
-          class="py-0 scope-picker__drag"
+          :class="['py-0 scope-picker__drag', { 'scope-picker__drag--over': dragOver === i }]"
           draggable="true"
           @dragstart="dragFrom = i"
+          @dragenter="dragOver = i"
+          @dragend="dragFrom = dragOver = null"
           @dragover.prevent
           @drop.prevent="dragFrom !== null && move(dragFrom, i)"
         >
@@ -155,8 +157,9 @@
   }
 
   const dragFrom = ref<number | null>(null)
+  const dragOver = ref<number | null>(null)
   function move(from: number, to: number) {
-    dragFrom.value = null
+    dragFrom.value = dragOver.value = null
     if (from === to) return
     const next = [...props.modelValue]
     next.splice(to, 0, ...next.splice(from, 1))
@@ -177,5 +180,9 @@
 
   .scope-picker__drag {
     cursor: grab;
+  }
+
+  .scope-picker__drag--over {
+    box-shadow: inset 0 2px 0 rgb(var(--v-theme-primary));
   }
 </style>

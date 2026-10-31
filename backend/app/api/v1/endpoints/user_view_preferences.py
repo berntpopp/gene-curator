@@ -1,6 +1,9 @@
 """The signed-in user's saved views: only ever their own (#276)."""
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -32,12 +35,16 @@ def save_catalogue_view(
 ) -> CatalogueView:
     """Save your catalogue columns as your default view."""
     value = view.model_dump(mode="json")
-    pref = db.get(UserViewPreference, (current_user.id, CATALOGUE))
-    # ponytail: two first saves racing would 500 one of them (primary key); the next
-    # save wins. Upgrade to an upsert if views are saved concurrently.
-    if pref:
-        pref.value = value
-    else:
-        db.add(UserViewPreference(user_id=current_user.id, view=CATALOGUE, value=value))
+    insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
+    stmt = insert(UserViewPreference).values(
+        user_id=current_user.id, view=CATALOGUE, value=value
+    )
+    # an upsert, so two first saves racing both succeed (last write wins)
+    db.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["user_id", "view"],
+            set_={"value": stmt.excluded.value, "updated_at": func.now()},
+        )
+    )
     db.commit()
     return view

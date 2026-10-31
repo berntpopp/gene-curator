@@ -104,13 +104,23 @@ describe('ScopePicker', () => {
     const item = (id: string) => body().querySelector(`[data-testid="order-${id}"]`)!
     expect(item('s0').getAttribute('draggable')).toBe('true')
     item('s2').dispatchEvent(new Event('dragstart', { bubbles: true }))
+    item('s0').dispatchEvent(new Event('dragenter', { bubbles: true }))
+    await new Promise(r => setTimeout(r))
+    expect(item('s0').classList).toContain('scope-picker__drag--over')
     item('s0').dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }))
+    await new Promise(r => setTimeout(r))
+    expect(body().querySelector('.scope-picker__drag--over')).toBeNull()
     expect(w.emitted('update:modelValue')?.at(-1)).toEqual([['s2', 's0', 's1']])
     // a drop with no drag in progress, or onto itself, changes nothing
     item('s1').dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }))
     item('s1').dispatchEvent(new Event('dragstart', { bubbles: true }))
     item('s1').dispatchEvent(new Event('drop', { bubbles: true, cancelable: true }))
     expect(w.emitted('update:modelValue')).toHaveLength(1)
+    // a cancelled drag clears the indicator
+    item('s1').dispatchEvent(new Event('dragenter', { bubbles: true }))
+    item('s1').dispatchEvent(new Event('dragend', { bubbles: true }))
+    await new Promise(r => setTimeout(r))
+    expect(body().querySelector('.scope-picker__drag--over')).toBeNull()
     w.unmount()
   })
 

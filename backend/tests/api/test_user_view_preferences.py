@@ -1,9 +1,13 @@
 """Saved catalogue view: per user, own only, validated (#276)."""
 
+from typing import Any
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.models import UserNew, UserViewPreference
 
 pytestmark = pytest.mark.unit
 
@@ -38,3 +42,32 @@ def test_requires_sign_in_and_validates(client: TestClient, admin_token: str) ->
         assert (
             client.put(URL, json=body, headers=_bearer(admin_token)).status_code == 422
         )
+
+
+def test_a_save_racing_the_first_one_updates_instead_of_failing(
+    client: TestClient,
+    admin_token: str,
+    test_user_admin: UserNew,
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Another request inserted the row after this one looked: still a 200 (#276)."""
+    db_session.add(
+        UserViewPreference(
+            user_id=test_user_admin.id, view="catalogue", value={"scope_ids": []}
+        )
+    )
+    db_session.commit()
+    real_get = Session.get
+
+    def blind_get(self: Session, entity: Any, *a: Any, **k: Any) -> Any:
+        return None if entity is UserViewPreference else real_get(self, entity, *a, **k)
+
+    monkeypatch.setattr(Session, "get", blind_get)
+    ids = [str(uuid4())]
+    r = client.put(URL, json={"scope_ids": ids}, headers=_bearer(admin_token))
+    assert r.status_code == 200, r.text
+    monkeypatch.undo()
+    db_session.expire_all()
+    pref = db_session.get(UserViewPreference, (test_user_admin.id, "catalogue"))
+    assert pref is not None and pref.value == {"scope_ids": ids}
