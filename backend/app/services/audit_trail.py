@@ -1,7 +1,7 @@
 """Review history of a curation for the workflow audit-trail endpoint. Entries carry the
 ``audit_id`` of the evidence snapshot they refer to, usable as curation_diff ``?baseline=``."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -16,6 +16,10 @@ from app.services.evidence_diff import snapshot_at, submitted_snapshots
 def _name(db: Session, user_id: UUID | None) -> str | None:
     user = db.get(UserNew, user_id) if user_id else None
     return (user.name or None) if user else None  # never the email
+
+
+def _utc(at: datetime) -> datetime:
+    return at if at.tzinfo else at.replace(tzinfo=UTC)  # SQLite drops the zone
 
 
 def audit_entries(
@@ -54,15 +58,38 @@ def audit_entries(
         for audit_id, by, at, meta in submissions
         if by is not None  # every submission has a user; a deleted one leaves None
     ]
+    reviews = db.scalars(select(Review).where(Review.curation_id == curation.id)).all()
+    # Only the approval that activated it moved it to active; earlier ones left it in review.
+    # ponytail: the latest approval before approved_at; an older round's activating approval
+    # of a reopened curation reads as review (no per-round transition log to tell)
+    activating = max(
+        (
+            r.reviewed_at
+            for r in reviews
+            if r.status == ReviewStatus.APPROVED
+            and r.reviewed_at
+            and curation.approved_at
+            and _utc(r.reviewed_at) <= _utc(curation.approved_at)
+        ),
+        default=None,
+    )
+
+    def _to(r: Review) -> WorkflowStage:
+        if r.status != ReviewStatus.APPROVED:
+            return WorkflowStage.CURATION
+        return (
+            WorkflowStage.ACTIVE
+            if r.reviewed_at == activating
+            else WorkflowStage.REVIEW
+        )
+
     entries += [
         WorkflowAuditEntry(
             id=r.id,
             item_id=curation.id,
             item_type=item_type,
             from_stage=WorkflowStage.REVIEW,
-            to_stage=WorkflowStage.ACTIVE
-            if r.status == ReviewStatus.APPROVED
-            else WorkflowStage.CURATION,
+            to_stage=_to(r),
             executed_by=r.reviewer_id,
             executed_by_name=r.reviewer.name or r.reviewer.email,
             executed_at=r.reviewed_at,
@@ -70,7 +97,7 @@ def audit_entries(
             metadata={"decision": r.recommendation},
             audit_id=getattr(snapshot_at(db, curation.id, r.reviewed_at), "id", None),
         )
-        for r in db.scalars(select(Review).where(Review.curation_id == curation.id))
+        for r in reviews
         if r.reviewed_at is not None
     ]
     return sorted(entries, key=lambda e: e.executed_at)

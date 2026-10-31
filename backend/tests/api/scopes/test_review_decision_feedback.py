@@ -141,3 +141,41 @@ def test_audit_trail_needs_scope_membership(
         f"{BASE}/curation/{in_review.id}/audit-trail", headers=auth_headers(outsider)
     )
     assert trail.status_code == 403
+
+
+def test_only_the_activating_approval_moves_to_active(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    owner: UserNew,
+    in_review,
+) -> None:
+    """W11 A4: the first of two approvals leaves the curation in review."""
+    now = datetime.now(UTC)
+    for who, minutes in ((owner, 30), (reviewer, 10)):
+        db_session.add(
+            Review(
+                curation_id=in_review.id,
+                reviewer_id=who.id,
+                assigned_by=curator.id,
+                status=ReviewStatus.APPROVED,
+                recommendation="approve",
+                reviewed_at=now - timedelta(minutes=minutes),
+            )
+        )
+    db_session.commit()
+
+    def stages() -> list[tuple[str, str]]:
+        trail = client.get(
+            f"{BASE}/curation/{in_review.id}/audit-trail",
+            headers=auth_headers(curator),
+        )
+        return [(e["from_stage"], e["to_stage"]) for e in trail.json()["entries"]]
+
+    still_open = [("curation", "review"), ("review", "review"), ("review", "review")]
+    assert stages() == still_open
+    in_review.approved_at = now - timedelta(minutes=9)
+    db_session.commit()
+    assert stages()[-1] == ("review", "active")
+    assert stages()[1] == ("review", "review")
