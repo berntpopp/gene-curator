@@ -190,8 +190,8 @@ export function cellFor(field: FieldSchema): CellDef {
     )
     return { is: VSelect, props: { ...list, items } }
   }
-  // ponytail: an entry cannot hold a comma or semicolon; fine for PMIDs and source names
-  if (isListType(field)) return { is: VCombobox, props: { ...list, delimiters: [',', ';'] } }
+  // "1, 2" or "1; 2" splits; a bare comma or semicolon (URLs, SICI DOIs) stays (monkey B15)
+  if (isListType(field)) return { is: VCombobox, props: { ...list, delimiters: [', ', '; '] } }
   if (field.format === 'date') return { is: VTextField, props: { type: 'date' }, lazy: true }
   return fieldTypes[field.type ?? '']?.cell ?? textCell
 }
