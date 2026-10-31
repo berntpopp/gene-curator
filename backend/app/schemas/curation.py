@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.core.risk_allele import canonical_allele
 from app.core.source_field import EvidenceIn
 from app.models import CurationStatus, WorkflowStage
+from app.schemas.clingen_adoption import ClinGenRecord
 from app.schemas.review_comment import CurationDiff
 from app.schemas.workflow_engine import AssignedReviewer, WorkflowStateInfo
 
@@ -76,6 +77,7 @@ class CurationCreate(CurationBase, CuratorClassificationIn):
 CLASSIFICATION_KEYS = {
     "curator_classification",
     "curator_classification_rationale",
+    "clingen_reference",
 }
 
 
@@ -85,6 +87,11 @@ class CurationUpdate(CuratorClassificationIn):
     evidence_data: EvidenceIn | None = Field(None, description="Updated evidence data")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
     merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
+    clingen_reference: ClinGenRecord | None = Field(
+        None,
+        description="ClinGen record of this entity, cited beside our class; a "
+        "different class needs a rationale",
+    )
 
     model_config = ConfigDict(extra="forbid")
 
@@ -143,6 +150,9 @@ class CurationInDBBase(CurationBase):
     )
     clingen_adoption: dict[str, Any] | None = Field(
         None, description="ClinGen record this curation adopted (#105), else null"
+    )
+    clingen_reference: dict[str, Any] | None = Field(
+        None, description="ClinGen record cited beside our classification, else null"
     )
 
     # Optimistic locking
@@ -362,6 +372,7 @@ class CurationDetail(CurationInDBBase):
             "curator_classification_rationale": curation.curator_classification_rationale,
             "final_classification": curation.final_classification,
             "clingen_adoption": curation.clingen_adoption,
+            "clingen_reference": curation.clingen_reference,
             "lock_version": curation.lock_version,
             "methodology_version_id": curation.methodology_version_id,
             "created_at": curation.created_at,

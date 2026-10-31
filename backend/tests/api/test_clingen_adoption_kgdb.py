@@ -109,6 +109,7 @@ def test_diagnostics_stay_editable_in_review_but_not_the_entity_or_class(
         {"evidence_data": entity, "merge": True},
         {"evidence_data": DIAGNOSTICS},  # a replace would drop the entity
         {"curator_classification": "limited"},
+        {"clingen_reference": row["clingen"]},  # adoption is ClinGen's call already
     ):
         refused = _put(client, curator_token, cid, **body)
         assert refused.status_code == 409, (body, refused.text)

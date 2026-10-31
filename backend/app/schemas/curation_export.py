@@ -92,6 +92,12 @@ class ExportCuration(BaseModel):
         "(CGGV), reportedIn [Document], contributions [GCEP interpreter, curator, "
         "approver]; null for a curation of our own",
     )
+    clingen_reference: dict[str, Any] | None = Field(
+        None,
+        description="ClinGen's classification of the same entity, cited beside ours, as a "
+        "statement shaped like adoption (contributions: the GCEP interpreter only); "
+        "null when the curation cites none",
+    )
     # #593: VA-Spec provenance; evidence_lines is null where evidence is
     contributions: list[Contribution] = Field(
         default_factory=list,

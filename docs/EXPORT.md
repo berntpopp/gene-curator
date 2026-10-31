@@ -61,7 +61,7 @@ harmless).
 `genetic_score`, `experimental_score`, `association_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
 (every PMID under a `pmid` key in the evidence, deduplicated, numerically sorted),
 `curator_name`, `reviewer_name` (who approved), `approved_at`, `activated_at`, `archived_at`,
-`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`,
+`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`, `clingen_reference`,
 `synopsis`, `contributions`, `evidence_lines` (see Provenance).
 
 - **Synopsis:** `synopsis` is the entity's synopsis (like SysNDD's clinical synopsis): the
@@ -113,6 +113,11 @@ harmless).
   the scores and `scores` are `null` and `final_classification` is ClinGen's class (#613). An
   AI agent that adopted it over MCP appears in the top-level `contributions` as software
   `curator` on behalf of the curator.
+- **ClinGen reference:** `clingen_reference` is `null` unless a curation of our own cites
+  ClinGen's classification of the same entity. Then it has the shape of `adoption`, but its
+  `contributions` hold only the ClinGen expert panel as `interpreter` (with ClinGen's
+  classification date): our curator and reviewer are in the top-level `contributions`. A
+  `final_classification` other than ClinGen's carries `curator_classification_rationale`.
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
   `"Curation deleted"`; `null` on active rows.
 

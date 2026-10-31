@@ -5,13 +5,13 @@
       "version": "alpha",
       "schema_type": "precuration",
       "institution": "Kidney Genetics",
-      "description": "KGDB precuration (alpha): adopt ClinGen, then the disease entity, lumping/splitting and kidney classification",
+      "description": "KGDB precuration (alpha): ClinGen as a reference, then the disease entity, lumping/splitting and kidney classification",
       "field_definitions": {
         "sections": [
           {
             "id": "adopt",
-            "label": "Step 0: adopt ClinGen",
-            "description": "Where a ClinGen expert panel has curated this gene-disease-MOI, record it; the reviewer confirms",
+            "label": "Step 0: ClinGen reference",
+            "description": "Record ClinGen's classification as a reference; curate the entity in full. The curation cites the ClinGen record (clingen_reference) beside our class; a different class needs a written rationale",
             "fields": [
               {
                 "id": "clingen_curated",
@@ -371,13 +371,13 @@
       "version": "alpha",
       "schema_type": "precuration",
       "institution": "Kidney Genetics",
-      "description": "KGDB precuration (alpha): adopt ClinGen, then the disease entity, lumping/splitting and kidney classification; susceptibility (risk allele) entities",
+      "description": "KGDB precuration (alpha): ClinGen as a reference, then the disease entity, lumping/splitting and kidney classification; susceptibility (risk allele) entities",
       "field_definitions": {
         "sections": [
           {
             "id": "adopt",
-            "label": "Step 0: adopt ClinGen",
-            "description": "Where a ClinGen expert panel has curated this gene-disease-MOI, record it; the reviewer confirms",
+            "label": "Step 0: ClinGen reference",
+            "description": "Record ClinGen's classification as a reference; curate the entity in full. The curation cites the ClinGen record (clingen_reference) beside our class; a different class needs a written rationale",
             "fields": [
               {
                 "id": "clingen_curated",

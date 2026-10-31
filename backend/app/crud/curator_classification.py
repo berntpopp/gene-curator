@@ -7,8 +7,14 @@ from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.models import CurationNew
-from app.schemas.curation import CLASSIFICATION_KEYS, CuratorClassificationIn, class_key
+from app.models import CurationNew, Gene
+from app.schemas.clingen_adoption import ClinGenRecord, entity_errors
+from app.schemas.curation import (
+    CLASSIFICATION_KEYS,
+    CurationUpdate,
+    CuratorClassificationIn,
+    class_key,
+)
 from app.scoring.classifications import TONES
 from app.scoring.clingen import ClinGenEngine
 from app.scoring.point_limits import scoring_configuration
@@ -91,4 +97,34 @@ def curator_call(
                 },
             )
         values["curator_classification"] = key
+    if isinstance(sent, CurationUpdate) and sent.clingen_reference:
+        values["clingen_reference"] = _reference(db, curation, sent.clingen_reference)
     return values
+
+
+def _reference(
+    db: Session, curation: CurationNew, record: ClinGenRecord
+) -> dict[str, Any]:
+    """The ClinGen record as stored; 422 when it names another entity (as adoption)."""
+    gene = db.get(Gene, curation.gene_id)
+    mondo, _, rest = curation.entity_key.partition("|")
+    moi = rest.partition("|")[0]
+    errors = (
+        entity_errors(
+            record, gene.hgnc_id if gene else "", mondo, moi, "clingen_reference"
+        )
+        if mondo
+        else ["clingen_reference: the curation has no MONDO id and MOI yet"]
+    )
+    if errors:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={
+                "message": "ClinGen record of another entity",
+                "errors": [
+                    dict(zip(("path", "message"), e.split(": ", 1), strict=True))
+                    for e in errors
+                ],
+            },
+        )
+    return record.model_dump(mode="json")

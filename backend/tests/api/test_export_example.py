@@ -63,6 +63,21 @@ NEK8_ADOPTION = {
     "citation": "ClinGen Gene-Disease Validity: NEK8 - Strong (AD)",
 }
 
+CLDN16_CGGV = (
+    "CGGV:assertion_00000000-0000-0000-0000-000000000041-2020-05-01T120000.000Z"
+)
+CLDN16_REFERENCE = NEK8_ADOPTION | {
+    "cggv_id": CLDN16_CGGV,
+    "permalink": f"https://search.clinicalgenome.org/kb/gene-validity/{CLDN16_CGGV}",
+    "classification": "Definitive",
+    "moi": "AR",
+    "mondo": "MONDO:0009461",
+    "hgnc_id": "HGNC:2037",
+    "expert_panel": "Tubulopathy GCEP",
+    "classified_date": "2020-05-01T12:00:00Z",
+    "citation": "ClinGen Gene-Disease Validity: CLDN16 - Definitive (AR)",
+}
+
 
 def _id(n: int) -> UUID:
     return UUID(int=n)
@@ -221,6 +236,7 @@ def _page(db: Session) -> dict[str, Any]:
             evidence_data=evidence,
             row_provenance=_stamps(evidence),
             clingen_adoption=NEK8_ADOPTION if sym == "NEK8" else None,
+            clingen_reference=CLDN16_REFERENCE if sym == "CLDN16" else None,
             curator_classification_rationale="Expert call matches the point model"
             if sym == "CLDN16"
             else None,
@@ -294,6 +310,15 @@ def test_kgdb_reads_these_export_fields(
     ]
     assert gcep["contributor"]["name"] == NEK8_ADOPTION["expert_panel"]
     assert gcep["date"].startswith("2021-02-26")
+    # a curation of our own cites ClinGen in the same shape (KGDB 2026-10-31)
+    reference = cldn16["clingen_reference"]
+    assert (reference["id"], reference["classification"]) == (CLDN16_CGGV, "Definitive")
+    assert reference["reportedIn"][0]["urls"][0] == CLDN16_REFERENCE["permalink"]
+    [panel] = reference["contributions"]
+    assert panel["activityType"]["name"] == "interpreter"
+    assert panel["contributor"]["name"] == "Tubulopathy GCEP"
+    assert panel["date"].startswith("2020-05-01")
+    assert nek8["clingen_reference"] is None
     [ai] = [
         c
         for c in cldn16["contributions"]
