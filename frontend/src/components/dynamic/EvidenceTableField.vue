@@ -130,8 +130,8 @@
       :row="editedRow"
       :title="editedTitle"
       :columns="columns"
-      @update="updateRow"
-      @close="editing = null"
+      @update="updateCell"
+      @close="closeEditor"
     />
   </div>
 </template>
@@ -223,12 +223,18 @@
     )?.[1]
     return `${props.label} · ${own ?? `Row ${editedIndex.value + 1}`}`
   })
-  // ponytail: sheet edits skip default_by suggestions (inline cells keep them); add when asked
-  const updateRow = (row: Row) =>
-    emit(
-      'update:model-value',
-      rows.value.map((r, i) => (i === editedIndex.value ? row : r))
-    )
+  // Like an inline cell: a hand-set suggested column stops following its selector
+  function updateCell(column: string, value: unknown) {
+    const key = editing.value!
+    if (columns.value.find(c => c.key === column)?.schema.default_by) automaticDefaults.delete(key)
+    commit(key, column, value)
+  }
+  // Back to the row's pencil (a new row's too), as a dialog returns focus to its opener
+  function closeEditor() {
+    const index = editedIndex.value
+    editing.value = null
+    focus(`[aria-label="Edit row ${index + 1}"]`)
+  }
 
   // #593: who added and changed each row, from the curation's row_provenance
   const stamps = inject(ROW_PROVENANCE, null)

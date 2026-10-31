@@ -2,12 +2,13 @@
   <v-dialog
     :model-value="!!row"
     content-class="row-editor"
+    :content-props="{ 'aria-labelledby': titleId }"
     transition="slide-x-reverse-transition"
     scrollable
     @update:model-value="open => !open && emit('close')"
   >
     <v-card v-if="row">
-      <v-card-title class="text-title-medium">{{ title }}</v-card-title>
+      <v-card-title :id="titleId" class="text-title-medium">{{ title }}</v-card-title>
       <v-card-text>
         <!-- One row through the dynamic form's own fields: the full editors, with room to type -->
         <DynamicField
@@ -18,7 +19,7 @@
           :field-schema="col.schema"
           :model-value="row[col.key]"
           variant="outlined"
-          @update:model-value="(v: unknown) => emit('update', { ...row, [col.key]: v })"
+          @update:model-value="(v: unknown) => emit('update', col.key, v)"
         />
       </v-card-text>
       <v-card-actions>
@@ -31,6 +32,7 @@
 
 <script setup lang="ts">
   /** Side sheet editing one evidence row of a wide table; every change applies at once. */
+  import { getCurrentInstance } from 'vue'
   import DynamicField from './DynamicField.vue'
   import type { FieldSchema } from './types'
 
@@ -40,7 +42,8 @@
     title: string
     columns: { key: string; schema: FieldSchema }[]
   }>()
-  const emit = defineEmits<{ update: [row: Row]; close: [] }>()
+  const emit = defineEmits<{ update: [column: string, value: unknown]; close: [] }>()
+  const titleId = `row-editor-${getCurrentInstance()?.uid}`
 </script>
 
 <style>

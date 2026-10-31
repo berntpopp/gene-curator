@@ -3,6 +3,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import EvidenceTableField from '../EvidenceTableField.vue'
 import { normalizeField } from '../normalizeDefinition'
+import EvidenceRowEditor from '../EvidenceRowEditor.vue'
+import DynamicField from '../DynamicField.vue'
 
 vi.mock('@/api/publications', () => ({
   publicationsAPI: { validatePMIDs: vi.fn().mockResolvedValue({ results: [] }) }
@@ -56,5 +58,45 @@ describe('wide evidence table row editor', () => {
     await w.setProps({ modelValue: rows })
     await flushPromises()
     expect(document.body.querySelector('.row-editor')?.textContent).toContain('Probands · Row 1')
+  })
+
+  it('follows default_by suggestions in the sheet like inline cells (review #608)', async () => {
+    const withDefault = normalizeField({
+      type: 'evidence_table',
+      columns: {
+        ...columns,
+        kind: { type: 'enum', options: ['a', 'b'] },
+        points: { type: 'number', default_by: { field: 'kind', values: { a: 1, b: 2 } } }
+      }
+    })
+    const w = mount(EvidenceTableField, {
+      props: { fieldSchema: withDefault, label: 'Probands', modelValue: [] },
+      attachTo: document.body
+    })
+    await w.find('.add-row').trigger('click')
+    const [added] = w.emitted('update:model-value')!.at(-1)! as [Record<string, unknown>[]]
+    await w.setProps({ modelValue: added })
+    await flushPromises()
+    const kind = w
+      .findComponent(EvidenceRowEditor)
+      .findAllComponents(DynamicField)
+      .find(f => f.props('fieldName') === 'kind')!
+    kind.vm.$emit('update:model-value', 'b')
+    const [rows] = w.emitted('update:model-value')!.at(-1)! as [Record<string, unknown>[]]
+    expect(rows[0]).toMatchObject({ kind: 'b', points: 2 })
+  })
+
+  it('names the sheet by its title and returns focus to the row on close', async () => {
+    const w = mountWide()
+    const pencil = w.find('[aria-label="Edit row 1"]')
+    ;(pencil.element as HTMLElement).focus()
+    await pencil.trigger('click')
+    await flushPromises()
+    const sheet = document.body.querySelector('.row-editor')!
+    const title = document.getElementById(sheet.getAttribute('aria-labelledby')!)
+    expect(title?.textContent).toContain('Probands · P1')
+    w.findComponent(EvidenceRowEditor).vm.$emit('close')
+    await flushPromises()
+    expect(document.activeElement).toBe(pencil.element)
   })
 })
