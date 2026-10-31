@@ -1,0 +1,45 @@
+"""Delta review of #602: contribution dates in the export's own format (Z), assessors
+only for visible reviews, latest software write chosen by datetime."""
+
+import json
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+
+from app.schemas.provenance import Agent, EvidenceLine, contribution
+from app.services.export_provenance import curation_contributions
+
+pytestmark = pytest.mark.unit
+
+SNAPSHOT = Path(__file__).parents[3] / "docs/examples/export-page.schema.json"
+T = datetime(2026, 10, 2, 9, tzinfo=UTC)
+AI = Agent(name="m", agentType="software")
+
+
+def test_dates_serialize_like_the_other_export_timestamps() -> None:
+    c = contribution("curator", Agent(name="A", agentType="person"), T)
+    assert c.model_dump(mode="json")["date"] == "2026-10-02T09:00:00Z"
+    date = json.loads(SNAPSHOT.read_text())["$defs"]["Contribution"]["properties"][
+        "date"
+    ]
+    assert {"format": "date-time", "type": "string"} in date["anyOf"]
+
+
+def test_no_assessor_without_a_visible_review() -> None:
+    roles = [c.activityType.name for c in curation_contributions("A", T, "B", T, [])]
+    assert roles == ["curator", "approver"]
+    with_review = curation_contributions("A", T, "B", T, [], [("R", T)])
+    assert [c.activityType.name for c in with_review] == [
+        "curator",
+        "assessor",
+        "approver",
+    ]
+
+
+def test_the_latest_software_write_wins_whatever_the_input_type() -> None:
+    older = contribution("curator", AI, "2026-10-03T09:00:00+00:00")
+    newer = contribution("curator", AI, datetime(2026, 10, 3, 10, tzinfo=UTC))
+    lines = [EvidenceLine(path="r[0]", contributions=[older, newer])]
+    [_, software] = curation_contributions("A", T, None, None, lines)
+    assert software.date == datetime(2026, 10, 3, 10, tzinfo=UTC)

@@ -142,13 +142,15 @@
         "date": {
           "anyOf": [
             {
+              "format": "date-time",
               "type": "string"
             },
             {
               "type": "null"
             }
           ],
-          "description": "ISO 8601; a source's own date (e.g. ClinGen) as given",
+          "default": null,
+          "description": "ISO 8601 date-time, like the other export timestamps",
           "title": "Date"
         }
       },
@@ -606,7 +608,7 @@
             }
           ],
           "default": null,
-          "description": "Pinned methodology version; null when the caller may not read methodology versions (anonymous)",
+          "description": "Pinned methodology version; null only for a row that pins none",
           "title": "Version"
         },
         "version_id": {

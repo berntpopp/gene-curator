@@ -3,7 +3,7 @@ row provenance (services/row_provenance.py). Software contributions never approv
 the approver is always the person who approved."""
 
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.source_field import DIRECTIONS, KINDS
@@ -98,6 +98,13 @@ def evidence_lines(evidence: Any, stamps: dict[str, Any] | None) -> list[Evidenc
     return lines
 
 
+def _when(c: Contribution) -> datetime:
+    """Comparable: a naive date counts as UTC, none as the earliest."""
+    if c.date is None:
+        return datetime.min.replace(tzinfo=UTC)
+    return c.date if c.date.tzinfo else c.date.replace(tzinfo=UTC)
+
+
 def curation_contributions(
     curator: str | None,
     created_at: datetime | None,
@@ -115,13 +122,13 @@ def curation_contributions(
             key = c.model_dump_json(exclude={"date"})
             last = software.get(key)
             if c.contributor.agentType == "software" and (
-                last is None or str(c.date or "") > str(last.date or "")
+                last is None or _when(c) > _when(last)
             ):
                 software[key] = c  # one per agent and person, at its latest write
     out += software.values()
     if approved_at is None:
         return out
-    for name, at in assessors or [(approver, approved_at)]:
+    for name, at in assessors or []:  # only reviews the caller may see
         out.append(contribution("assessor", Agent(name=name, agentType="person"), at))
     out.append(
         contribution("approver", Agent(name=approver, agentType="person"), approved_at)

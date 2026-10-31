@@ -4802,7 +4802,7 @@ export interface components {
             activityType: components["schemas"]["ActivityType"];
             /**
              * Date
-             * @description ISO 8601; a source's own date (e.g. ClinGen) as given
+             * @description ISO 8601 date-time, like the other export timestamps
              */
             date?: string | null;
             /** @description PROV-O: the person a software agent acted for */

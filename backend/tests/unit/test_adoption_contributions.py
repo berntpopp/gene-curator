@@ -1,5 +1,5 @@
 """Review #602 item 3: adoption contributions come from the shared VA-Spec builder and
-the export output stays exactly as before."""
+the export output stays as before, dates in the export format (Z)."""
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -41,16 +41,16 @@ def test_adoption_contributions_are_unchanged() -> None:
         {
             "contributor": {"name": "Kidney GCEP", "agentType": "organization"},
             "activityType": _coding("interpreter", "SEPIO:0000331"),
-            "date": "2024-05-01",
+            "date": "2024-05-01T00:00:00Z",
         },
         {
             "contributor": {"name": "Alice", "agentType": "person"},
             "activityType": _coding("curator", "SEPIO:0000156"),
-            "date": "2026-10-02T09:00:00+00:00",
+            "date": "2026-10-02T09:00:00Z",
         },
         {
             "contributor": {"name": "Bob", "agentType": "person"},
             "activityType": _coding("approver", "SEPIO:0000155"),
-            "date": "2026-10-03T09:00:00+00:00",
+            "date": "2026-10-03T09:00:00Z",
         },
     ]

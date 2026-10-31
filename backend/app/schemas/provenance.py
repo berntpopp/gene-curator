@@ -6,10 +6,10 @@ contributory role. A software agent (an AI writing through MCP) carries actedOnB
 the person whose token it used (W3C PROV-O). Shared with the ClinGen adoption export.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_validator
 
 Role = Literal["curator", "assessor", "approver", "interpreter", "publisher"]
 # ClinGen contributory role value set
@@ -54,16 +54,18 @@ class Contribution(BaseModel):
 
     contributor: Agent
     activityType: ActivityType
-    date: datetime | str | None = Field(
-        None, description="ISO 8601; a source's own date (e.g. ClinGen) as given"
+    date: datetime | None = Field(
+        None, description="ISO 8601 date-time, like the other export timestamps"
     )
     actedOnBehalfOf: Agent | None = Field(
         None, description="PROV-O: the person a software agent acted for"
     )
 
-    @field_serializer("date")
-    def _iso(self, value: datetime | str | None) -> str | None:
-        return value.isoformat() if isinstance(value, datetime) else value
+    @field_validator("date")
+    @classmethod
+    def _utc(cls, value: datetime | None) -> datetime | None:
+        """A bare date (ClinGen's classified date) is UTC midnight, so every date is Z."""
+        return value.replace(tzinfo=UTC) if value and not value.tzinfo else value
 
 
 def contribution(role: Role, contributor: Agent, date: Any, **kw: Any) -> Contribution:

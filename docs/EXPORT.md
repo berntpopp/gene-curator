@@ -117,6 +117,7 @@ field names. `evidence_lines` is `null` where `evidence` is (see Who sees what).
 | Gene Curator | Export field | VA-Spec / standard |
 | --- | --- | --- |
 | Curation author (`curator_name`, created) | `contributions[]` with `activityType.name: curator` | `Contribution`, SEPIO:0000156 |
+| Each approving review the caller may see | `contributions[]` with `activityType.name: assessor` | SEPIO:0000154 |
 | Approving reviewer (`reviewer_name`, `approved_at`) | `contributions[]` with `activityType.name: approver` | SEPIO:0000155 |
 | AI agent of an MCP write (`agent` block) | `contributions[]` with `contributor.agentType: software`, `actedOnBehalfOf` the person | PROV-O `SoftwareAgent`, `actedOnBehalfOf` |
 | Model, agent, tools used | `contributor.name`, `contributor.description`, `contributor.extensions[{name: tools_used}]` | `Agent`, `Entity.extensions` |
@@ -127,7 +128,10 @@ field names. `evidence_lines` is `null` where `evidence` is (see Who sees what).
 
 `activityType` is `{name, primaryCoding: {system: "SEPIO", code}}`: curator SEPIO:0000156,
 assessor SEPIO:0000154, approver SEPIO:0000155, interpreter SEPIO:0000331, publisher
-SEPIO-CG:97010. Software contributions are always `curator`, never `approver`: the approver
+SEPIO-CG:97010. `date` is an ISO 8601 date-time in UTC with a `Z` suffix, like the other
+export timestamps (a bare source date such as ClinGen's classified date is midnight UTC).
+An assessor is listed only for an approving review the caller may see, so adopted
+curations and anonymous callers get none. Software contributions are always `curator`, never `approver`: the approver
 is the person who approved (4-eyes). Persons carry no `id`.
 
 The `source` field type (schema-driven, a table cell or a list) checks the identifier per

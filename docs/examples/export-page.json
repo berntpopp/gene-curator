@@ -207,7 +207,7 @@
               "code": "SEPIO:0000156"
             }
           },
-          "date": "2026-10-01T12:00:00",
+          "date": "2026-10-01T12:00:00Z",
           "actedOnBehalfOf": null
         },
         {
@@ -233,7 +233,7 @@
               "code": "SEPIO:0000156"
             }
           },
-          "date": "2026-10-02T09:05:00+00:00",
+          "date": "2026-10-02T09:05:00Z",
           "actedOnBehalfOf": {
             "name": "Alice Curator",
             "agentType": "person",
@@ -251,31 +251,13 @@
             "extensions": null
           },
           "activityType": {
-            "name": "assessor",
-            "primaryCoding": {
-              "system": "SEPIO",
-              "code": "SEPIO:0000154"
-            }
-          },
-          "date": "2026-10-04T12:00:00",
-          "actedOnBehalfOf": null
-        },
-        {
-          "contributor": {
-            "name": "Bob Reviewer",
-            "agentType": "person",
-            "id": null,
-            "description": null,
-            "extensions": null
-          },
-          "activityType": {
             "name": "approver",
             "primaryCoding": {
               "system": "SEPIO",
               "code": "SEPIO:0000155"
             }
           },
-          "date": "2026-10-04T12:00:00",
+          "date": "2026-10-04T12:00:00Z",
           "actedOnBehalfOf": null
         }
       ],
@@ -329,7 +311,7 @@
                   "code": "SEPIO:0000156"
                 }
               },
-              "date": "2026-10-02T09:05:00+00:00",
+              "date": "2026-10-02T09:05:00Z",
               "actedOnBehalfOf": null
             },
             {
@@ -355,7 +337,7 @@
                   "code": "SEPIO:0000156"
                 }
               },
-              "date": "2026-10-02T09:05:00+00:00",
+              "date": "2026-10-02T09:05:00Z",
               "actedOnBehalfOf": {
                 "name": "Alice Curator",
                 "agentType": "person",
@@ -379,7 +361,7 @@
                   "code": "SEPIO:0000156"
                 }
               },
-              "date": "2026-10-03T10:00:00+00:00",
+              "date": "2026-10-03T10:00:00Z",
               "actedOnBehalfOf": null
             }
           ]
@@ -461,25 +443,7 @@
               "code": "SEPIO:0000156"
             }
           },
-          "date": "2026-10-02T12:00:00",
-          "actedOnBehalfOf": null
-        },
-        {
-          "contributor": {
-            "name": "Bob Reviewer",
-            "agentType": "person",
-            "id": null,
-            "description": null,
-            "extensions": null
-          },
-          "activityType": {
-            "name": "assessor",
-            "primaryCoding": {
-              "system": "SEPIO",
-              "code": "SEPIO:0000154"
-            }
-          },
-          "date": "2026-10-05T12:00:00",
+          "date": "2026-10-02T12:00:00Z",
           "actedOnBehalfOf": null
         },
         {
@@ -497,7 +461,7 @@
               "code": "SEPIO:0000155"
             }
           },
-          "date": "2026-10-05T12:00:00",
+          "date": "2026-10-05T12:00:00Z",
           "actedOnBehalfOf": null
         }
       ],
@@ -663,25 +627,7 @@
               "code": "SEPIO:0000156"
             }
           },
-          "date": "2026-10-03T12:00:00",
-          "actedOnBehalfOf": null
-        },
-        {
-          "contributor": {
-            "name": "Bob Reviewer",
-            "agentType": "person",
-            "id": null,
-            "description": null,
-            "extensions": null
-          },
-          "activityType": {
-            "name": "assessor",
-            "primaryCoding": {
-              "system": "SEPIO",
-              "code": "SEPIO:0000154"
-            }
-          },
-          "date": "2026-10-06T12:00:00",
+          "date": "2026-10-03T12:00:00Z",
           "actedOnBehalfOf": null
         },
         {
@@ -699,7 +645,7 @@
               "code": "SEPIO:0000155"
             }
           },
-          "date": "2026-10-06T12:00:00",
+          "date": "2026-10-06T12:00:00Z",
           "actedOnBehalfOf": null
         }
       ],
