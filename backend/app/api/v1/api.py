@@ -6,6 +6,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     auth,
+    clingen_adoption,
     curation_export,
     curations,
     disease_correction,
@@ -75,6 +76,9 @@ api_router.include_router(
 )
 api_router.include_router(workflow.router, prefix="/workflow", tags=["workflow"])
 api_router.include_router(curations.router, prefix="/curations", tags=["curations"])
+api_router.include_router(
+    clingen_adoption.router, prefix="/curations", tags=["curations"]
+)
 api_router.include_router(
     disease_correction.router, prefix="/curations", tags=["curations"]
 )

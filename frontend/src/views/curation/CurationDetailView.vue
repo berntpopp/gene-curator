@@ -150,6 +150,7 @@
                         >
                           {{ curationStatusLabel(curation.status) }}
                         </v-chip>
+                        <ClinGenAdoptionBadge :adoption="curation.clingen_adoption" />
                       </div>
                       <div class="mb-4">
                         <div class="text-body-small text-medium-emphasis">Curator</div>
@@ -410,6 +411,7 @@
   import { readableApiError } from '@/utils/apiErrorText'
   import { formatDateTime } from '@/utils/format'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
+  import ClinGenAdoptionBadge from '@/components/curation/ClinGenAdoptionBadge.vue'
   import { registerClassifications } from '@/config/classification'
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
@@ -449,6 +451,7 @@
     mondo_id?: string | null
     mode_of_inheritance?: string | null
     relationship_type?: string | null
+    clingen_adoption?: { [key: string]: unknown } | null
     workflow_stage?: string | null
     curator_name?: string | null
     created_by?: string | null

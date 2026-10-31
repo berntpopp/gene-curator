@@ -53,7 +53,7 @@ harmless).
 `experimental_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
 (every PMID under a `pmid` key in the evidence, deduplicated, numerically sorted),
 `curator_name`, `reviewer_name` (who approved), `approved_at`, `activated_at`, `archived_at`,
-`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what).
+`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`.
 
 - **Entity:** `entity_key` is `MONDO|MOI`, plus `|SUSCEPTIBILITY` for susceptibility entities,
   and `''` without a MONDO id. Treat it as an opaque match key; do not split it on `|`. Use
@@ -84,6 +84,14 @@ harmless).
   lists the row rules and step rules that set points, `trace.capped_groups` the capped groups. `scores.warnings`
   holds the scoring warnings.
   `summary` is the engine's verdict summary.
+- **Adoption:** `adoption` is `null` unless the curation adopted a ClinGen classification
+  (#105). Then it is a GA4GH VA-Spec 1.0 style statement: `id` (the `CGGV:assertion_…`),
+  `classification`, `moi`, `mondo`, `reportedIn: [{documentType, title (ClinGen's recommended
+  citation), urls: [permalink]}]`, `contributions: [{contributor: {name, agentType, id?},
+  activityType: {name, primaryCoding: {system: SEPIO, code}}, date}]` (the ClinGen expert panel
+  as organization `interpreter` SEPIO:0000331, the adopting curator as person `curator`
+  SEPIO:0000156, the approving reviewer as person `approver` SEPIO:0000155) and `extensions`
+  with the record's `retrieved_at` and `record_sha256`.
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
   `"Curation deleted"`; `null` on active rows.
 
@@ -103,6 +111,6 @@ harmless).
 
 `export_version` is `"1"`. Fields may be added within v1 (v0.11.0 added `relationship_type`,
 `final_classification` and `curator_classification_rationale`; v0.12.0 added `evidence`, `scores`
-and `summary`); consumers must ignore unknown
+and `summary`; #105 added `adoption`); consumers must ignore unknown
 fields. Renaming, removing or changing the meaning of a
 field publishes a new version at a new path.

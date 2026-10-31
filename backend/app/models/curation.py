@@ -302,6 +302,8 @@ class CurationNew(Base):
     # Curator's call (#533): overrides the computed verdict; rationale required if it differs
     curator_classification: Mapped[str | None] = mapped_column(String(100))
     curator_classification_rationale: Mapped[str | None] = mapped_column(Text)
+    # Adopted ClinGen record, verbatim from GeneFoundry (#105, migration 079)
+    clingen_adoption: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
 
     @hybrid_property
     def final_classification(self) -> str | None:

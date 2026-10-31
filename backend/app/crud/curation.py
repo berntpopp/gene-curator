@@ -359,6 +359,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         else None
                     ),
                     final_classification=row.CurationNew.final_classification,
+                    clingen_adoption=row.CurationNew.clingen_adoption,
                     computed_scores={
                         "total_score": scores.get("total_score", 0.0),
                         "genetic_score": section_total(scores, "genetic") or 0.0,

@@ -69,6 +69,12 @@ class ExportCuration(BaseModel):
         "'Replaced by new active curation'",
     )
     updated_at: datetime = Field(..., description="Last change; the paging key")
+    adoption: dict[str, Any] | None = Field(
+        None,
+        description="Adopted ClinGen classification (#105) as a VA-Spec statement: id "
+        "(CGGV), reportedIn [Document], contributions [GCEP interpreter, curator, "
+        "approver]; null for a curation of our own",
+    )
 
 
 class CurationExportPage(BaseModel):
