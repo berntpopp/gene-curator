@@ -33,7 +33,14 @@ ClinGen SOP v11 and GenCC ship built in; your own method is a schema away.
 - **Evidence capture with live checks:** genes, HPO terms and PubMed IDs are validated against
   HGNC, HPO and PubMed while you type. Scores update as evidence changes.
 - **Traceable records:** audit log, content hashes on records, optimistic locking against
-  concurrent edits, and PostgreSQL row-level security for tenant isolation.
+  concurrent edits, and PostgreSQL row-level security for tenant isolation. Evidence rows cite
+  sources (PMID, DOI, ClinVar, ClinGen, URL) and record who added them, including the AI agent
+  of an MCP write; the export carries this as GA4GH VA-Spec contributions.
+- **Configurable permissions:** a role-to-capability matrix stored as data; scope admins own
+  their scope's methodologies and workflows and choose which workflow pairs the scope allows.
+- **ClinGen adoption and KGDB export:** genes ClinGen already curated are adopted in bulk and
+  confirmed by a second person; the versioned export feeds downstream databases such as KGDB
+  ([docs/EXPORT.md](docs/EXPORT.md)).
 
 ## Quick start
 
@@ -56,6 +63,26 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `POSTGRES_USER` only runs migrations. Set `APP_DB_PASSWORD` and use the same password in
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
+
+### Upgrading to v0.13.0
+
+Run `make db-migrate` (078–082, 084–086, 088, 089, 091; 083, 087 and 090 are unused) before
+restarting the backend. Breaking: 4-eyes refusals are 403 and workflow-state refusals 409 (no longer 400);
+a scope with a default pair only accepts that pair and the ones listed under scope settings,
+*Other allowed workflows* (086 fills the list from each scope's existing work); schema saves
+need `lock_version`; a `database` source needs `prefix:id`; a value off its points step is
+refused at submit; multifactorial MOI is HP:0010982; export `mode_of_inheritance` is the HPO
+CURIE (text in `mode_of_inheritance_entered`). KGDB: re-import
+`docs/schemas/kidney-genetics/kgdb-methodology.json` (dry run first) for the approved
+susceptibility tiering. Details: [docs/releases/v0.13.0.md](docs/releases/v0.13.0.md#upgrading).
+([#592](https://github.com/berntpopp/gene-curator/pull/592),
+[#599](https://github.com/berntpopp/gene-curator/pull/599),
+[#603](https://github.com/berntpopp/gene-curator/pull/603),
+[#604](https://github.com/berntpopp/gene-curator/pull/604),
+[#609](https://github.com/berntpopp/gene-curator/pull/609),
+[#617](https://github.com/berntpopp/gene-curator/pull/617),
+[#619](https://github.com/berntpopp/gene-curator/pull/619),
+[#624](https://github.com/berntpopp/gene-curator/pull/624))
 
 ### Upgrading to v0.12.0
 
@@ -334,6 +361,9 @@ without them, and with `ENVIRONMENT=production` the API refuses a non-HTTPS issu
 
 ## Documentation
 
+- [docs/CURATOR-GUIDE.md](docs/CURATOR-GUIDE.md): curating and reviewing, one page
+- [docs/ADMIN-GUIDE.md](docs/ADMIN-GUIDE.md): setting up scopes, methodologies and permissions, one page
+- [docs/releases/](docs/releases/): release notes and upgrade steps per version
 - [AGENTS.md](AGENTS.md): developer and coding-agent guide (setup, commands, architecture, rules)
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to propose changes
 - [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md): connecting MCP clients with a token
@@ -341,7 +371,8 @@ without them, and with `ENVIRONMENT=production` the API refuses a non-HTTPS issu
 - [docs/METHODOLOGY-IMPORT.md](docs/METHODOLOGY-IMPORT.md): importing a methodology bundle (schemas, pairs, scope default)
 - [docs/POINT-MODEL.md](docs/POINT-MODEL.md): point-model scoring format
 - [docs/EXPORT.md](docs/EXPORT.md): exporting curations
-- [docs/schemas/](docs/schemas/): example schemas (kidney genetics)
+- [docs/schemas/](docs/schemas/): methodology bundles (ClinGen SOP v11, kidney genetics)
+- [docs/examples/export-page.json](docs/examples/export-page.json): a generated example export page and its JSON Schema
 
 ## License
 
