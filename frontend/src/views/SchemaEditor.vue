@@ -337,7 +337,7 @@
   import { useRoute, useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
   import { errorMessage } from '@/stores/apiError'
-  import { showError, showWarning } from '@/composables/useNotifications'
+  import { showError, showSuccess, showWarning } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
   import { useConfirm } from '@/composables/useConfirm'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -462,6 +462,7 @@
       resetEditor(schema.value)
       isEditing.value = false
       validation.value = null
+      showSuccess('Schema saved')
     } catch (error) {
       const err = error as ApiError
       if (err.response?.status === 409) return await keepDraftAfterConflict()

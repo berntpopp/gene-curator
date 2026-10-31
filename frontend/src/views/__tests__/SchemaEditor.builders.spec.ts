@@ -18,13 +18,14 @@ vi.mock('vue-router', async importOriginal => ({
 vi.mock('@/composables/useLogger', () => ({
   useLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })
 }))
-const { showError, showWarning } = vi.hoisted(() => ({
+const { showError, showWarning, showSuccess } = vi.hoisted(() => ({
   showError: vi.fn(),
-  showWarning: vi.fn()
+  showWarning: vi.fn(),
+  showSuccess: vi.fn()
 }))
 vi.mock('@/composables/useNotifications', () => ({
   showError,
-  showSuccess: vi.fn(),
+  showSuccess,
   showInfo: vi.fn(),
   showWarning
 }))
@@ -162,5 +163,13 @@ describe('SchemaEditor builders (#282)', () => {
     confirmState.settle(true) // discarding the draft asks first (MUI-08)
     await cancelled
     expect((vm.editableSchema as Record<string, unknown>).description).toBe('theirs')
+  })
+
+  it('confirms a save (MUI-12)', async () => {
+    const { vm, schemas } = await mountView()
+    vi.spyOn(schemas, 'updateSchema').mockResolvedValueOnce(structuredClone(schema) as never)
+    vm.isEditing = true
+    await call(vm, 'saveSchema')
+    expect(showSuccess).toHaveBeenCalledWith('Schema saved')
   })
 })
