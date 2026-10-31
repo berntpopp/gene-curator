@@ -4,7 +4,9 @@ import { setActivePinia, createPinia } from 'pinia'
 const api = vi.hoisted(() => ({
   getMatrix: vi.fn(),
   getScopes: vi.fn(),
-  getClassifications: vi.fn()
+  getClassifications: vi.fn(),
+  getSavedView: vi.fn(),
+  saveView: vi.fn()
 }))
 vi.mock('@/api/catalogueMatrix', () => ({ catalogueMatrixAPI: api }))
 
@@ -30,6 +32,34 @@ describe('catalogueMatrix store', () => {
     store.saveDefault(['c', 'a'])
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['c', 'a'])
     expect(store.defaultShownIds).toEqual(['c', 'a'])
+  })
+
+  it('prefers the server view, keeps the local one when the server fails (#276)', async () => {
+    api.getScopes.mockResolvedValue(scopes)
+    localStorage.setItem(KEY, JSON.stringify(['b']))
+    const store = useCatalogueMatrixStore()
+    await store.loadScopes()
+    api.getSavedView.mockRejectedValueOnce(new Error('down'))
+    await store.loadSavedView()
+    expect(store.defaultShownIds).toEqual(['b'])
+    api.getSavedView.mockResolvedValueOnce(['c', 'a'])
+    await store.loadSavedView()
+    expect(store.defaultShownIds).toEqual(['c', 'a'])
+    // an empty server view replaces the old browser copy: back to the defaults
+    api.getSavedView.mockResolvedValueOnce([])
+    await store.loadSavedView()
+    expect(store.defaultShownIds).toEqual(['a', 'b', 'c'])
+  })
+
+  it('saves remotely only when asked and survives a failed save (#276)', async () => {
+    const store = useCatalogueMatrixStore()
+    api.saveView.mockReset().mockRejectedValue(new Error('down'))
+    store.saveDefault(['a'])
+    expect(api.saveView).not.toHaveBeenCalled()
+    store.saveDefault(['b', 'a'], { remote: true })
+    expect(api.saveView).toHaveBeenCalledWith(['b', 'a'])
+    await new Promise(r => setTimeout(r))
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(['b', 'a'])
   })
 
   it('drops saved scopes that are no longer available and survives bad storage', async () => {

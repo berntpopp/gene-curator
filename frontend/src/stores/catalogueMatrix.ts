@@ -1,7 +1,8 @@
 /**
  * Catalogue matrix store: which scopes are columns, and the server page of genes x scopes.
- * The user's default scope selection lives in localStorage; every access is guarded because
- * storage can be blocked or hold junk, and the page must work without it.
+ * The user's default scope selection (and column order) is saved on the server for signed-in
+ * users and in localStorage for this browser; every storage access is guarded because storage
+ * can be blocked or hold junk, and the page must work without it.
  */
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -83,12 +84,30 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
     }
   }
 
-  function saveDefault(ids: string[]) {
+  /** The server's saved view wins over this browser's, so it follows the user (#276). */
+  async function loadSavedView() {
+    try {
+      saved.value = await catalogueMatrixAPI.getSavedView()
+    } catch (err) {
+      logService.warn('Failed to load the saved catalogue view', {
+        error: errorMessage(err, 'Could not load the saved view')
+      })
+    }
+  }
+
+  function saveDefault(ids: string[], { remote = false } = {}) {
     saved.value = ids
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(ids))
     } catch {
       // Blocked storage: the choice still applies for this session.
+    }
+    if (remote) {
+      catalogueMatrixAPI.saveView(ids).catch((err: unknown) =>
+        logService.warn('Failed to save the catalogue view', {
+          error: errorMessage(err, 'Could not save the view')
+        })
+      )
     }
   }
 
@@ -142,6 +161,7 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
     error,
     defaultShownIds,
     loadScopes,
+    loadSavedView,
     saveDefault,
     fetch
   }

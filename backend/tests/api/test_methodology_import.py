@@ -339,6 +339,31 @@ def test_each_import_is_audited_once(
     assert rows[0].changes == {"items": r.json()["items"]}
 
 
+def test_reimport_writes_a_changed_description(
+    client: TestClient, db_session: Session, admin_token: str
+) -> None:
+    """Description is not versioned content: an unchanged schema and a new version both
+    take the bundle's description."""
+    first = client.post(URL, json=bundle(), headers=auth(admin_token)).json()
+    changed = bundle()
+    for spec in changed["schemas"]:
+        spec["description"] = f"{spec['name']} approved"
+    changed["schemas"][1]["field_definitions"] = {
+        "gene": {"type": "text", "label": "HGNC"}
+    }
+    dry = client.post(f"{URL}?dry_run=true", json=changed, headers=auth(admin_token))
+    plan = [("schema", "update", 1), ("schema", "new_version", 2)]
+    assert _actions(dry.json())[:2] == plan  # the dry run reports what the apply writes
+    r = client.post(URL, json=changed, headers=auth(admin_token))
+    assert _actions(r.json())[:2] == plan
+    for item in first["items"][:2]:
+        row = db_session.get(CurationSchema, item["id"])
+        assert row is not None
+        db_session.refresh(row)
+        assert row.description == f"{row.name} approved"
+        assert row.lock_version == 1  # an editor's stale copy is refused (#282)
+
+
 def test_import_bumps_the_stored_lock_version_not_a_stale_copy(
     client: TestClient, db_session: Session, admin_token: str, test_user_admin: UserNew
 ) -> None:

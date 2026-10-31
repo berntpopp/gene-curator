@@ -406,6 +406,7 @@ def get_available_scopes_for_catalogue(
         .join(ActiveCuration, ActiveCuration.scope_id == Scope.id)
         .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
         .distinct()
+        .order_by(Scope.display_name)
     ).all()
 
     return [
