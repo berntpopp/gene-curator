@@ -47,3 +47,28 @@ describe('CurationEvidenceReadonly', () => {
     fetchPinnedVersion.mockReset()
   })
 })
+
+describe('CurationEvidenceReadonly score summary', () => {
+  it('fills the schema’s Score summary section with the saved score', async () => {
+    fetchPinnedVersion.mockResolvedValue({ id: 'v1', snapshot: { field_definitions: {} } })
+    const WithSection = {
+      name: 'DynamicForm',
+      template: `<div><slot name="section" :section="{ name: 'Score Summary', component: 'ScoreSummary' }" /></div>`
+    }
+    const ScoreSummary = {
+      name: 'ScoreSummary',
+      props: { scores: Object, classification: String },
+      template: '<div class="summary" />'
+    }
+    const scores = { total: 7, trace: null }
+    const wrapper = mount(CurationEvidenceReadonly, {
+      props: { evidence: {}, schemaId: 's1', scores, classification: 'moderate' },
+      global: { stubs: { DynamicForm: WithSection, ScoreSummary } }
+    })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'ScoreSummary' }).props()).toEqual({
+      scores,
+      classification: 'moderate'
+    })
+  })
+})

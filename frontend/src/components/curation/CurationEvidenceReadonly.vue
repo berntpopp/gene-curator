@@ -17,7 +17,15 @@
     readonly
     hide-actions
     hide-scoring
-  />
+  >
+    <template #section="{ section }">
+      <ScoreSummary
+        v-if="section.component === 'ScoreSummary' && scores"
+        :scores="scores"
+        :classification="classification"
+      />
+    </template>
+  </DynamicForm>
 </template>
 
 <script setup lang="ts">
@@ -25,6 +33,8 @@
   import { ROW_PROVENANCE } from '@/components/dynamic/rowAuthorship'
   import { synopsisOf } from '@/utils/synopsis'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import ScoreSummary from '@/components/forms/ScoreSummary.vue'
+  import type { EvidenceScores } from '@/views/curation/curationScores'
   import { useSchemasStore } from '@/stores/schemas'
   import type { Schema } from '@/types/api'
 
@@ -34,6 +44,9 @@
     versionId?: string | null
     /** The curation's row_provenance: who added and changed each evidence row (#593) */
     rowProvenance?: Record<string, unknown> | null
+    /** The saved score, for the schema's Score summary section */
+    scores?: EvidenceScores
+    classification?: string
   }>()
   provide(
     ROW_PROVENANCE,
