@@ -378,6 +378,15 @@ export const useScopesStore = defineStore('scopes', () => {
     error.value = null
   }
 
+  /** Sign-out: nothing of the previous user's scopes or roles may outlive the session */
+  function reset() {
+    clearCurrentScope()
+    scopes.value = []
+    scopeUsers.value = {}
+    scopeStatistics.value = {}
+    error.value = null
+  }
+
   // ============================================
   // RETURN (Composition API Pattern)
   // ============================================
@@ -406,6 +415,7 @@ export const useScopesStore = defineStore('scopes', () => {
 
     // Actions
     fetchUserScopes,
+    reset,
     fetchScope,
     createScope,
     updateScope,

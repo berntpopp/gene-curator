@@ -65,7 +65,7 @@ describe('wide evidence table row editor', () => {
       type: 'evidence_table',
       columns: {
         ...columns,
-        kind: { type: 'enum', options: ['a', 'b'] },
+        kind: { type: 'enum', options: [{ value: 'a' }, { value: 'b' }] },
         points: { type: 'number', default_by: { field: 'kind', values: { a: 1, b: 2 } } }
       }
     })
