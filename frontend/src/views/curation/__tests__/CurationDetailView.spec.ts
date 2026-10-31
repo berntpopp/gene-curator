@@ -163,14 +163,19 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).toContain('Needs 2 approvals')
   })
 
-  it('links a reviewer to the AI second view, nobody else (#530)', async () => {
+  it('links a reviewer to the AI second view where it is on, nobody else (#530, B20)', async () => {
     const link = (w: Awaited<ReturnType<typeof load>>) =>
       w.findAllComponents({ name: 'VBtn' }).find(b => b.text() === 'AI second view')
+    const scopes = (on: boolean) =>
+      (useScopesStore().scopes = [{ id: 'sc1', name: 's', llm_second_view: on }] as never)
+    scopes(true)
     expect(link(await load({ can_review: true }))?.props('to')).toEqual({
       name: 'llm-second-view',
       params: { scopeId: 'sc1', curationId: 'c1' }
     })
     expect(link(await load({ can_review: false }))).toBeUndefined()
+    scopes(false)
+    expect(link(await load({ can_review: true }))).toBeUndefined()
   })
 
   it('puts Delete after a divider, below the review actions (#242)', async () => {

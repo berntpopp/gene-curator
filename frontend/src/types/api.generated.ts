@@ -10246,6 +10246,11 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /**
+             * Llm Second View
+             * @description AI second view is on and the caller may review here (RLS)
+             */
+            llm_second_view?: boolean | null;
             /** Description */
             description?: string | null;
             /** Institution */
