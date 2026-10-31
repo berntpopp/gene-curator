@@ -14,7 +14,12 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.orm.attributes import set_committed_value
 
 from app.api.v1.endpoints.review_comments import curation_diff
-from app.core.capabilities import EDIT, require, require_active_scope
+from app.core.capabilities import (
+    EDIT,
+    require,
+    require_active_scope,
+    require_allowed_pair,
+)
 from app.core.constants import (
     CURATIONS_DEFAULT_LIMIT,
     CURATIONS_MAX_LIMIT,
@@ -347,10 +352,10 @@ def create_curation(
     the active curation's entity, and a gene with several entities in the scope is a 422."""
     set_rls_context(db, current_user)
 
-    # Verify scope access using scope_memberships
-    _check_scope_access(db, current_user, curation_in.scope_id, "create")
     require(db, current_user, curation_in.scope_id, EDIT)
-    require_active_scope(db.get(Scope, curation_in.scope_id))
+    scope = db.get(Scope, curation_in.scope_id)
+    require_active_scope(scope)
+    require_allowed_pair(scope, curation_in.workflow_pair_id)
 
     enforce_clingen_point_ranges(
         db, curation_in.workflow_pair_id, curation_in.evidence_data
@@ -414,7 +419,6 @@ def update_curation(
             detail="Curation not found",
         )
 
-    _check_scope_access(db, current_user, curation.scope_id, "update")
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 
@@ -621,8 +625,6 @@ def delete_curation(
             detail="Curation not found",
         )
 
-    # Verify scope access using scope_memberships
-    _check_scope_access(db, current_user, curation.scope_id, "delete")
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 

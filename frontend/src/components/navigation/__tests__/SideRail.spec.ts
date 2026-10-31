@@ -1,3 +1,4 @@
+import { TERMINOLOGY } from '@/config/terminology'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
@@ -143,6 +144,20 @@ describe('SideRail', () => {
       wrapper = await mountRail()
       expect(wrapper.text()).toContain('Review')
       wrapper.unmount()
+    })
+
+    it('shows the Setup templates and workflows to scope admins and platform admins only (#284)', async () => {
+      for (const [role, scopeRole, shown] of [
+        ['user', 'admin', true],
+        ['admin', null, true],
+        ['user', 'curator', false]
+      ] as const) {
+        signIn(role, scopeRole)
+        const wrapper = await mountRail()
+        expect(wrapper.text().includes(TERMINOLOGY.WORKFLOWS)).toBe(shown)
+        expect(wrapper.text().includes(TERMINOLOGY.TEMPLATES)).toBe(shown)
+        wrapper.unmount()
+      }
     })
 
     it('hides Review from a curator', async () => {

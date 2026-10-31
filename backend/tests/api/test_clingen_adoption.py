@@ -352,3 +352,20 @@ def test_adopter_may_not_approve_another_reviewer_does_and_export_has_the_statem
 )
 def test_moi_names_one_canonical_code(value: str, abbr: str) -> None:
     assert _moi(value) == abbr
+
+
+def test_a_pair_the_scope_does_not_allow_is_a_row_error(
+    client: TestClient, db_session: Session, test_scope: Scope, row: dict
+) -> None:
+    """#284: the scope's default (and allowed list) decide which workflow may be used."""
+    other = WorkflowPair(id=uuid4(), name="other", version="1")
+    db_session.add(other)
+    db_session.flush()
+    test_scope.default_workflow_pair_id = other.id
+    db_session.commit()
+    r = client.post(URL, json={"rows": [row]}, headers=_h(admin_token_for(db_session)))
+    assert r.status_code == 422
+    assert (
+        "rows[0].workflow_pair_id: not allowed in this scope (#284)"
+        in (r.json()["detail"]["errors"])
+    )

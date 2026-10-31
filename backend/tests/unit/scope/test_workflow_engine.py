@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.orm import Session
 
+from app.core import capabilities as caps
 from app.crud.workflow_engine import WorkflowEngine
 from app.models.models import (
     ActiveCuration,
@@ -93,13 +94,12 @@ def test_validate_transition_unknown_user(
 
 
 def test_role_requirements_cover_backwards_transitions(engine: WorkflowEngine) -> None:
-    permissive = ["curator", "admin"]
     # review decisions need the REVIEW capability: reviewers and scope admins only
-    assert engine._get_role_requirements(S.REVIEW, S.CURATION) == ["reviewer", "admin"]
-    assert engine._get_role_requirements(S.CURATION, S.PRECURATION) == permissive
-    assert engine._get_role_requirements(S.ACTIVE, S.REVIEW) == ["admin"]
-    # Unmapped pairs fall back to admin-only
-    assert engine._get_role_requirements(S.ENTRY, S.ACTIVE) == ["admin"]
+    assert engine._get_role_requirements(S.REVIEW, S.CURATION) == caps.REVIEW
+    assert engine._get_role_requirements(S.CURATION, S.PRECURATION) == caps.EDIT
+    assert engine._get_role_requirements(S.ACTIVE, S.REVIEW) == caps.MANAGE_SCOPE
+    # Unmapped pairs fall back to scope admins (and platform admins)
+    assert engine._get_role_requirements(S.ENTRY, S.ACTIVE) == caps.MANAGE_SCOPE
 
 
 def test_content_requirements_per_target(engine: WorkflowEngine) -> None:
@@ -118,20 +118,18 @@ def test_admin_is_always_authorized(
 ) -> None:
     admin = make_user(db_session, role="admin")
 
-    assert engine._check_role_authorization(db_session, admin, ["curator"], scope.id)
+    assert engine._check_role_authorization(db_session, admin, caps.EDIT, scope.id)
     # ...except review decisions: platform admins hold no REVIEW capability by role
     assert not engine._has_review_permissions(db_session, admin, _Item(scope.id))
     assert not engine._check_role_authorization(
-        db_session, admin, ["reviewer", "admin"], scope.id
+        db_session, admin, caps.REVIEW, scope.id
     )
 
 
 def test_scope_curator_is_authorized_for_curation_transition(
     db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
 ) -> None:
-    assert engine._check_role_authorization(
-        db_session, creator, ["curator", "admin"], scope.id
-    )
+    assert engine._check_role_authorization(db_session, creator, caps.EDIT, scope.id)
 
 
 def test_scope_viewer_is_not_authorized(
@@ -140,9 +138,7 @@ def test_scope_viewer_is_not_authorized(
     viewer = make_user(db_session)
     make_member(db_session, scope, viewer, "viewer")
 
-    assert not engine._check_role_authorization(
-        db_session, viewer, ["curator", "admin"], scope.id
-    )
+    assert not engine._check_role_authorization(db_session, viewer, caps.EDIT, scope.id)
 
 
 def test_non_member_without_global_role_is_not_authorized(
@@ -151,11 +147,9 @@ def test_non_member_without_global_role_is_not_authorized(
     stranger = make_user(db_session)
 
     assert not engine._check_role_authorization(
-        db_session, stranger, ["curator", "admin"], scope.id
+        db_session, stranger, caps.EDIT, scope.id
     )
-    assert not engine._check_role_authorization(
-        db_session, stranger, ["curator", "admin"], None
-    )
+    assert not engine._check_role_authorization(db_session, stranger, caps.EDIT, None)
 
 
 def test_pending_invitation_grants_no_workflow_authority(
@@ -166,7 +160,7 @@ def test_pending_invitation_grants_no_workflow_authority(
     make_member(db_session, scope, invitee, "curator", accepted=False)
 
     assert not engine._check_role_authorization(
-        db_session, invitee, ["curator", "admin"], scope.id
+        db_session, invitee, caps.EDIT, scope.id
     )
 
 
@@ -185,9 +179,7 @@ def test_inactive_membership_grants_nothing(
     former = make_user(db_session)
     make_member(db_session, scope, former, "curator", is_active=False)
 
-    assert not engine._check_role_authorization(
-        db_session, former, ["curator"], scope.id
-    )
+    assert not engine._check_role_authorization(db_session, former, caps.EDIT, scope.id)
 
 
 def test_review_permission_requires_eligible_scope_role(

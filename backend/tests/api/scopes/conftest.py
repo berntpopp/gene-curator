@@ -1,7 +1,7 @@
 """Fixtures for scope, membership, invitation, user/auth and workflow API tests.
 
 PostgreSQL RLS cannot run on SQLite, so set_rls_context is replaced by a no-op.
-Scope-level authorization is still enforced by require_scope_role, which is
+Scope-level authorization is still enforced by require_capability, which is
 exercised directly by these tests.
 """
 

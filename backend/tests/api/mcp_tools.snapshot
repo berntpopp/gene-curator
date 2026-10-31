@@ -154,6 +154,7 @@ search_mondo_diseases read_only=False destructive=False
 search_omim_diseases read_only=False destructive=False
 search_users read_only=True destructive=False
 search_users_for_invitation read_only=True destructive=False
+set_allowed_workflow_pairs read_only=False destructive=True
 set_llm_provider_key read_only=False destructive=True
 submit_curation read_only=False destructive=True
 submit_peer_review read_only=False destructive=True

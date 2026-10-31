@@ -8,9 +8,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import MANAGE_SCOPE
 from app.core.database import get_db
-from app.core.deps import get_current_active_user, require_scope_role
-from app.core.enums import ScopeRole
+from app.core.deps import get_current_active_user, require_capability
 from app.models import UserNew
 from app.models.llm import (
     LLMModel,
@@ -30,8 +30,8 @@ from app.services.llm_config import audit, save_revision
 
 router = APIRouter()
 STALE = "Changed by someone else; reload and retry"
-# require_scope_role returns the scope; the caller comes from get_current_active_user
-ScopeAdmin = Depends(require_scope_role(ScopeRole.ADMIN))
+# require_capability returns the scope; the caller comes from get_current_active_user
+ScopeAdmin = Depends(require_capability(MANAGE_SCOPE))
 
 
 def _options(db: Session) -> ScopeLLMOptions:

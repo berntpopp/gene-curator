@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.capabilities import PLATFORM, require
 from app.core.database import get_db
 from app.core.schema_validator import schema_validator
 from app.crud.schema_repository import schema_crud
@@ -536,9 +537,7 @@ def test_validation_with_examples(
     """
     Test validation system with example data.
     """
-    # Only admins can run validation tests
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin privileges required")
+    require(db, current_user, None, PLATFORM)
 
     # Example schema definition
     test_schema = {

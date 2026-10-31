@@ -201,13 +201,14 @@ export const useSchemasStore = defineStore('schemas', {
      * version; the copy's v1 records where it came from. The admin activates it after editing.
      * Returns the copy and the version it was derived from.
      */
-    async duplicateSchema(id: string) {
+    async duplicateSchema(id: string, ownerScopeId: string | null = null) {
       const source = await schemasAPI.getSchemaById(id)
       const [latest] = await schemasAPI.getVersions(id)
       if (!latest) throw new Error('Schema has no published version')
       const derived = await schemasAPI.deriveSchema(id, latest.id, {
         name: source.name,
-        version: bumpPatch(source.version)
+        version: bumpPatch(source.version),
+        owner_scope_id: ownerScopeId
       })
       this.schemas.push(derived)
       return { derived, source: latest }

@@ -16,7 +16,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.capabilities import EDIT, require, require_active_scope
+from app.core.capabilities import (
+    EDIT,
+    allowed_pair_ids,
+    require,
+    require_active_scope,
+)
 from app.core.database import raise_if_rls_denied
 from app.core.logging import get_logger
 from app.crud.curation import _update_computed_scores, open_curation_id
@@ -130,6 +135,10 @@ def adopt(
         row_errors = _row_errors(db, row, db.get(Gene, row.gene_id))
         if scope is None:  # only platform admins pass require() for an unknown scope
             row_errors.insert(0, "scope_id: scope not found")
+        elif (
+            allowed := allowed_pair_ids(scope)
+        ) and row.workflow_pair_id not in allowed:
+            row_errors.append("workflow_pair_id: not allowed in this scope (#284)")
         key = entity_key_of(db, _evidence(row))
         if not row_errors and (adopted := _adopted_id(db, row, key)):
             items.append(

@@ -13,9 +13,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
 from app.core import workflow_errors as wfe
-from app.core.capabilities import require_active_scope
+from app.core.capabilities import (
+    EDIT,
+    MANAGE_SCOPE,
+    REVIEW,
+    holds,
+    require_active_scope,
+)
 from app.core.database import raise_if_rls_denied
-from app.core.enums import ScopeRole
 from app.crud.activation import activate_item
 from app.crud.review_round import (
     all_reviews_approved,
@@ -187,11 +192,10 @@ class WorkflowEngine:
             )
 
         # Role-based transition validation (check global OR scope-specific role)
-        role_requirements = self._get_role_requirements(current_stage, target_stage)
-        if not self._check_role_authorization(db, user, role_requirements, scope_id):
+        capability = self._get_role_requirements(current_stage, target_stage)
+        if not self._check_role_authorization(db, user, capability, scope_id):
             errors.append(
-                f"User not authorized for this transition (requires one of: "
-                f"{', '.join(role_requirements)})"
+                f"User not authorized for this transition (requires {capability})"
             )
 
         if self._requires_peer_review(current_stage, target_stage, item_type):
@@ -588,66 +592,30 @@ class WorkflowEngine:
 
     def _get_role_requirements(
         self, current_stage: WorkflowStage, target_stage: WorkflowStage
-    ) -> list[str]:
-        """Get required user roles for a transition."""
-        curator_roles = ["curator", "admin"]
-        review_roles = ["reviewer", "admin"]
-        role_matrix = {
-            (WorkflowStage.ENTRY, WorkflowStage.PRECURATION): curator_roles,
-            (WorkflowStage.PRECURATION, WorkflowStage.CURATION): curator_roles,
-            (WorkflowStage.PRECURATION, WorkflowStage.REVIEW): curator_roles,
-            (WorkflowStage.CURATION, WorkflowStage.REVIEW): curator_roles,
-            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE): review_roles,
+    ) -> str:
+        """The capability a transition needs (#284); unmapped pairs need scope.manage."""
+        matrix = {
+            (WorkflowStage.ENTRY, WorkflowStage.PRECURATION): EDIT,
+            (WorkflowStage.PRECURATION, WorkflowStage.CURATION): EDIT,
+            (WorkflowStage.PRECURATION, WorkflowStage.REVIEW): EDIT,
+            (WorkflowStage.CURATION, WorkflowStage.REVIEW): EDIT,
+            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE): REVIEW,
             # Backwards transitions
-            (WorkflowStage.PRECURATION, WorkflowStage.ENTRY): curator_roles,
-            (WorkflowStage.CURATION, WorkflowStage.PRECURATION): curator_roles,
-            (WorkflowStage.REVIEW, WorkflowStage.PRECURATION): ["reviewer", "admin"],
-            (WorkflowStage.REVIEW, WorkflowStage.CURATION): review_roles,
-            (WorkflowStage.ACTIVE, WorkflowStage.REVIEW): ["admin"],
+            (WorkflowStage.PRECURATION, WorkflowStage.ENTRY): EDIT,
+            (WorkflowStage.CURATION, WorkflowStage.PRECURATION): EDIT,
+            (WorkflowStage.REVIEW, WorkflowStage.PRECURATION): REVIEW,
+            (WorkflowStage.REVIEW, WorkflowStage.CURATION): REVIEW,
         }
-
-        return role_matrix.get((current_stage, target_stage), ["admin"])
+        return matrix.get((current_stage, target_stage), MANAGE_SCOPE)
 
     def _check_role_authorization(
-        self,
-        db: Session,
-        user: UserNew,
-        role_requirements: list[str],
-        scope_id: UUID | None,
+        self, db: Session, user: UserNew, capability: str, scope_id: UUID | None
     ) -> bool:
-        """
-        Check if user has authorization based on global role OR scope-specific role.
-        Uses scope_memberships table for scope-specific roles.
-        """
-        from app.models import ScopeMembership
-
-        # Platform admins bypass everything except review decisions (REVIEW capability)
-        needs_review = "reviewer" in role_requirements
-        if not needs_review and (
-            user.role == "admin" or user.role in role_requirements
-        ):
+        """The user holds the capability in the item's scope. Platform admins hold every
+        capability except REVIEW, which needs a membership (D1)."""
+        if capability != REVIEW and user.role == "admin":
             return True
-
-        # Check scope-specific role if scope_id is provided
-        if scope_id:
-            # Keep only valid scope roles (admin, curator, reviewer, viewer)
-            scope_role_requirements = [r for r in role_requirements if r in ScopeRole]
-
-            membership = (
-                db.query(ScopeMembership)
-                .filter(
-                    ScopeMembership.user_id == user.id,
-                    ScopeMembership.scope_id == scope_id,
-                    ScopeMembership.is_active,
-                    ScopeMembership.accepted_at.isnot(None),
-                    ScopeMembership.role.in_(scope_role_requirements),
-                )
-                .first()
-            )
-            if membership:
-                return True
-
-        return False
+        return scope_id is not None and holds(db, user.id, scope_id, capability)
 
     def _requires_peer_review(
         self, current_stage: WorkflowStage, target_stage: WorkflowStage, item_type: str

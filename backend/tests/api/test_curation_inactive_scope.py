@@ -126,11 +126,9 @@ def test_workflow_writes_in_inactive_scope_are_409(
 def test_scope_permissions_refuse_editing_in_inactive_scope(
     db_session: Session, setup: tuple[CurationNew, dict[str, str]]
 ) -> None:
-    from app.services.scope_permissions import ScopePermissionService
+    from app.services.curation_access import _can_user_edit_curation
 
     curation, _ = setup
     admin = db_session.get(UserNew, curation.created_by)
     assert admin is not None
-    assert (
-        ScopePermissionService.can_edit_curation(db_session, admin, curation) is False
-    )
+    assert _can_user_edit_curation(db_session, admin, curation) is False

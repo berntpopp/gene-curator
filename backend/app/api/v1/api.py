@@ -42,6 +42,7 @@ from app.api.v1.endpoints import (
     users,
     version_move,
     workflow,
+    workflow_pairs,
 )
 
 # Create main API router
@@ -66,6 +67,7 @@ api_router.include_router(
 )
 api_router.include_router(oauth.router, prefix="/oauth", tags=["oauth"])
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
+api_router.include_router(workflow_pairs.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     methodology_import.router, prefix="/schemas", tags=["schemas"]
 )

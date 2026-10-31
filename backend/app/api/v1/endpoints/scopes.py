@@ -8,23 +8,33 @@ Key Features:
 - RLS-enforced permission checks
 - Scope membership integration
 - Automatic scope admin assignment on creation
-- Fine-grained access control via ScopeRole enum
+- Capability checks (core.capabilities) per scope
 
 Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core import deps
 from app.core.async_bridge import run_blocking
-from app.core.capabilities import CREATE_GENE, EDIT, require, require_active_scope
+from app.core.capabilities import (
+    CREATE_GENE,
+    EDIT,
+    MANAGE_SCOPE,
+    PLATFORM,
+    VIEW,
+    WORKFLOW_ASSIGN,
+    audit,
+    require,
+    require_active_scope,
+)
 from app.core.database import get_db
-from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.gene import gene_crud
 from app.crud.gene_assignment import gene_assignment_crud
@@ -32,7 +42,7 @@ from app.crud.scope import scope_crud
 from app.crud.scope_counts import get_counts_for_scopes
 from app.crud.scope_membership import scope_membership_crud
 from app.crud.scope_visibility import scope_id_for
-from app.models import Gene, Scope, User, WorkflowPair
+from app.models import CurationSchema, Gene, Scope, User, WorkflowPair
 from app.models.llm import ScopeLLMSettings
 from app.schemas.gene import GeneCreate
 from app.schemas.gene_assignment import (
@@ -50,6 +60,7 @@ from app.schemas.scope import (
     ScopeStatistics,
     ScopeUpdate,
     ScopeWithStats,
+    ScopeWorkflowPairs,
 )
 from app.services.gene_resolver import resolve_genes
 from app.services.gene_verification import verify_rows
@@ -118,10 +129,10 @@ def create_scope(
         pair = db.scalar(select(WorkflowPair).where(WorkflowPair.is_default))
     else:
         pair = db.get(WorkflowPair, scope_in.default_workflow_pair_id)
-    if not pair or not pair.is_active:
+    if not pair or not pair.is_active or pair.owner_scope_id is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Workflow pair not found or inactive",
+            detail="Workflow pair not found, inactive or owned by a scope",
         )
 
     scope_in.default_workflow_pair_id = pair.id
@@ -433,6 +444,27 @@ def get_scope_details(
     )
 
 
+def _usable_pairs(
+    db: Session, scope: Scope, pair_ids: Sequence[UUID | None]
+) -> list[WorkflowPair]:
+    """Active pairs that are global or this scope's own; 422 names any other."""
+    pairs = {pid: db.get(WorkflowPair, pid) for pid in pair_ids if pid}
+    bad = [
+        str(pid)
+        for pid, pair in pairs.items()
+        if pair is None
+        or not pair.is_active
+        or pair.owner_scope_id not in (None, scope.id)
+    ]
+    if bad:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Workflow pairs not found, inactive or owned by another scope: "
+            f"{', '.join(bad)}",
+        )
+    return [p for p in pairs.values() if p is not None]
+
+
 @router.patch("/{scope_id}", response_model=ScopeResponse)
 def update_scope(
     *,
@@ -440,7 +472,7 @@ def update_scope(
     scope_id: UUID,
     scope_in: ScopeUpdate,
     request: Request,
-    scope: Scope = Depends(deps.require_scope_role(ScopeRole.ADMIN)),
+    scope: Scope = Depends(deps.require_capability(MANAGE_SCOPE, active_only=False)),
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Scope:
     """
@@ -458,7 +490,6 @@ def update_scope(
     Returns:
         Updated scope object
     """
-    # Scope is already validated by require_scope_role dependency
     gate = scope_in.approvals_require_session
     # an agent may not lift its own approval gate
     if (
@@ -482,7 +513,23 @@ def update_scope(
             detail="Turning on export_evidence_public or making a scope with it on "
             "public needs a signed-in person",
         )
+    _usable_pairs(db, scope, [scope_in.default_workflow_pair_id])
+    old_default = scope.default_workflow_pair_id
     updated_scope = scope_crud.update(db, db_obj=scope, obj_in=scope_in)
+    if updated_scope.default_workflow_pair_id != old_default:
+        audit(
+            db,
+            current_user,
+            MANAGE_SCOPE,
+            scope_id,
+            ("scopes", scope_id),
+            {
+                "default_workflow_pair_id": [
+                    old_default,
+                    scope_in.default_workflow_pair_id,
+                ]
+            },
+        )
 
     logger.info(
         "Scope updated",
@@ -493,6 +540,31 @@ def update_scope(
     )
 
     return updated_scope
+
+
+@router.put("/{scope_id}/workflow-pairs", response_model=ScopeResponse)
+def set_allowed_workflow_pairs(
+    *,
+    db: Session = Depends(get_db),
+    scope_id: UUID,
+    body: ScopeWorkflowPairs,
+    scope: Scope = Depends(deps.require_capability(WORKFLOW_ASSIGN)),
+    current_user: User = Depends(deps.get_current_active_user),
+) -> Scope:
+    """Replace the workflow pairs the scope may use besides its default (global or this
+    scope's own pairs); an empty list allows the default pair only."""
+    scope.allowed_workflow_pairs = _usable_pairs(db, scope, body.workflow_pair_ids)
+    db.commit()
+    audit(
+        db,
+        current_user,
+        WORKFLOW_ASSIGN,
+        scope_id,
+        ("scopes", scope_id),
+        {"allowed_workflow_pair_ids": body.workflow_pair_ids},
+    )
+    db.refresh(scope)
+    return scope
 
 
 @router.delete("/{scope_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -507,16 +579,16 @@ def delete_scope(
     current_user: User = Depends(deps.get_current_active_user),
 ) -> None:
     """
-    Delete a scope (application admin or scope owner only).
+    Delete a scope (platform admins only; RLS allows nothing else).
 
-    Application administrators and scope owners (creators) can delete scopes.
-    This is a destructive operation that should be used with caution.
+    This is a destructive operation that should be used with caution. The scope's own
+    templates and workflows are deactivated first, so they never become global ones.
 
     Args:
         db: Database session
         scope_id: Scope UUID
         force: If True, delete even with active gene assignments (cascade delete)
-        current_user: Current user (must be app admin or scope owner)
+        current_user: Current user (must be a platform admin)
 
     Raises:
         HTTPException 404: Scope not found
@@ -539,23 +611,7 @@ def delete_scope(
             detail="Scope not found",
         )
 
-    # Check authorization: must be app admin or scope owner
-    is_app_admin = current_user.role.value == "admin"
-    is_scope_owner = scope.created_by == current_user.id
-
-    if not is_app_admin and not is_scope_owner:
-        logger.warning(
-            "Delete scope failed: not authorized",
-            scope_id=str(scope_id),
-            scope_name=scope.name,
-            user_id=str(current_user.id),
-            is_app_admin=is_app_admin,
-            is_scope_owner=is_scope_owner,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only application administrators or scope owners can delete scopes",
-        )
+    require(db, current_user, None, PLATFORM)  # as RLS: platform admins only
 
     # Check if scope has active assignments (prevent accidental deletion)
     has_assignments = scope_crud.has_active_assignments(db, scope_id=scope_id)
@@ -579,6 +635,13 @@ def delete_scope(
             user_id=str(current_user.id),
         )
 
+    # ON DELETE SET NULL would make the scope's own items global: deactivate them first
+    for model in (CurationSchema, WorkflowPair):
+        db.execute(
+            update(model)
+            .where(model.owner_scope_id == scope_id)
+            .values(is_active=False)
+        )
     # Delete scope (CASCADE will delete memberships and assignments)
     scope_crud.remove(db, id=scope_id)
 
@@ -596,7 +659,7 @@ def get_scope_statistics(
     *,
     db: Session = Depends(get_db),
     scope_id: UUID,
-    scope: Scope = Depends(deps.require_scope_role(ScopeRole.VIEWER)),
+    scope: Scope = Depends(deps.require_capability(VIEW)),
 ) -> ScopeStatistics:
     """
     Get detailed statistics for a scope.

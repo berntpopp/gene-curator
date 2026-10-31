@@ -72,6 +72,7 @@
               @click="viewWorkflow(item)"
             />
             <v-btn
+              v-if="canManage(item.owner_scope_id)"
               aria-label="Edit workflow"
               icon="mdi-pencil"
               size="small"
@@ -79,6 +80,7 @@
               @click="editWorkflow(item)"
             />
             <v-btn
+              v-if="canManage(item.owner_scope_id)"
               aria-label="Delete workflow"
               icon="mdi-delete"
               size="small"
@@ -220,6 +222,17 @@
         />
 
         <v-select
+          v-if="ownerOptions.length > 1"
+          v-model="owner"
+          :items="ownerOptions"
+          label="Belongs to"
+          hint="A scope's workflow may use global templates and that scope's own"
+          persistent-hint
+          variant="outlined"
+          data-testid="config-owner"
+        />
+
+        <v-select
           v-model="newWorkflow.precuration_schema_id"
           :items="precurationSchemas"
           item-title="title"
@@ -264,6 +277,7 @@
   import type { Schema } from '@/types/api'
   import { useConfirm } from '@/composables/useConfirm'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { useConfigOwner } from '@/composables/useConfigOwner'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -281,6 +295,7 @@
     is_active?: boolean
     /** Picker label: name and version, plus the creation date when those repeat (#471). */
     title?: string
+    owner_scope_id?: string | null
   }
 
   const schemasStore = useSchemasStore()
@@ -327,7 +342,9 @@
   // Defensive computed properties with defaults
   // Note: workflowPairs are in schemasStore (schema-related data)
   // workflowStages are static configuration in workflowStore
-  const workflowPairs = computed((): WorkflowRow[] => schemasStore.workflowPairs || [])
+  // Scope admins see their scopes' workflows and the global ones (read-only, #284)
+  const { ownerOptions, owner, canManage, visible, load } = useConfigOwner()
+  const workflowPairs = computed((): WorkflowRow[] => visible(schemasStore.workflowPairs || []))
   const workflowStages = computed(() => workflowStore.workflowStages || [])
   // Admin pages load inactive schemas too, but a pair may only reference active ones
   // Linked schemas cannot change later, so every option must be unambiguous and keep its place
@@ -336,7 +353,7 @@
     const repeats = (s: SchemaOption) =>
       all.filter(o => o.is_active && key(o) === key(s)).length > 1
     return all
-      .filter(s => s.is_active)
+      .filter(s => s.is_active && (!s.owner_scope_id || s.owner_scope_id === owner.value))
       .sort(
         (a, b) =>
           a.name.localeCompare(b.name) ||
@@ -463,6 +480,7 @@
         ...newWorkflow.value,
         precuration_schema_id,
         curation_schema_id,
+        owner_scope_id: owner.value,
         is_active: true
       })
       logger.info('Workflow created', { workflowName: newWorkflow.value.name })
@@ -493,7 +511,8 @@
         schemasStore.fetchSchemas({ active_only: false }),
         schemasStore.fetchWorkflowPairs({ active_only: false }),
         workflowStore.fetchWorkflowAnalytics().catch(() => null), // Non-critical
-        workflowStore.fetchPeerReviewers().catch(() => null) // Non-critical
+        workflowStore.fetchPeerReviewers().catch(() => null), // Non-critical
+        load()
       ])
 
       logger.info('WorkflowManagement mounted', {

@@ -162,6 +162,7 @@
   import { useUnsavedGuard } from '@/components/workspace/useUnsavedGuard'
   import { useSaveShortcut } from '@/composables/useSaveShortcut'
   import { entityChoices, label } from './entityChoices'
+  import { allowedPairIds, allowedPairs } from '@/components/scope/useWorkflowPairs'
 
   interface CurationFormRecord {
     curation_schema_id?: string | null
@@ -177,6 +178,7 @@
 
   interface ScopeRecord {
     default_workflow_pair_id?: string | null
+    allowed_workflow_pair_ids?: string[] | null
     display_name?: string | null
   }
 
@@ -308,8 +310,15 @@
   // Determine if edit mode
   const isEdit = computed(() => !!curationId.value)
 
-  // Available curation schemas for this scope (curation or combined types)
-  const availableSchemas = computed<SchemaRecord[]>(() => schemasStore.getCurationSchemas)
+  // Pairs this scope allows (#284) and their curation schemas (curation or combined types)
+  const scopePairs = computed(() =>
+    allowedPairs(schemasStore.workflowPairs as WorkflowPairRecord[], scope.value)
+  )
+  const availableSchemas = computed<SchemaRecord[]>(() => {
+    const all = schemasStore.getCurationSchemas as SchemaRecord[]
+    if (!allowedPairIds(scope.value)) return all
+    return all.filter(s => scopePairs.value.some(wp => wp.curation_schema_id === s.id))
+  })
 
   // Schema resolution with clear 5-level priority chain
   const resolvedSchemaId = computed<string | undefined>(() => {
@@ -360,7 +369,7 @@
 
     // Priority 3: Find workflow pair that uses the resolved schema
     if (resolvedSchemaId.value) {
-      const workflowPair = (schemasStore.workflowPairs as WorkflowPairRecord[]).find(
+      const workflowPair = scopePairs.value.find(
         wp => wp.curation_schema_id === resolvedSchemaId.value
       )
       if (workflowPair) {

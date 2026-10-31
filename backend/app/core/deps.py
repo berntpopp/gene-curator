@@ -3,7 +3,7 @@ FastAPI dependencies for authentication and database access.
 """
 
 from collections.abc import AsyncGenerator, Callable
-from typing import Annotated, Any
+from typing import Any
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
@@ -12,8 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import require
 from app.core.database import RLS_USER_KEY, AsyncSessionLocal, apply_rls_user, get_db
-from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.core.security import (
     PAT_PREFIX,
@@ -318,127 +318,24 @@ def get_scope(
     return scope
 
 
-def require_scope_role(required_role: ScopeRole) -> Callable[..., Any]:
-    """
-    Factory function to create scope role requirement dependencies.
+def require_capability(capability: str, active_only: bool = True) -> Callable[..., Any]:
+    """Dependency: the caller holds `capability` in the path's scope (core.capabilities.require).
 
-    Creates a dependency that verifies user has required role in scope.
-    Uses SELECT FOR SHARE to prevent TOCTOU race conditions.
-
-    Args:
-        required_role: Minimum required ScopeRole
-
-    Returns:
-        Dependency function that checks scope membership and role
+    Returns the scope. Platform admins pass; non-members and lacking roles get 403, an
+    unknown scope 404 active_only=False for managing the scope itself (settings,
+    members), which must also work while it is inactive.
 
     Example:
-        @router.post("/scopes/{scope_id}/curations")
-        def create_curation(
-            scope: Scope = Depends(require_scope_role(ScopeRole.CURATOR))
-        ):
-            # User is guaranteed to be at least curator in this scope
-            pass
+        @router.patch("/scopes/{scope_id}")
+        def update_scope(scope: Scope = Depends(require_capability(MANAGE_SCOPE))): ...
     """
 
-    def _check_scope_role(
+    def _check_capability(
         scope_id: UUID,
         db: Session = Depends(get_db),
         current_user: UserNew = Depends(get_current_active_user),
     ) -> Any:
-        """Check if user has required role in scope."""
-        from app.models import (
-            ScopeMembership,
-        )  # Import here to avoid circular dependency
-
-        # Application admins bypass scope role checks
-        if user_crud.is_admin(current_user):
-            logger.debug(
-                "Application admin bypassing scope role check",
-                user_id=str(current_user.id),
-                scope_id=str(scope_id),
-                required_role=required_role.value,
-            )
-            return get_scope(scope_id, db, current_user)
-
-        # Set RLS context
-        set_rls_context(db, current_user)
-
-        # Query membership with SELECT FOR SHARE (TOCTOU prevention)
-        membership = (
-            db.execute(
-                select(ScopeMembership)
-                .where(
-                    ScopeMembership.scope_id == scope_id,
-                    ScopeMembership.user_id == current_user.id,
-                    ScopeMembership.is_active == True,  # noqa: E712
-                    ScopeMembership.accepted_at.isnot(None),
-                )
-                .with_for_update(read=True)  # SELECT FOR SHARE
-            )
-            .scalars()
-            .first()
-        )
-
-        if not membership:
-            logger.warning(
-                "User not a member of scope",
-                user_id=str(current_user.id),
-                scope_id=str(scope_id),
-                required_role=required_role.value,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not a member of this scope",
-            )
-
-        # Check role permissions using ScopeRole enum methods
-        user_role = ScopeRole.from_string(membership.role)
-
-        # Role-specific permission checks
-        has_permission = False
-        if required_role == ScopeRole.VIEWER:
-            has_permission = user_role.can_view()
-        elif required_role == ScopeRole.REVIEWER:
-            has_permission = user_role.can_review()
-        elif required_role == ScopeRole.CURATOR:
-            has_permission = user_role.can_curate()
-        elif required_role == ScopeRole.ADMIN:
-            has_permission = user_role.can_manage_scope()
-
-        if not has_permission:
-            logger.warning(
-                "Insufficient scope permissions",
-                user_id=str(current_user.id),
-                scope_id=str(scope_id),
-                user_role=user_role.value,
-                required_role=required_role.value,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Requires {required_role.value} role or higher",
-            )
-
-        logger.debug(
-            "Scope role check passed",
-            user_id=str(current_user.id),
-            scope_id=str(scope_id),
-            user_role=user_role.value,
-            required_role=required_role.value,
-        )
-
+        require(db, current_user, scope_id, capability, active_only)
         return get_scope(scope_id, db, current_user)
 
-    return _check_scope_role
-
-
-# =============================================================================
-# Convenience Typed Dependencies
-# =============================================================================
-
-# Type-annotated dependencies for clean endpoint signatures
-RequireScopeMember = Annotated[UserNew, Depends(require_scope_role(ScopeRole.VIEWER))]
-RequireScopeReviewer = Annotated[
-    UserNew, Depends(require_scope_role(ScopeRole.REVIEWER))
-]
-RequireScopeCurator = Annotated[UserNew, Depends(require_scope_role(ScopeRole.CURATOR))]
-RequireScopeAdmin = Annotated[UserNew, Depends(require_scope_role(ScopeRole.ADMIN))]
+    return _check_capability

@@ -236,6 +236,13 @@ def _inactive_errors(
     ]
 
 
+def _allow_bundle_pairs(db: Session, scope: Scope, ids: list[UUID | None]) -> None:
+    """The bundle's other pairs become selectable in its default scope too (082, #284)."""
+    for pair in (db.get(WorkflowPair, i) for i in ids if i):
+        if pair and pair not in scope.allowed_workflow_pairs:
+            scope.allowed_workflow_pairs.append(pair)
+
+
 def import_bundle(
     db: Session, bundle: MethodologyBundle, *, user_id: UUID, dry_run: bool
 ) -> MethodologyImportResult:
@@ -283,6 +290,10 @@ def import_bundle(
         )
         if write and changed:
             scope.default_workflow_pair_id = pair_id
+        if write:
+            _allow_bundle_pairs(
+                db, scope, [i for i in pair_ids.values() if i != pair_id]
+            )
 
     if write:
         db.add(

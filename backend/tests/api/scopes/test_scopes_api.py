@@ -334,16 +334,17 @@ def test_update_scope_allowed_for_application_admin(
 # -----------------------------------------------------------------------------
 
 
-def test_delete_scope_by_creator_without_assignments(
+def test_delete_scope_by_creator_is_forbidden(
     client: TestClient, db_session: Session, owner: UserNew
 ) -> None:
+    """Platform admins only (#284): RLS lets nobody else delete a scope."""
     scope = make_scope(db_session, created_by=owner.id)
     make_member(db_session, scope, owner, "admin")
 
     response = client.delete(f"{BASE}/{scope.id}", headers=auth_headers(owner))
 
-    assert response.status_code == 204
-    assert db_session.get(Scope, scope.id) is None
+    assert response.status_code == 403
+    assert db_session.get(Scope, scope.id) is not None
 
 
 def test_delete_scope_by_non_owner_is_forbidden(
@@ -360,19 +361,18 @@ def test_delete_scope_by_non_owner_is_forbidden(
 
 
 def test_delete_scope_with_assignments_requires_force(
-    client: TestClient, db_session: Session, owner: UserNew
+    client: TestClient, db_session: Session, app_admin: UserNew
 ) -> None:
-    scope = make_scope(db_session, created_by=owner.id)
-    make_member(db_session, scope, owner, "admin")
+    scope = make_scope(db_session)
     gene = make_gene(db_session)
     db_session.add(
         GeneScopeAssignment(gene_id=gene.id, scope_id=scope.id, is_active=True)
     )
     db_session.commit()
 
-    refused = client.delete(f"{BASE}/{scope.id}", headers=auth_headers(owner))
+    refused = client.delete(f"{BASE}/{scope.id}", headers=auth_headers(app_admin))
     forced = client.delete(
-        f"{BASE}/{scope.id}", params={"force": True}, headers=auth_headers(owner)
+        f"{BASE}/{scope.id}", params={"force": True}, headers=auth_headers(app_admin)
     )
 
     assert refused.status_code == 400

@@ -115,67 +115,6 @@ class TestScopeRole:
         assert "Invalid scope role: invalid" in str(exc_info.value)
         assert "admin" in str(exc_info.value)
 
-    # Permission checking tests
-
-    def test_can_curate_admin(self) -> None:
-        """Test that admin can curate."""
-        assert ScopeRole.ADMIN.can_curate() is True
-
-    def test_can_curate_curator(self) -> None:
-        """Test that curator can curate."""
-        assert ScopeRole.CURATOR.can_curate() is True
-
-    def test_can_curate_reviewer(self) -> None:
-        """Test that reviewer CANNOT curate."""
-        assert ScopeRole.REVIEWER.can_curate() is False
-
-    def test_can_curate_viewer(self) -> None:
-        """Test that viewer CANNOT curate."""
-        assert ScopeRole.VIEWER.can_curate() is False
-
-    def test_can_review_admin(self) -> None:
-        """Test that admin can review."""
-        assert ScopeRole.ADMIN.can_review() is True
-
-    def test_can_review_reviewer(self) -> None:
-        """Test that reviewer can review."""
-        assert ScopeRole.REVIEWER.can_review() is True
-
-    def test_can_review_curator(self) -> None:
-        """Test that curator CANNOT review."""
-        assert ScopeRole.CURATOR.can_review() is False
-
-    def test_can_review_viewer(self) -> None:
-        """Test that viewer CANNOT review."""
-        assert ScopeRole.VIEWER.can_review() is False
-
-    def test_can_manage_scope_admin(self) -> None:
-        """Test that admin can manage scope."""
-        assert ScopeRole.ADMIN.can_manage_scope() is True
-
-    def test_can_manage_scope_others(self) -> None:
-        """Test that non-admin roles CANNOT manage scope."""
-        assert ScopeRole.CURATOR.can_manage_scope() is False
-        assert ScopeRole.REVIEWER.can_manage_scope() is False
-        assert ScopeRole.VIEWER.can_manage_scope() is False
-
-    def test_can_invite_members_admin(self) -> None:
-        """Test that admin can invite members."""
-        assert ScopeRole.ADMIN.can_invite_members() is True
-
-    def test_can_invite_members_others(self) -> None:
-        """Test that non-admin roles CANNOT invite members."""
-        assert ScopeRole.CURATOR.can_invite_members() is False
-        assert ScopeRole.REVIEWER.can_invite_members() is False
-        assert ScopeRole.VIEWER.can_invite_members() is False
-
-    def test_can_view_all_roles(self) -> None:
-        """Test that all roles can view (minimum permission)."""
-        assert ScopeRole.ADMIN.can_view() is True
-        assert ScopeRole.CURATOR.can_view() is True
-        assert ScopeRole.REVIEWER.can_view() is True
-        assert ScopeRole.VIEWER.can_view() is True
-
     # Display properties tests
 
     def test_display_name(self) -> None:
@@ -200,35 +139,6 @@ class TestScopeRole:
 
         viewer_desc = ScopeRole.VIEWER.description
         assert "Read-only" in viewer_desc
-
-    # Role hierarchy tests
-
-    def test_role_hierarchy_permissions(self) -> None:
-        """Test that role permissions follow a logical hierarchy."""
-        # Admin has all permissions
-        assert ScopeRole.ADMIN.can_view()
-        assert ScopeRole.ADMIN.can_curate()
-        assert ScopeRole.ADMIN.can_review()
-        assert ScopeRole.ADMIN.can_manage_scope()
-        assert ScopeRole.ADMIN.can_invite_members()
-
-        # Curator has subset of permissions
-        assert ScopeRole.CURATOR.can_view()
-        assert ScopeRole.CURATOR.can_curate()
-        assert not ScopeRole.CURATOR.can_review()
-        assert not ScopeRole.CURATOR.can_manage_scope()
-
-        # Reviewer has different subset
-        assert ScopeRole.REVIEWER.can_view()
-        assert not ScopeRole.REVIEWER.can_curate()
-        assert ScopeRole.REVIEWER.can_review()
-        assert not ScopeRole.REVIEWER.can_manage_scope()
-
-        # Viewer has minimal permissions
-        assert ScopeRole.VIEWER.can_view()
-        assert not ScopeRole.VIEWER.can_curate()
-        assert not ScopeRole.VIEWER.can_review()
-        assert not ScopeRole.VIEWER.can_manage_scope()
 
     def test_enum_iteration(self) -> None:
         """Test iterating over all enum values."""
@@ -281,29 +191,6 @@ class TestEnumIntegration:
         # Deserialize
         deserialized = ScopeRole.from_string(serialized)
         assert deserialized == role
-
-    def test_permission_matrix(self) -> None:
-        """Test complete permission matrix for all roles."""
-        permission_matrix = {
-            "view": [
-                ScopeRole.ADMIN,
-                ScopeRole.CURATOR,
-                ScopeRole.REVIEWER,
-                ScopeRole.VIEWER,
-            ],
-            "curate": [ScopeRole.ADMIN, ScopeRole.CURATOR],
-            "review": [ScopeRole.ADMIN, ScopeRole.REVIEWER],
-            "manage": [ScopeRole.ADMIN],
-            "invite": [ScopeRole.ADMIN],
-        }
-
-        # Verify each role has correct permissions
-        for role in ScopeRole:
-            assert (role.can_view()) == (role in permission_matrix["view"])
-            assert (role.can_curate()) == (role in permission_matrix["curate"])
-            assert (role.can_review()) == (role in permission_matrix["review"])
-            assert (role.can_manage_scope()) == (role in permission_matrix["manage"])
-            assert (role.can_invite_members()) == (role in permission_matrix["invite"])
 
 
 def test_no_non_enum_scope_role_literals_in_app() -> None:

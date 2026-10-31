@@ -103,6 +103,10 @@ class CurationSchema(Base):
         comment="When true, use DynamicForm instead of legacy ClinGen form",
     )
 
+    # 082 (#284): NULL = global template (platform admins), else that scope's admins.
+    # The FK to scopes lives in SQL only: in the model it would close a scopes cycle.
+    owner_scope_id: Mapped[PyUUID | None] = mapped_column(compatible_uuid(), index=True)
+
     # Schema validation checksum
     schema_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     # Bumped by every editor save; a stale one is refused with 409 (081, #282)
@@ -186,6 +190,10 @@ class WorkflowPair(Base):
     is_default: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+
+    # 082 (#284): NULL = global template (platform admins), else that scope's admins.
+    # The FK to scopes lives in SQL only: in the model it would close a scopes cycle.
+    owner_scope_id: Mapped[PyUUID | None] = mapped_column(compatible_uuid(), index=True)
 
     # Relationships
     creator: Mapped["UserNew | None"] = relationship(

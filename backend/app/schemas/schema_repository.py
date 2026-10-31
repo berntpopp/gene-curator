@@ -43,6 +43,7 @@ class CurationSchemaBase(BaseModel):
     use_dynamic_form: bool = Field(
         False, description="When true, use DynamicForm instead of legacy form"
     )
+    owner_scope_id: UUID | None = Field(None, description="Owner scope; null: global")
 
 
 class CurationSchemaCreate(CurationSchemaBase):
@@ -131,6 +132,7 @@ class CurationSchemaSummary(BaseModel):
     schema_type: str
     institution: str | None = None
     is_active: bool
+    owner_scope_id: UUID | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -146,6 +148,7 @@ class MethodologyVersion(BaseModel):
     created_by: UUID | None
     created_at: datetime | None = None
     derived_from_version_id: UUID | None
+    owner_scope_id: UUID | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -168,6 +171,7 @@ class MethodologyDerive(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     version: str = Field(..., min_length=1, max_length=20)
+    owner_scope_id: UUID | None = Field(None, description="Owner scope; null: global")
 
 
 # Workflow Pair Schemas
@@ -182,6 +186,7 @@ class WorkflowPairBase(BaseModel):
     precuration_schema_id: UUID = Field(..., description="Precuration schema ID")
     curation_schema_id: UUID = Field(..., description="Curation schema ID")
     is_active: bool = Field(True, description="Whether workflow pair is active")
+    owner_scope_id: UUID | None = Field(None, description="Owner scope; null: global")
 
 
 class WorkflowPairCreate(WorkflowPairBase):

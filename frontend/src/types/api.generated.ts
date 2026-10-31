@@ -310,16 +310,16 @@ export interface paths {
         post?: never;
         /**
          * Delete Scope
-         * @description Delete a scope (application admin or scope owner only).
+         * @description Delete a scope (platform admins only; RLS allows nothing else).
          *
-         *     Application administrators and scope owners (creators) can delete scopes.
-         *     This is a destructive operation that should be used with caution.
+         *     This is a destructive operation that should be used with caution. The scope's own
+         *     templates and workflows are deactivated first, so they never become global ones.
          *
          *     Args:
          *         db: Database session
          *         scope_id: Scope UUID
          *         force: If True, delete even with active gene assignments (cascade delete)
-         *         current_user: Current user (must be app admin or scope owner)
+         *         current_user: Current user (must be a platform admin)
          *
          *     Raises:
          *         HTTPException 404: Scope not found
@@ -346,6 +346,27 @@ export interface paths {
          *         Updated scope object
          */
         patch: operations["update_scope_api_v1_scopes__scope_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/scopes/{scope_id}/workflow-pairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Allowed Workflow Pairs
+         * @description Replace the workflow pairs the scope may use besides its default (global or this
+         *     scope's own pairs); an empty list allows the default pair only.
+         */
+        put: operations["set_allowed_workflow_pairs_api_v1_scopes__scope_id__workflow_pairs_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/scopes/{scope_id}/statistics": {
@@ -789,7 +810,8 @@ export interface paths {
         put?: never;
         /**
          * Create Curation Schema
-         * @description Create new curation schema. Requires platform admin.
+         * @description Create new curation schema: global (owner_scope_id null) by platform admins, or owned
+         *     by a scope by its admins (methodology.derive).
          */
         post: operations["create_curation_schema_api_v1_schemas_curation_schemas_post"];
         delete?: never;
@@ -813,13 +835,13 @@ export interface paths {
         get: operations["get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get"];
         /**
          * Update Curation Schema
-         * @description Update curation schema. Requires platform admin.
+         * @description Update curation schema: platform admins, or the owner scope's admins (methodology.edit).
          */
         put: operations["update_curation_schema_api_v1_schemas_curation_schemas__schema_id__put"];
         post?: never;
         /**
          * Delete Curation Schema
-         * @description Delete curation schema. Requires admin privileges.
+         * @description Delete curation schema: platform admins, or the owner scope's admins (methodology.edit).
          */
         delete: operations["delete_curation_schema_api_v1_schemas_curation_schemas__schema_id__delete"];
         options?: never;
@@ -842,7 +864,8 @@ export interface paths {
         put?: never;
         /**
          * Publish Methodology Version
-         * @description Publish the schema's current content as a new immutable version. Requires platform admin.
+         * @description Publish the schema's current content as a new immutable version: platform admins, or
+         *     the owner scope's admins (methodology.publish).
          *
          *     Existing curations keep the version they were created with; new ones get this one.
          *     A definition that fails the static checks or one of its tests is refused (422).
@@ -886,9 +909,11 @@ export interface paths {
         put?: never;
         /**
          * Derive Methodology
-         * @description Create an inactive schema from a published version. Requires platform admin.
+         * @description Create an inactive schema from a published version: global by platform admins, or
+         *     owned by owner_scope_id by that scope's admins (methodology.derive).
          *
-         *     The new schema's v1 records the version it was derived from.
+         *     The new schema's v1 records the version it was derived from. The source must be
+         *     global or the same scope's.
          */
         post: operations["derive_methodology_api_v1_schemas_curation_schemas__schema_id__versions__version_id__derive_post"];
         delete?: never;
@@ -952,60 +977,6 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schemas/workflow-pairs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Workflow Pairs
-         * @description List workflow pairs (methodologies). Each pairs a precuration schema with a
-         *     curation schema; they differ in those schemas and their scoring. The pair with
-         *     is_default=true is what create_scope uses when no default_workflow_pair_id is given.
-         */
-        get: operations["get_workflow_pairs_api_v1_schemas_workflow_pairs_get"];
-        put?: never;
-        /**
-         * Create Workflow Pair
-         * @description Create new workflow pair. Requires platform admin.
-         */
-        post: operations["create_workflow_pair_api_v1_schemas_workflow_pairs_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/schemas/workflow-pairs/{workflow_pair_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Workflow Pair
-         * @description Get workflow pair by ID.
-         */
-        get: operations["get_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__get"];
-        /**
-         * Update Workflow Pair
-         * @description Update workflow pair. Requires platform admin.
-         */
-        put: operations["update_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__put"];
-        post?: never;
-        /**
-         * Delete Workflow Pair
-         * @description Delete workflow pair. Requires admin privileges.
-         */
-        delete: operations["delete_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1086,6 +1057,61 @@ export interface paths {
          */
         post: operations["calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schemas/workflow-pairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Workflow Pairs
+         * @description List workflow pairs (methodologies). Each pairs a precuration schema with a
+         *     curation schema; they differ in those schemas and their scoring. The pair with
+         *     is_default=true is what create_scope uses when no default_workflow_pair_id is given.
+         */
+        get: operations["get_workflow_pairs_api_v1_schemas_workflow_pairs_get"];
+        put?: never;
+        /**
+         * Create Workflow Pair
+         * @description Create new workflow pair: global by platform admins, or owned by owner_scope_id by
+         *     that scope's admins (workflow.create) from global or the same scope's schemas.
+         */
+        post: operations["create_workflow_pair_api_v1_schemas_workflow_pairs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schemas/workflow-pairs/{workflow_pair_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Workflow Pair
+         * @description Get workflow pair by ID.
+         */
+        get: operations["get_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__get"];
+        /**
+         * Update Workflow Pair
+         * @description Update workflow pair: platform admins, or the owner scope's admins (workflow.create).
+         */
+        put: operations["update_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__put"];
+        post?: never;
+        /**
+         * Delete Workflow Pair
+         * @description Delete workflow pair: platform admins, or the owner scope's admins (workflow.create).
+         */
+        delete: operations["delete_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1318,7 +1344,7 @@ export interface paths {
         put?: never;
         /**
          * Create Gene Assignment
-         * @description Create new gene-scope assignment. Available to all authenticated users with scope access.
+         * @description Create new gene-scope assignment (curation.edit, like adding genes to the scope).
          */
         post: operations["create_gene_assignment_api_v1_gene_assignments__post"];
         delete?: never;
@@ -1341,13 +1367,13 @@ export interface paths {
         get: operations["get_gene_assignment_api_v1_gene_assignments__assignment_id__get"];
         /**
          * Update Gene Assignment
-         * @description Update gene-scope assignment. Available to all authenticated users with scope access.
+         * @description Update gene-scope assignment (gene.assign: scope admins).
          */
         put: operations["update_gene_assignment_api_v1_gene_assignments__assignment_id__put"];
         post?: never;
         /**
          * Deactivate Gene Assignment
-         * @description Deactivate gene-scope assignment. Requires admin privileges.
+         * @description Deactivate gene-scope assignment (gene.assign: scope admins).
          */
         delete: operations["deactivate_gene_assignment_api_v1_gene_assignments__assignment_id__delete"];
         options?: never;
@@ -1366,7 +1392,7 @@ export interface paths {
         put?: never;
         /**
          * Reactivate Gene Assignment
-         * @description Reactivate gene-scope assignment. Requires admin privileges.
+         * @description Reactivate gene-scope assignment (gene.assign: scope admins).
          */
         post: operations["reactivate_gene_assignment_api_v1_gene_assignments__assignment_id__reactivate_post"];
         delete?: never;
@@ -2399,7 +2425,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Gene
-         * @description Delete gene. Requires admin privileges.
+         * @description Delete gene (global data: platform admins).
          */
         delete: operations["delete_gene_api_v1_genes__gene_id__delete"];
         options?: never;
@@ -2518,7 +2544,7 @@ export interface paths {
         put?: never;
         /**
          * Merge Genes
-         * @description Merge duplicate genes. Requires admin privileges.
+         * @description Merge duplicate genes (global data: platform admins).
          */
         post: operations["merge_genes_api_v1_genes_merge_post"];
         delete?: never;
@@ -5470,6 +5496,11 @@ export interface components {
              */
             use_dynamic_form: boolean;
             /**
+             * Owner Scope Id
+             * @description Owner scope; null: global
+             */
+            owner_scope_id?: string | null;
+            /**
              * Id
              * Format: uuid
              */
@@ -5568,6 +5599,11 @@ export interface components {
              * @default false
              */
             use_dynamic_form: boolean;
+            /**
+             * Owner Scope Id
+             * @description Owner scope; null: global
+             */
+            owner_scope_id?: string | null;
         };
         /**
          * CurationSchemaSubtree
@@ -5621,6 +5657,8 @@ export interface components {
             institution?: string | null;
             /** Is Active */
             is_active: boolean;
+            /** Owner Scope Id */
+            owner_scope_id?: string | null;
         };
         /**
          * CurationSchemaUpdate
@@ -8245,6 +8283,11 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+            /**
+             * Owner Scope Id
+             * @description Owner scope; null: global
+             */
+            owner_scope_id?: string | null;
         };
         /**
          * MethodologyImportResult
@@ -8290,6 +8333,8 @@ export interface components {
             created_at?: string | null;
             /** Derived From Version Id */
             derived_from_version_id: string | null;
+            /** Owner Scope Id */
+            owner_scope_id?: string | null;
         };
         /**
          * MethodologyVersionImpact
@@ -10084,6 +10129,11 @@ export interface components {
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
             /**
+             * Allowed Workflow Pair Ids
+             * @default []
+             */
+            allowed_workflow_pair_ids: string[];
+            /**
              * Created At
              * Format: date-time
              */
@@ -11210,6 +11260,11 @@ export interface components {
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
             /**
+             * Allowed Workflow Pair Ids
+             * @default []
+             */
+            allowed_workflow_pair_ids: string[];
+            /**
              * Created At
              * Format: date-time
              */
@@ -11237,6 +11292,17 @@ export interface components {
              * @description Precuration schema of the default workflow pair
              */
             precuration_schema_id?: string | null;
+        };
+        /**
+         * ScopeWorkflowPairs
+         * @description Workflow pairs a scope may use besides its default pair (#284).
+         */
+        ScopeWorkflowPairs: {
+            /**
+             * Workflow Pair Ids
+             * @description Global or this scope's own active pairs; [] = default only
+             */
+            workflow_pair_ids: string[];
         };
         /** SearchResponse */
         SearchResponse: {
@@ -12043,6 +12109,11 @@ export interface components {
              */
             is_active: boolean;
             /**
+             * Owner Scope Id
+             * @description Owner scope; null: global
+             */
+            owner_scope_id?: string | null;
+            /**
              * Id
              * Format: uuid
              */
@@ -12098,6 +12169,11 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+            /**
+             * Owner Scope Id
+             * @description Owner scope; null: global
+             */
+            owner_scope_id?: string | null;
         };
         /**
          * WorkflowPairUpdate
@@ -12855,6 +12931,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ScopeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Scope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_allowed_workflow_pairs_api_v1_scopes__scope_id__workflow_pairs_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeWorkflowPairs"];
             };
         };
         responses: {
@@ -13871,6 +13982,138 @@ export interface operations {
             };
         };
     };
+    get_scoring_engines_api_v1_schemas_scoring_engines_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    get_scoring_engine_info_api_v1_schemas_scoring_engines__engine_name__get: {
+        parameters: {
+            query?: {
+                /** @description List the verdicts this schema's scoring config emits */
+                schema_id?: string | null;
+            };
+            header?: never;
+            path: {
+                engine_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validate_evidence_with_engine_api_v1_schemas_scoring_engines__engine_name__validate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Body_validate_evidence_with_engine_api_v1_schemas_scoring_engines__engine_name__validate_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_workflow_pairs_api_v1_schemas_workflow_pairs_get: {
         parameters: {
             query?: {
@@ -14023,138 +14266,6 @@ export interface operations {
                 content: {
                     "application/json": {
                         [key: string]: string;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_scoring_engines_api_v1_schemas_scoring_engines_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    }[];
-                };
-            };
-        };
-    };
-    get_scoring_engine_info_api_v1_schemas_scoring_engines__engine_name__get: {
-        parameters: {
-            query?: {
-                /** @description List the verdicts this schema's scoring config emits */
-                schema_id?: string | null;
-            };
-            header?: never;
-            path: {
-                engine_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    validate_evidence_with_engine_api_v1_schemas_scoring_engines__engine_name__validate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                engine_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Body_validate_evidence_with_engine_api_v1_schemas_scoring_engines__engine_name__validate_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                engine_name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
                     };
                 };
             };

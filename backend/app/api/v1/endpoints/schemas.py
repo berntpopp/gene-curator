@@ -13,6 +13,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.capabilities import (
+    METHODOLOGY_DERIVE,
+    METHODOLOGY_EDIT,
+    METHODOLOGY_PUBLISH,
+    audit,
+    require,
+)
 from app.core.database import get_db
 from app.core.enum_options import flatten_sections
 from app.core.schema_compact import compact_field, ranges_for, rules_for, subtree
@@ -21,7 +28,6 @@ from app.crud.schema_repository import (
     SNAPSHOT_KEYS,
     publish_errors,
     schema_crud,
-    workflow_pair_crud,
 )
 from app.models import CurationSchema as CurationSchemaModel, UserNew
 from app.models.methodology import MethodologyVersion as MethodologyVersionModel
@@ -35,9 +41,6 @@ from app.schemas.schema_repository import (
     MethodologyVersion,
     MethodologyVersionImpact,
     SchemaValidationResult,
-    WorkflowPair,
-    WorkflowPairCreate,
-    WorkflowPairUpdate,
 )
 from app.scoring.point_model import point_model
 from app.scoring.registry import scoring_registry
@@ -64,15 +67,6 @@ def _unique_name_version(db: Session) -> Iterator[None]:
             raise
         db.rollback()
         raise HTTPException(status_code=400, detail=DUPLICATE_SCHEMA) from exc
-
-
-def _require_active_schemas(db: Session, *schema_ids: UUID | None) -> None:
-    for schema_id in schema_ids:
-        schema = schema_crud.get(db, id=schema_id) if schema_id else None
-        if schema and not schema.is_active:
-            raise HTTPException(
-                status_code=400, detail=f"Schema '{schema.name}' is inactive"
-            )
 
 
 # ========================================
@@ -117,11 +111,13 @@ def create_curation_schema(
     *,
     db: Session = Depends(get_db),
     schema_in: CurationSchemaCreate,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
+    current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:
     """
-    Create new curation schema. Requires platform admin.
+    Create new curation schema: global (owner_scope_id null) by platform admins, or owned
+    by a scope by its admins (methodology.derive).
     """
+    require(db, current_user, schema_in.owner_scope_id, METHODOLOGY_DERIVE)
     # Check if schema name/version already exists
     existing_schema = schema_crud.get_by_name_and_version(
         db, name=schema_in.name, version=schema_in.version
@@ -140,6 +136,13 @@ def create_curation_schema(
         schema = schema_crud.create_with_owner(
             db, obj_in=schema_in, owner_id=current_user.id
         )
+    audit(
+        db,
+        current_user,
+        METHODOLOGY_DERIVE,
+        schema.owner_scope_id,
+        ("curation_schema", schema.id),
+    )
     return schema  # type: ignore[return-value]
 
 
@@ -225,9 +228,10 @@ def publish_methodology_version(
     *,
     db: Session = Depends(get_db),
     schema_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
+    current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> MethodologyVersion:
-    """Publish the schema's current content as a new immutable version. Requires platform admin.
+    """Publish the schema's current content as a new immutable version: platform admins, or
+    the owner scope's admins (methodology.publish).
 
     Existing curations keep the version they were created with; new ones get this one.
     A definition that fails the static checks or one of its tests is refused (422).
@@ -235,15 +239,23 @@ def publish_methodology_version(
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
+    require(db, current_user, schema.owner_scope_id, METHODOLOGY_PUBLISH)
     errors = publish_errors({key: getattr(schema, key) for key in SNAPSHOT_KEYS})
     if errors:
         raise HTTPException(
             status_code=422,
             detail={"message": "Methodology version not published", "errors": errors},
         )
-    return schema_crud.publish_version(  # type: ignore[return-value]
-        db, schema=schema, user_id=current_user.id
+    version = schema_crud.publish_version(db, schema=schema, user_id=current_user.id)
+    audit(
+        db,
+        current_user,
+        METHODOLOGY_PUBLISH,
+        schema.owner_scope_id,
+        ("methodology_version", version.id),
+        {"schema_id": schema.id, "version": version.version},
     )
+    return version  # type: ignore[return-value]
 
 
 @router.get(
@@ -276,27 +288,43 @@ def derive_methodology(
     schema_id: UUID,
     version_id: UUID,
     derive_in: MethodologyDerive,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
+    current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:
-    """Create an inactive schema from a published version. Requires platform admin.
+    """Create an inactive schema from a published version: global by platform admins, or
+    owned by owner_scope_id by that scope's admins (methodology.derive).
 
-    The new schema's v1 records the version it was derived from.
+    The new schema's v1 records the version it was derived from. The source must be
+    global or the same scope's.
     """
+    require(db, current_user, derive_in.owner_scope_id, METHODOLOGY_DERIVE)
     source = db.get(MethodologyVersionModel, version_id)
     if not source or source.schema_id != schema_id:
         raise HTTPException(status_code=404, detail="Methodology version not found")
+    parent = schema_crud.get(db, id=schema_id)
+    if parent and parent.owner_scope_id not in (None, derive_in.owner_scope_id):
+        raise HTTPException(status_code=403, detail="Schema belongs to another scope")
     if schema_crud.get_by_name_and_version(
         db, name=derive_in.name, version=derive_in.version
     ):
         raise HTTPException(status_code=400, detail=DUPLICATE_SCHEMA)
     with _unique_name_version(db):
-        return schema_crud.derive(  # type: ignore[return-value]
+        schema = schema_crud.derive(
             db,
             source=source,
             name=derive_in.name,
             version=derive_in.version,
             user_id=current_user.id,
+            owner_scope_id=derive_in.owner_scope_id,
         )
+    audit(
+        db,
+        current_user,
+        METHODOLOGY_DERIVE,
+        schema.owner_scope_id,
+        ("curation_schema", schema.id),
+        {"derived_from_version_id": source.id},
+    )
+    return schema  # type: ignore[return-value]
 
 
 @router.put("/curation-schemas/{schema_id}", response_model=CurationSchema)
@@ -305,14 +333,15 @@ def update_curation_schema(
     db: Session = Depends(get_db),
     schema_id: UUID,
     schema_in: CurationSchemaUpdate,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
+    current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:
     """
-    Update curation schema. Requires platform admin.
+    Update curation schema: platform admins, or the owner scope's admins (methodology.edit).
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
+    require(db, current_user, schema.owner_scope_id, METHODOLOGY_EDIT)
 
     with _unique_name_version(db):
         if not claim_version(
@@ -325,6 +354,14 @@ def update_curation_schema(
             )
         values = schema_in.model_dump(exclude_unset=True, exclude={"lock_version"})
         schema = schema_crud.update(db, db_obj=schema, obj_in=values)
+    audit(
+        db,
+        current_user,
+        METHODOLOGY_EDIT,
+        schema.owner_scope_id,
+        ("curation_schema", schema.id),
+        {"fields": sorted(values)},
+    )
     return schema  # type: ignore[return-value]
 
 
@@ -336,14 +373,12 @@ def delete_curation_schema(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> dict[str, str]:
     """
-    Delete curation schema. Requires admin privileges.
+    Delete curation schema: platform admins, or the owner scope's admins (methodology.edit).
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
-
-    if current_user.role not in ["admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    require(db, current_user, schema.owner_scope_id, METHODOLOGY_EDIT)
 
     # Check if schema is in use
     if schema_crud.is_schema_in_use(db, schema_id=schema_id):
@@ -351,7 +386,9 @@ def delete_curation_schema(
             status_code=400, detail="Cannot delete schema that is currently in use"
         )
 
+    owner = schema.owner_scope_id
     schema_crud.remove(db, id=schema_id)
+    audit(db, current_user, METHODOLOGY_EDIT, owner, ("curation_schema", schema_id))
     return {"message": "Schema deleted successfully"}
 
 
@@ -420,155 +457,6 @@ def get_methodology_version(
     if not version:
         raise HTTPException(status_code=404, detail="Methodology version not found")
     return version  # type: ignore[return-value]
-
-
-# ========================================
-# WORKFLOW PAIRS ENDPOINTS
-# ========================================
-
-
-@router.get("/workflow-pairs", response_model=list[WorkflowPair])
-def get_workflow_pairs(
-    db: Session = Depends(get_db),
-    skip: int = 0,
-    limit: int = 100,
-    active_only: bool = Query(
-        True, description="Filter for active workflow pairs only"
-    ),
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> Sequence[WorkflowPair]:
-    """
-    List workflow pairs (methodologies). Each pairs a precuration schema with a
-    curation schema; they differ in those schemas and their scoring. The pair with
-    is_default=true is what create_scope uses when no default_workflow_pair_id is given.
-    """
-    workflow_pairs = workflow_pair_crud.get_multi(
-        db, skip=skip, limit=limit, active_only=active_only
-    )
-    return workflow_pairs  # type: ignore[return-value]
-
-
-@router.post("/workflow-pairs", response_model=WorkflowPair)
-def create_workflow_pair(
-    *,
-    db: Session = Depends(get_db),
-    workflow_pair_in: WorkflowPairCreate,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
-) -> WorkflowPair:
-    """
-    Create new workflow pair. Requires platform admin.
-    """
-    # Check if workflow pair name/version already exists
-    existing_pair = workflow_pair_crud.get_by_name_and_version(
-        db, name=workflow_pair_in.name, version=workflow_pair_in.version
-    )
-    if existing_pair:
-        raise HTTPException(
-            status_code=400,
-            detail="Workflow pair with this name and version already exists",
-        )
-
-    # Validate that referenced schemas exist
-    precuration_schema = schema_crud.get(db, id=workflow_pair_in.precuration_schema_id)
-    curation_schema = schema_crud.get(db, id=workflow_pair_in.curation_schema_id)
-
-    if not precuration_schema:
-        raise HTTPException(status_code=400, detail="Precuration schema not found")
-    if not curation_schema:
-        raise HTTPException(status_code=400, detail="Curation schema not found")
-
-    # Validate schema compatibility
-    if precuration_schema.schema_type not in ["precuration", "combined"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Precuration schema must be of type 'precuration' or 'combined'",
-        )
-
-    if curation_schema.schema_type not in ["curation", "combined"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Curation schema must be of type 'curation' or 'combined'",
-        )
-
-    _require_active_schemas(db, precuration_schema.id, curation_schema.id)
-
-    workflow_pair = workflow_pair_crud.create_with_owner(
-        db, obj_in=workflow_pair_in, owner_id=current_user.id
-    )
-    return workflow_pair  # type: ignore[return-value]
-
-
-@router.get("/workflow-pairs/{workflow_pair_id}", response_model=WorkflowPair)
-def get_workflow_pair(
-    *,
-    db: Session = Depends(get_db),
-    workflow_pair_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> WorkflowPair:
-    """
-    Get workflow pair by ID.
-    """
-    workflow_pair = workflow_pair_crud.get(db, id=workflow_pair_id)
-    if not workflow_pair:
-        raise HTTPException(status_code=404, detail="Workflow pair not found")
-
-    return workflow_pair  # type: ignore[return-value]
-
-
-@router.put("/workflow-pairs/{workflow_pair_id}", response_model=WorkflowPair)
-def update_workflow_pair(
-    *,
-    db: Session = Depends(get_db),
-    workflow_pair_id: UUID,
-    workflow_pair_in: WorkflowPairUpdate,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
-) -> WorkflowPair:
-    """
-    Update workflow pair. Requires platform admin.
-    """
-    workflow_pair = workflow_pair_crud.get(db, id=workflow_pair_id)
-    if not workflow_pair:
-        raise HTTPException(status_code=404, detail="Workflow pair not found")
-
-    _require_active_schemas(
-        db,
-        workflow_pair_in.precuration_schema_id,
-        workflow_pair_in.curation_schema_id,
-    )
-    workflow_pair = workflow_pair_crud.update(
-        db, db_obj=workflow_pair, obj_in=workflow_pair_in
-    )
-    return workflow_pair  # type: ignore[return-value]
-
-
-@router.delete("/workflow-pairs/{workflow_pair_id}")
-def delete_workflow_pair(
-    *,
-    db: Session = Depends(get_db),
-    workflow_pair_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> dict[str, str]:
-    """
-    Delete workflow pair. Requires admin privileges.
-    """
-    workflow_pair = workflow_pair_crud.get(db, id=workflow_pair_id)
-    if not workflow_pair:
-        raise HTTPException(status_code=404, detail="Workflow pair not found")
-
-    if current_user.role not in ["admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    # Check if workflow pair is in use
-    if workflow_pair_crud.is_workflow_pair_in_use(
-        db, workflow_pair_id=workflow_pair_id
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot delete workflow pair that is currently in use",
-        )
-
-    workflow_pair_crud.remove(db, id=workflow_pair_id)
-    return {"message": "Workflow pair deleted successfully"}
 
 
 # ========================================

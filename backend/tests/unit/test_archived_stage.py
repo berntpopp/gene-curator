@@ -7,7 +7,7 @@ from app.crud.curation import curation_crud
 from app.crud.precuration import precuration_crud
 from app.crud.workflow_engine import workflow_engine
 from app.models.models import CurationNew, CurationStatus, WorkflowStage
-from app.services.scope_permissions import ScopePermissionService
+from app.services.curation_access import _can_user_edit_curation
 from tests.unit.test_activation_supersedes import _curation
 
 pytestmark = pytest.mark.unit
@@ -78,6 +78,4 @@ def test_nobody_edits_an_archived_curation(
     c.workflow_stage = WorkflowStage.ARCHIVED
     c.status = CurationStatus.ARCHIVED
     db_session.commit()
-    assert not ScopePermissionService.can_edit_curation(
-        db_session, test_user_curator, c
-    )
+    assert not _can_user_edit_curation(db_session, test_user_curator, c)

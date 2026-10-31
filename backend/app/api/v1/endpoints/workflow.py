@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.capabilities import VIEW, require
+from app.core.capabilities import EDIT, PLATFORM, VIEW, require
 from app.core.database import get_db
 from app.core.deps import get_current_active_user, require_signed_in_approver
 from app.core.workflow_errors import http_error
@@ -234,6 +234,11 @@ def assign_peer_reviewer(
     reviewer or admin of the scope, never the author. A precuration gets no review row
     (review_id null): the reviewer is notified, finds it in read_my_work and approves it with
     POST /precurations/{id}/approve."""
+    curation = db.get(CurationNew, item_id) if item_type == "curation" else None
+    if (
+        curation and curation.created_by != current_user.id
+    ):  # as RLS 061: author or EDIT
+        require(db, current_user, curation.scope_id, EDIT)
     try:
         if item_type == "precuration":
             return assign_precuration_reviewer(
@@ -497,9 +502,7 @@ def bulk_workflow_transition(
     """
     Execute bulk workflow transitions. Requires admin privileges.
     """
-    # Only admins can execute bulk transitions
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin privileges required")
+    require(db, current_user, None, PLATFORM)
 
     successful_transitions: list[UUID] = []
     failed_transitions: list[dict[str, Any]] = []

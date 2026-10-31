@@ -71,51 +71,6 @@ class ScopeRole(str, Enum):
                 f"Invalid scope role: {role}. Must be one of: {', '.join([r.value for r in cls])}"
             ) from e
 
-    def can_curate(self) -> bool:
-        """
-        Check if role has curation permissions.
-
-        Returns:
-            True if role can create/edit curations (admin or curator)
-        """
-        return self in (ScopeRole.ADMIN, ScopeRole.CURATOR)
-
-    def can_review(self) -> bool:
-        """
-        Check if role has review permissions.
-
-        Returns:
-            True if role can review curations (admin or reviewer)
-        """
-        return self in (ScopeRole.ADMIN, ScopeRole.REVIEWER)
-
-    def can_manage_scope(self) -> bool:
-        """
-        Check if role can manage scope settings.
-
-        Returns:
-            True if role can manage scope (admin only)
-        """
-        return self == ScopeRole.ADMIN
-
-    def can_invite_members(self) -> bool:
-        """
-        Check if role can invite new members to scope.
-
-        Returns:
-            True if role can invite (admin only)
-        """
-        return self == ScopeRole.ADMIN
-
-    def can_view(self) -> bool:
-        """
-        Check if role has view permissions.
-
-        Returns:
-            True for all roles (minimum permission level)
-        """
-        return True
-
     @property
     def display_name(self) -> str:
         """Get user-friendly display name for the role."""

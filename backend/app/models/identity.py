@@ -127,6 +127,14 @@ class Scope(Base):
     schema_selections: Mapped[list["SchemaSelection"]] = relationship(
         "SchemaSelection", back_populates="scope", passive_deletes=True
     )
+    # 082 (#284): pairs the scope may use besides its default pair
+    allowed_workflow_pairs: Mapped[list["WorkflowPair"]] = relationship(
+        "WorkflowPair", secondary="scope_workflow_pairs", passive_deletes=True
+    )
+
+    @property
+    def allowed_workflow_pair_ids(self) -> list[PyUUID]:
+        return [pair.id for pair in self.allowed_workflow_pairs]
 
 
 class UserNew(Base):

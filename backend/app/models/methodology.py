@@ -46,6 +46,8 @@ class MethodologyVersion(Base):
     derived_from_version_id: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(), ForeignKey("methodology_versions.id")
     )
+    # 082 (#284): the schema's owner scope, set by a trigger on insert; no FK (immutable rows)
+    owner_scope_id: Mapped[PyUUID | None] = mapped_column(compatible_uuid())
 
     __table_args__ = (
         UniqueConstraint(

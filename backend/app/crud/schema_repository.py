@@ -207,6 +207,7 @@ class CRUDCurationSchema(
             snapshot={key: getattr(schema, key) for key in SNAPSHOT_KEYS},
             published_at=datetime.now(UTC),
             created_by=user_id,
+            owner_scope_id=schema.owner_scope_id,  # Postgres: the 082 trigger sets it too
         )
         db.add(version)
         db.commit()
@@ -270,6 +271,7 @@ class CRUDCurationSchema(
         name: str,
         version: str,
         user_id: UUID,
+        owner_scope_id: UUID | None = None,
     ) -> CurationSchema:
         """Copy a version's snapshot into a new inactive schema whose v1 points back at it."""
         parent = db.get(CurationSchema, source.schema_id)
@@ -288,6 +290,7 @@ class CRUDCurationSchema(
             is_active=False,
             created_by=user_id,
             schema_hash=_schema_content_hash(data),
+            owner_scope_id=owner_scope_id,
         )
         if db.get_bind().dialect.name == "postgresql":
             # read by the 044 trigger that publishes v1; transaction-local
@@ -307,6 +310,7 @@ class CRUDCurationSchema(
                     published_at=datetime.now(UTC),
                     created_by=user_id,
                     derived_from_version_id=source.id,
+                    owner_scope_id=owner_scope_id,
                 )
             )
         db.commit()

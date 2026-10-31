@@ -17,6 +17,8 @@ declare module 'vue-router' {
     navScopeRoles?: string[]
     /** Menu entry only: application roles that may see it (the route itself stays reachable). */
     navAppRoles?: string[]
+    /** Menu entry only: platform admins, or these scope roles in any scope (Setup, #284). */
+    setupRoles?: string[]
     showInMainMenu?: boolean
     showInUserMenu?: boolean
     /** Dropdown group the item belongs to, e.g. 'curation' or 'curationSetup' */
@@ -299,7 +301,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: TERMINOLOGY.TEMPLATES,
       requiresAuth: true,
-      requiredRoles: ['admin'],
+      // scope admins manage their scopes' items; the API decides per item
+      setupRoles: ['admin'],
       showInDropdown: 'curationSetup',
       icon: 'mdi-file-document-outline',
       label: TERMINOLOGY.TEMPLATES,
@@ -313,8 +316,7 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'Schema Editor',
-      requiresAuth: true,
-      requiredRoles: ['admin']
+      requiresAuth: true
     }
   },
   {
@@ -324,7 +326,8 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: TERMINOLOGY.WORKFLOWS,
       requiresAuth: true,
-      requiredRoles: ['admin'],
+      // scope admins manage their scopes' items; the API decides per item
+      setupRoles: ['admin'],
       showInDropdown: 'curationSetup',
       icon: 'mdi-sitemap-outline',
       label: TERMINOLOGY.WORKFLOWS,

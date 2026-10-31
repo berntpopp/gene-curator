@@ -142,6 +142,24 @@ describe('CurationFormView', () => {
     expect(logger.debug).toHaveBeenCalledWith('Schema selected', { schemaId: 'b' })
   })
 
+  it('offers only the curation schemas of the pairs the scope allows (#284)', async () => {
+    const { vm } = await mountView(({ schemas, scopes }) => {
+      schemas.schemas = [
+        { id: 'a', schema_type: 'curation' },
+        { id: 'b', schema_type: 'curation' }
+      ] as never
+      schemas.workflowPairs = [
+        { id: 'wp1', curation_schema_id: 'a' },
+        { id: 'wp2', curation_schema_id: 'b' }
+      ] as never
+      vi.spyOn(scopes, 'fetchScope').mockResolvedValue({
+        allowed_workflow_pair_ids: ['wp2']
+      } as never)
+    })
+    expect(vm.resolvedSchemaId).toBe('b')
+    expect(vm.resolvedWorkflowPairId).toBe('wp2')
+  })
+
   it('prefers the schema from the query string over the scope default', async () => {
     routeState.query = { schema_id: 'from-query' }
     const { vm } = await mountView(({ schemas }) => {
