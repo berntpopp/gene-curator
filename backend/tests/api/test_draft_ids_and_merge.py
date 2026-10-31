@@ -159,6 +159,7 @@ def test_unknown_pmid_warns_and_scores_zero(
             "path": f"{ROWS}[0]",
             "pmid": "99999999",
             "reason": "unknown_pmid",
+            "blocks_submit": True,  # KGDB smoke test: submit refuses it too
         }
     ]
 

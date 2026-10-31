@@ -53,7 +53,11 @@ from app.services.evidence_ids import (
     shrunk_arrays,
 )
 from app.services.review_assignment import submit_reviewer
-from app.services.review_guards import check_review_content, save_warnings
+from app.services.review_guards import (
+    check_review_content,
+    save_warnings,
+    unknown_columns,
+)
 from app.services.row_provenance import stamped
 
 logger = get_logger(__name__)
@@ -171,6 +175,7 @@ def _computed(
             if lookup
             else (format_errors(evidence_data), set())
         )
+    ids = (ids[0] + unknown_columns(db, curation, evidence_data), ids[1])
     config = scoring_configuration(
         db, curation.workflow_pair_id, curation.methodology_version_id
     )

@@ -90,6 +90,7 @@ from app.services.curation_access import (
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.llm_runs import queue_on_submit
 from app.services.review_assignment import assigned_reviewer, submit_reviewer
+from app.services.review_guards import BLOCKS_SUBMIT
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -629,7 +630,7 @@ def calculate_score(
 ) -> CurationScoreResponse:
     """Preview the score. Rows with points but no PMID, an unknown PMID or (case-level) no
     real variant or a score_status other than score score 0 points and are listed in
-    breakdown.excluded with the reason."""
+    breakdown.excluded with the reason (blocks_submit: submit refuses it)."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -645,6 +646,8 @@ def calculate_score(
 
     result = curation_crud.calculate_score(db, curation)
     result.trace = result.breakdown.pop("trace", None)  # sent once, at the top
+    for row in result.breakdown.get("excluded", []):
+        row["blocks_submit"] = row.get("reason") in BLOCKS_SUBMIT
     return result
 
 
