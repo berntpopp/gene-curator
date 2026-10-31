@@ -27,6 +27,7 @@ class W:
     alice: UUID = field(default_factory=uuid4)  # curator
     gene: UUID = field(default_factory=uuid4)
     pair_x: UUID = field(default_factory=uuid4)  # the second pair, in use
+    pair_off: UUID = field(default_factory=uuid4)  # used but inactive
     pre_x: str = ""
 
 
@@ -85,6 +86,17 @@ def w() -> Generator[W, None, None]:
             "(%s, %s, %s, 'draft', 'curation', true, '{}', %s)",
             (str(x.gene), str(x.scope), str(x.pair_x), str(x.alice)),
         )
+        cur.execute(  # used, but inactive: 086 must not allow it
+            "INSERT INTO workflow_pairs (id, name, version, precuration_schema_id, "
+            "curation_schema_id, is_active) VALUES (%s, %s, '1.0', %s, %s, false)",
+            (str(x.pair_off), f"OFF-{tag}", x.pre_x, str(cur_schema)),
+        )
+        cur.execute(
+            "INSERT INTO curations (gene_id, scope_id, workflow_pair_id, status, "
+            "workflow_stage, is_draft, evidence_data, created_by, entity_key) VALUES "
+            "(%s, %s, %s, 'archived', 'curation', false, '{\"n\": 2}', %s, 'old')",
+            (str(x.gene), str(x.scope), str(x.pair_off), str(x.alice)),
+        )
     yield x
     with _owner() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM scopes WHERE id = %s", (str(x.scope),))
@@ -94,7 +106,10 @@ def w() -> Generator[W, None, None]:
             (str(x.alice), str(x.scope)),
         )
         cur.execute("DELETE FROM users WHERE id = %s", (str(x.alice),))
-        cur.execute("DELETE FROM workflow_pairs WHERE id = %s", (str(x.pair_x),))
+        cur.execute(
+            "DELETE FROM workflow_pairs WHERE id = ANY(%s::uuid[])",
+            ([str(x.pair_x), str(x.pair_off)],),
+        )
         cur.execute("DELETE FROM curation_schemas WHERE id = %s", (x.pre_x,))
 
 
@@ -124,6 +139,14 @@ def test_backfill_allows_the_pair_a_scope_already_uses(
     r = client.post("/api/v1/precurations/", json=body, headers=h)
     assert r.status_code == 201, r.text
     with _owner() as conn, conn.cursor() as cur:
+        # #609 review: a pair inactive or owned by another scope is never allowed, so the
+        # admin's next save of the allowed list still passes _usable_pairs
+        cur.execute(
+            "SELECT count(*) FROM scope_workflow_pairs swp JOIN workflow_pairs wp "
+            "ON wp.id = swp.workflow_pair_id WHERE NOT wp.is_active OR "
+            "(wp.owner_scope_id IS NOT NULL AND wp.owner_scope_id <> swp.scope_id)"
+        )
+        assert cur.fetchone()[0] == 0
         cur.execute(
             "SELECT count(*) FROM schema_migrations WHERE filename = %s",
             ("086_backfill_allowed_workflow_pairs.sql",),
