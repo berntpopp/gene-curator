@@ -26,7 +26,7 @@ from app.models import (
 )
 from app.models.curation import _MOI_SYNONYMS
 from app.models.methodology import MethodologyVersion
-from app.schemas.curation import relationship_of_key, risk_allele
+from app.schemas.curation import entity_allele, relationship_of_key
 from app.schemas.curation_export import (
     CurationExportPage,
     ExportCuration,
@@ -190,9 +190,7 @@ def _item(
         **get_disease_fields(c.evidence_data, pre),
         moi_hpo_id=_MOI_HPO.get(moi),
         relationship_type=relationship_of_key(ac.entity_key),
-        risk_allele=risk_allele(c.evidence_data, pre)
-        if relationship_of_key(ac.entity_key) == "susceptibility"
-        else None,
+        risk_allele=entity_allele(ac.entity_key, c.evidence_data, pre),
         computed_verdict=None if c.clingen_adoption else c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,

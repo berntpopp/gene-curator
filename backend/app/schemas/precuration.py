@@ -16,6 +16,7 @@ from app.schemas.curation import (
     EvidenceWarning,
     RelationshipType,
     relationship_type,
+    risk_allele,
 )
 from app.schemas.review_comment import REVIEW_TEXT_MAX
 from app.schemas.scope import SCOPE_NAME
@@ -111,6 +112,9 @@ class PrecurationInDBBase(BaseModel):
     gene_id: UUID
     scope_id: UUID
     precuration_schema_id: UUID
+    entity_key: str = Field(
+        "", description="MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]] the evidence names"
+    )
 
     status: CurationStatus
     workflow_stage: WorkflowStage
@@ -138,6 +142,14 @@ class PrecurationInDBBase(BaseModel):
     def relationship_type(self) -> RelationshipType:
         """mendelian or susceptibility, from evidence_data (#539)."""
         return relationship_type(self.evidence_data, None)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def risk_allele(self) -> str | None:
+        """The susceptibility entity's risk allele (#614), else null."""
+        if self.relationship_type != "susceptibility":
+            return None
+        return risk_allele(self.evidence_data, None)
 
 
 # ========================================

@@ -122,6 +122,10 @@ class CurationInDBBase(CurationBase):
     """Base schema with database fields."""
 
     id: UUID
+    entity_key: str = Field(
+        "", description="MONDO|MOI[|SUSCEPTIBILITY[|ALLELE]]; '' lumped or legacy"
+    )
+    risk_allele: str | None = Field(None, description="Susceptibility only (#614)")
     status: CurationStatus
     workflow_stage: WorkflowStage
     is_draft: bool
@@ -279,6 +283,17 @@ def risk_allele(
     return next((canonical_allele(a) for a in named if a.strip()), None)
 
 
+def entity_allele(
+    entity_key: str | None,
+    evidence: dict[str, Any] | None,
+    precuration: dict[str, Any] | None,
+) -> str | None:
+    """risk_allele of a susceptibility entity, None for a Mendelian one."""
+    if relationship_of_key(entity_key) != "susceptibility":
+        return None
+    return risk_allele(evidence, precuration)
+
+
 class ClassificationChoice(BaseModel):
     key: str = Field(..., description="Class key, as curator_classification stores it")
     label: str
@@ -388,6 +403,10 @@ class CurationDetail(CurationInDBBase):
         # Priority: evidence_data > precuration_data
         data.update(disease_fields(evidence, precuration_data))
         data["relationship_type"] = relationship_of_key(curation.entity_key)
+        data["entity_key"] = curation.entity_key or ""
+        data["risk_allele"] = entity_allele(
+            curation.entity_key, evidence, precuration_data
+        )
 
         return cls(**data)
 
@@ -400,6 +419,8 @@ class CurationSummary(BaseModel):
     gene_symbol: str
     scope_id: UUID
     scope_name: str
+    entity_key: str = ""
+    risk_allele: str | None = None  # susceptibility only (#614)
     status: CurationStatus
     workflow_stage: WorkflowStage
     computed_verdict: str | None

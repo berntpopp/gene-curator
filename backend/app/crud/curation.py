@@ -41,6 +41,7 @@ from app.schemas.curation import (
     CurationUpdate,
     EvidenceWarning,
     disease_fields,
+    entity_allele,
     relationship_of_key,
 )
 from app.scoring.point_limits import scoring_configuration
@@ -333,9 +334,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             scores = row.CurationNew.computed_scores or {}
             verdict = row.CurationNew.computed_verdict
 
-            disease = get_disease_fields(
-                row.CurationNew.evidence_data, row.precuration_evidence
-            )
+            evidence, pre = row.CurationNew.evidence_data, row.precuration_evidence
+            disease = get_disease_fields(evidence, pre)
+            key = row.CurationNew.entity_key
 
             summaries.append(
                 CurationSummary(
@@ -363,7 +364,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                         or 0.0,
                     },
                     disease_name=disease["disease_name"],
-                    relationship_type=relationship_of_key(row.CurationNew.entity_key),
+                    relationship_type=relationship_of_key(key),
+                    entity_key=key or "",
+                    risk_allele=entity_allele(key, evidence, pre),
                     is_draft=row.CurationNew.is_draft,
                     created_at=row.CurationNew.created_at,
                     updated_at=row.CurationNew.updated_at,
