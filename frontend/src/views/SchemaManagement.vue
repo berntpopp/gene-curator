@@ -471,7 +471,16 @@
       await schemasStore.createSchema({
         ...basics,
         schema_type: type as string,
-        field_definitions: { example_field: { type: 'string', title: 'Example field' } },
+        // Sectioned, so the editor offers Add section (monkey B7)
+        field_definitions: {
+          sections: [
+            {
+              id: 'main',
+              label: 'Main',
+              fields: [{ id: 'example_field', type: 'string', label: 'Example field' }]
+            }
+          ]
+        },
         workflow_states: {
           states: [{ name: 'draft' }, { name: 'submitted' }],
           transitions: { draft: ['submitted'], submitted: [] },
