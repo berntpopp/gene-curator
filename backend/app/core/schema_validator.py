@@ -239,12 +239,12 @@ class SchemaValidator:
 
         if max_value is not None and num_value > max_value:
             result.add_error(field_name, f"Value must not exceed {max_value}", "range")
-
         places = config.get("decimal_places")
         if places is not None and len(f"{value}.".split(".")[1]) > places:
             msg = f"Value cannot have more than {places} decimal places"
             result.add_error(field_name, msg, "precision")
-        step = config.get("step")  # counted from min, as the form's input (#615)
+        # Scoring points keep to their step, counted from min (#615); elsewhere it is a hint
+        step = config.get("step") if field_name.rsplit(".", 1)[-1] == "points" else None
         if isinstance(step, int | float) and step > 0 and math.isfinite(num_value):
             steps = (num_value - (min_value or 0)) / step
             if abs(steps - round(steps)) > 1e-6:

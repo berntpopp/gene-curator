@@ -1,5 +1,6 @@
-"""#615: a number off its field's `step` (counted from `min`) is refused at submit, in a
-form field and in an evidence-table cell; float noise is not an error."""
+"""#615: a points value off its field's `step` (counted from `min`) is refused at submit,
+as a form field or an evidence-table column named points; float noise is not an error.
+Other numbers keep the step as an input hint (a LOD of 3.125 at step 0.01 is valid)."""
 
 import pytest
 
@@ -9,12 +10,16 @@ pytestmark = pytest.mark.unit
 
 DEFINITION = {
     "field_definitions": {
-        "score": {"type": "number", "min": 0, "step": 0.5},
+        "points": {"type": "number", "min": 0, "step": 0.5},
+        "lod": {"type": "number", "min": 0, "step": 0.01},
         "rows": {
             "type": "evidence_table",
             "columns": {"points": {"type": "number", "min": 0, "max": 3, "step": 0.1}},
         },
-        "offset": {"type": "number", "min": 0.25, "step": 0.5},
+        "nested": {
+            "type": "object",
+            "properties": {"points": {"type": "number", "min": 0.25, "step": 0.5}},
+        },
     }
 }
 
@@ -26,11 +31,12 @@ def _paths(evidence: dict) -> list[str]:
 @pytest.mark.parametrize(
     ("evidence", "paths"),
     [
-        ({"score": 0.2}, ["score"]),
-        ({"score": 1.5, "offset": 0.75}, []),
-        ({"offset": 0.5}, ["offset"]),  # the step counts from min
-        ({"score": float("nan")}, []),  # not a step question (the range check owns it)
-        ({"score": float("inf")}, []),
+        ({"points": 0.2}, ["points"]),
+        ({"points": 1.5, "nested": {"points": 0.75}}, []),
+        ({"nested": {"points": 0.5}}, ["nested.points"]),  # the step counts from min
+        ({"points": float("nan")}, []),  # not a step question (the range check owns it)
+        ({"points": float("inf")}, []),
+        ({"lod": 3.125}, []),  # not points: the step is an input hint
         (
             {"rows": [{"points": 0.3}, {"points": 1.6}, {"points": 0.15}]},
             ["rows[2].points"],
