@@ -49,6 +49,9 @@ def test_risk_allele_and_undetermined_moi_join_the_key(db_session: Session) -> N
         key({**SUS, "mode_of_inheritance": "Multifactorial"}).split("|")[1]
         == "MULTIFACTORIAL"
     )
+    # Review of #619: Polygenic inheritance (synonym multifactorial), not Non-Mendelian
+    polygenic = key({**SUS, "mode_of_inheritance": "HP:0010982"})
+    assert polygenic.split("|")[1] == "MULTIFACTORIAL"
 
 
 def test_relationship_type_defaults_to_mendelian() -> None:

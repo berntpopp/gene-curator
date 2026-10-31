@@ -169,3 +169,26 @@ def test_proband_help_says_enter_the_full_allele_sum() -> None:
     [section] = [s for t in tabs for s in t["sections"] if s.get("name") == "Probands"]
     for text in (points["points"]["help_text"], section["help_text"]):
         assert "full allele sum" in text and "halves" in text, text
+
+
+def test_moi_options_carry_their_hpo_label() -> None:
+    """Review of #619: each MOI option's HPO id and label as HPO 2026-09-01 names them."""
+    hpo = {
+        "HP:0000006": "Autosomal dominant",
+        "HP:0000007": "Autosomal recessive",
+        "HP:0001417": "X-linked",
+        "HP:0001423": "X-linked dominant",
+        "HP:0001419": "X-linked recessive",
+        "HP:0032113": "Semidominant",
+        "HP:0001427": "Mitochondrial",
+        "HP:0001450": "Y-linked",
+        "HP:0000005": "Undetermined",
+        "HP:0010982": "Multifactorial (polygenic)",
+    }
+    for name in ("KGDB Mendelian Precuration", "KGDB Susceptibility Precuration"):
+        sections = SCHEMAS[name]["field_definitions"]["sections"]
+        [moi] = [
+            f for s in sections for f in s["fields"] if f["id"] == "mode_of_inheritance"
+        ]
+        for option in moi["options"]:
+            assert option["label"] == f"{hpo[option['value']]} ({option['value']})"

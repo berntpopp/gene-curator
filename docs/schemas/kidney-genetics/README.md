@@ -31,7 +31,8 @@ the entity key. A susceptibility entity is one named allele: the precuration's `
 (rsID, haplotype or genotype) is the key's fourth part, so a second allele of the same gene and
 disease is its own entity (`MONDO|MOI|SUSCEPTIBILITY|RS4664308`; trimmed, spaces removed, upper
 case; migration 088). Both precurations offer MOI Undetermined (HP:0000005, key `UNDETERMINED`); the
-susceptibility one also Multifactorial (HP:0001426, `MULTIFACTORIAL`), the keys these
+susceptibility one also Multifactorial (polygenic) (HP:0010982, Polygenic inheritance, whose
+HPO synonym is multifactorial; key `MULTIFACTORIAL`), the keys these
 labels typed as text already had.
 
 ## Import

@@ -494,8 +494,8 @@
                     "label": "Undetermined (HP:0000005)"
                   },
                   {
-                    "value": "HP:0001426",
-                    "label": "Multifactorial (HP:0001426)"
+                    "value": "HP:0010982",
+                    "label": "Multifactorial (polygenic) (HP:0010982)"
                   }
                 ],
                 "required": true,

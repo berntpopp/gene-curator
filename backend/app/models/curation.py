@@ -71,7 +71,7 @@ _MOI_SYNONYMS = {
     "mt": ("mitochondrial", "hp:0001427"),
     # Keys as typed text made them before (UNDETERMINED, MULTIFACTORIAL); HPO ids join (#614)
     "undetermined": ("undetermined", "hp:0000005"),
-    "multifactorial": ("multifactorial", "hp:0001426"),
+    "multifactorial": ("multifactorial", "hp:0010982"),  # Polygenic inheritance
 }
 _MOI_CASE = (
     f"upper(CASE {_MOI} "
