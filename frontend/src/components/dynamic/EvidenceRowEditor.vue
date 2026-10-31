@@ -10,11 +10,12 @@
     <v-card v-if="row">
       <v-card-title :id="titleId" class="text-title-medium">{{ title }}</v-card-title>
       <v-card-text>
-        <!-- One row through the dynamic form's own fields: the full editors, with room to type -->
+        <!-- One row through the dynamic form's own fields: the full editors, with room to type.
+             mb-4: a help or error line stays clear of the next field's floating label -->
         <DynamicField
           v-for="col in columns"
           :key="col.key"
-          class="mb-2"
+          class="mb-4"
           :field-name="col.key"
           :field-schema="col.schema"
           :model-value="row[col.key]"
