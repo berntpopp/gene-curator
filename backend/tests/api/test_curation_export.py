@@ -181,10 +181,43 @@ def test_mondo_id_is_exported_as_a_curie(
         evidence_data={
             "mondo_id": " mondo_0009633",
             "mode_of_inheritance": "AD",
+            "risk_allele": "rs1",  # stray: a Mendelian entity has no risk allele
         },
     )
     [item] = client.get(URL, params={"scope_name": "public-scope"}).json()["items"]
     assert item["mondo_id"] == "MONDO:0009633"
+    assert item["risk_allele"] is None
+
+
+def test_susceptibility_export_names_its_allele_and_association_score(
+    client: TestClient,
+    db_session: Session,
+    pair: WorkflowPair,
+    test_gene: Gene,
+    test_public_scope: Scope,
+) -> None:
+    """#614: the association points get their own field (scores.association_total
+    stays), and an allele-keyed entity is still susceptibility with its MOI mapped."""
+    _point(
+        db_session,
+        pair,
+        test_gene,
+        test_public_scope,
+        T0,
+        entity_key="MONDO:0009633|UNDETERMINED|SUSCEPTIBILITY|RS4664308A",
+        evidence_data={
+            "mondo_id": "MONDO:0009633",
+            "mode_of_inheritance": "HP:0000005",
+            "risk_allele": "rs4664308 A",
+        },
+        computed_scores={"association_total": 5, "experimental_total": 1},
+    )
+    [item] = client.get(URL, params={"scope_name": "public-scope"}).json()["items"]
+    assert item["relationship_type"] == "susceptibility"
+    assert item["moi_hpo_id"] == "HP:0000005"
+    assert item["association_score"] == 5
+    assert item["risk_allele"] == "rs4664308 A"
+    assert item["genetic_score"] is None
 
 
 def test_private_scope_hidden_from_anonymous_and_archived_shown_to_members(

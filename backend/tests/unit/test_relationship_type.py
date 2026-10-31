@@ -29,6 +29,28 @@ def test_only_susceptibility_suffixes_the_key(db_session: Session) -> None:
     assert key({"relationship_type": "susceptibility"}) == ""  # no MONDO, no entity
 
 
+def test_risk_allele_and_undetermined_moi_join_the_key(db_session: Session) -> None:
+    """#614: two risk alleles of one gene and disease are two entities; the allele is
+    ignored for Mendelian entities; UD / MF MOI are canonical codes."""
+
+    def key(evidence: dict) -> str:
+        return entity_key_of(db_session, evidence)
+
+    base = "MONDO:0000001|AD|SUSCEPTIBILITY"
+    assert key({**SUS, "risk_allele": " rs4664308 "}) == f"{base}|RS4664308"
+    assert key({**SUS, "risk_allele": "rs17831251"}) == f"{base}|RS17831251"
+    assert key({**SUS, "risk_allele": " "}) == base
+    assert key({**A, "risk_allele": "rs1"}) == "MONDO:0000001|AD"
+    assert (
+        key({**SUS, "mode_of_inheritance": "HP:0000005"}).split("|")[1]
+        == "UNDETERMINED"
+    )
+    assert (
+        key({**SUS, "mode_of_inheritance": "Multifactorial"}).split("|")[1]
+        == "MULTIFACTORIAL"
+    )
+
+
 def test_relationship_type_defaults_to_mendelian() -> None:
     assert relationship_type(None, None) == "mendelian"
     assert relationship_type({}, SUS) == "susceptibility"  # inherited

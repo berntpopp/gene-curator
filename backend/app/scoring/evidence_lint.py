@@ -161,7 +161,8 @@ def review_flags(result: dict[str, Any]) -> list[str]:
             band, (_, note) = near
             out.append(
                 f"review_flags.band_margin: the total of {total:g} points is within "
-                f"{margin:g} points of the {band['class']} band edge at {band['min']:g}"
+                f"{margin:g} point{'' if margin == 1 else 's'} of the {band['class']} "
+                f"band edge at {band['min']:g}"
                 f"{note}; check the evidence near the boundary"
             )
     if hotspot := flags.get("hotspot"):

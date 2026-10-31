@@ -248,16 +248,13 @@ def disease_fields(
 
 
 RelationshipType = Literal["mendelian", "susceptibility"]
-SUSCEPTIBILITY_SUFFIX = "|SUSCEPTIBILITY"
 
 
 def relationship_of_key(entity_key: str | None) -> RelationshipType:
     """A curation's relationship type: the one its entity_key names (#539)."""
-    return (
-        "susceptibility"
-        if (entity_key or "").endswith(SUSCEPTIBILITY_SUFFIX)
-        else "mendelian"
-    )
+    # MONDO|MOI|SUSCEPTIBILITY[|ALLELE] (#614)
+    parts = (entity_key or "").split("|")
+    return "susceptibility" if parts[2:3] == ["SUSCEPTIBILITY"] else "mendelian"
 
 
 def relationship_type(
@@ -270,6 +267,14 @@ def relationship_type(
     )
     susceptibility = str(raw or "").strip().lower() == "susceptibility"
     return "susceptibility" if susceptibility else "mendelian"
+
+
+def risk_allele(
+    evidence: dict[str, Any] | None, precuration: dict[str, Any] | None
+) -> str | None:
+    """The susceptibility entity's risk allele (#614), evidence before precuration."""
+    raw = _pick(evidence, "risk_allele") or _pick(precuration, "risk_allele")
+    return str(raw) if raw else None
 
 
 class ClassificationChoice(BaseModel):

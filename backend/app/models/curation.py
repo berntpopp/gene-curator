@@ -69,6 +69,9 @@ _MOI_SYNONYMS = {
     "yl": ("ylinked", "hp:0001450"),
     "sd": ("semidominant", "hp:0032113"),
     "mt": ("mitochondrial", "hp:0001427"),
+    # Keys as typed text made them before (UNDETERMINED, MULTIFACTORIAL); HPO ids join (#614)
+    "undetermined": ("undetermined", "hp:0000005"),
+    "multifactorial": ("multifactorial", "hp:0001426"),
 }
 _MOI_CASE = (
     f"upper(CASE {_MOI} "
@@ -79,13 +82,16 @@ _MOI_CASE = (
     )
     + f" ELSE {_MOI} END)"
 )
-# Only non-Mendelian relationships are suffixed (#539), so Mendelian keys stay as 067 made them
+# Only non-Mendelian relationships are suffixed (#539), so Mendelian keys stay as 067 made
+# them; a susceptibility entity is one named allele (#614): |ALLELE when it is set (088)
+_ALLELE = f"upper(replace({_field('risk_allele')}, ' ', ''))"
 _RELATIONSHIP = (
     f"CASE WHEN lower({_field('relationship_type')}) = 'susceptibility' "
-    "THEN '|SUSCEPTIBILITY' ELSE '' END"
+    f"THEN '|SUSCEPTIBILITY' || CASE WHEN {_ALLELE} = '' THEN '' "
+    f"ELSE '|' || {_ALLELE} END ELSE '' END"
 )
-# The gene-disease-MOI entity (#530): normalised MONDO id | MOI [| SUSCEPTIBILITY]; ''
-# without a MONDO id. Portable SQL (PostgreSQL jsonb and SQLite JSON ->/->>); 072 holds
+# The gene-disease-MOI entity (#530): normalised MONDO id | MOI [| SUSCEPTIBILITY [| ALLELE]];
+# '' without a MONDO id. Portable SQL (PostgreSQL jsonb and SQLite JSON ->/->>); 088 holds
 # the same expression.
 ENTITY_KEY_SQL = (
     f"CASE WHEN {_MONDO} = '' THEN '' "

@@ -23,8 +23,8 @@ class ExportCuration(BaseModel):
     curation_id: UUID
     entity_key: str = Field(
         ...,
-        description="MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility; '' when the "
-        "curation has no MONDO id",
+        description="MONDO|MOI, plus |SUSCEPTIBILITY for susceptibility and |ALLELE when "
+        "a named allele is set; '' when the curation has no MONDO id",
     )
     url: str = Field(..., description="Link back to the curation in Gene Curator")
     status: str = Field(..., description="Curation status: active or archived")
@@ -40,6 +40,11 @@ class ExportCuration(BaseModel):
     relationship_type: RelationshipType = Field(
         "mendelian", description="mendelian or susceptibility (#539)"
     )
+    risk_allele: str | None = Field(
+        None,
+        description="Susceptibility: the risk allele as the curator named it (e.g. "
+        "'rs4664308 A'); null for Mendelian entities (#614)",
+    )
     computed_verdict: str | None = None
     final_classification: str | None = Field(
         None, description="Curator classification confirmed at approval, else computed"
@@ -49,6 +54,9 @@ class ExportCuration(BaseModel):
     )
     genetic_score: float | None = None
     experimental_score: float | None = None
+    association_score: float | None = Field(
+        None, description="Susceptibility association points (scores.association_total)"
+    )
     total_score: float | None = None
     methodology: ExportMethodology
     pmids: list[str] = Field(..., description="Cited PMIDs, deduplicated, sorted")
