@@ -32,6 +32,7 @@
             >
               <DynamicField
                 :field-name="getFieldName(fieldPath)"
+                :field-prefix="fieldPath.slice(0, -getFieldName(fieldPath).length)"
                 :field-schema="fieldSchema"
                 :model-value="getFieldValue(fieldPath)"
                 :validation-result="getFieldValidation(fieldPath)"
