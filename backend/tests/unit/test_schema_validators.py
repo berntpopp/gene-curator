@@ -173,3 +173,9 @@ def test_crud_wrapper_prefixes_messages_with_their_path() -> None:
     assert warnings == [
         "ui_configuration.sections: UI configuration missing 'sections' - form may not render properly"
     ]
+
+
+def test_a_tab_layout_is_not_missing_sections() -> None:
+    """MUI-23: KGDB-style `layout.tabs` renders as well as `sections` (normalizeDefinition.ts)."""
+    tabs = {"layout": {"type": "tabs", "tabs": [{"id": "a", "sections": []}]}}
+    assert check_schema_definition({**VALID, "ui_configuration": tabs}) == []
