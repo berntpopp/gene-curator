@@ -20,7 +20,7 @@
             {{ isEditing ? 'Edit' : 'View' }} Schema: {{ schema.name }}
           </h1>
           <p class="text-body-large text-medium-emphasis mt-1">
-            {{ schema.schema_type }} schema v{{ schema.version }}
+            {{ schema.schema_type }} schema {{ formatVersion(schema.version) }}
           </p>
         </div>
         <v-spacer />
@@ -276,7 +276,7 @@
 </template>
 
 <script setup lang="ts">
-  import { formatDate } from '@/utils/format'
+  import { formatDate, formatVersion } from '@/utils/format'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()

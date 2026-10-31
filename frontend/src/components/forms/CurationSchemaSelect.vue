@@ -21,7 +21,9 @@
       >
         <template #item="{ props: itemProps, item }">
           <v-list-item v-bind="itemProps">
-            <template #subtitle> {{ item.schema_type }} | v{{ item.version }} </template>
+            <template #subtitle>
+              {{ item.schema_type }} | {{ formatVersion(item.version) }}
+            </template>
             <template #append>
               <v-chip size="x-small" color="info" variant="flat">
                 {{ getFieldCount(item) }} fields
@@ -74,6 +76,7 @@
 
   import { ref, computed, onMounted, watch } from 'vue'
   import { useSchemasStore } from '@/stores/schemas'
+  import { formatVersion } from '@/utils/format'
   import type { Schema } from '@/types/api'
 
   type CurationSchema = Schema<'CurationSchema'>

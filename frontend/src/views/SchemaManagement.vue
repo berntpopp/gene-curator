@@ -103,7 +103,7 @@
           </v-chip>
         </template>
 
-        <template #item.version="{ item }"> v{{ item.version }} </template>
+        <template #item.version="{ item }"> {{ formatVersion(item.version) }} </template>
 
         <template #item.created_at="{ item }">
           {{ formatDate(item.created_at) }}
@@ -239,7 +239,7 @@
 
 <script setup lang="ts">
   import { TERMINOLOGY } from '@/config/terminology'
-  import { formatDate } from '@/utils/format'
+  import { formatDate, formatVersion } from '@/utils/format'
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
