@@ -77,6 +77,15 @@ describe('useAuthStore', () => {
       expect(store.isAuthenticated).toBe(false)
     })
 
+    it('makes no auth call for a leftover refresh token alone, and drops it (MUI-19)', async () => {
+      localStorage.setItem('refresh_token', 'refresh-1')
+      const store = useAuthStore()
+      await store.initialize()
+      expect(api.me).not.toHaveBeenCalled()
+      expect(api.refresh).not.toHaveBeenCalled()
+      expect(localStorage.getItem('refresh_token')).toBeNull()
+    })
+
     it('loads the current user when a token is stored', async () => {
       localStorage.setItem('access_token', 'tok')
       api.me.mockResolvedValue(makeUser('user'))

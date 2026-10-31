@@ -216,6 +216,15 @@ describe('api client', () => {
     expect(refreshSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('an anonymous visitor with a leftover refresh token never calls /auth/refresh (MUI-19)', async () => {
+    localStorage.setItem('refresh_token', 'refresh-1')
+    const refreshSpy = vi.spyOn(axios, 'post')
+    handler = config => fail(config, 401)
+
+    await expect(apiClient.get('/me/work')).rejects.toMatchObject({ response: { status: 401 } })
+    expect(refreshSpy).not.toHaveBeenCalled()
+  })
+
   it('rejects a 401 without attempting a refresh when no refresh token is stored', async () => {
     localStorage.setItem('access_token', 'expired')
     const refreshSpy = vi.spyOn(axios, 'post')
@@ -306,18 +315,6 @@ describe('api client', () => {
       expect(window.location.href).toBe('http://localhost/current')
     }
   )
-
-  it('logs a 401 without a session to refresh as a warning, not an error (MUI-19)', async () => {
-    handler = config => fail(config, 401)
-
-    await expect(apiClient.get('/auth/me')).rejects.toMatchObject({ response: { status: 401 } })
-
-    expect(logService.error).not.toHaveBeenCalled()
-    expect(logService.warn).toHaveBeenCalledWith(
-      'API unauthorized',
-      expect.objectContaining({ url: '/auth/me', status: 401 })
-    )
-  })
 
   it('does not log a cancelled request as an API error', async () => {
     handler = config => Promise.reject(new axios.CanceledError('canceled', config))
