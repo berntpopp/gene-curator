@@ -18,6 +18,7 @@ from app.crud.review_round import (
     CORRECTED_OWN,
     REVIEW_ROLES,
     corrected_by,
+    correctors,
     has_pending_review,
     holds_review_capability,
 )
@@ -83,6 +84,9 @@ def submit_reviewer(
     scope_id: UUID,
     data: CurationSubmit | PrecurationSubmit,
     author: UUID | None,
+    *,
+    item_id: UUID | None = None,
+    submitter: UUID | None = None,
 ) -> UUID | None:
     """The reviewer a submit names: reviewer_id, or reviewer_email matched only against the
     scope's accepted reviewers and admins (so it never reveals other accounts). Over MCP,
@@ -92,15 +96,26 @@ def submit_reviewer(
     if data.reviewer_id:
         return data.reviewer_id
     if not data.reviewer_email and _over_mcp():
+        # D1: never the author, the submitter or who corrected the item
         others = db.execute(
-            _reviewers(db, scope_id).where(UserNew.id != author, UserNew.is_active)
+            _reviewers(db, scope_id).where(
+                UserNew.id.not_in([u for u in (author, submitter) if u]),
+                UserNew.id.not_in(correctors(item_id)),
+                UserNew.is_active,
+            )
         ).all()
         if len(others) > 1:
             raise ValueError(
                 "Several reviewers can review this; name one with reviewer_email: "
                 + ", ".join(sorted(row.email for row in others))
             )
-        return others[0].id if others else None
+        if not others:  # reviewers cannot self-assign: unrouted, it would be stuck
+            raise WorkflowConflictError(
+                "There is no eligible reviewer in this scope: everyone who may review "
+                "has written, submitted or corrected this item; invite another reviewer"
+            )
+        picked: UUID = others[0].id
+        return picked
     if not data.reviewer_email:
         return None
     found: UUID | None = db.scalar(

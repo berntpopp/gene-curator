@@ -480,7 +480,12 @@ def submit_precuration(
 
     try:
         reviewer_id = submit_reviewer(
-            db, precuration.scope_id, submit_in, precuration.created_by
+            db,
+            precuration.scope_id,
+            submit_in,
+            precuration.created_by,
+            item_id=precuration.id,
+            submitter=current_user.id,
         )
         submitted = precuration_crud.submit_for_review(
             db,
