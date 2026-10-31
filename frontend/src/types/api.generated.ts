@@ -6052,7 +6052,7 @@ export interface components {
             schema_name?: string | null;
             /**
              * Version
-             * @description Pinned methodology version; null when the caller may not read methodology versions (anonymous)
+             * @description Pinned methodology version; null only for a row that pins none
              */
             version?: number | null;
             /**

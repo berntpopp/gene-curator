@@ -13,8 +13,7 @@ class ExportMethodology(BaseModel):
     schema_name: str | None = Field(None, description="Curation schema name")
     version: int | None = Field(
         None,
-        description="Pinned methodology version; null when the caller may not read "
-        "methodology versions (anonymous)",
+        description="Pinned methodology version; null only for a row that pins none",
     )
     version_id: UUID | None = Field(None, description="Pinned methodology version id")
 

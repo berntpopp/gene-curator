@@ -19,9 +19,10 @@ The same visibility rule as the Gene Catalogue, enforced again by row-level secu
 | Anonymous | Active curations of active public scopes only (no archived or deleted rows) |
 | Signed in (JWT or personal access token) | Also active **and archived** curations of scopes where the caller has an accepted membership |
 
-Platform admins get no bypass. Anonymous callers get `methodology.version = null`
-(methodology versions are readable by signed-in users only); `methodology.version_id` is
-always set. Use a personal access token of a scope member to see archived rows and versions.
+Platform admins get no bypass. `methodology.version` and `version_id` are set for every
+caller. Archived rows are history of a scope's work, and curation row-level security (050)
+shows non-members active curations only, so there is no public-archive flag: use a personal
+access token of a scope member to see archived rows.
 
 `evidence`, `scores` and `summary` are set for scope members. Anyone else, anonymous callers
 included, gets them only when the scope is public and a scope admin turned on **Export
