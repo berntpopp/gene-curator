@@ -103,8 +103,8 @@ carry `llm_share: true`. `variant`, `zygosity`, `de_novo`, `p_value`, `odds_rati
 ## Mapping to the curation export
 
 KGDB imports from `GET /api/v1/export/curations?scope_name=kidney-genetics`
-([docs/EXPORT.md](../../EXPORT.md)) with a scope member's token (otherwise `evidence` and
-`methodology.version` are null).
+([docs/EXPORT.md](../../EXPORT.md)) with a scope member's token (otherwise `evidence` is null
+unless the scope exports evidence publicly).
 
 | KGDB | Export field |
 | --- | --- |

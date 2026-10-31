@@ -12,6 +12,7 @@ COMPACT = {
     "display_name",
     "default_workflow_pair_id",
     "user_role",
+    "llm_second_view",
     "stats",
 }
 

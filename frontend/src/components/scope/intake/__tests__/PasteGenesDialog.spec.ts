@@ -98,9 +98,28 @@ describe('PasteGenesDialog', () => {
     expect(w.find('[data-testid=resolve]').attributes('disabled')).toBeDefined()
   })
 
+  it('flags resolved genes already in the scope, naming the kept curator (#587)', async () => {
+    const [g1, g2, ...rest] = response.items
+    resolve.mockResolvedValue({
+      ...response,
+      items: [
+        { ...g1!, candidates: [{ ...local(1), in_scope: true, in_scope_curator: null }] },
+        { ...g2!, candidates: [{ ...local(2), in_scope: true, in_scope_curator: 'Alice Smith' }] },
+        ...rest
+      ]
+    } as never)
+    const w = mountDialog()
+    await w.find('textarea').setValue('G1 old')
+    await w.find('[data-testid=resolve]').trigger('click')
+    await flushPromises()
+    expect(resolve).toHaveBeenCalledWith(['G1', 'old'], 's1')
+    const flags = w.findAll('[data-testid=in-scope]').map(f => f.text())
+    expect(flags).toEqual(['Already in scope', 'Already in scope (curator: Alice Smith, kept)'])
+  })
+
   it('sends the parsed symbols and summarises the outcome', async () => {
     const w = await resolved()
-    expect(resolve).toHaveBeenCalledWith(['G1', 'old', 'g1', 'AMB', 'NOPE'])
+    expect(resolve).toHaveBeenCalledWith(['G1', 'old', 'g1', 'AMB', 'NOPE'], 's1')
     expect(w.find('[data-testid=summary]').attributes('role')).toBe('status')
     // Repeats count once, so the summary matches the Add button (#393)
     expect(w.find('[data-testid=summary]').text()).toContain(

@@ -10,8 +10,9 @@ review_flags?: {band_margin?, hotspot?: {max_variants, min_share}, experimental_
 the evidence has nothing under the section key, it is read from the top level (forms built
 in the UI store their fields flat).
 
-``points_when: [{field, in?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets a row's
-points from its own fields; the first rule whose conditions all hold wins (#576).
+``points_when: [{field, in?, present?, gt?, gte?, lt?, lte?, and?: [condition], points}]`` sets
+a row's points from its own fields: a matching 0-point rule always wins, otherwise the first
+matching rule fills the points only when the curator left them blank (#576, #582).
 ``rule: "step"`` sums ``field`` over the type's rows and scores the highest
 ``steps: [{min, points}]`` reached as one item. Both are listed in the trace's ``rules_applied``.
 
@@ -210,8 +211,8 @@ def _type_points(
     """Entered rows' points; rows outside the type's range or non-finite are flagged and
     count nothing (#278), never clamped. Rows with points but no citation count nothing and are listed in ``excluded``.
     With ``group_by``, rows sharing a non-blank value score at most ``group_cap`` together (#557).
-    Counted case-row and grouped points add up in ``variants`` by normalised variant (or
-    ``group_by`` value), after the group cap (the #559 hotspot flag)."""
+    Counted case-row and grouped points add up in ``variants`` by normalised variant
+    (the row's variant field, whatever ``group_by`` names), after the group cap (#559 hotspot)."""
     if type_def.get("rule") == "step":
         return _step_points(path, type_def, data, flags, excluded, applied)
     limits = type_def.get("range")
@@ -252,7 +253,7 @@ def _type_points(
                 typed = str(row[group_by])  # shown as the curator typed it
                 groups.setdefault(group, (typed, []))[1].append(len(points))
             points.append(value)
-            variant = group_by or ("variant_1" if "variant_1" in row else "variant")
+            variant = "variant_1" if "variant_1" in row else "variant"
             keys.append(_norm(row.get(variant)))
     scored = [value > 0 for value in points]  # before the cap: recurrence counts rows
     if groups:

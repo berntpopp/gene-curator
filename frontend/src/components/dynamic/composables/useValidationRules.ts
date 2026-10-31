@@ -59,7 +59,9 @@ export function rulesFor(fieldSchema: FieldSchema): ValidationRule[] {
       if (!value) {
         return true
       }
-      if ((value as { length: number }).length < fieldSchema.minLength!) {
+      // a string counts trimmed: padding does not reach the minimum (as the backend counts)
+      const counted = typeof value === 'string' ? value.trim() : value
+      if ((counted as { length: number }).length < fieldSchema.minLength!) {
         return fieldSchema.errorMessage || `Minimum ${fieldSchema.minLength} characters`
       }
       return true

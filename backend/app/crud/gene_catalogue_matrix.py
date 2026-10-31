@@ -24,6 +24,7 @@ from app.models import (
     ScopeMembership,
     WorkflowPair,
 )
+from app.models.methodology import MethodologyVersion
 from app.models.models import CurationStatus
 from app.schemas.curation import class_key, relationship_of_key
 from app.schemas.gene_catalogue_matrix import (
@@ -183,7 +184,7 @@ def get_matrix(
     genes = db.execute(query.order_by(*order).offset(skip).limit(limit)).scalars().all()
 
     wanted = class_key(classification) if classification else None
-    cells, actives = _cells(db, [g.id for g in genes], visible, mine, wanted)
+    cells, actives, pinned = _cells(db, [g.id for g in genes], visible, mine, wanted)
 
     order_of = {s.id: n for n, s in enumerate(scopes)}
 
@@ -205,7 +206,7 @@ def get_matrix(
             )
         )
     return MatrixResponse(
-        scopes=_with_vocabulary(db, scopes),
+        scopes=_with_vocabulary(db, scopes, pinned),
         rows=rows,
         total=total,
         skip=skip,
@@ -222,13 +223,17 @@ def _cells(
     mine: list[UUID],
     wanted: str | None,
 ) -> tuple[
-    dict[UUID, dict[tuple[UUID, str], MatrixCell]], dict[UUID, list[CurationNew]]
+    dict[UUID, dict[tuple[UUID, str], MatrixCell]],
+    dict[UUID, list[CurationNew]],
+    dict[UUID, set[UUID]],
 ]:
-    """Cells by gene and (scope, relationship type), and each gene's active curations."""
+    """Cells by gene and (scope, relationship type), each gene's active curations, and
+    per scope the methodology versions its shown curations pin."""
     # one cell per scope and relationship type (#539), so a susceptibility curation
     # never hides the mendelian one; the class filter shows only matching curations
     cells: dict[UUID, dict[tuple[UUID, str], MatrixCell]] = defaultdict(dict)
     actives: dict[UUID, list[CurationNew]] = defaultdict(list)
+    version_of: dict[UUID, UUID] = {}
     if gene_ids and visible:
         in_progress = (
             db.execute(
@@ -246,6 +251,8 @@ def _cells(
             else []
         )
         for c in in_progress:  # oldest first, so the latest revision overwrites
+            if c.methodology_version_id:
+                version_of[c.id] = c.methodology_version_id
             cell = _cell(c, in_progress=True)
             cells[c.gene_id][c.scope_id, cell.relationship_type] = cell
         active = db.execute(
@@ -265,16 +272,27 @@ def _cells(
             actives[c.gene_id].append(c)
             if wanted and class_key(c.final_classification or "") != wanted:
                 continue
+            if c.methodology_version_id:
+                version_of[c.id] = c.methodology_version_id
             cell = _cell(c, in_progress=False)
             cells[c.gene_id][c.scope_id, cell.relationship_type] = cell
-    return cells, actives
+    pinned: dict[UUID, set[UUID]] = defaultdict(set)
+    for gene_cells in cells.values():
+        for cell in gene_cells.values():
+            if version := version_of.get(cell.curation_id):
+                pinned[cell.scope_id].add(version)
+    return cells, actives, pinned
 
 
-def _with_vocabulary(db: Session, scopes: list[Scope]) -> list[MatrixScope]:
-    """Each scope with its declared classes, in one query.
+def _with_vocabulary(
+    db: Session, scopes: list[Scope], pinned: dict[UUID, set[UUID]]
+) -> list[MatrixScope]:
+    """Each scope with its declared classes, in two queries: the methodology versions its
+    shown curations pin first (their labels win), then the live default-pair schema's
+    classes no pinned version declares (labels for curations still to come).
 
-    ponytail: reads the live schema of the scope's default pair, not each curation's
-    pinned version; upgrade if one scope mixes vocabularies."""
+    ponytail: one vocabulary per scope; a key that two pinned versions label differently
+    shows the newest. Upgrade to per-cell labels if one scope mixes vocabularies."""
     configs: dict[UUID, dict[str, Any] | None] = dict(
         db.execute(
             select(Scope.id, CurationSchema.scoring_configuration)
@@ -283,17 +301,36 @@ def _with_vocabulary(db: Session, scopes: list[Scope]) -> list[MatrixScope]:
             .where(Scope.id.in_([s.id for s in scopes]))
         ).all()
     )
+    ids = set().union(*pinned.values())
+    snapshots: dict[UUID, dict[str, Any]] = dict(
+        db.execute(
+            select(MethodologyVersion.id, MethodologyVersion.snapshot)
+            .where(MethodologyVersion.id.in_(ids))
+            .order_by(MethodologyVersion.version.desc())
+        ).all()
+        if ids
+        else []
+    )
     out = []
     for s in scopes:
-        declared = (configs.get(s.id) or {}).get("classifications")
-        vocab = []
-        for c in declared if isinstance(declared, list) else []:
-            try:
-                vocab.append(MatrixClassification.model_validate(c))
-            except ValidationError:
-                continue  # a draft schema's malformed entry: skip, the rest still label
+        sources = [
+            snapshots[i].get("scoring_configuration")
+            for i in snapshots
+            if i in pinned.get(s.id, ())
+        ]
+        vocab: dict[str, MatrixClassification] = {}
+        for config in [*sources, configs.get(s.id)]:
+            declared = (config if isinstance(config, dict) else {}).get(
+                "classifications"
+            )
+            for c in declared if isinstance(declared, list) else []:
+                try:
+                    item = MatrixClassification.model_validate(c)
+                except ValidationError:
+                    continue  # a draft schema's malformed entry: skip, the rest still label
+                vocab.setdefault(item.key, item)
         scope = MatrixScope.model_validate(s, from_attributes=True)
-        scope.classifications = vocab
+        scope.classifications = list(vocab.values())
         out.append(scope)
     return out
 

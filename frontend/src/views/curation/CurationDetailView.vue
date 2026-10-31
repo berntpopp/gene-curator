@@ -218,7 +218,7 @@
                     >
                       Request changes
                     </v-btn>
-                    <v-btn v-if="canReview" :to="secondView" block>AI second view</v-btn>
+                    <v-btn v-if="canReview && aiOn" :to="secondView" block>AI second view</v-btn>
                     <v-divider v-if="canDelete && (canSubmitForReview || canReview)" class="my-2" />
                     <v-btn
                       v-if="canDelete"
@@ -532,12 +532,12 @@
   const isCreator = computed(() => !!myId.value && curation.value?.created_by === myId.value)
   const canReview = computed(() => (curation.value?.can_review ?? false) && !isCreator.value)
   const secondView = computed(() => ({ name: 'llm-second-view', params: route.params }))
-
+  const aiOn = computed(() => scopeRow.value?.llm_second_view === true) // B20: no dead link
   const reviewStore = useReviewStore()
-  const scopeName = computed(() => {
-    const sc = useScopesStore().scopes.find(x => x.id === scopeId.value)
-    return sc?.display_name || sc?.name || 'this scope'
-  })
+  const scopeRow = computed(() => useScopesStore().scopes.find(x => x.id === scopeId.value))
+  const scopeName = computed(
+    () => scopeRow.value?.display_name || scopeRow.value?.name || 'this scope'
+  )
   const showReviewDiff = computed(
     () => curation.value.status === 'in_review' || curation.value.status === 'draft'
   )

@@ -134,7 +134,7 @@ def test_anonymous_sees_active_curations_of_public_scopes_only(
     assert set(rows) == {"pub_new"}
     assert rows["pub_new"]["pmids"] == ["31558469"]
     assert rows["pub_new"]["methodology"]["schema_name"]
-    assert rows["pub_new"]["methodology"]["version"] is None  # RLS: signed-in only
+    assert rows["pub_new"]["methodology"]["version"] >= 1  # 085: versions are public
 
 
 def test_member_sees_archived_and_private_curations(client: TestClient, w: W) -> None:

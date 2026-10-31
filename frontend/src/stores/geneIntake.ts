@@ -25,7 +25,7 @@ const chunks = <T>(items: T[]): T[][] =>
   )
 
 export const useGeneIntakeStore = defineStore('geneIntake', () => {
-  const resolve = (symbols: string[]) => geneResolveAPI.resolve(symbols)
+  const resolve = (symbols: string[], scopeId?: string) => geneResolveAPI.resolve(symbols, scopeId)
 
   /** Existing gene ids for HGNC ids that were created elsewhere meanwhile (no multi-id endpoint exists). */
   async function lookup(hgncIds: string[]): Promise<string[]> {

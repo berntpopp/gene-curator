@@ -293,8 +293,13 @@
     margin: 12px;
   }
 
+  /* Pinned left and no wider than the viewport, so a wide table (catalogue at 390 px) keeps it on screen */
   .data-table__empty {
+    position: sticky;
+    left: 0;
+    max-width: calc(100vw - 32px);
     padding: 32px 16px;
+    white-space: normal;
     color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
     text-align: center;
   }

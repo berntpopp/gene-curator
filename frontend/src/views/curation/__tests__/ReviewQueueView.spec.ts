@@ -123,6 +123,9 @@ describe('ReviewQueueView', () => {
   })
 
   it('links a curation row to its AI second view (#530)', async () => {
+    useScopesStore().scopes = [
+      { id: 'sc1', name: 'cancer', display_name: 'Cancer', llm_second_view: true }
+    ] as never
     vi.mocked(curationsAPI.getCurations).mockResolvedValue({
       curations: [row({})],
       total: 1
@@ -133,6 +136,19 @@ describe('ReviewQueueView', () => {
       .findAllComponents({ name: 'VBtn' })
       .find(b => b.attributes('data-test') === 'open-second-view')
     expect(link?.props('to')).toBe('/scopes/sc1/curations/c1/second-view')
+  })
+
+  it('shows no AI second view link where the scope has it off (B20)', async () => {
+    useScopesStore().scopes = [
+      { id: 'sc1', name: 'cancer', display_name: 'Cancer', llm_second_view: false }
+    ] as never
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({})],
+      total: 1
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    expect(wrapper.find('[data-test="open-second-view"]').exists()).toBe(false)
   })
 
   it('shows an error toast when loading fails', async () => {
