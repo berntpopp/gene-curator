@@ -368,6 +368,7 @@
       :busy="review.busy.value"
       :error="review.error.value"
       @approve="review.approve"
+      @accept-all="review.acceptAll"
     />
     <RequestChangesDialog
       v-model="review.showReject.value"

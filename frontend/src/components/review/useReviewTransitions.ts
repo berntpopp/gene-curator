@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { workflowAPI } from '@/api'
 import { useLogger } from '@/composables/useLogger'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useReviewStore } from '@/stores/review'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import { readableApiError } from '@/utils/apiErrorText'
 
@@ -46,7 +47,21 @@ export function useReviewTransitions(curationId: () => string, reload: () => Pro
     }
   }
 
+  /** Accept every listed diff item (the approve dialog's Accept all); a refusal shows in the dialog */
+  async function acceptAll(paths: string[]) {
+    busy.value = true
+    error.value = null
+    try {
+      for (const path of paths) await useReviewStore().accept(path)
+    } catch (err) {
+      error.value = readableApiError(err, 'Accepting failed')
+    } finally {
+      busy.value = false
+    }
+  }
+
   return {
+    acceptAll,
     showApprove,
     showReject,
     busy,

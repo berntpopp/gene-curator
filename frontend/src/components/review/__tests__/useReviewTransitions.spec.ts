@@ -5,6 +5,8 @@ const transitionCuration = vi.hoisted(() => vi.fn())
 const addToast = vi.hoisted(() => vi.fn())
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/api', () => ({ workflowAPI: { transitionCuration } }))
+const accept = vi.hoisted(() => vi.fn())
+vi.mock('@/stores/review', () => ({ useReviewStore: () => ({ accept }) }))
 vi.mock('@/stores/workCounts', () => ({ useWorkCountsStore: () => ({ fetch: vi.fn() }) }))
 vi.mock('@/composables/useLogger', () => ({
   useLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })
@@ -71,5 +73,26 @@ describe('useReviewTransitions approve message', () => {
     )
     await t.approve('')
     expect(addToast).toHaveBeenCalledWith(message, 'success')
+  })
+})
+
+describe('useReviewTransitions acceptAll', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    accept.mockReset()
+  })
+
+  it('accepts each item in turn and reports a failure in the dialog', async () => {
+    const t = useReviewTransitions(
+      () => 'c1',
+      async () => {}
+    )
+    accept.mockResolvedValue(undefined)
+    await t.acceptAll(['a', 'b'])
+    expect(accept.mock.calls).toEqual([['a'], ['b']])
+    expect(t.busy.value).toBe(false)
+    accept.mockRejectedValueOnce({ response: { data: { detail: 'Not allowed' } } })
+    await t.acceptAll(['c'])
+    expect(t.error.value).toBe('Not allowed')
   })
 })
