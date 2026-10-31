@@ -277,13 +277,13 @@ describe('useCurationsStore', () => {
       const result = await store.saveDraft('c1', {
         evidence_data: { diagnostics: {} },
         curator_classification: 'definitive',
-        lock_version: 2,
-        merge: true
+        lock_version: 2
       })
 
       expect(result).toMatchObject({ lock_version: 3 })
       expect(api.saveDraft).not.toHaveBeenCalled()
-      // the class is ClinGen's: sending it would 409
+      // the class is ClinGen's: sending it would 409; a merge patch never drops stored keys
+      // the form did not load
       expect(api.updateCuration).toHaveBeenCalledWith('c1', {
         evidence_data: { diagnostics: {} },
         lock_version: 2,

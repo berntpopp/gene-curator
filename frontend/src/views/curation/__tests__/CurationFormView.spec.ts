@@ -570,6 +570,15 @@ describe('CurationFormView', () => {
       expect(formApi.save).not.toHaveBeenCalled()
     })
 
+    it('offers Save but no Submit on an adoption already in review (#613)', async () => {
+      const review = { workflow_stage: 'review', status: 'in_review', can_edit: true }
+      const { wrapper } = await mountFramed({ ...review, clingen_adoption: { cggv_id: 'x' } })
+      const save = wrapper.find('[data-testid="ws-save"]')
+      expect([save.text(), save.attributes('disabled')]).toEqual(['Save', undefined])
+      expect(wrapper.find('[data-testid="ws-submit"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="ws-in-review"]').text()).toContain('in review')
+    })
+
     it('opens a draft read-only for someone who may not edit it', async () => {
       const { wrapper } = await mountFramed({ status: 'draft', can_edit: false })
       expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('permission')

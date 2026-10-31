@@ -266,7 +266,7 @@ export const useCurationsStore = defineStore('curations', {
             ? await curationsAPI.updateCuration(id, {
                 evidence_data: data.evidence_data,
                 lock_version: data.lock_version,
-                ...(data.merge != null && { merge: data.merge })
+                merge: true
               })
             : await curationsAPI.saveDraft(id, data)
 

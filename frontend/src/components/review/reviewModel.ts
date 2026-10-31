@@ -1,6 +1,7 @@
 /** Pure helpers for the review diff: grouping by evidence item, per-item state, approve rules. */
 import type { Schema } from '@/types/api'
 import { humanize } from '@/components/dynamic/fieldLabels'
+import { classKey } from '@/config/classification'
 import { sourceLabel } from '@/components/dynamic/sourceModel'
 
 type DiffItem = Schema<'DiffItem'>
@@ -273,7 +274,7 @@ export function checklistFor(classification: string | null | undefined): Checkli
     { id: 'publication', label: 'Every scored item has a publication' },
     { id: 'points', label: 'Points above default are explained' },
     { id: 'contradictory', label: 'Contradictory evidence was considered' },
-    ...(classification === 'Definitive'
+    ...(classKey(classification) === 'definitive'
       ? [{ id: 'replication', label: 'Definitive: replication over time is documented' }]
       : [])
   ]

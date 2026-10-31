@@ -30,7 +30,7 @@
             :disabled="readonly"
             @click="emit('save')"
           >
-            Save draft
+            {{ saveLabel ?? 'Save draft' }}
           </v-btn>
           <v-btn
             v-if="showSubmit"
@@ -83,6 +83,7 @@
     savedAt: number | null
     readonly: boolean
     showSubmit: boolean
+    saveLabel?: string
     canSubmit: boolean
     /** Why Submit is blocked (e.g. an unknown PMID), shown below the buttons. */
     blockers?: string[]

@@ -458,5 +458,7 @@ describe('checklistFor', () => {
       'contradictory'
     ])
     expect(checklistFor('Definitive').map(i => i.id)).toContain('replication')
+    // the stored key, as list and detail now send it
+    expect(checklistFor('definitive').map(i => i.id)).toContain('replication')
   })
 })

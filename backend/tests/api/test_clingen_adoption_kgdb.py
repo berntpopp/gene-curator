@@ -400,3 +400,16 @@ def test_an_agent_that_adopts_and_adds_diagnostics_is_credited_once(
         c for c in item["contributions"] if c["contributor"]["agentType"] == "software"
     ]
     assert [c["contributor"]["name"] for c in software] == [AGENT["model"]]
+
+
+def test_a_save_that_changes_nothing_starts_no_new_round(
+    client: TestClient, db_session: Session, curator_token: str, row: dict
+) -> None:
+    cid = _adopt(client, curator_token, row)
+    c = db_session.get(CurationNew, cid)
+    assert c is not None
+    submitted = c.submitted_at
+    r = _put(client, curator_token, cid, evidence_data={}, merge=True)
+    assert r.status_code == 200, r.text
+    db_session.refresh(c)
+    assert c.submitted_at == submitted
