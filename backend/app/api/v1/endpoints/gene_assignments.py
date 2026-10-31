@@ -381,6 +381,7 @@ def bulk_create_gene_assignments(
             curator_id=bulk_request.assigned_curator_id,
             priority_level=bulk_request.priority_level,
             assignment_notes=bulk_request.assignment_notes,
+            due_date=bulk_request.due_date,
             assigned_by=current_user.id,
         )
     except ValueError as e:

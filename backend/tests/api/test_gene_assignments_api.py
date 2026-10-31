@@ -677,3 +677,20 @@ def test_assignment_summaries_carry_due_date(
     ).json()
     for rows in (by_scope, listed["assignments"], by_curator):
         assert rows[0]["due_date"] == "2026-12-01"
+
+
+def test_create_keeps_the_due_date(
+    client: TestClient, curator_token: str, test_gene: Gene, test_scope: Scope
+) -> None:
+    """Monkey M4: create dropped due_date silently (200, null)."""
+    response = client.post(
+        f"{BASE}/",
+        json={
+            "gene_id": str(test_gene.id),
+            "scope_id": str(test_scope.id),
+            "due_date": "2026-12-01",
+        },
+        headers=_auth(curator_token),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["due_date"] == "2026-12-01"

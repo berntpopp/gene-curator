@@ -414,6 +414,7 @@ class CurationScoreResponse(BaseModel):
     trace: dict[str, Any] | None = (
         None  # point model trace: sections > categories > types
     )
+    warnings: list[str] = []  # the scorer's reviewer warnings (as on save)
     calculated_at: datetime
 
 

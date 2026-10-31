@@ -20,6 +20,7 @@ class GeneScopeAssignmentBase(BaseModel):
     scope_id: UUID = Field(..., description="Scope identifier")
     assigned_curator_id: UUID | None = Field(None, description="Assigned curator ID")
     priority_level: str = Field("medium", description="Assignment priority level")
+    due_date: date | None = Field(None, description="Due date for assignment")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
 
     @field_validator("priority_level")
@@ -197,6 +198,7 @@ class BulkGeneScopeAssignmentCreate(BaseModel):
     priority_level: str = Field(
         "medium", description="Priority level for all assignments"
     )
+    due_date: date | None = Field(None, description="Due date for all assignments")
     assignment_notes: str | None = Field(None, description="Notes for all assignments")
 
     @field_validator("priority_level")

@@ -278,7 +278,8 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         try:
             db.commit()
         except IntegrityError:
-            # The author already has a draft for this entity (or a concurrent create won).
+            # A concurrent create won an entity index: the author's own draft is returned,
+            # another author's open precuration is the same 409 as the check above.
             db.rollback()
             existing = self.get_open_draft(
                 db,
@@ -287,9 +288,10 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 user_id=user_id,
                 entity_key=key,
             )
-            if existing is None:
-                raise
-            return existing
+            if existing is not None:
+                return existing
+            refuse_open_entity(db, obj_in.gene_id, scope.id, key, user_id)
+            raise
         db.refresh(db_obj)
 
         logger.info(

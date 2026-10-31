@@ -90,6 +90,10 @@ ENTITY_KEY_SQL = (
     f"CASE WHEN {_MONDO} = '' THEN '' "
     f"ELSE {_MONDO} || '|' || {_MOI_CASE} || {_RELATIONSHIP} END"
 )
+# Open precurations, one per disease entity (077 holds the same predicate)
+_OPEN_ENTITY = (
+    "entity_key <> '' AND status IN ('draft', 'submitted', 'in_review', 'rejected')"
+)
 
 
 class PrecurationNew(Base):
@@ -210,6 +214,15 @@ class PrecurationNew(Base):
             unique=True,
             postgresql_where=text("status = 'draft'"),
             sqlite_where=text("status = 'draft'"),
+        ),
+        Index(  # one open precuration per disease entity (077)
+            "uq_precurations_open_entity",
+            "gene_id",
+            "scope_id",
+            "entity_key",
+            unique=True,
+            postgresql_where=text(_OPEN_ENTITY),
+            sqlite_where=text(_OPEN_ENTITY),
         ),
         Index("idx_precurations_evidence_gin", "evidence_data", postgresql_using="gin"),
     )

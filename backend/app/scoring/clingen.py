@@ -251,6 +251,20 @@ def legacy_points(
     return out
 
 
+def _band_label(schema_config: dict[str, Any], cls: str) -> str:
+    """'Classification: <label>.' from the schema's vocabulary, for a band without a
+    description (monkey M2)."""
+    label = next(
+        (
+            item.get("label")
+            for item in schema_config.get("classifications") or []
+            if isinstance(item, dict) and item.get("key") == cls
+        ),
+        None,
+    )
+    return f"Classification: {label or cls.replace('_', ' ')}."
+
+
 class ClinGenEngine(ScoringEngine):
     """ClinGen Gene-Disease Validity Scoring Engine (SOP v11), driven by a point model."""
 
@@ -300,7 +314,7 @@ class ClinGenEngine(ScoringEngine):
         rationale = (
             f"Based on {model.get('name', 'the configured point model')} scoring "
             f"methodology: {parts}, total score = {result['total']:.1f} points. "
-            + (result["description"] or "Classification could not be determined.")
+            + (result["description"] or _band_label(schema_config, result["class"]))
         )
         warnings = self._check_warnings(
             evidence_data.get("genetic_evidence", []),

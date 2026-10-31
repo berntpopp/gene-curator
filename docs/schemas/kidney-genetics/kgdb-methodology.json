@@ -1837,29 +1837,34 @@
               "requires": "replicated_over_time",
               "section_min": {
                 "genetic": 4
-              }
+              },
+              "description": "Total score of at least 12 points (at least 4 genetic) with replication over time supports a DEFINITIVE gene-disease relationship."
             },
             {
               "class": "strong",
               "min": 12,
               "section_min": {
                 "genetic": 4
-              }
+              },
+              "description": "Total score of at least 12 points (at least 4 genetic) supports a STRONG gene-disease relationship."
             },
             {
               "class": "moderate",
               "min": 7,
               "section_min": {
                 "genetic": 4
-              }
+              },
+              "description": "Total score of 7 to 11.9 points (at least 4 genetic) supports a MODERATE gene-disease relationship."
             },
             {
               "class": "limited",
-              "min": 0.1
+              "min": 0.1,
+              "description": "Total score below 7 points, or too little genetic evidence for a higher class, supports a LIMITED gene-disease relationship."
             },
             {
               "class": "no_known",
-              "min": 0
+              "min": 0,
+              "description": "No scored evidence: NO KNOWN disease relationship."
             }
           ],
           "review_flags": {
@@ -3131,17 +3136,20 @@
               "requires": "replicated_over_time",
               "section_min": {
                 "association": 4
-              }
+              },
+              "description": "At least 4 association points with replication over time support an ESTABLISHED association."
             },
             {
               "class": "likely",
               "min": 2,
               "section_min": {
                 "association": 2
-              }
+              },
+              "description": "At least 2 association points support a LIKELY association."
             },
             {
-              "class": "uncertain"
+              "class": "uncertain",
+              "description": "Too little association evidence: the association is UNCERTAIN."
             }
           ],
           "review_flags": {

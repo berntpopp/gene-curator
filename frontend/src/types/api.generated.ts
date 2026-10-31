@@ -4466,6 +4466,11 @@ export interface components {
              */
             priority_level: string;
             /**
+             * Due Date
+             * @description Due date for all assignments
+             */
+            due_date?: string | null;
+            /**
              * Assignment Notes
              * @description Notes for all assignments
              */
@@ -5419,6 +5424,11 @@ export interface components {
             trace?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
             /**
              * Calculated At
              * Format: date-time
@@ -6529,6 +6539,11 @@ export interface components {
              * @default medium
              */
             priority_level: string;
+            /**
+             * Due Date
+             * @description Due date for assignment
+             */
+            due_date?: string | null;
             /**
              * Assignment Notes
              * @description Notes about the assignment

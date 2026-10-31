@@ -13,18 +13,19 @@ from app.crud.curation import open_conflict_message
 from app.crud.optimistic_lock import claim_version
 from app.crud.precuration_entity import conflict, curation_entity_key
 from app.models import AuditLogNew, CurationNew, CurationStatus, UserNew
-from app.schemas.curation import disease_fields
+from app.schemas.curation import disease_fields, relationship_type
 from app.schemas.disease_correction import DiseaseCorrection
 
 _FIELDS = ("disease_name", "mondo_id", "mode_of_inheritance", "relationship_type")
 
 
-def _own(evidence: dict[str, Any], key: str) -> dict[str, Any]:
-    entity = evidence.get("entity_definition")
+def _named(
+    evidence: dict[str, Any], precuration: dict[str, Any] | None, key: str
+) -> dict[str, Any]:
+    """The disease entity the record names: its own answers, else its precuration's."""
     return {
-        **disease_fields(evidence, None),
-        "relationship_type": evidence.get("relationship_type")
-        or (entity.get("relationship_type") if isinstance(entity, dict) else None),
+        **disease_fields(evidence, precuration),
+        "relationship_type": relationship_type(evidence, precuration),
         "entity_key": key,
     }
 
@@ -66,7 +67,7 @@ def correct_disease(
         )
         if other:
             raise conflict(open_conflict_message(db, other), curation_id=other)
-    old = _own(curation.evidence_data or {}, curation.entity_key)
+    old = _named(curation.evidence_data or {}, pre, curation.entity_key)
     curation_id, scope_id = curation.id, curation.scope_id
     try:
         if not claim_version(
@@ -93,7 +94,7 @@ def correct_disease(
             scope_id=scope_id,
             user_id=user.id,
             old_values=old,
-            new_values=_own(evidence, key),
+            new_values=_named(evidence, pre, key),
             changes={"reason": body.reason},
         )
     )

@@ -100,6 +100,18 @@ def test_platform_admin_tools_are_listed_for_admins_only(
     assert hidden["content"][0]["text"].startswith("forbidden: HTTP 403")
 
 
+def test_a_read_only_token_lists_read_tools_only(
+    client: TestClient, db_session: Session, test_user_admin: UserNew
+) -> None:
+    """Monkey L4: a read-only token listed import_methodology and every write tool."""
+    full = _tools(client, pat(db_session, test_user_admin), "/mcp/full")
+    read = _tools(client, pat(db_session, test_user_admin, ["read"]), "/mcp/full")
+    assert "import_methodology" in full and "import_methodology" not in read
+    assert set(read) == {
+        n for n, t in full.items() if t["annotations"].get("readOnlyHint")
+    }
+
+
 def test_lean_keeps_what_a_reviewer_needs() -> None:
     result = {
         "id": "c1",

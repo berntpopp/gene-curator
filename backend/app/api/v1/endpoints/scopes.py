@@ -459,15 +459,17 @@ def update_scope(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Changing approvals_require_session needs a signed-in person",
         )
-    # publishing evidence to anonymous callers is a person's call (#558)
-    if (
-        scope_in.export_evidence_public
-        and not scope.export_evidence_public
-        and not deps.is_session_request(request)
-    ):
+    # publishing evidence to anonymous callers is a person's call (#558), also when a
+    # scope with it on becomes public
+    exported = scope_in.export_evidence_public and not scope.export_evidence_public
+    published = (
+        scope_in.is_public and not scope.is_public and scope.export_evidence_public
+    )
+    if (exported or published) and not deps.is_session_request(request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Turning on export_evidence_public needs a signed-in person",
+            detail="Turning on export_evidence_public or making a scope with it on "
+            "public needs a signed-in person",
         )
     updated_scope = scope_crud.update(db, db_obj=scope, obj_in=scope_in)
 

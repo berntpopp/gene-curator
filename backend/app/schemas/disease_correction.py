@@ -2,11 +2,24 @@
 
 from typing import Annotated
 
-from pydantic import BaseModel, StringConstraints
+from pydantic import AfterValidator, BaseModel, StringConstraints
 
 from app.schemas.curation import RelationshipType
 
-Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+def _at_least(n: int) -> AfterValidator:
+    """min_length after trimming; pydantic's message counted the padding (monkey L5)."""
+
+    def check(value: str) -> str:
+        if len(value) < n:
+            raise ValueError(f"{len(value)} characters after trimming, min {n}")
+        return value
+
+    return AfterValidator(check)
+
+
+Trimmed = StringConstraints(strip_whitespace=True)
+Text = Annotated[str, Trimmed, _at_least(1)]
 
 
 class DiseaseCorrection(BaseModel):
@@ -18,5 +31,5 @@ class DiseaseCorrection(BaseModel):
     ]
     mode_of_inheritance: Text
     relationship_type: RelationshipType | None = None
-    reason: Annotated[str, StringConstraints(strip_whitespace=True, min_length=3)]
+    reason: Annotated[str, Trimmed, _at_least(3)]
     lock_version: int

@@ -101,3 +101,24 @@ def test_hotspot_pilot_case_raises_the_hotspot_flag() -> None:
     test = next(t for t in config["tests"] if t["name"].startswith("Hotspot"))
     warnings = _score(test["evidence_data"], config).warnings
     assert any(w.startswith("review_flags.hotspot") for w in warnings), warnings
+
+
+@pytest.mark.parametrize(
+    "name", ["KGDB Mendelian Curation", "KGDB Susceptibility Curation"]
+)
+def test_summaries_name_the_classification(name: str) -> None:
+    """Monkey M2: bands without a description ended "could not be determined"."""
+    config = SCHEMAS[name]["scoring_configuration"]
+    for test in config["tests"]:
+        rationale = _score(test["evidence_data"], config).verdict_rationale
+        assert "could not be determined" not in rationale, test["name"]
+
+
+def test_a_band_without_description_falls_back_to_its_label() -> None:
+    config = json.loads(
+        json.dumps(SCHEMAS["KGDB Mendelian Curation"]["scoring_configuration"])
+    )
+    for band in config["point_model"]["bands"]:
+        band.pop("description", None)
+    rationale = _score({}, config).verdict_rationale
+    assert rationale.endswith("Classification: No Known Disease Relationship.")

@@ -144,12 +144,15 @@ def review_flags(result: dict[str, Any]) -> list[str]:
                 "check the evidence near the boundary"
             )
     if hotspot := flags.get("hotspot"):
-        points = result.get("variant_points", {})
+        points, rows = result.get("variant_points", {}), result.get("variant_rows", {})
         proband = sum(points.values())
-        top_n = sorted((v for k, v in points.items() if k), reverse=True)
+        scoring = (k for k in points if k and points[k] > 0)
+        top_n = sorted(scoring, key=points.__getitem__, reverse=True)
         top_n = top_n[: hotspot["max_variants"]]
-        top, n = sum(top_n), len(top_n)
-        if proband > 0 and top / proband >= hotspot["min_share"]:
+        top, n = sum(points[k] for k in top_n), len(top_n)
+        # a hotspot recurs: one of the top variants in 2+ scoring probands (monkey M3)
+        recurs = any(rows.get(k, 0) >= 2 for k in top_n)
+        if proband > 0 and recurs and top / proband >= hotspot["min_share"]:
             out.append(
                 f"review_flags.hotspot: {top:g} of {proband:g} proband points "
                 f"({top / proband:.0%}) come from {n} variants; check for a "

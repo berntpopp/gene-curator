@@ -18,6 +18,7 @@ from app.core.schema_rules import (
     valid_url,
 )
 from app.core.schema_validation_result import SchemaValidationResult
+from app.core.table_cells import cell_errors
 from app.crud.precuration_required import visible_when as _when
 from app.scoring.registry import scoring_registry
 
@@ -50,7 +51,8 @@ class SchemaValidator:
             "pmid": self._validate_pmid_field,
             "hgnc_id": self._validate_hgnc_id_field,
             "score": self._validate_score_field,
-            # Seeded aliases (VALID_FIELD_TYPES); evidence_table is not checked per cell here
+            "evidence_table": self._validate_cells,
+            # Seeded aliases (VALID_FIELD_TYPES)
             "textarea": self._validate_text_field,
             "external_reference": self._validate_text_field,
             "integer": self._validate_number_field,
@@ -167,24 +169,11 @@ class SchemaValidator:
                 result.add_warning(
                     field_name, f"Unknown field type: {field_type}", "configuration"
                 )
-            if field_type == "evidence_table" and isinstance(field_value, list):
-                self._validate_url_cells(field_name, field_value, field_config, result)
 
-    def _validate_url_cells(
-        self,
-        name: str,
-        rows: list[Any],
-        config: dict[str, Any],
-        result: SchemaValidationResult,
+    def _validate_cells(
+        self, name: str, rows: Any, config: dict[str, Any], res: SchemaValidationResult
     ) -> None:
-        """url columns of an evidence table; other cells are not checked here (#538)."""
-        cols = config.get("columns") or {}
-        if isinstance(cols, list):  # the seeds' [{"id": ..., "type": ...}] form
-            cols = {c.get("id"): c for c in cols}
-        for i, row in enumerate(rows):
-            for key in [k for k, c in cols.items() if c.get("type") == "url"]:
-                if isinstance(row, dict) and row.get(key) not in (None, ""):
-                    self._validate_url_field(f"{name}[{i}].{key}", row[key], {}, result)
+        cell_errors(name, rows, config, res, self.field_validators)
 
     def _validate_text_field(
         self,

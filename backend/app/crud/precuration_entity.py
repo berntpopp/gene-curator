@@ -116,8 +116,7 @@ def refuse_open_entity(
     (#567); the author's own drafts are left to the open-draft index, '' names none."""
     if not entity_key:
         return
-    # ponytail: check-then-insert, so two concurrent creates of one entity can both pass;
-    # add a DB guard (trigger or partial unique index) if duplicates show up again.
+    # concurrent creates that both pass meet uq_precurations_open_entity (077)
     curated = exists().where(CurationNew.precuration_id == PrecurationNew.id)
     other = db.scalar(
         select(PrecurationNew.id)
@@ -154,9 +153,7 @@ def write_draft(
     gene_id, scope_id, author = db_obj.gene_id, db_obj.scope_id, db_obj.created_by
     if "evidence_data" in values:
         key = entity_key_of(db, values["evidence_data"])
-        if (
-            key != db_obj.entity_key
-        ):  # unchanged keeps rows duplicated before #567 editable
+        if key != db_obj.entity_key:  # unchanged: the row already holds this entity
             refuse_open_entity(db, gene_id, scope_id, key, author, db_obj.id)
     try:
         return update_if_version(db, PrecurationNew, db_obj.id, lock_version, values)
@@ -174,6 +171,9 @@ def write_draft(
             else None
         )
         if other is None:
+            if "evidence_data" in values:  # a concurrent precuration took the entity
+                key = entity_key_of(db, values["evidence_data"])
+                refuse_open_entity(db, gene_id, scope_id, key, author, db_obj.id)
             raise
         raise conflict(
             "You already have an open precuration draft for this disease and inheritance",
