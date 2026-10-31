@@ -64,8 +64,11 @@ class Contribution(BaseModel):
     @field_validator("date")
     @classmethod
     def _utc(cls, value: datetime | None) -> datetime | None:
-        """A bare date (ClinGen's classified date) is UTC midnight, so every date is Z."""
-        return value.replace(tzinfo=UTC) if value and not value.tzinfo else value
+        """A bare date (ClinGen's classified date) is UTC midnight and an offset converts
+        to UTC, so every date is Z."""
+        if value is None:
+            return None
+        return value.astimezone(UTC) if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 def contribution(role: Role, contributor: Agent, date: Any, **kw: Any) -> Contribution:
