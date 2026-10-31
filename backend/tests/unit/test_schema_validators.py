@@ -179,3 +179,7 @@ def test_a_tab_layout_is_not_missing_sections() -> None:
     """MUI-23: KGDB-style `layout.tabs` renders as well as `sections` (normalizeDefinition.ts)."""
     tabs = {"layout": {"type": "tabs", "tabs": [{"id": "a", "sections": []}]}}
     assert check_schema_definition({**VALID, "ui_configuration": tabs}) == []
+    # tabs that are not a list lay nothing out: the warning stays
+    for bad in ({"tabs": {"a": 1}}, {"tabs": "x"}, {"tabs": []}):
+        ui = {"layout": bad}
+        assert check_schema_definition({**VALID, "ui_configuration": ui}) != []

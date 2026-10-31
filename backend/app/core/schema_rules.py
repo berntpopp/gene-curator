@@ -162,7 +162,11 @@ def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
 def _layout_tabs(ui: dict[str, Any]) -> bool:
     """`layout.tabs` lays the form out as well as `sections` (normalizeDefinition.ts)."""
     layout = ui.get("layout")
-    return isinstance(layout, dict) and bool(layout.get("tabs"))
+    return (
+        isinstance(layout, dict)
+        and isinstance(layout.get("tabs"), list)
+        and bool(layout["tabs"])
+    )
 
 
 def _children(cfg: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
