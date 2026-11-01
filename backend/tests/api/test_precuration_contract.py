@@ -82,7 +82,7 @@ def test_an_unreadable_pin_still_returns_the_created_precuration(
 ) -> None:
     """The create is committed; a schema that cannot be read leaves required_fields
     empty instead of a 500 that every retry repeats."""
-    from app.api.v1.endpoints import precurations
+    from app.services import review_guards  # builds the create result (#640)
 
     p = _precuration(
         db_session, test_scope, test_gene, test_user_admin, {}, fields=FIELDS
@@ -91,7 +91,7 @@ def test_an_unreadable_pin_still_returns_the_created_precuration(
     def broken(*_: object) -> dict:
         raise ValueError("Pinned methodology version is unreadable")
 
-    monkeypatch.setattr(precurations, "item_definition", broken)
+    monkeypatch.setattr(review_guards, "item_definition", broken)
     r = client.post(
         "/api/v1/precurations/",
         json={
