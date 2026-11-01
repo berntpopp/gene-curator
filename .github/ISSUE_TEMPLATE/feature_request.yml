@@ -125,6 +125,7 @@ body:
         - v0.13.3 (fastmcp 4)
         - v0.13.4 (KGDB smoke-test fixes)
         - v0.14.0 (AI curation pipeline: agent accounts and review policy)
+        - v0.14.1 (Dev dependency security patch)
         - Future (Post v1.0)
         - Not sure
 
