@@ -1,6 +1,6 @@
 {
   "name": "gene-curator-frontend",
-  "version": "0.14.0",
+  "version": "0.14.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -55,5 +55,9 @@
     "vite-plugin-vuetify": "^2.1.3",
     "vitest": "^5.0.5",
     "vue-tsc": "^3.3.13"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1",
+    "glob": "^14.0.2"
   }
 }
