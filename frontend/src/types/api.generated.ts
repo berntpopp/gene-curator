@@ -9555,6 +9555,11 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /**
+             * Warnings
+             * @description Seen before submit, e.g. no other reviewer
+             */
+            warnings?: string[];
+            /**
              * Relationship Type
              * @description mendelian or susceptibility, from evidence_data (#539).
              * @enum {string}

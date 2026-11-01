@@ -6,11 +6,13 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.crud.curator_classification import class_label
 from app.crud.precuration_required import (
     MissingRequiredFieldsError,
     field_contract,
     missing_required_fields,
+    open_fields,
 )
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
@@ -20,6 +22,7 @@ from app.schemas.curation import (
     disease_fields,
     relationship_of_key,
 )
+from app.schemas.precuration import Precuration, PrecurationCreated
 from app.scoring.base import ScoringResult
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
@@ -28,7 +31,9 @@ from app.services.evidence_ids import (
     evidence_errors,
     score_scorable,
 )
+from app.services.review_assignment import missing_reviewer
 
+logger = get_logger(__name__)
 LS_DECISIONS = ("LUMP", "NOT_APPLICABLE", "SPLIT")
 # Why a row with points scores 0 (scoring/evidence_items.uncited): refused on review entry
 _UNCITED = {
@@ -256,3 +261,20 @@ def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> Non
                 f"Invalid lumping/splitting decision '{decision}'. "
                 f"Must be one of: {', '.join(LS_DECISIONS)}."
             )
+
+
+def created_result(db: Session, precuration: PrecurationNew) -> PrecurationCreated:
+    """A created precuration plus what submit will refuse: empty required fields and no
+    reviewer besides its author (#640)."""
+    try:
+        required = open_fields(
+            item_definition(db, precuration), precuration.evidence_data
+        )
+    except ValueError as e:  # a broken pin: no 500 after the commit
+        logger.warning("Precuration schema unreadable", error=str(e))
+        required = []
+    return PrecurationCreated(
+        **Precuration.model_validate(precuration).model_dump(),
+        required_fields=required,
+        warnings=missing_reviewer(db, precuration.scope_id, precuration.created_by),
+    )

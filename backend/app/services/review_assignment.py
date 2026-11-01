@@ -79,6 +79,17 @@ def _reviewers(db: Session, scope_id: UUID) -> Any:
     )
 
 
+def missing_reviewer(db: Session, scope_id: UUID, author: UUID | None) -> list[str]:
+    """Warned at create (#640): submit will 409 when nobody but the author may review."""
+    others = _reviewers(db, scope_id).where(UserNew.id != author, UserNew.is_active)
+    if db.execute(others.limit(1)).first():
+        return []
+    return [
+        "There is no eligible reviewer in this scope besides you; submit will be "
+        "refused until another reviewer or admin accepts an invitation"
+    ]
+
+
 def submit_reviewer(
     db: Session,
     scope_id: UUID,

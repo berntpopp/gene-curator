@@ -180,6 +180,9 @@ class PrecurationCreated(Precuration):
         default_factory=list,
         description="Required fields still empty: path, type and allowed values",
     )
+    warnings: list[str] = Field(
+        default_factory=list, description="Seen before submit, e.g. no other reviewer"
+    )
 
 
 class PrecurationSubmitted(Precuration):

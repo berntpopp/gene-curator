@@ -35,7 +35,7 @@ from app.core.logging import api_endpoint, get_logger
 from app.core.workflow_errors import http_error
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_entity import entity_key_of
-from app.crud.precuration_required import MissingRequiredFieldsError, open_fields
+from app.crud.precuration_required import MissingRequiredFieldsError
 from app.crud.review_round import corrected_by
 from app.crud.scope_visibility import scope_id_for
 from app.models import CurationStatus, PrecurationNew, Scope, UserNew, WorkflowPair
@@ -58,7 +58,7 @@ from app.schemas.scope import SCOPE_NAME
 from app.services.curation_access import may_edit_curation, record_edit_by_other
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.review_assignment import assigned_reviewer, submit_reviewer
-from app.services.review_guards import item_definition
+from app.services.review_guards import created_result
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -263,7 +263,7 @@ def create_precuration(
     )
     if existing:
         response.status_code = status.HTTP_200_OK
-        return _created(db, existing)
+        return created_result(db, existing)
 
     try:
         precuration = precuration_crud.create_precuration(
@@ -284,23 +284,7 @@ def create_precuration(
         )
         raise
 
-    return _created(db, precuration)
-
-
-def _created(db: Session, precuration: PrecurationNew) -> PrecurationCreated:
-    try:
-        required = open_fields(
-            item_definition(db, precuration), precuration.evidence_data
-        )
-    except (
-        ValueError
-    ) as e:  # a broken pin must not turn the committed create into a 500
-        logger.warning("Precuration schema unreadable", error=str(e))
-        required = []
-    return PrecurationCreated(
-        **Precuration.model_validate(precuration).model_dump(),
-        required_fields=required,
-    )
+    return created_result(db, precuration)
 
 
 def _conflict(precuration: PrecurationNew, sent: int) -> HTTPException:
