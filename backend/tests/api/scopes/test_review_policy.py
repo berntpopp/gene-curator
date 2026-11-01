@@ -135,6 +135,10 @@ def test_ai_scope_agent_judge_approves_and_the_export_says_ai(
     [approver] = [
         c for c in item["contributions"] if c["activityType"]["name"] == "approver"
     ]
+    [made] = [
+        c for c in item["contributions"] if c["activityType"]["name"] == "curator"
+    ]
+    assert made["contributor"]["agentType"] == "software"  # credited to the agent
     assert (approver["contributor"]["name"], approver["contributor"]["agentType"]) == (
         "Judge agent",
         "software",

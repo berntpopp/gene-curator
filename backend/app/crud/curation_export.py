@@ -2,7 +2,7 @@
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from sqlalchemy import and_, case, or_, select
@@ -77,6 +77,7 @@ def export_curations(
             Gene,
             Scope,
             curator.name,
+            curator.is_agent,
             reviewer.name,
             CurationSchema.name,
             MethodologyVersion.version,
@@ -147,7 +148,9 @@ def export_curations(
     last = rows[limit - 1] if len(rows) > limit else None
     return CurationExportPage(
         items=items,
-        next_cursor=encode_cursor(last[-1], last[0].id) if last else None,
+        next_cursor=encode_cursor(cast(datetime, last[-1]), last[0].id)
+        if last
+        else None,
     )
 
 
@@ -165,6 +168,7 @@ def _item(
     gene: Gene,
     scope: Scope,
     curator_name: str | None,
+    curator_is_agent: bool | None,
     reviewer_name: str | None,
     schema_name: str | None,
     version: int | None,
@@ -187,6 +191,7 @@ def _item(
         lines or [],
         assessors.get(c.id),
         approver_is_agent=c.approval_kind == "ai",
+        curator_is_agent=bool(curator_is_agent),
     )
     # after the curator, as row agents are; once per agent (its row writes win)
     made[1:1] = [

@@ -118,10 +118,13 @@ def curation_contributions(
     lines: list[EvidenceLine],
     assessors: list[tuple[str | None, datetime | None, bool]] | None = None,
     approver_is_agent: bool = False,
+    curator_is_agent: bool = False,
 ) -> list[Contribution]:
     """Curator, each software agent that wrote rows, then the approving reviewers as
     assessors and the approver: persons, or software for agent accounts (#639)."""
-    out = [contribution("curator", Agent(name=curator, agentType="person"), created_at)]
+    out = [
+        contribution("curator", _person_or_agent(curator, curator_is_agent), created_at)
+    ]
     software: dict[str, Contribution] = {}
     for line in lines:
         for c in line.contributions:
