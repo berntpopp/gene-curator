@@ -167,6 +167,15 @@ describe('UserManagement', () => {
     expect(wrapper.text()).toContain('Alice')
   })
 
+  it('marks an AI agent account in the user list (#639)', async () => {
+    users.paginatedUsers = [alice, { ...alice, id: 'bot', name: 'Judge agent', is_agent: true }]
+    users.statistics = {}
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    const agentChips = wrapper.findAll('.v-chip').filter(c => c.text() === 'Agent')
+    expect(agentChips).toHaveLength(1)
+  })
+
   it('falls back to zeros when statistics are empty', async () => {
     users.paginatedUsers = []
     users.statistics = {}
