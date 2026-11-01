@@ -1730,6 +1730,8 @@ export interface paths {
          * Submit Peer Review
          * @description Submit a peer review decision. decision=approve by an assigned reviewer, never
          *     the author, moves the curation to active (approvals_require_session: signed-in only).
+         *     Agent accounts review only where review_policy is ai, or ai_then_human, where the
+         *     curation activates once a person approved too.
          */
         post: operations["submit_peer_review_api_v1_workflow_reviews__review_id__submit_post"];
         delete?: never;
@@ -2252,7 +2254,8 @@ export interface paths {
         put?: never;
         /**
          * Approve Precuration
-         * @description Approve (scope reviewer, 4-eyes) and open its draft curation.
+         * @description Approve (scope reviewer, 4-eyes) and open its draft curation. Agent accounts:
+         *     only in a scope whose review_policy is ai or ai_then_human.
          */
         post: operations["approve_precuration_api_v1_precurations__precuration_id__approve_post"];
         delete?: never;
