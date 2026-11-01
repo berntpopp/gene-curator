@@ -124,6 +124,7 @@ body:
         - v0.13.2 (ClinGen reference export and KGDB re-curation fixes)
         - v0.13.3 (fastmcp 4)
         - v0.13.4 (KGDB smoke-test fixes)
+        - v0.14.0 (AI curation pipeline: agent accounts and review policy)
         - Future (Post v1.0)
         - Not sure
 
