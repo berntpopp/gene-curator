@@ -160,6 +160,7 @@ class TestUserAuthentication:
             UserRole.USER
         )  # Standard user (scope roles assigned via scope_memberships)
         mock_user.is_active = True
+        mock_user.is_agent = False  # a person (#639: agents never sign in by password)
 
         # Mock the get_by_email method
         with patch.object(user_crud, "get_by_email", return_value=mock_user):
@@ -204,6 +205,7 @@ class TestUserAuthentication:
         """Test is_active returns True for active users."""
         mock_user = MagicMock(spec=User)
         mock_user.is_active = True
+        mock_user.is_agent = False  # a person (#639: agents never sign in by password)
 
         assert user_crud.is_active(mock_user) is True
 

@@ -3,7 +3,7 @@ Pydantic schemas for scope management.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -67,6 +67,10 @@ class ScopeUpdate(BaseModel):
     )
     is_public: bool | None = Field(None, description="Public scope visibility")
     approvals_require_session: bool | None = None
+    review_policy: Literal["human", "ai", "ai_then_human"] | None = Field(
+        None,
+        description="Who may approve: human, ai (agent accounts too) or ai_then_human",
+    )
     export_evidence_public: bool | None = None
     scope_config: dict[str, Any] | None = Field(
         None, description="Scope-specific configuration"
@@ -93,6 +97,7 @@ class ScopeInDBBase(ScopeBase):
     is_active: bool
     # approvals only from a signed-in person, not a token or MCP call (#560)
     approvals_require_session: bool = False
+    review_policy: str = "human"  # #639: human, ai or ai_then_human
     # export evidence, scores and summary to non-members of a public scope (#558)
     export_evidence_public: bool = False
     default_workflow_pair_id: UUID | None

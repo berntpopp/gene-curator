@@ -59,6 +59,7 @@ from app.services.curation_access import may_edit_curation, record_edit_by_other
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.review_assignment import assigned_reviewer, submit_reviewer
 from app.services.review_guards import created_result
+from app.services.review_policy import require_agent_may_review
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -552,7 +553,8 @@ def approve_precuration(
     current_user: UserNew = Depends(get_current_active_user),
     lock_version: Annotated[int | None, Query()] = None,  # 409 if stale
 ) -> PrecurationApprovalResult:
-    """Approve (scope reviewer, 4-eyes) and open its draft curation."""
+    """Approve (scope reviewer, 4-eyes) and open its draft curation. Agent accounts:
+    only in a scope whose review_policy is ai or ai_then_human."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -576,6 +578,7 @@ def approve_precuration(
     # Verify scope access with reviewer role
     require(db, current_user, precuration.scope_id, REVIEW)
     require_signed_in_approver(request, precuration.scope)
+    require_agent_may_review(current_user, precuration.scope)  # #639
 
     try:
         result = precuration_crud.approve_and_create_curation(

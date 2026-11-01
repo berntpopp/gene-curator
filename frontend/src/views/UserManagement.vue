@@ -74,7 +74,19 @@
               {{ initials(item.name) }}
             </v-avatar>
             <div>
-              <div class="font-weight-medium">{{ item.name }}</div>
+              <div class="font-weight-medium">
+                {{ item.name }}
+                <v-chip
+                  v-if="item.is_agent"
+                  class="ml-2"
+                  size="x-small"
+                  variant="tonal"
+                  prepend-icon="mdi-robot-outline"
+                  title="AI agent account: signs in with a token"
+                >
+                  Agent
+                </v-chip>
+              </div>
               <div class="text-body-small text-medium-emphasis">{{ item.email }}</div>
             </div>
           </div>
@@ -504,7 +516,7 @@
         await usersStore.updateUser(editingUser.value.id, updateData)
         showSnackbar('User updated successfully', 'success')
       } else {
-        const created = await usersStore.createUser(userFormData.value)
+        const created = await usersStore.createUser({ ...userFormData.value, is_agent: false })
         const scope = scopes.value.find(s => s.id === firstScopeId.value)
         if (created && scope) await grantFirstRole(created.id, scope)
         else showSnackbar('User created successfully', 'success')

@@ -214,7 +214,10 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db)) ->
 
     # Public sign-up never grants platform roles; admins are created by admins
     user = user_crud.create(
-        db, obj_in=user_data.model_copy(update={"role": "user", "is_active": True})
+        db,
+        obj_in=user_data.model_copy(
+            update={"role": "user", "is_active": True, "is_agent": False}
+        ),
     )
     return user
 

@@ -266,7 +266,8 @@ describe('Register', () => {
       email: 'new@example.org',
       password: 'Passw0rd',
       role: 'user',
-      is_active: true
+      is_active: true,
+      is_agent: false
     })
     expect(showSuccess).toHaveBeenCalledWith('Account created')
     expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })

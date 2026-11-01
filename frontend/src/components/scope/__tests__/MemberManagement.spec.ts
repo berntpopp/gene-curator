@@ -107,6 +107,18 @@ describe('MemberManagement', () => {
     expect(orcid.attributes('rel')).toContain('noopener')
   })
 
+  it('marks an AI agent account (#639) and no person', async () => {
+    vi.mocked(scopeService.fetchMembers).mockResolvedValue([
+      { ...members[0], user_id: 'bot', user_full_name: 'Judge agent', user_is_agent: true },
+      members[1]
+    ] as never)
+    const { wrapper } = await mountMembers()
+
+    const rows = wrapper.findAll('.v-list-item')
+    expect(rows[0]!.text()).toContain('Agent')
+    expect(rows[1]!.text()).not.toContain('Agent')
+  })
+
   it('uses the local calendar date for invitations across UTC midnight', async () => {
     const localMidnight = new Date(2026, 9, 22, 0, 30)
     vi.mocked(scopeService.fetchMembers).mockResolvedValue([

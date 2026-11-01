@@ -355,6 +355,9 @@ class CurationNew(Base):
     approved_by: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
+    # 093 (#639): "human" if a person approved it, "ai" if only agents did; their model
+    approval_kind: Mapped[str | None] = mapped_column(String(10))
+    approval_model: Mapped[str | None] = mapped_column(String(200))
 
     # Optimistic locking (ClinGen SOP v11)
     lock_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

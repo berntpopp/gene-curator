@@ -52,6 +52,7 @@ from app.services.review_assignment import (
     assigned_reviewer,
 )
 from app.services.review_entry import ReviewEntry, lookup_reviews, preflight_review
+from app.services.review_policy import require_agent_may_review
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -169,7 +170,12 @@ _APPROVALS = {
 
 
 def _require_signed_in_approval(
-    db: Session, request: Request, item_type: str, item_id: UUID, target: WorkflowStage
+    db: Session,
+    request: Request,
+    item_type: str,
+    item_id: UUID,
+    target: WorkflowStage,
+    user: UserNew,
 ) -> None:
     if (item_type, target) not in _APPROVALS:
         return
@@ -179,6 +185,7 @@ def _require_signed_in_approval(
         else db.get(PrecurationNew, item_id)
     )
     require_signed_in_approver(request, item.scope if item else None)
+    require_agent_may_review(user, item.scope if item else None)  # #639
 
 
 @router.post("/{item_type}/{item_id}/transition", response_model=WorkflowTransition)
@@ -195,7 +202,7 @@ def execute_workflow_transition(
     by a reviewer or admin of the scope who is not its author (4-eyes)."""
     # RLS policies + workflow engine handle scope-based access
     _require_signed_in_approval(
-        db, request, item_type, item_id, transition_request.target_stage
+        db, request, item_type, item_id, transition_request.target_stage, current_user
     )
     try:
         transition = workflow_engine.execute_transition(
@@ -266,7 +273,9 @@ def submit_peer_review(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PeerReviewResult:
     """Submit a peer review decision. decision=approve by an assigned reviewer, never
-    the author, moves the curation to active (approvals_require_session: signed-in only)."""
+    the author, moves the curation to active (approvals_require_session: signed-in only).
+    Agent accounts review only where review_policy is ai, or ai_then_human, where the
+    curation activates once a person approved too."""
     if review_submission.decision == "approve":
         review = db.get(Review, review_id)
         require_signed_in_approver(request, review.curation.scope if review else None)
@@ -534,7 +543,12 @@ def bulk_workflow_transition(
             if item_id in rejected:
                 raise ValueError(rejected[item_id])
             _require_signed_in_approval(
-                db, request, bulk_request.item_type, item_id, bulk_request.target_stage
+                db,
+                request,
+                bulk_request.item_type,
+                item_id,
+                bulk_request.target_stage,
+                current_user,
             )
             workflow_engine.execute_transition(
                 db,

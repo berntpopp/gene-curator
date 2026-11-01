@@ -61,7 +61,7 @@ harmless).
 `genetic_score`, `experimental_score`, `association_score`, `total_score`, `methodology {schema_name, version, version_id}`, `pmids`
 (every PMID under a `pmid` key in the evidence, deduplicated, numerically sorted),
 `curator_name`, `reviewer_name` (who approved), `approved_at`, `activated_at`, `archived_at`,
-`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`, `clingen_reference`,
+`archive_reason`, `updated_at`, `evidence`, `scores`, `summary` (see Who sees what), `adoption`, `clingen_reference`, `approval_kind`, `approval_model`,
 `synopsis`, `contributions`, `evidence_lines` (see Provenance).
 
 - **Synopsis:** `synopsis` is the entity's synopsis (like SysNDD's clinical synopsis): the
@@ -118,6 +118,10 @@ harmless).
   `contributions` hold only the ClinGen expert panel as `interpreter` (with ClinGen's
   classification date): our curator and reviewer are in the top-level `contributions`. A
   `final_classification` other than ClinGen's carries `curator_classification_rationale`.
+- **Approval kind (#639):** `approval_kind` is `"human"` when a person approved the curation
+  and `"ai"` when only agent accounts did (a scope with `review_policy` `ai`); `approval_model` is
+  the approving agent's model then, else `null`. Curations approved before v0.14.0 are `"human"`.
+  Agent reviewers and approvers appear in `contributions` with `agentType: "software"`.
 - **Archive reason:** `archive_reason` is `"Replaced by new active curation"` or
   `"Curation deleted"`; `null` on active rows.
 

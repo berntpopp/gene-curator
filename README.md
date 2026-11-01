@@ -334,6 +334,29 @@ claude mcp add --transport http gene-curator http://localhost:8051/mcp \
 every API operation with the same token. Writes are audited with channel `mcp` and the token
 name. Claude Desktop, revocation and the tool list are covered in [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md). Existing databases need `make db-migrate` (064).
 
+### Running an AI pipeline
+
+A fully AI pipeline (a curator agent plus an independent judge agent) can take a curation to an
+approved, exported record without posing as a person (#639). The approval is exported as
+`approval_kind: "ai"` with the judge's `approval_model`.
+
+1. A platform admin creates two **agent accounts** (`POST /api/v1/users/` with
+   `"is_agent": true`; any password, it is never accepted) and issues each a token
+   (`POST /api/v1/users/{user_id}/tokens`, shown once). Agent accounts sign in only with a
+   token, are never platform admins, and cannot manage a scope or its members. The UI marks
+   them *Agent*.
+2. A scope admin adds the curator agent as `curator` and the judge as `reviewer`, and sets the
+   scope's `review_policy` (`PATCH /api/v1/scopes/{scope_id}`):
+   - `human` (default, and every existing scope): agent accounts curate but never review or
+     approve (403).
+   - `ai`: agent accounts may review and approve; four-eyes still needs another identity.
+   - `ai_then_human`: an agent approval is provisional; the curation activates once a person
+     approves too, and the export lists both reviews.
+3. Each agent connects to `/mcp` with its token and sends its `agent` block (`model`, ...) on
+   writes and on `approve_precuration` / `submit_peer_review`.
+
+Existing databases need `make db-migrate` (093).
+
 ### OAuth sign-in
 
 Clients that speak MCP OAuth 2.1 need no token: add the server without a header and sign in

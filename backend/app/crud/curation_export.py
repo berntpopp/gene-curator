@@ -2,7 +2,7 @@
 
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy import and_, case, or_, select
@@ -132,9 +132,9 @@ def export_curations(
         .all()
     )
     # Approving reviewers (VA-Spec assessors), oldest first; RLS may hide reviews
-    assessors: dict[UUID, list[tuple[str | None, datetime | None]]] = {}
-    for cid, name, at in db.execute(
-        select(Review.curation_id, UserNew.name, Review.reviewed_at)
+    assessors: dict[UUID, list[tuple[str | None, datetime | None, bool]]] = {}
+    for cid, name, at, agent in db.execute(
+        select(Review.curation_id, UserNew.name, Review.reviewed_at, UserNew.is_agent)
         .join(UserNew, Review.reviewer_id == UserNew.id)
         .where(
             Review.curation_id.in_({row[1].id for row in rows}),
@@ -142,7 +142,7 @@ def export_curations(
         )
         .order_by(Review.reviewed_at)
     ):
-        assessors.setdefault(cid, []).append((name or None, at))
+        assessors.setdefault(cid, []).append((name or None, at, agent))
     items = [_item(members, uis, assessors, *row) for row in rows[:limit]]
     last = rows[limit - 1] if len(rows) > limit else None
     return CurationExportPage(
@@ -151,10 +151,15 @@ def export_curations(
     )
 
 
+def _human(approved_at: datetime | None) -> Literal["human"] | None:
+    """An approved curation without a kind predates 093: a person approved it."""
+    return "human" if approved_at else None
+
+
 def _item(
     members: set[UUID],
     uis: dict[UUID | None, dict[str, Any] | None],
-    assessors: dict[UUID, list[tuple[str | None, datetime | None]]],
+    assessors: dict[UUID, list[tuple[str | None, datetime | None, bool]]],
     ac: ActiveCuration,
     c: CurationNew,
     gene: Gene,
@@ -181,6 +186,7 @@ def _item(
         c.approved_at,
         lines or [],
         assessors.get(c.id),
+        approver_is_agent=c.approval_kind == "ai",
     )
     # after the curator, as row agents are; once per agent (its row writes win)
     made[1:1] = [
@@ -211,6 +217,8 @@ def _item(
         computed_verdict=None if c.clingen_adoption else c.computed_verdict,
         final_classification=c.final_classification,
         curator_classification_rationale=c.curator_classification_rationale,
+        approval_kind="ai" if c.approval_kind == "ai" else _human(c.approved_at),
+        approval_model=c.approval_model,
         genetic_score=section_total(scores, "genetic"),
         experimental_score=section_total(scores, "experimental"),
         association_score=section_total(scores, "association"),

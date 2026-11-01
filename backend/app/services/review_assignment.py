@@ -9,7 +9,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import EDIT, require
@@ -31,6 +31,7 @@ from app.models import (
     PrecurationNew,
     Review,
     ReviewStatus,
+    Scope,
     ScopeMembership,
     UserNew,
     WorkflowStage,
@@ -66,15 +67,18 @@ def check_reviewer(
 
 
 def _reviewers(db: Session, scope_id: UUID) -> Any:
-    """The scope's accepted reviewers and admins."""
+    """The scope's accepted reviewers and admins; agent accounts only where the
+    review_policy lets them review (#639)."""
     return (
         select(UserNew.id, UserNew.email)
         .join(ScopeMembership, ScopeMembership.user_id == UserNew.id)
+        .join(Scope, Scope.id == ScopeMembership.scope_id)
         .where(
             ScopeMembership.scope_id == scope_id,
             ScopeMembership.is_active,
             ScopeMembership.accepted_at.isnot(None),
             ScopeMembership.role.in_(REVIEW_ROLES),
+            or_(UserNew.is_agent == False, Scope.review_policy != "human"),  # noqa: E712
         )
     )
 

@@ -16,11 +16,19 @@ from app.core.deps import (
     get_current_admin_user,
     reject_personal_access_token,
 )
+from app.core.logging import get_logger
 from app.core.search_text import MAX_SEARCH, NO_NUL
+from app.crud import personal_access_token as pat_crud
 from app.crud.user import user_crud
 from app.models import User
 from app.schemas.auth import UserCreate, UserResponse, UserUpdate
+from app.schemas.personal_access_token import (
+    PersonalAccessTokenCreate,
+    PersonalAccessTokenCreated,
+    PersonalAccessTokenResponse,
+)
 
+logger = get_logger(__name__)
 router = APIRouter()
 
 
@@ -160,6 +168,12 @@ async def update_user(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot remove your own admin role or deactivate your own account",
+        )
+
+    if user.is_agent and user_data.role == "admin":  # #639
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An agent account cannot be a platform admin",
         )
 
     # Check if email is being changed and already exists
@@ -303,3 +317,31 @@ async def get_user_activity(
 
     activity = user_crud.get_user_activity(db=db, user_id=user_id)
     return activity
+
+
+@router.post(
+    "/{user_id}/tokens",
+    response_model=PersonalAccessTokenCreated,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(reject_personal_access_token)],
+)
+def create_agent_token(
+    user_id: UUID,
+    token_in: PersonalAccessTokenCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+) -> Any:
+    """A token for an agent account, which has no password sign-in to create its own
+    (#639). Platform admins, signed in; the plaintext is shown only here."""
+    agent = user_crud.get(db=db, id=user_id)
+    if agent is None or not agent.is_agent:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No agent account with this id")
+    pat, plaintext = pat_crud.create(db, user_id=agent.id, obj_in=token_in)
+    logger.info(
+        "Agent token created",
+        token_id=str(pat.id),
+        agent_id=str(agent.id),
+        admin_id=str(current_user.id),
+    )
+    created = PersonalAccessTokenResponse.model_validate(pat).model_dump()
+    return PersonalAccessTokenCreated(**created, token=plaintext)

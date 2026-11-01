@@ -41,6 +41,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             orcid_id=obj_in.orcid_id,
             expertise_areas=obj_in.expertise_areas or [],
             is_active=obj_in.is_active,
+            is_agent=obj_in.is_agent,
         )
         db.add(db_obj)
         db.commit()
@@ -89,6 +90,9 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         user = self.get_by_email(db, email=email)
         if not user:
             logger.warning("User not found in database", email=email)
+            return None
+        if user.is_agent:  # #639: agent accounts sign in with a token, never a password
+            logger.warning("Password sign-in refused for an agent account", email=email)
             return None
 
         logger.debug(
