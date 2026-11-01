@@ -58,12 +58,14 @@ AGENT_ARG: dict[str, Any] = {
     "required": ["model"],
     "additionalProperties": False,
 }
-# Evidence writes an agent drafts; approvals and reviews stay a person's act
+# Evidence writes an agent drafts, and (#639) the approvals an agent account makes where
+# the scope's review_policy allows; the model becomes the curation's approval_model
 AGENT_TOOLS = frozenset(
     {
         *("create_precuration", "update_precuration", "save_draft_precurations"),
         *("submit_precuration", "create_curation", "update_curation"),
         *("save_draft_curations", "submit_curation", "adopt_clingen_classifications"),
+        *("approve_precuration", "submit_peer_review", "execute_workflow_transition"),
     }
 )
 

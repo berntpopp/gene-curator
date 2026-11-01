@@ -185,6 +185,7 @@ class ScopeMembershipResponse(ScopeMembershipBase):
     user_email: str | None = Field(None, description="User's email")
     user_full_name: str | None = Field(None, description="User's full name")
     user_orcid: str | None = Field(None, description="User's ORCID")
+    user_is_agent: bool = Field(False, description="An AI agent account (#639)")
 
     # Computed fields
     is_pending: bool = Field(

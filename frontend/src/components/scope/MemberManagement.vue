@@ -56,7 +56,19 @@
             </v-avatar>
           </template>
 
-          <v-list-item-title>{{ displayName(member) }}</v-list-item-title>
+          <v-list-item-title>
+            {{ displayName(member) }}
+            <v-chip
+              v-if="member.user_is_agent"
+              class="ml-2"
+              size="x-small"
+              variant="tonal"
+              prepend-icon="mdi-robot-outline"
+              title="AI agent account: signs in with a token"
+            >
+              Agent
+            </v-chip>
+          </v-list-item-title>
 
           <v-list-item-subtitle>
             {{ member.user_email }}

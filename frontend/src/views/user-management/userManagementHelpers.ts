@@ -6,6 +6,7 @@ export interface UserRecord {
   email: string
   role: string
   is_active: boolean
+  is_agent?: boolean // #639: an AI agent account
   created_at?: string | null
   last_login?: string | null
 }

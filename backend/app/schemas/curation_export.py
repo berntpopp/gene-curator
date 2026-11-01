@@ -59,6 +59,15 @@ class ExportCuration(BaseModel):
     curator_classification_rationale: str | None = Field(
         None, description="Why the curator's class differs from the computed one"
     )
+    approval_kind: Literal["human", "ai"] | None = Field(
+        None,
+        description="human when a person approved it, ai when only agent accounts did "
+        "(scope review_policy ai, #639); null only before approval",
+    )
+    approval_model: str | None = Field(
+        None,
+        description="The approving agent's model when approval_kind is ai, else null",
+    )
     genetic_score: float | None = None
     experimental_score: float | None = None
     association_score: float | None = Field(

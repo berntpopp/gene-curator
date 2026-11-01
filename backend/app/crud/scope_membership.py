@@ -332,6 +332,7 @@ class ScopeMembershipCRUD(
                 UserNew.name,
                 UserNew.email,
                 UserNew.orcid_id,
+                UserNew.is_agent,
             )
             .join(UserNew, ScopeMembership.user_id == UserNew.id)
             .where(ScopeMembership.scope_id == scope_id, ScopeMembership.is_active)
@@ -347,7 +348,7 @@ class ScopeMembershipCRUD(
 
         # Build response objects
         members = []
-        for membership, user_name, user_email, orcid_id in results:
+        for membership, user_name, user_email, orcid_id, is_agent in results:
             member_response = ScopeMembershipResponse(
                 id=membership.id,
                 scope_id=membership.scope_id,
@@ -364,6 +365,7 @@ class ScopeMembershipCRUD(
                 user_email=user_email,
                 user_full_name=user_name,
                 user_orcid=orcid_id,
+                user_is_agent=is_agent,
             )
             members.append(member_response)
 

@@ -1,5 +1,6 @@
 activate_user
 cleanup_old_logs
+create_agent_token
 create_llm_model
 create_llm_provider
 create_prompt_template

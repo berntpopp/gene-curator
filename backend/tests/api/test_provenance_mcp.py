@@ -142,13 +142,14 @@ def test_without_an_agent_block_nothing_changes(
     assert agents == {"person"}
 
 
-def test_an_ai_only_approval_is_impossible(
+def test_approvals_name_their_agent_but_never_approve_own_work(
     client: TestClient,
     db_session: Session,
     test_scope: Any,
     test_precuration: Any,
 ) -> None:
-    """Approvals take no agent block, and the token's person may not approve own work."""
+    """#639: approvals take the agent block (an agent account's approval_model; a
+    person's approval stays human), and the token's user may not approve own work."""
     tools = rpc(
         client, pat(db_session, make_user(db_session, role="admin")), "tools/list", {}
     )
@@ -158,10 +159,7 @@ def test_an_ai_only_approval_is_impossible(
         if "agent" in t["inputSchema"]["properties"]
     }
     assert with_agent == AGENT_TOOLS
-    assert (
-        not {"approve_precuration", "submit_peer_review", "execute_workflow_transition"}
-        & with_agent
-    )
+    assert {"approve_precuration", "submit_peer_review"} <= with_agent
 
     user = make_user(db_session, role="admin")
     make_member(db_session, test_scope, user, "reviewer")
@@ -170,13 +168,9 @@ def test_an_ai_only_approval_is_impossible(
     db_session.commit()
     token = pat(db_session, user)
     pid = str(test_precuration.id)
-    refused = call(
-        client, token, "approve_precuration", precuration_id=pid, agent=AGENT
-    )
-    assert refused["isError"] and "unknown agent" in refused["content"][0]["text"]
-    assert (
-        status_of(call(client, token, "approve_precuration", precuration_id=pid)) == 403
-    )
+    for extra in ({"agent": AGENT}, {}):  # with or without an agent: never own work
+        args = {"precuration_id": pid, **extra}
+        assert status_of(call(client, token, "approve_precuration", **args)) == 403
 
 
 def test_history_shows_the_agent_of_a_submission(

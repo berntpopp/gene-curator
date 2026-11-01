@@ -50,6 +50,7 @@ PAT_BLOCKED_OPERATIONS: tuple[tuple[str, str], ...] = (
     ("PUT", "/api/v1/auth/me/password"),
     ("POST", "/api/v1/auth/change-password"),
     ("POST", "/api/v1/me/tokens/"),
+    ("POST", "/api/v1/users/{user_id}/tokens"),  # an agent account's token (#639)
 )
 
 

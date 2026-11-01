@@ -241,6 +241,36 @@
           "description": "Adopted ClinGen classification (#105) as a VA-Spec statement: id (CGGV), reportedIn [Document], contributions [GCEP interpreter, curator, approver]; null for a curation of our own",
           "title": "Adoption"
         },
+        "approval_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "human",
+                "ai"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "human when a person approved it, ai when only agent accounts did (scope review_policy ai, #639); null only before approval",
+          "title": "Approval Kind"
+        },
+        "approval_model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The approving agent's model when approval_kind is ai, else null",
+          "title": "Approval Model"
+        },
         "approved_at": {
           "anyOf": [
             {

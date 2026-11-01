@@ -7,7 +7,20 @@ from uuid import UUID
 from sqlalchemy import or_, true
 from sqlalchemy.orm import Session
 
-from app.models import ActiveCuration, CurationNew, CurationStatus, WorkflowStage
+from app.core.workflow_errors import ReviewForbiddenError
+from app.models import (
+    ActiveCuration,
+    CurationNew,
+    CurationStatus,
+    UserNew,
+    WorkflowStage,
+)
+from app.services.review_policy import (
+    NEEDS_PERSON,
+    approval_stamp,
+    check_agent_review,
+    waits_for_person,
+)
 
 
 def same_entity(column: Any, key: str) -> Any:
@@ -21,6 +34,14 @@ def activate_item(db: Session, item: Any, user_id: UUID) -> None:
     if hasattr(item, "workflow_stage"):
         item.workflow_stage = WorkflowStage.ACTIVE
     if isinstance(item, CurationNew):
+        with db.no_autoflush:  # lazy loads here must not flush before the supersede
+            approver = db.get(UserNew, user_id)  # #639: every route to active
+            check_agent_review(approver, item.scope)
+            agent = approver is not None and approver.is_agent
+            if agent and waits_for_person(db, item):
+                raise ReviewForbiddenError(NEEDS_PERSON)
+            for field, value in approval_stamp(db, item, approver).items():
+                setattr(item, field, value)
         item.approved_at = datetime.now(UTC)
         item.approved_by = user_id
         # One active curation per entity: supersede any other (same transaction)

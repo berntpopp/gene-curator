@@ -76,6 +76,10 @@ class Scope(Base):
     approvals_require_session: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+    # 093 (#639): human (agents never approve), ai (they may), ai_then_human (a person too)
+    review_policy: Mapped[str] = mapped_column(
+        String(20), default="human", server_default="human", nullable=False
+    )
     # 076 (#558): export evidence, scores and summary to non-members of a public scope
     export_evidence_public: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
@@ -170,6 +174,10 @@ class UserNew(Base):
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    # 093 (#639): an AI agent account: token sign-in only, never an admin or member manager
+    is_agent: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
     last_login: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
 
     # Metadata

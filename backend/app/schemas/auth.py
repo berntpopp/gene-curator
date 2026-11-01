@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class UserBase(BaseModel):
@@ -16,6 +16,15 @@ class UserBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     role: Literal["admin", "user"] = "user"  # Mirrors UserRoleNew
     is_active: bool = True
+    is_agent: bool = Field(
+        False, description="AI agent account (#639): token sign-in only, never an admin"
+    )
+
+    @model_validator(mode="after")
+    def _agent_is_no_admin(self) -> "UserBase":
+        if self.is_agent and self.role == "admin":
+            raise ValueError("An agent account cannot be a platform admin")
+        return self
 
 
 class UserCreate(UserBase):

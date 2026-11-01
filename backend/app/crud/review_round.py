@@ -26,6 +26,7 @@ from app.models import (
     UserNew,
     WorkflowStage,
 )
+from app.services.review_policy import check_agent_review, waits_for_person
 
 _submitted_at = (
     select(CurationNew.submitted_at)
@@ -79,6 +80,7 @@ def check_review_open(db: Session, review: Review) -> None:
         raise WorkflowConflictError("Curation is not in review")
     if not holds_review_capability(db, review.reviewer_id, curation.scope_id):
         raise ReviewForbiddenError("User is not allowed to review in this scope")
+    check_agent_review(db.get(UserNew, review.reviewer_id), curation.scope)  # #639
     if curation.submitted_at is not None and review.assigned_at < curation.submitted_at:
         raise WorkflowConflictError("Review belongs to a previous review round")
     if corrected_by(db, curation.id, review.reviewer_id):
@@ -102,7 +104,12 @@ def all_reviews_approved(db: Session, curation_id: UUID) -> bool:
             Review.recommendation != "approve",
         )
     ).scalar()
-    return not blocked
+    if blocked:
+        return False
+    curation = db.get(
+        CurationNew, curation_id
+    )  # #639: ai_then_human waits for a person
+    return curation is None or not waits_for_person(db, curation)
 
 
 def approving_reviewers(db: Session, curation: CurationNew) -> int:

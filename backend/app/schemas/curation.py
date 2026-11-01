@@ -154,6 +154,11 @@ class CurationInDBBase(CurationBase):
     clingen_reference: dict[str, Any] | None = Field(
         None, description="ClinGen record cited beside our classification, else null"
     )
+    approval_kind: str | None = Field(
+        None,
+        description="Once approved: human, or ai when only agent accounts approved",
+    )
+    approval_model: str | None = None  # the approving agent's model (#639)
 
     # Optimistic locking
     lock_version: int
@@ -373,6 +378,8 @@ class CurationDetail(CurationInDBBase):
             "final_classification": curation.final_classification,
             "clingen_adoption": curation.clingen_adoption,
             "clingen_reference": curation.clingen_reference,
+            "approval_kind": curation.approval_kind,
+            "approval_model": curation.approval_model,
             "lock_version": curation.lock_version,
             "methodology_version_id": curation.methodology_version_id,
             "created_at": curation.created_at,

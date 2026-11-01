@@ -117,6 +117,10 @@ def require(
     """
     if user.role == "admin":
         return
+    if user.is_agent and capability in (MANAGE_MEMBERS, MANAGE_SCOPE):  # #639
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Agent accounts cannot manage a scope or members"
+        )
     # An inactive scope is read-only, not hidden: its members keep VIEW
     active_only = active_only and capability != VIEW
     if scope_id is None or not holds(db, user.id, scope_id, capability, active_only):

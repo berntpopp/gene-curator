@@ -1730,6 +1730,8 @@ export interface paths {
          * Submit Peer Review
          * @description Submit a peer review decision. decision=approve by an assigned reviewer, never
          *     the author, moves the curation to active (approvals_require_session: signed-in only).
+         *     Agent accounts review only where review_policy is ai, or ai_then_human, where the
+         *     curation activates once a person approved too.
          */
         post: operations["submit_peer_review_api_v1_workflow_reviews__review_id__submit_post"];
         delete?: never;
@@ -2252,7 +2254,8 @@ export interface paths {
         put?: never;
         /**
          * Approve Precuration
-         * @description Approve (scope reviewer, 4-eyes) and open its draft curation.
+         * @description Approve (scope reviewer, 4-eyes) and open its draft curation. Agent accounts:
+         *     only in a scope whose review_policy is ai or ai_then_human.
          */
         post: operations["approve_precuration_api_v1_precurations__precuration_id__approve_post"];
         delete?: never;
@@ -2765,6 +2768,27 @@ export interface paths {
         get: operations["get_user_activity_api_v1_users__user_id__activity_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Agent Token
+         * @description A token for an agent account, which has no password sign-in to create its own
+         *     (#639). Platform admins, signed in; the plaintext is shown only here.
+         */
+        post: operations["create_agent_token_api_v1_users__user_id__tokens_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4952,6 +4976,13 @@ export interface components {
             clingen_reference?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Approval Kind
+             * @description Once approved: human, or ai when only agent accounts approved
+             */
+            approval_kind?: string | null;
+            /** Approval Model */
+            approval_model?: string | null;
             /** Lock Version */
             lock_version: number;
             /**
@@ -5150,6 +5181,13 @@ export interface components {
             clingen_reference?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Approval Kind
+             * @description Once approved: human, or ai when only agent accounts approved
+             */
+            approval_kind?: string | null;
+            /** Approval Model */
+            approval_model?: string | null;
             /** Lock Version */
             lock_version: number;
             /**
@@ -5349,6 +5387,13 @@ export interface components {
             clingen_reference?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Approval Kind
+             * @description Once approved: human, or ai when only agent accounts approved
+             */
+            approval_kind?: string | null;
+            /** Approval Model */
+            approval_model?: string | null;
             /** Lock Version */
             lock_version: number;
             /**
@@ -6279,6 +6324,16 @@ export interface components {
              * @description Why the curator's class differs from the computed one
              */
             curator_classification_rationale?: string | null;
+            /**
+             * Approval Kind
+             * @description human when a person approved it, ai when only agent accounts did (scope review_policy ai, #639); null only before approval
+             */
+            approval_kind?: ("human" | "ai") | null;
+            /**
+             * Approval Model
+             * @description The approving agent's model when approval_kind is ai, else null
+             */
+            approval_model?: string | null;
             /** Genetic Score */
             genetic_score?: number | null;
             /** Experimental Score */
@@ -10312,6 +10367,11 @@ export interface components {
              */
             approvals_require_session: boolean;
             /**
+             * Review Policy
+             * @default human
+             */
+            review_policy: string;
+            /**
              * Export Evidence Public
              * @default false
              */
@@ -10950,6 +11010,12 @@ export interface components {
              */
             user_orcid?: string | null;
             /**
+             * User Is Agent
+             * @description An AI agent account (#639)
+             * @default false
+             */
+            user_is_agent: boolean;
+            /**
              * Is Pending
              * @description Whether invitation is pending acceptance
              */
@@ -11372,6 +11438,11 @@ export interface components {
             is_public?: boolean | null;
             /** Approvals Require Session */
             approvals_require_session?: boolean | null;
+            /**
+             * Review Policy
+             * @description Who may approve: human, ai (agent accounts too) or ai_then_human
+             */
+            review_policy?: ("human" | "ai" | "ai_then_human") | null;
             /** Export Evidence Public */
             export_evidence_public?: boolean | null;
             /**
@@ -11442,6 +11513,11 @@ export interface components {
              * @default false
              */
             approvals_require_session: boolean;
+            /**
+             * Review Policy
+             * @default human
+             */
+            review_policy: string;
             /**
              * Export Evidence Public
              * @default false
@@ -11681,6 +11757,12 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+            /**
+             * Is Agent
+             * @description AI agent account (#639): token sign-in only, never an admin
+             * @default false
+             */
+            is_agent: boolean;
             /** Password */
             password: string;
             /** Institution */
@@ -11726,6 +11808,12 @@ export interface components {
              * @default true
              */
             is_active: boolean;
+            /**
+             * Is Agent
+             * @description AI agent account (#639): token sign-in only, never an admin
+             * @default false
+             */
+            is_agent: boolean;
             /** Id */
             id: string;
             /**
@@ -17651,6 +17739,41 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_agent_token_api_v1_users__user_id__tokens_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalAccessTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalAccessTokenCreated"];
                 };
             };
             /** @description Validation Error */

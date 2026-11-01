@@ -42,7 +42,7 @@ def test_every_date_is_utc_with_z(given: str, shown: str) -> None:
 def test_no_assessor_without_a_visible_review() -> None:
     roles = [c.activityType.name for c in curation_contributions("A", T, "B", T, [])]
     assert roles == ["curator", "approver"]
-    with_review = curation_contributions("A", T, "B", T, [], [("R", T)])
+    with_review = curation_contributions("A", T, "B", T, [], [("R", T, False)])
     assert [c.activityType.name for c in with_review] == [
         "curator",
         "assessor",

@@ -149,7 +149,7 @@
     try {
       authStore.clearError()
 
-      await authStore.register(userData)
+      await authStore.register({ ...userData, is_agent: false })
 
       showSuccess('Account created')
       router.push({ name: 'Home' })

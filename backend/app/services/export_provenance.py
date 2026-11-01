@@ -106,17 +106,25 @@ def _when(c: Contribution) -> datetime:
     return c.date if c.date.tzinfo else c.date.replace(tzinfo=UTC)
 
 
+def _person_or_agent(name: str | None, agent: bool) -> Agent:
+    return Agent(name=name, agentType="software" if agent else "person")
+
+
 def curation_contributions(
     curator: str | None,
     created_at: datetime | None,
     approver: str | None,
     approved_at: datetime | None,
     lines: list[EvidenceLine],
-    assessors: list[tuple[str | None, datetime | None]] | None = None,
+    assessors: list[tuple[str | None, datetime | None, bool]] | None = None,
+    approver_is_agent: bool = False,
+    curator_is_agent: bool = False,
 ) -> list[Contribution]:
     """Curator, each software agent that wrote rows, then the approving reviewers as
-    assessors and the approver (persons). An agent never assesses or approves."""
-    out = [contribution("curator", Agent(name=curator, agentType="person"), created_at)]
+    assessors and the approver: persons, or software for agent accounts (#639)."""
+    out = [
+        contribution("curator", _person_or_agent(curator, curator_is_agent), created_at)
+    ]
     software: dict[str, Contribution] = {}
     for line in lines:
         for c in line.contributions:
@@ -129,9 +137,8 @@ def curation_contributions(
     out += software.values()
     if approved_at is None:
         return out
-    for name, at in assessors or []:  # only reviews the caller may see
-        out.append(contribution("assessor", Agent(name=name, agentType="person"), at))
-    out.append(
-        contribution("approver", Agent(name=approver, agentType="person"), approved_at)
-    )
+    for name, at, agent in assessors or []:  # only reviews the caller may see
+        out.append(contribution("assessor", _person_or_agent(name, agent), at))
+    approver_agent = _person_or_agent(approver, approver_is_agent)
+    out.append(contribution("approver", approver_agent, approved_at))
     return out
