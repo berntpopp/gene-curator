@@ -376,6 +376,10 @@ reported_not_scored
 context_notes
 reviewer_flags
 evidence_summary
+clinical_group
+clinical_group.primary
+clinical_group.secondary
+clinical_group.rationale
 diagnostics_notes
 diagnostics_notes.transcript_verified_via
 diagnostics_notes.detectability_note
@@ -451,6 +455,10 @@ reported_not_scored
 context_notes
 reviewer_flags
 evidence_summary
+clinical_group
+clinical_group.primary
+clinical_group.secondary
+clinical_group.rationale
 diagnostics_notes
 diagnostics_notes.transcript_verified_via
 diagnostics_notes.detectability_note

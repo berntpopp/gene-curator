@@ -234,3 +234,39 @@ def test_a_row_without_its_quote_warns_that_it_scores_0() -> None:
     assert "genetic.probands[0].evidence_quote: missing, so this row scores 0" in (
         result.warnings
     )
+
+
+@pytest.mark.parametrize(
+    "name", ["KGDB Mendelian Curation", "KGDB Susceptibility Curation"]
+)
+def test_clinical_group_takes_kgdb_groups_and_is_optional(name: str) -> None:
+    """KGDB clinical group: primary + secondary from KGDB's seven HPO groups, a sourced
+    rationale (<= 400); not required, shown in the Summary tab after the evidence summary."""
+    from app.core.schema_validator import SchemaValidator
+    from app.services.evidence_ids import evidence_errors
+
+    schema = SCHEMAS[name]
+    group = schema["field_definitions"]["clinical_group"]["properties"]
+    keys = ["complement", "cakut", "glomerulopathy", "cyst_cilio", "tubulopathy"]
+    keys += ["nephrolithiasis", "neoplasia"]
+    for field in ("primary", "secondary"):
+        assert [o["value"] for o in group[field]["options"]] == keys
+    assert "clinical_group" not in schema.get("required_fields", [])
+    summary = schema["ui_configuration"]["layout"]["tabs"][0]["sections"]
+    assert [s["name"] for s in summary][:2] == ["Evidence summary", "Clinical group"]
+
+    def errors(value: dict[str, Any]) -> set[str]:
+        result = SchemaValidator().validate_evidence_data(
+            {"clinical_group": value}, schema["field_definitions"], schema
+        )
+        refused = {
+            e.field_path for e in result.errors if "clinical_group" in e.field_path
+        }
+        return refused | {
+            e.path for e in evidence_errors({"clinical_group": value}, schema)
+        }
+
+    ok = {"primary": "cakut", "secondary": ["tubulopathy"], "rationale": "x" * 400}
+    assert errors(ok) == set()
+    assert errors({"primary": "kidney"}) != set()
+    assert errors({**ok, "rationale": "x" * 401}) == {"clinical_group.rationale"}

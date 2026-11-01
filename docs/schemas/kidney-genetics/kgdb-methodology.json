@@ -1444,6 +1444,88 @@
           "label": "Evidence summary",
           "max_length": 2000
         },
+        "clinical_group": {
+          "type": "object",
+          "label": "Clinical group (KGDB)",
+          "properties": {
+            "primary": {
+              "type": "select",
+              "label": "Primary clinical group",
+              "options": [
+                {
+                  "value": "complement",
+                  "label": "Complement"
+                },
+                {
+                  "value": "cakut",
+                  "label": "CAKUT"
+                },
+                {
+                  "value": "glomerulopathy",
+                  "label": "Glomerulopathy"
+                },
+                {
+                  "value": "cyst_cilio",
+                  "label": "Cystic/Ciliopathy"
+                },
+                {
+                  "value": "tubulopathy",
+                  "label": "Tubulopathy"
+                },
+                {
+                  "value": "nephrolithiasis",
+                  "label": "Nephrolithiasis"
+                },
+                {
+                  "value": "neoplasia",
+                  "label": "Neoplasia"
+                }
+              ],
+              "llm_share": true
+            },
+            "secondary": {
+              "type": "multiselect",
+              "label": "Secondary clinical groups",
+              "options": [
+                {
+                  "value": "complement",
+                  "label": "Complement"
+                },
+                {
+                  "value": "cakut",
+                  "label": "CAKUT"
+                },
+                {
+                  "value": "glomerulopathy",
+                  "label": "Glomerulopathy"
+                },
+                {
+                  "value": "cyst_cilio",
+                  "label": "Cystic/Ciliopathy"
+                },
+                {
+                  "value": "tubulopathy",
+                  "label": "Tubulopathy"
+                },
+                {
+                  "value": "nephrolithiasis",
+                  "label": "Nephrolithiasis"
+                },
+                {
+                  "value": "neoplasia",
+                  "label": "Neoplasia"
+                }
+              ],
+              "llm_share": true
+            },
+            "rationale": {
+              "type": "textarea",
+              "label": "Why this group",
+              "max_length": 400,
+              "help_text": "Kidney phenotype of THIS entity that places it in the group; sourced, one or two sentences"
+            }
+          }
+        },
         "diagnostics_notes": {
           "type": "object",
           "label": "Diagnostics notes (KGDB: verified_via, detectability_note)",
@@ -1812,6 +1894,14 @@
                   "name": "Evidence summary",
                   "fields": [
                     "evidence_summary"
+                  ]
+                },
+                {
+                  "name": "Clinical group",
+                  "fields": [
+                    "clinical_group.primary",
+                    "clinical_group.secondary",
+                    "clinical_group.rationale"
                   ]
                 },
                 {
@@ -3484,6 +3574,88 @@
           "label": "Evidence summary",
           "max_length": 2000
         },
+        "clinical_group": {
+          "type": "object",
+          "label": "Clinical group (KGDB)",
+          "properties": {
+            "primary": {
+              "type": "select",
+              "label": "Primary clinical group",
+              "options": [
+                {
+                  "value": "complement",
+                  "label": "Complement"
+                },
+                {
+                  "value": "cakut",
+                  "label": "CAKUT"
+                },
+                {
+                  "value": "glomerulopathy",
+                  "label": "Glomerulopathy"
+                },
+                {
+                  "value": "cyst_cilio",
+                  "label": "Cystic/Ciliopathy"
+                },
+                {
+                  "value": "tubulopathy",
+                  "label": "Tubulopathy"
+                },
+                {
+                  "value": "nephrolithiasis",
+                  "label": "Nephrolithiasis"
+                },
+                {
+                  "value": "neoplasia",
+                  "label": "Neoplasia"
+                }
+              ],
+              "llm_share": true
+            },
+            "secondary": {
+              "type": "multiselect",
+              "label": "Secondary clinical groups",
+              "options": [
+                {
+                  "value": "complement",
+                  "label": "Complement"
+                },
+                {
+                  "value": "cakut",
+                  "label": "CAKUT"
+                },
+                {
+                  "value": "glomerulopathy",
+                  "label": "Glomerulopathy"
+                },
+                {
+                  "value": "cyst_cilio",
+                  "label": "Cystic/Ciliopathy"
+                },
+                {
+                  "value": "tubulopathy",
+                  "label": "Tubulopathy"
+                },
+                {
+                  "value": "nephrolithiasis",
+                  "label": "Nephrolithiasis"
+                },
+                {
+                  "value": "neoplasia",
+                  "label": "Neoplasia"
+                }
+              ],
+              "llm_share": true
+            },
+            "rationale": {
+              "type": "textarea",
+              "label": "Why this group",
+              "max_length": 400,
+              "help_text": "Kidney phenotype of THIS entity that places it in the group; sourced, one or two sentences"
+            }
+          }
+        },
         "diagnostics_notes": {
           "type": "object",
           "label": "Diagnostics notes (KGDB: verified_via, detectability_note)",
@@ -3852,6 +4024,14 @@
                   "name": "Evidence summary",
                   "fields": [
                     "evidence_summary"
+                  ]
+                },
+                {
+                  "name": "Clinical group",
+                  "fields": [
+                    "clinical_group.primary",
+                    "clinical_group.secondary",
+                    "clinical_group.rationale"
                   ]
                 },
                 {
