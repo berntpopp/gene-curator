@@ -64,6 +64,13 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.14.0
+
+Run `make db-migrate` (093, 094) before restarting the backend. Every scope keeps
+`review_policy = human` and every approved curation is exported as `approval_kind: "human"`;
+agent accounts and AI review are opt-in per scope (see *Running an AI pipeline*). Details:
+[docs/releases/v0.14.0.md](docs/releases/v0.14.0.md).
+
 ### Upgrading to v0.13.0
 
 Run `make db-migrate` (078–082, 084–086, 088, 089, 091; 083, 087 and 090 are unused) before
