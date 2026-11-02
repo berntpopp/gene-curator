@@ -270,3 +270,25 @@ def test_clinical_group_takes_kgdb_groups_and_is_optional(name: str) -> None:
     assert errors(ok) == set()
     assert errors({"primary": "kidney"}) != set()
     assert errors({**ok, "rationale": "x" * 401}) == {"clinical_group.rationale"}
+
+
+def test_every_scored_curation_table_has_an_evidence_quote() -> None:
+    """KGDB rule: every scored row carries a verbatim quote, so every table with a
+    points column has evidence_quote (the susceptibility functional table lacked it)."""
+
+    def tables(fields: dict[str, Any], prefix: str = "") -> list[tuple[str, Any]]:
+        out = []
+        for key, cfg in fields.items():
+            if "columns" in cfg:
+                out.append((prefix + key, cfg["columns"]))
+            out += tables(cfg.get("properties", {}), f"{prefix}{key}.")
+        return out
+
+    missing = [
+        f"{name}: {path}"
+        for name, s in SCHEMAS.items()
+        if s["schema_type"] == "curation"
+        for path, columns in tables(s["field_definitions"])
+        if "points" in columns and "evidence_quote" not in columns
+    ]
+    assert missing == []
