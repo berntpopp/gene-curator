@@ -439,6 +439,7 @@ experimental.functional
 experimental.functional[].assay
 experimental.functional[].finding
 experimental.functional[].pmid
+experimental.functional[].evidence_quote
 experimental.functional[].points
 experimental.functional[].sources
 experimental.functional[].direction

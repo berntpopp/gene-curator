@@ -127,6 +127,7 @@ body:
         - v0.14.0 (AI curation pipeline: agent accounts and review policy)
         - v0.14.1 (Dev dependency security patch)
         - v0.14.2 (KGDB clinical group field)
+        - v0.14.3 (KGDB susceptibility functional quote)
         - Future (Post v1.0)
         - Not sure
 

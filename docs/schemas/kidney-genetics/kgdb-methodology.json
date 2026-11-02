@@ -3423,6 +3423,12 @@
                   "required": true,
                   "validation": "pmid_format"
                 },
+                "evidence_quote": {
+                  "type": "textarea",
+                  "label": "Evidence quote (<= 40 words, verbatim)",
+                  "help_text": "Copied from the source that supports the row",
+                  "llm_share": true
+                },
                 "points": {
                   "type": "number",
                   "label": "Points",
