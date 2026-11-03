@@ -368,8 +368,9 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 # +#533, #560 fields; W9: create_curation takes the curator's call; W11: #105 adopt tool,
 # #593 agent block; KGDB 2026-10-31: update_curation takes the ClinGen reference;
 # fastmcp 4: every tool carries a title (+1.3 kB); #639: the three approval tools take
-# the agent block and say which review_policy lets an agent approve (+1.3 kB)
-SURFACE_BUDGET = {"curator": (48, 45_600), "admin": (48, 45_600)}
+# the agent block and say which review_policy lets an agent approve (+1.3 kB);
+# #651: list_precurations and list_curations filter by gene_symbol and hgnc_id
+SURFACE_BUDGET = {"curator": (48, 45_800), "admin": (48, 45_800)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)

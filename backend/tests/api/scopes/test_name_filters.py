@@ -5,7 +5,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.models import CurationNew, Scope, UserNew
-from tests.api.scopes.factories import auth_headers, make_curation, make_gene
+from tests.api.scopes.factories import (
+    auth_headers,
+    make_curation,
+    make_gene,
+    make_precuration,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -91,3 +96,32 @@ def test_list_curations_filters_by_gene_symbol_and_scope_name(
     assert [c["id"] for c in by_gene.json()["curations"]] == [str(two_in_review[1].id)]
     assert by_scope.json()["total"] == 2
     assert unknown.json() == {"curations": [], "total": 0, "skip": 0, "limit": 50}
+
+
+@pytest.mark.parametrize("kind", ["curations", "precurations"])
+def test_both_lists_filter_by_gene_symbol_and_hgnc_id(
+    client: TestClient, db_session: Session, curator: UserNew, scope_with_admin: Scope,
+    kind: str,
+) -> None:  # fmt: skip
+    """#651: agents found a gene's precurations only by paging the whole scope."""
+    genes = [make_gene(db_session) for _ in range(2)]
+    make = make_precuration if kind == "precurations" else make_curation
+    items = [
+        make(db_session, scope=scope_with_admin, gene=g, creator=curator) for g in genes
+    ]
+    url, h = f"/api/v1/{kind}/", auth_headers(curator)
+    gene = genes[1]
+
+    def ids(**params: str) -> list[str]:
+        r = client.get(
+            url, params={"scope_name": scope_with_admin.name, **params}, headers=h
+        )
+        assert r.status_code == 200, r.text
+        return [i["id"] for i in r.json()[kind]]
+
+    want = [str(items[1].id)]
+    assert ids(gene_symbol=gene.approved_symbol.lower()) == want
+    assert ids(hgnc_id=gene.hgnc_id.lower()) == want
+    assert ids(gene_symbol=gene.approved_symbol, hgnc_id=genes[0].hgnc_id) == []
+    assert ids(gene_symbol="NOPE1") == []
+    assert len(ids()) == 2

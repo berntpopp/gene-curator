@@ -5938,6 +5938,13 @@ export interface components {
             /** Verdict */
             verdict: string | null;
             /**
+             * Section Totals
+             * @description Points per section, e.g. genetic_total or genetic_evidence_total
+             */
+            section_totals?: {
+                [key: string]: number;
+            };
+            /**
              * Warnings
              * @description Scoring warnings, then bad or unknown ID warnings as 'path: message'
              */
@@ -6069,6 +6076,13 @@ export interface components {
             total_score: number | null;
             /** Verdict */
             verdict: string | null;
+            /**
+             * Section Totals
+             * @description Points per section, e.g. genetic_total or genetic_evidence_total
+             */
+            section_totals?: {
+                [key: string]: number;
+            };
             /**
              * Warnings
              * @description Scoring warnings, then bad or unknown ID warnings as 'path: message'
@@ -15863,6 +15877,8 @@ export interface operations {
                 curator_id?: string | null;
                 /** @description Filter by gene symbol */
                 gene_symbol?: string | null;
+                /** @description Filter by HGNC id */
+                hgnc_id?: string | null;
                 /** @description Scope name or display name, instead of scope_id */
                 scope_name?: string | null;
                 /** @description Only scopes where the caller can review, excluding their own */
@@ -16413,6 +16429,10 @@ export interface operations {
                 scope_name?: string | null;
                 /** @description Filter by gene */
                 gene_id?: string | null;
+                /** @description Filter by gene symbol */
+                gene_symbol?: string | null;
+                /** @description Filter by HGNC id */
+                hgnc_id?: string | null;
                 /** @description Filter by status */
                 precuration_status?: components["schemas"]["CurationStatus"] | null;
                 /** @description Only scopes where the caller can review, excluding their own */
@@ -17918,7 +17938,7 @@ export interface operations {
                 updated_since?: string | null;
                 /** @description next_cursor of the previous page */
                 cursor?: string | null;
-                /** @description Page size */
+                /** @description Page size; above 100 is served as 100 */
                 limit?: number;
             };
             header?: never;

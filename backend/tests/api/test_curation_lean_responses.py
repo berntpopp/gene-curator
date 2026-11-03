@@ -64,7 +64,14 @@ def test_draft_save_is_concise_and_get_is_lean_by_default(
         "lock_version",
         "total_score",
         "verdict",
+        "section_totals",
         "warnings",
+    }
+    # #652: section points come back, so agents need no get_curation after a save
+    db_session.refresh(test_curation)
+    assert saved.json()["section_totals"]
+    assert saved.json()["section_totals"] == {
+        k: v for k, v in test_curation.computed_scores.items() if k.endswith("_total")
     }
 
     test_curation.computed_scores = _TRACE

@@ -17,7 +17,8 @@ from app.schemas.curation_export import CurationExportPage
 # Public, but a signed-in caller's RLS context adds the private scopes they belong to.
 router = APIRouter(dependencies=[Depends(get_current_user_optional)])
 
-MAX_PAGE = 500
+# 250 x ~63 KB items was a proxy 502 (#650); larger requests are served at this size
+MAX_PAGE = 100
 
 
 def _cursor(cursor: str | None) -> tuple[datetime, UUID] | None:
@@ -44,7 +45,9 @@ def export_reviewed_curations(
     cursor: str | None = Query(
         None, max_length=200, description="next_cursor of the previous page"
     ),
-    limit: int = Query(100, ge=1, le=MAX_PAGE, description="Page size"),
+    limit: int = Query(
+        100, ge=1, description=f"Page size; above {MAX_PAGE} is served as {MAX_PAGE}"
+    ),
     current_user: UserNew | None = Depends(get_current_user_optional),
 ) -> CurationExportPage:
     """Active and archived curations of the scopes the caller may see, oldest change first.
@@ -58,5 +61,5 @@ def export_reviewed_curations(
         scope_id_for(db, user_id, scope_id, scope_name),
         updated_since,
         _cursor(cursor),
-        limit,
+        min(limit, MAX_PAGE),
     )

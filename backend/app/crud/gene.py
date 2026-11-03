@@ -524,3 +524,17 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
 
 # Create instance
 gene_crud = CRUDGene(Gene)
+
+
+def named_gene_id(
+    db: Session, gene_id: UUID | None, symbol: str | None, hgnc_id: str | None
+) -> UUID | None:
+    """The gene a symbol and/or HGNC id names, case-insensitively (052's upper()
+    indexes); None if unknown, or not gene_id when that is given too."""
+    query = select(Gene.id)
+    if symbol:
+        query = query.where(func.upper(Gene.approved_symbol) == symbol.upper())
+    if hgnc_id:
+        query = query.where(func.upper(Gene.hgnc_id) == hgnc_id.upper())
+    found = db.scalar(query)
+    return found if gene_id in (None, found) else None

@@ -323,5 +323,24 @@ def test_bad_cursor_is_refused(client: TestClient, cursor: str) -> None:
     assert client.get(URL, params={"cursor": cursor}).status_code == 422
 
 
-def test_page_size_is_capped(client: TestClient) -> None:
-    assert client.get(URL, params={"limit": 501}).status_code == 422
+def test_a_page_above_the_cap_is_served_at_the_cap(
+    client: TestClient,
+    db_session: Session,
+    pair: WorkflowPair,
+    test_gene: Gene,
+    test_public_scope: Scope,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#650: limit=250 was a proxy 502; now it is served capped, with next_cursor."""
+    from app.api.v1.endpoints import curation_export
+
+    monkeypatch.setattr(curation_export, "MAX_PAGE", 1)
+    for h in (0, 1):
+        _point(
+            db_session, pair, test_gene, test_public_scope, T0 + timedelta(hours=h),
+            entity_key=f"MONDO:000000{h}|AD",
+        )  # fmt: skip
+    r = client.get(URL, params={"limit": 500})
+    assert r.status_code == 200, r.text
+    assert len(_ids(r)) == 1 and r.json()["next_cursor"]
+    assert client.get(URL, params={"limit": 0}).status_code == 422

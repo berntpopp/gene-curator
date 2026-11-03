@@ -33,6 +33,7 @@ from app.core.deps import (
 )
 from app.core.logging import api_endpoint, get_logger
 from app.core.workflow_errors import http_error
+from app.crud.gene import named_gene_id
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_entity import entity_key_of
 from app.crud.precuration_required import MissingRequiredFieldsError
@@ -106,6 +107,8 @@ def list_precurations(
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     scope_name: str | None = Query(None, description=SCOPE_NAME),
     gene_id: UUID | None = Query(None, description="Filter by gene"),
+    gene_symbol: str | None = Query(None, description="Filter by gene symbol"),
+    hgnc_id: str | None = Query(None, description="Filter by HGNC id"),
     precuration_status: CurationStatus | None = Query(
         None, description="Filter by status"
     ),
@@ -121,6 +124,10 @@ def list_precurations(
     """
     # CRITICAL: Set RLS context for current user
     set_rls_context(db, current_user)
+    if (gene_symbol or hgnc_id) and not (
+        gene_id := named_gene_id(db, gene_id, gene_symbol, hgnc_id)
+    ):
+        return PrecurationListResponse(precurations=[], total=0, skip=skip, limit=limit)
     scope_id = scope_id_for(db, current_user.id, scope_id, scope_name)
 
     # Determine scope filtering

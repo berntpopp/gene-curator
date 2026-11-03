@@ -495,6 +495,10 @@ class CurationWriteResult(BaseModel):
     lock_version: int
     total_score: float | None
     verdict: str | None
+    section_totals: dict[str, float] = Field(
+        default_factory=dict,
+        description="Points per section, e.g. genetic_total or genetic_evidence_total",
+    )
     warnings: list[str] = Field(
         default_factory=list,
         description="Scoring warnings, then bad or unknown ID warnings as 'path: message'",
@@ -512,6 +516,11 @@ class CurationWriteResult(BaseModel):
             lock_version=curation.lock_version,
             total_score=scores.get("total_score"),
             verdict=curation.computed_verdict,
+            section_totals={
+                k: v
+                for k, v in scores.items()
+                if k.endswith("_total") and isinstance(v, int | float)
+            },
             warnings=collapse(scores.get("warnings") or []),
         )
 
