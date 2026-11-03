@@ -102,14 +102,15 @@ def submit_reviewer(
     *,
     item_id: UUID | None = None,
     submitter: UUID | None = None,
+    needed: bool = True,
 ) -> UUID | None:
-    """The reviewer a submit names: reviewer_id, or reviewer_email matched only against the
+    """The reviewer a submit names (none when not needed: approve_on_submit): reviewer_id, or reviewer_email matched only against the
     scope's accepted reviewers and admins (so it never reveals other accounts). Over MCP,
     naming none picks the only eligible reviewer besides the author and refuses when there
     are several (KGDB QA: nothing reaches review unassigned); the web UI submits first
     and routes after."""
-    if data.reviewer_id:
-        return data.reviewer_id
+    if not needed or data.reviewer_id:
+        return data.reviewer_id if needed else None
     if not data.reviewer_email and _over_mcp():
         # D1: never the author, the submitter or who corrected the item
         others = db.execute(

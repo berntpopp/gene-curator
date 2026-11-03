@@ -26,7 +26,7 @@ from app.models import (
 )
 from app.models.curation import _MOI_SYNONYMS
 from app.models.methodology import MethodologyVersion
-from app.schemas.curation import entity_allele, relationship_of_key
+from app.schemas.curation import entity_allele, relationship_of_key, relationship_type
 from app.schemas.curation_export import (
     CurationExportPage,
     ExportCuration,
@@ -217,7 +217,9 @@ def _item(
         **disease | {"mode_of_inheritance": hpo or entered},  # one form (KGDB e2e)
         mode_of_inheritance_entered=entered,
         moi_hpo_id=hpo,
-        relationship_type=relationship_of_key(ac.entity_key),
+        relationship_type=relationship_of_key(ac.entity_key)
+        if ac.entity_key
+        else relationship_type(c.evidence_data, pre),
         risk_allele=entity_allele(ac.entity_key, c.evidence_data, pre),
         computed_verdict=None if c.clingen_adoption else c.computed_verdict,
         final_classification=c.final_classification,

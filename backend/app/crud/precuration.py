@@ -646,6 +646,14 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             )
         return pairs[0] if pairs else None
 
+    def open_curation(
+        self, db: Session, precuration: PrecurationNew, user_id: UUID
+    ) -> UUID | None:
+        """Approve a just-submitted approve_on_submit precuration: its draft curation."""
+        return self.approve_and_create_curation(
+            db, db_obj=precuration, approver_id=user_id
+        ).curation_id
+
     def _prefill_curation_data(
         self,
         precuration_data: dict[str, Any],
@@ -671,3 +679,10 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
 
 # Singleton instance
 precuration_crud = CRUDPrecuration(PrecurationNew)
+
+
+def approves_on_submit(db: Session, precuration: PrecurationNew) -> bool:
+    """`workflow_states.precuration.approve_on_submit` of the pinned version: no entity
+    to review (KGDB #535 no_association), so submit approves and opens the curation."""
+    stage = workflow_engine.workflow_states(db, precuration).get("precuration")
+    return isinstance(stage, dict) and stage.get("approve_on_submit") is True

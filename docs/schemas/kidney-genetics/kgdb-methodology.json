@@ -4758,6 +4758,350 @@
           }
         ]
       }
+    },
+    {
+      "name": "KGDB No Kidney Association Precuration",
+      "version": "alpha",
+      "schema_type": "precuration",
+      "institution": "Kidney Genetics",
+      "description": "KGDB no primary kidney association (kidney-genetics-db#535): the gene only, no disease entity; submit approves it and opens the curation, which the judge reviews",
+      "field_definitions": {
+        "sections": [
+          {
+            "id": "assessment",
+            "label": "Assessment",
+            "description": "No primary kidney gene-disease association: there is no entity to review, so submit opens the curation at once",
+            "fields": [
+              {
+                "id": "relationship_type",
+                "type": "select",
+                "label": "Relationship type",
+                "options": [
+                  {
+                    "value": "no_association",
+                    "label": "No primary kidney association"
+                  }
+                ],
+                "required": true,
+                "default": "no_association"
+              }
+            ]
+          }
+        ]
+      },
+      "validation_rules": {
+        "required_fields": [
+          "relationship_type"
+        ]
+      },
+      "workflow_states": {
+        "entry": {
+          "label": "Entry"
+        },
+        "precuration": {
+          "label": "Precuration",
+          "approve_on_submit": true
+        },
+        "curation": {
+          "label": "Curation"
+        },
+        "review": {
+          "label": "Review",
+          "reviewers_required": 1
+        },
+        "active": {
+          "label": "Active"
+        }
+      },
+      "ui_configuration": {
+        "form_layout": "wizard",
+        "show_progress_bar": true,
+        "sections": []
+      },
+      "scoring_configuration": null
+    },
+    {
+      "name": "KGDB No Kidney Association Curation",
+      "version": "alpha",
+      "schema_type": "curation",
+      "institution": "Kidney Genetics",
+      "description": "KGDB no primary kidney association (kidney-genetics-db#535): why the gene has no primary kidney gene-disease association, the sources checked and the non-kidney entities seen; reviewed 4-eyes, exported as relationship_type no_association",
+      "field_definitions": {
+        "rationale": {
+          "type": "textarea",
+          "label": "Rationale",
+          "required": true,
+          "max_length": 2000,
+          "help_text": "Why there is no primary kidney association, e.g. kidney HPO terms that come from a group record or a neighbouring gene"
+        },
+        "sources_checked": {
+          "type": "evidence_table",
+          "label": "Sources checked",
+          "required": true,
+          "min_items": 1,
+          "help_text": "One row per source consulted, with what it showed",
+          "columns": {
+            "source": {
+              "type": "select",
+              "label": "Source",
+              "required": true,
+              "options": [
+                {
+                  "value": "clingen",
+                  "label": "ClinGen"
+                },
+                {
+                  "value": "gencc",
+                  "label": "GenCC"
+                },
+                {
+                  "value": "omim",
+                  "label": "OMIM"
+                },
+                {
+                  "value": "hpo",
+                  "label": "HPO"
+                },
+                {
+                  "value": "genereviews",
+                  "label": "GeneReviews"
+                },
+                {
+                  "value": "literature",
+                  "label": "Literature"
+                },
+                {
+                  "value": "other",
+                  "label": "Other"
+                }
+              ],
+              "llm_share": true
+            },
+            "finding": {
+              "type": "textarea",
+              "label": "What it showed",
+              "required": true,
+              "llm_share": true
+            },
+            "record_ids": {
+              "type": "text",
+              "label": "Record ids",
+              "help_text": "e.g. CGGV, GENCC, OMIM, ORPHA or HPO ids",
+              "llm_share": true
+            },
+            "pmid": {
+              "type": "text",
+              "label": "PMID",
+              "validation": "pmid_format"
+            },
+            "evidence_quote": {
+              "type": "textarea",
+              "label": "Evidence quote (<= 40 words, verbatim)",
+              "help_text": "Copied from the source",
+              "llm_share": true
+            },
+            "sources": {
+              "type": "source",
+              "label": "Sources",
+              "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+              "llm_share": true
+            },
+            "direction": {
+              "type": "select",
+              "label": "Direction",
+              "options": [
+                {
+                  "value": "supports",
+                  "label": "Supports"
+                },
+                {
+                  "value": "disputes",
+                  "label": "Disputes"
+                },
+                {
+                  "value": "neutral",
+                  "label": "Neutral"
+                }
+              ],
+              "help_text": "VA-Spec directionOfEvidenceProvided"
+            }
+          }
+        },
+        "non_kidney_entities": {
+          "type": "evidence_table",
+          "label": "Non-kidney entities",
+          "help_text": "Diseases of this gene seen in the sources that are not primary kidney diseases",
+          "columns": {
+            "disease_name": {
+              "type": "text",
+              "label": "Disease",
+              "required": true,
+              "llm_share": true
+            },
+            "mondo_id": {
+              "type": "text",
+              "label": "MONDO ID",
+              "placeholder": "MONDO:0000001",
+              "llm_share": true
+            },
+            "mode_of_inheritance": {
+              "type": "text",
+              "label": "Mode of inheritance",
+              "llm_share": true
+            },
+            "kidney_phenotype_via": {
+              "type": "text",
+              "label": "Kidney phenotype only via",
+              "help_text": "e.g. contiguous deletion with COL4A5, or a group record",
+              "llm_share": true
+            },
+            "note": {
+              "type": "textarea",
+              "label": "Note",
+              "llm_share": true
+            },
+            "sources": {
+              "type": "source",
+              "label": "Sources",
+              "help_text": "Where the row comes from: PMID, DOI, ClinVar (VCV/RCV/SCV), ClinGen allele (CA) or validity (CGGV), URL or database record, with the tool and retrieval date (VA-Spec reportedIn)",
+              "llm_share": true
+            },
+            "direction": {
+              "type": "select",
+              "label": "Direction",
+              "options": [
+                {
+                  "value": "supports",
+                  "label": "Supports"
+                },
+                {
+                  "value": "disputes",
+                  "label": "Disputes"
+                },
+                {
+                  "value": "neutral",
+                  "label": "Neutral"
+                }
+              ],
+              "help_text": "VA-Spec directionOfEvidenceProvided"
+            }
+          }
+        },
+        "evidence_summary": {
+          "type": "textarea",
+          "label": "Evidence summary",
+          "max_length": 2000
+        }
+      },
+      "validation_rules": {
+        "pmid_format": {
+          "type": "regex",
+          "pattern": "^(PMID:?\\s*)?\\d{1,9}$",
+          "message": "PMID: 1-9 digits, e.g. 31558469"
+        },
+        "refseq_format": {
+          "type": "regex",
+          "pattern": "^NM_\\d+\\.\\d+$",
+          "message": "RefSeq: NM_ with version, e.g. NM_006580.4"
+        },
+        "ensembl_format": {
+          "type": "regex",
+          "pattern": "^ENST\\d{11}\\.\\d+$",
+          "message": "Ensembl: ENST with version, e.g. ENST00000264734.3"
+        }
+      },
+      "workflow_states": {
+        "entry": {
+          "label": "Entry"
+        },
+        "precuration": {
+          "label": "Precuration"
+        },
+        "curation": {
+          "label": "Curation"
+        },
+        "review": {
+          "label": "Review",
+          "reviewers_required": 1
+        },
+        "active": {
+          "label": "Active"
+        }
+      },
+      "ui_configuration": {
+        "layout": {
+          "type": "tabs",
+          "tabs": [
+            {
+              "id": "summary",
+              "name": "Assessment",
+              "icon": "mdi-file-document-outline",
+              "sections": [
+                {
+                  "name": "Rationale",
+                  "fields": [
+                    "rationale",
+                    "evidence_summary"
+                  ]
+                },
+                {
+                  "name": "Sources checked",
+                  "fields": [
+                    "sources_checked"
+                  ]
+                },
+                {
+                  "name": "Non-kidney entities",
+                  "fields": [
+                    "non_kidney_entities"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "synopsis_field": "evidence_summary"
+      },
+      "scoring_configuration": {
+        "engine": "point_model",
+        "point_model": {
+          "name": "KGDB no kidney association (alpha)",
+          "sections": [],
+          "bands": [
+            {
+              "class": "no_primary_kidney_association",
+              "min": 0,
+              "description": "No primary kidney gene-disease association: the sources checked show none."
+            }
+          ]
+        },
+        "classifications": [
+          {
+            "key": "no_primary_kidney_association",
+            "label": "No primary kidney association",
+            "order": 1,
+            "tone": "no_known"
+          }
+        ],
+        "tests": [
+          {
+            "name": "INS: diabetes only, kidney HPO terms from the MODY group record",
+            "evidence_data": {
+              "rationale": "Kidney HPO terms come from the MODY group record",
+              "sources_checked": [
+                {
+                  "source": "hpo",
+                  "finding": "Kidney terms via the group record only"
+                }
+              ]
+            },
+            "expect": {
+              "total": 0,
+              "class": "no_primary_kidney_association"
+            }
+          }
+        ]
+      }
     }
   ],
   "workflow_pairs": [
@@ -4774,6 +5118,13 @@
       "description": "Susceptibility (risk allele) precuration -> susceptibility curation",
       "precuration_schema": "KGDB Susceptibility Precuration",
       "curation_schema": "KGDB Susceptibility Curation"
+    },
+    {
+      "name": "KGDB No Kidney Association",
+      "version": "alpha",
+      "description": "KGDB no primary kidney association: gene-only precuration (approved on submit) -> reviewed assessment curation",
+      "precuration_schema": "KGDB No Kidney Association Precuration",
+      "curation_schema": "KGDB No Kidney Association Curation"
     }
   ],
   "scope_default": {

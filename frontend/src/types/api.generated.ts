@@ -2212,7 +2212,8 @@ export interface paths {
         /**
          * Submit Precuration
          * @description Submit for peer review. 422 names each field path that fails the schema or holds a
-         *     malformed PMID, MONDO, OMIM or HPO ID.
+         *     malformed PMID, MONDO, OMIM or HPO ID. A methodology with no entity to review approves
+         *     it at once and opens the draft curation (curation_id), still reviewed 4-eyes.
          */
         post: operations["submit_precuration_api_v1_precurations__precuration_id__submit_post"];
         delete?: never;
@@ -5248,7 +5249,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Can Edit
              * @default false
@@ -6006,7 +6007,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /** Is Draft */
             is_draft: boolean;
             /**
@@ -6223,7 +6224,7 @@ export interface components {
             /** Mode Of Inheritance */
             mode_of_inheritance: string;
             /** Relationship Type */
-            relationship_type?: ("mendelian" | "susceptibility") | null;
+            relationship_type?: ("mendelian" | "susceptibility" | "no_association") | null;
             /** Reason */
             reason: string;
             /** Lock Version */
@@ -6320,7 +6321,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Risk Allele
              * @description Susceptibility: the risk allele as the curator named it (e.g. 'rs4664308 A'); null for Mendelian entities (#614)
@@ -8370,7 +8371,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Curation Id
              * Format: uuid
@@ -9457,7 +9458,7 @@ export interface components {
              * @description mendelian or susceptibility, from evidence_data (#539).
              * @enum {string}
              */
-            readonly relationship_type: "mendelian" | "susceptibility";
+            readonly relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Risk Allele
              * @description The susceptibility entity's risk allele (#614), else null.
@@ -9633,7 +9634,7 @@ export interface components {
              * @description mendelian or susceptibility, from evidence_data (#539).
              * @enum {string}
              */
-            readonly relationship_type: "mendelian" | "susceptibility";
+            readonly relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Risk Allele
              * @description The susceptibility entity's risk allele (#614), else null.
@@ -9730,7 +9731,7 @@ export interface components {
              * @description mendelian or susceptibility, from evidence_data (#539).
              * @enum {string}
              */
-            readonly relationship_type: "mendelian" | "susceptibility";
+            readonly relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Risk Allele
              * @description The susceptibility entity's risk allele (#614), else null.
@@ -9895,11 +9896,16 @@ export interface components {
             /** @description Submit with a reviewer: who it was routed to */
             assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
             /**
+             * Curation Id
+             * @description Approved on submit (no entity to review): the draft curation
+             */
+            curation_id?: string | null;
+            /**
              * Relationship Type
              * @description mendelian or susceptibility, from evidence_data (#539).
              * @enum {string}
              */
-            readonly relationship_type: "mendelian" | "susceptibility";
+            readonly relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Risk Allele
              * @description The susceptibility entity's risk allele (#614), else null.
@@ -9943,7 +9949,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /** Is Draft */
             is_draft: boolean;
             /**
@@ -10573,7 +10579,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Classification
              * @description Final classification (curator's if set, else computed): a key of the schema's classes (ClinGen: definitive, strong, moderate, limited, no_known, disputed, refuted)
@@ -11381,7 +11387,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Stage
              * @description Workflow stage of the curation
@@ -12165,7 +12171,7 @@ export interface components {
              * @default mendelian
              * @enum {string}
              */
-            relationship_type: "mendelian" | "susceptibility";
+            relationship_type: "mendelian" | "susceptibility" | "no_association";
             /**
              * Stage
              * @description Workflow stage; null for assignments

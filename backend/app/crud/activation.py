@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import or_, true
+from sqlalchemy import or_, select, true
 from sqlalchemy.orm import Session
 
-from app.core.workflow_errors import ReviewForbiddenError
+from app.core.workflow_errors import ReviewForbiddenError, WorkflowConflictError
 from app.models import (
     ActiveCuration,
     CurationNew,
@@ -15,6 +15,7 @@ from app.models import (
     UserNew,
     WorkflowStage,
 )
+from app.schemas.curation import relationship_type
 from app.services.review_policy import (
     NEEDS_PERSON,
     approval_stamp,
@@ -26,6 +27,27 @@ from app.services.review_policy import (
 def same_entity(column: Any, key: str) -> Any:
     """The entity's own rows; '' (lumped or legacy) covers the whole gene, either way."""
     return or_(column == key, column == "") if key else true()
+
+
+def _refuse_hiding_an_entity(db: Session, item: CurationNew, key: str) -> None:
+    """A no_association assessment covers the whole gene: it may not archive an active
+    disease entity of the gene (KGDB #535); an approved entity archives it instead."""
+    pre = item.precuration.evidence_data if item.precuration else None
+    if key or relationship_type(item.evidence_data, pre) != "no_association":
+        return
+    active = db.scalar(
+        select(CurationNew.id).where(
+            CurationNew.gene_id == item.gene_id,
+            CurationNew.scope_id == item.scope_id,
+            CurationNew.entity_key != "",
+            CurationNew.status == CurationStatus.ACTIVE,
+        )
+    )
+    if active:
+        raise WorkflowConflictError(
+            f"The gene has an active disease entity curation ({active}) in this scope; "
+            "retract or re-curate it before recording no association"
+        )
 
 
 def activate_item(db: Session, item: Any, user_id: UUID) -> None:
@@ -42,6 +64,7 @@ def activate_item(db: Session, item: Any, user_id: UUID) -> None:
                 raise ReviewForbiddenError(NEEDS_PERSON)
             for field, value in approval_stamp(db, item, approver).items():
                 setattr(item, field, value)
+        _refuse_hiding_an_entity(db, item, key)
         item.approved_at = datetime.now(UTC)
         item.approved_by = user_id
         # One active curation per entity: supersede any other (same transaction)

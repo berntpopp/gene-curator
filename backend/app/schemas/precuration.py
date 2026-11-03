@@ -191,6 +191,9 @@ class PrecurationSubmitted(Precuration):
     assigned_reviewer: AssignedReviewer | None = Field(
         None, description="Submit with a reviewer: who it was routed to"
     )
+    curation_id: UUID | None = Field(
+        None, description="Approved on submit (no entity to review): the draft curation"
+    )
 
 
 class PrecurationSummary(BaseModel):
