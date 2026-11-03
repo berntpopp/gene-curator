@@ -267,7 +267,8 @@ def disease_fields(
     return {k: _pick(evidence, k) or _pick(precuration, k) for k in _DISEASE_KEYS}
 
 
-RelationshipType = Literal["mendelian", "susceptibility"]
+# no_association (KGDB #535): a reviewed "no primary association in this scope", unkeyed
+RelationshipType = Literal["mendelian", "susceptibility", "no_association"]
 
 
 def relationship_of_key(entity_key: str | None) -> RelationshipType:
@@ -285,8 +286,10 @@ def relationship_type(
     raw = _pick(evidence, "relationship_type") or _pick(
         precuration, "relationship_type"
     )
-    susceptibility = str(raw or "").strip().lower() == "susceptibility"
-    return "susceptibility" if susceptibility else "mendelian"
+    named = str(raw or "").strip().lower()
+    if named == "no_association":
+        return "no_association"
+    return "susceptibility" if named == "susceptibility" else "mendelian"
 
 
 def risk_allele(

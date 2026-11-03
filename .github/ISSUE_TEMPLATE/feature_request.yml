@@ -130,6 +130,7 @@ body:
         - v0.14.3 (KGDB susceptibility functional quote)
         - v0.14.4 (mitochondrial genes can be added)
         - v0.14.5 (export page cap, gene filters, save totals)
+        - v0.14.6 (KGDB no primary kidney association)
         - Future (Post v1.0)
         - Not sure
 

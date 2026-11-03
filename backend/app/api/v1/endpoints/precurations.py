@@ -34,7 +34,7 @@ from app.core.deps import (
 from app.core.logging import api_endpoint, get_logger
 from app.core.workflow_errors import http_error
 from app.crud.gene import named_gene_id
-from app.crud.precuration import precuration_crud
+from app.crud.precuration import approves_on_submit, precuration_crud
 from app.crud.precuration_entity import entity_key_of
 from app.crud.precuration_required import MissingRequiredFieldsError
 from app.crud.review_round import corrected_by
@@ -450,7 +450,8 @@ def submit_precuration(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PrecurationSubmitted:
     """Submit for peer review. 422 names each field path that fails the schema or holds a
-    malformed PMID, MONDO, OMIM or HPO ID."""
+    malformed PMID, MONDO, OMIM or HPO ID. A methodology with no entity to review approves
+    it at once and opens the draft curation (curation_id), still reviewed 4-eyes."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -471,6 +472,7 @@ def submit_precuration(
             detail="Only the creator can submit for review",
         )
 
+    auto = approves_on_submit(db, precuration)
     try:
         reviewer_id = submit_reviewer(
             db,
@@ -479,6 +481,7 @@ def submit_precuration(
             precuration.created_by,
             item_id=precuration.id,
             submitter=current_user.id,
+            needed=not auto,
         )
         submitted = precuration_crud.submit_for_review(
             db,
@@ -504,10 +507,11 @@ def submit_precuration(
 
     if submitted is None:
         raise _conflict(precuration, submit_in.lock_version)
-
+    opened = auto and precuration_crud.open_curation(db, submitted, current_user.id)
     return PrecurationSubmitted(
         **Precuration.model_validate(submitted).model_dump(),
         assigned_reviewer=assigned_reviewer(db, reviewer_id),
+        curation_id=opened or None,
     )
 
 

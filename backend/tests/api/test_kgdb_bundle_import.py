@@ -45,7 +45,7 @@ def test_kgdb_bundle_imports_once(
     body = _post(client, admin_token)
     assert _plan(body) == _plan(dry)
     assert [i["methodology_version"] for i in body["items"][:4]] == [1, 1, 1, 1]
-    assert db_session.scalar(count) == 4
+    assert db_session.scalar(count) == 6
     db_session.refresh(scope)
     pair = db_session.get(WorkflowPair, scope.default_workflow_pair_id)
     assert pair is not None and pair.name == "KGDB Mendelian"

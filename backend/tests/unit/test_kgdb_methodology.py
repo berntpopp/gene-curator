@@ -69,6 +69,10 @@ def test_pairs_and_scope_default() -> None:
             "KGDB Susceptibility Precuration",
             "KGDB Susceptibility Curation",
         ),
+        "KGDB No Kidney Association": (
+            "KGDB No Kidney Association Precuration",
+            "KGDB No Kidney Association Curation",
+        ),
     }
     assert BUNDLE["scope_default"] == {
         "scope_name": "kidney-genetics",
@@ -192,7 +196,12 @@ def test_moi_options_carry_their_hpo_label() -> None:
 
 
 @pytest.mark.parametrize(
-    "name", ["KGDB Mendelian Precuration", "KGDB Susceptibility Precuration"]
+    "name",
+    [
+        "KGDB Mendelian Precuration",
+        "KGDB Susceptibility Precuration",
+        "KGDB No Kidney Association Precuration",
+    ],
 )
 def test_required_fields_list_every_required_field(name: str) -> None:
     """KGDB end-to-end: a field marked required is also in validation_rules."""

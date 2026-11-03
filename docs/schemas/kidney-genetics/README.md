@@ -205,6 +205,19 @@ Class keys: `definitive`, `strong`, `moderate`, `limited`, `no_known`, `disputed
 `established`, `likely`, `uncertain`, `refuted` (KGDB `Established association`, `Likely
 association`, `Uncertain association`, `Refuted association`).
 
+### No primary kidney association (kidney-genetics-db#535)
+
+The pair `KGDB No Kidney Association` records a reviewed "this gene has no primary kidney
+gene-disease association". Its precuration names the gene only
+(`relationship_type: no_association`); its stage `precuration.approve_on_submit` approves it on
+submit and opens the draft curation (`curation_id` in the submit result), so the judge reviews
+once, on the curation. In the export the item has `relationship_type` `no_association`,
+`entity_key` `""`, null disease, MONDO and MOI fields, and `computed_verdict` /
+`final_classification` `no_primary_kidney_association`; its evidence is `rationale`,
+`sources_checked[]`, `non_kidney_entities[]` and `evidence_summary`. It covers the whole gene
+in the scope: an approved Mendelian or susceptibility curation of the gene archives it, and it
+cannot become active while one is active (409).
+
 ### Diagnostics: GC evidence -> KGDB `Diagnostics`
 
 `evidence.diagnostics` uses the keys and enums of KGDB's `Diagnostics` schema
@@ -489,4 +502,33 @@ diagnostics.resources[].conflict_of_interest
 diagnostics.resources[].country_or_scope
 diagnostics.resources[].verified_method
 diagnostics.resources[].verified_date
+```
+
+### KGDB No Kidney Association Precuration
+
+```text
+relationship_type
+```
+
+### KGDB No Kidney Association Curation
+
+```text
+rationale
+sources_checked
+sources_checked[].source
+sources_checked[].finding
+sources_checked[].record_ids
+sources_checked[].pmid
+sources_checked[].evidence_quote
+sources_checked[].sources
+sources_checked[].direction
+non_kidney_entities
+non_kidney_entities[].disease_name
+non_kidney_entities[].mondo_id
+non_kidney_entities[].mode_of_inheritance
+non_kidney_entities[].kidney_phenotype_via
+non_kidney_entities[].note
+non_kidney_entities[].sources
+non_kidney_entities[].direction
+evidence_summary
 ```
