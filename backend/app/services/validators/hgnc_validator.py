@@ -1,5 +1,6 @@
 """HGNC gene symbol validator with caching and search functionality"""
 
+import re
 from typing import Any
 
 import httpx
@@ -14,6 +15,18 @@ from app.schemas.validation import (
 from app.services.validators.base import ExternalValidator
 
 logger = get_logger(__name__)
+
+_CHROMOSOME = re.compile(r"(\d{1,2}|X|Y)(?=[pq]|$|\s)")
+
+
+def chromosome(location: str | None) -> str | None:
+    """Chromosome of an HGNC location ("17q21.31" -> "17", "mitochondria" -> "MT");
+    None for "unplaced", "reserved" and other non-loci."""
+    if location == "mitochondria":
+        return "MT"
+    m = _CHROMOSOME.match(location or "")
+    return m.group(1) if m else None
+
 
 # HGNC REST API endpoint
 HGNC_API_BASE = "https://rest.genenames.org"
@@ -302,9 +315,7 @@ class HGNCValidator(ExternalValidator):
                 name=doc.get("name"),
                 alias_symbols=doc.get("alias_symbol", []) or [],
                 previous_symbols=doc.get("prev_symbol", []) or [],
-                chromosome=doc.get("location", "").split("q")[0].split("p")[0]
-                if doc.get("location")
-                else None,
+                chromosome=chromosome(doc.get("location")),
                 location=doc.get("location"),
                 locus_type=doc.get("locus_type"),
                 status=doc.get("status"),
@@ -348,9 +359,7 @@ class HGNCValidator(ExternalValidator):
                 name=doc.get("name"),
                 alias_symbols=doc.get("alias_symbol", []) or [],
                 previous_symbols=doc.get("prev_symbol", []) or [],
-                chromosome=doc.get("location", "").split("q")[0].split("p")[0]
-                if doc.get("location")
-                else None,
+                chromosome=chromosome(doc.get("location")),
                 location=doc.get("location"),
                 locus_type=doc.get("locus_type"),
                 status=doc.get("status"),

@@ -7,6 +7,7 @@ never from the client; the client only names the HGNC id.
 import asyncio
 
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.core.async_bridge import run_blocking
@@ -33,15 +34,19 @@ async def _fetch(ids: list[str]) -> dict[str, GeneCreate | None]:
         if rec is None or rec.hgnc_id.upper() != hgnc_id.upper() or not rec.symbol:
             done[hgnc_id] = None
             return
-        done[hgnc_id] = GeneCreate(
-            hgnc_id=rec.hgnc_id,
-            approved_symbol=rec.symbol,
-            previous_symbols=rec.previous_symbols,
-            alias_symbols=rec.alias_symbols,
-            chromosome=rec.chromosome,
-            location=rec.location,
-            details={"approved_name": rec.name} if rec.name else {},
-        )
+        try:
+            done[hgnc_id] = GeneCreate(
+                hgnc_id=rec.hgnc_id,
+                approved_symbol=rec.symbol,
+                previous_symbols=rec.previous_symbols,
+                alias_symbols=rec.alias_symbols,
+                chromosome=rec.chromosome,
+                location=rec.location,
+                details={"approved_name": rec.name} if rec.name else {},
+            )
+        except ValidationError as e:  # one odd HGNC record must not fail the batch
+            logger.warning("HGNC record does not fit", hgnc_id=hgnc_id, error=str(e))
+            done[hgnc_id] = None
 
     try:
         await asyncio.wait_for(

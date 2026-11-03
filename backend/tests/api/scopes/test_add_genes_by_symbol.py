@@ -12,6 +12,7 @@ from app.models import Gene, GeneScopeAssignment, Scope, UserNew
 from app.schemas.validation import HGNCGeneSearchResult, HGNCSearchResponse
 from app.services import gene_resolver, gene_verification
 from app.services.validators import HGNCValidator
+from app.services.validators.hgnc_validator import chromosome
 from tests.api.scopes.factories import auth_headers, make_gene
 
 pytestmark = pytest.mark.unit
@@ -20,6 +21,13 @@ URL = "/api/v1/scopes/genes"
 PKD1 = HGNCGeneSearchResult(hgnc_id="HGNC:9008", symbol="PKD1", name="polycystin 1")
 GHOST = HGNCGeneSearchResult(hgnc_id="HGNC:3", symbol="GHOST")  # fetch finds nothing
 SLOW = HGNCGeneSearchResult(hgnc_id="HGNC:4", symbol="SLOW")  # fetch times out
+MTTF = HGNCGeneSearchResult(
+    hgnc_id="HGNC:7481",
+    symbol="MT-TF",
+    location="mitochondria",
+    chromosome=chromosome("mitochondria"),
+)
+ODD = HGNCGeneSearchResult(hgnc_id="HGNC:5", symbol="ODD", chromosome="x" * 11)
 AMB = [
     HGNCGeneSearchResult(hgnc_id="HGNC:1", symbol="AAA1", alias_symbols=["DUP"]),
     HGNCGeneSearchResult(hgnc_id="HGNC:2", symbol="BBB2", alias_symbols=["DUP"]),
@@ -33,15 +41,16 @@ def hgnc(monkeypatch: pytest.MonkeyPatch) -> None:
     ) -> HGNCSearchResponse:
         if query.upper() == "LAG":
             await asyncio.sleep(1)
-        hits = {"PKD1": [PKD1], "DUP": AMB, "GHOST": [GHOST], "SLOW": [SLOW]}.get(
-            query.upper(), []
-        )
+        hits = {
+            "PKD1": [PKD1], "DUP": AMB, "GHOST": [GHOST], "SLOW": [SLOW],
+            "MT-TF": [MTTF], "ODD": [ODD],
+        }.get(query.upper(), [])  # fmt: skip
         return HGNCSearchResponse(query=query, total_results=len(hits), results=hits)
 
     async def fetch(_: HGNCValidator, hgnc_id: str) -> HGNCGeneSearchResult | None:
         if hgnc_id == SLOW.hgnc_id:
             await asyncio.sleep(1)
-        return PKD1 if hgnc_id == PKD1.hgnc_id else None
+        return {r.hgnc_id: r for r in (PKD1, MTTF, ODD)}.get(hgnc_id)
 
     monkeypatch.setattr(HGNCValidator, "search", search)
     monkeypatch.setattr(HGNCValidator, "fetch_gene_by_id", fetch)
@@ -144,3 +153,17 @@ def test_hgnc_timeouts_are_upstream_unavailable_not_not_found(
     )
     (lag,) = r.json()["items"]
     assert lag["status"] == "upstream_unavailable"
+
+
+def test_mitochondrial_gene_is_added_and_an_odd_record_fails_alone(
+    client: TestClient, db_session: Session, curator: UserNew, scope_with_admin: Scope
+) -> None:
+    r = client.post(  # MT-TF was an HTTP 500: "mitochondria" overflowed chromosome
+        URL,
+        json={"scope_id": str(scope_with_admin.id), "symbols": ["MT-TF", "ODD"]},
+        headers=auth_headers(curator),
+    )
+    assert r.status_code == 200, r.text
+    assert [i["status"] for i in r.json()["items"]] == ["added", "not_found"]
+    gene = db_session.scalars(select(Gene).where(Gene.hgnc_id == "HGNC:7481")).one()
+    assert (gene.chromosome, gene.location) == ("MT", "mitochondria")
