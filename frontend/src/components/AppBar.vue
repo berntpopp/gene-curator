@@ -68,7 +68,7 @@
   const authReady = computed(() => !authStore.token || !!authStore.user)
 
   // Version info
-  const version = ref('0.14.4')
+  const version = ref('0.14.5')
   const buildHash = ref('dev')
 </script>
 

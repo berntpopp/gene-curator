@@ -8,9 +8,8 @@ from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import InstrumentedAttribute, Session
+from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
 
 from app.api.v1.endpoints.review_comments import curation_diff
@@ -35,6 +34,7 @@ from app.crud.curation import (
     curation_crud,
 )
 from app.crud.curator_classification import classification_choices
+from app.crud.gene import named_gene_id
 from app.crud.merge_patch import merge_patch
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
@@ -49,7 +49,6 @@ from app.crud.workflow_engine import WorkflowEngine, workflow_engine
 from app.models import (
     CurationNew,
     CurationStatus,
-    Gene,
     PrecurationNew,
     Scope,
     ScopeMembership,
@@ -145,14 +144,6 @@ def _mine(
 # ========================================
 
 
-def _id_for_name(
-    db: Session, col: InstrumentedAttribute[str], name: str, given: UUID | None
-) -> UUID | None:
-    """Id whose name matches case-insensitively; None if unknown or not the given id."""
-    found = db.scalar(select(col.class_.id).where(func.lower(col) == name.lower()))
-    return found if given in (None, found) else None
-
-
 @router.get("/", response_model=CurationListResponse)
 @api_endpoint()
 def list_curations(
@@ -171,6 +162,7 @@ def list_curations(
     ),
     curator_id: UUID | None = Query(None, description="Filter by curator"),
     gene_symbol: str | None = Query(None, description="Filter by gene symbol"),
+    hgnc_id: str | None = Query(None, description="Filter by HGNC id"),
     scope_name: str | None = Query(None, description=SCOPE_NAME),
     pending_review: bool = Query(
         False,
@@ -181,8 +173,8 @@ def list_curations(
     """List curations, filtered by ids or names; RLS limits them to the caller's scopes."""
     set_rls_context(db, current_user)
     empty = CurationListResponse(curations=[], total=0, skip=skip, limit=limit)
-    if gene_symbol and not (
-        gene_id := _id_for_name(db, Gene.approved_symbol, gene_symbol, gene_id)
+    if (gene_symbol or hgnc_id) and not (
+        gene_id := named_gene_id(db, gene_id, gene_symbol, hgnc_id)
     ):
         return empty
     scope_id = scope_id_for(db, current_user.id, scope_id, scope_name)

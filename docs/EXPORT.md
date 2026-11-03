@@ -44,7 +44,7 @@ they are `null`.
 | `scope_name` / `scope_id` | Limit to one visible scope (404 with suggestions when unknown) |
 | `updated_since` | ISO 8601; rows whose `updated_at` is at or after it. URL-encode `+` in offsets |
 | `cursor` | `next_cursor` of the previous page, passed unchanged (opaque, URL-safe) |
-| `limit` | Page size, 1-500, default 100 |
+| `limit` | Page size, default 100; larger values are served as 100 (follow `next_cursor`) |
 
 Rows are ordered by `updated_at`, then an internal id. `next_cursor` is `null` on the last
 page. Keep the last `updated_at` you processed. `updated_at` is set at transaction start,
