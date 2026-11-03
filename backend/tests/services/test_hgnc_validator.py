@@ -3,7 +3,12 @@
 import httpx
 import pytest
 
-from app.services.validators.hgnc_validator import HGNC_API_BASE, HGNCValidator
+from app.schemas.gene import GeneCreate
+from app.services.validators.hgnc_validator import (
+    HGNC_API_BASE,
+    HGNCValidator,
+    chromosome,
+)
 
 BRCA1_DOC = {
     "symbol": "BRCA1",
@@ -427,3 +432,24 @@ async def test_search_ranks_exact_symbols_before_limit(
         "LAST",
     ][:limit]
     await validator.close()
+
+
+@pytest.mark.parametrize(
+    ("location", "expected"),
+    [
+        ("17q21.31", "17"),
+        ("Xp22.33", "X"),
+        ("1p36.33", "1"),
+        ("12 not on reference assembly", "12"),
+        ("mitochondria", "MT"),  # MT-TF (HGNC:7481) was a 500: 12 chars > 10
+        ("unplaced", None),
+        ("reserved", None),
+        ("not on reference assembly", None),
+        (None, None),
+    ],
+)
+def test_chromosome_fits_the_gene_column(
+    location: str | None, expected: str | None
+) -> None:
+    assert chromosome(location) == expected
+    GeneCreate(hgnc_id="HGNC:1", approved_symbol="X", chromosome=chromosome(location))
