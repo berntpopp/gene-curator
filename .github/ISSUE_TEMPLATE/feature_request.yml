@@ -131,6 +131,7 @@ body:
         - v0.14.4 (mitochondrial genes can be added)
         - v0.14.5 (export page cap, gene filters, save totals)
         - v0.14.6 (KGDB no primary kidney association)
+        - v0.14.7 (backend workers from WEB_CONCURRENCY, default 2)
         - Future (Post v1.0)
         - Not sure
 
