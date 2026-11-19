@@ -99,6 +99,7 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
       LLM_CREDENTIAL_KEYS: ${LLM_CREDENTIAL_KEYS:-}
       LLM_CREDENTIAL_ACTIVE_KID: ${LLM_CREDENTIAL_ACTIVE_KID:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["https://gene-curator.org"]}
@@ -123,7 +124,7 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 1G
+          memory: 1536M
     cap_drop:
       - ALL
     security_opt:
